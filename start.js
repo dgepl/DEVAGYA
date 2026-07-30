@@ -1,7 +1,8 @@
 const { spawn } = require('child_process');
 
 console.log('🚀 Starting DEVAGYA FastAPI Python Backend Engine on port 8000...');
-const backend = spawn('python3', ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', '8000'], {
+const pyCmd = process.platform === 'win32' ? 'python' : 'python3';
+const backend = spawn(pyCmd, ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', '8000'], {
   cwd: './backend',
   stdio: 'inherit',
   shell: true,
