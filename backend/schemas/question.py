@@ -1,0 +1,42 @@
+from typing import List, Optional
+from pydantic import BaseModel, Field
+
+class QuestionItem(BaseModel):
+    id: int
+    question_number: int
+    question_type: str # 'mcq', 'short', 'long', 'assertion_reason', 'case_study'
+    question_text: str
+    marks: int
+    options: Optional[List[str]] = None # For MCQs
+    assertion_text: Optional[str] = None # For Assertion-Reason
+    reason_text: Optional[str] = None # For Assertion-Reason
+    passage: Optional[str] = None # For Case study
+    answer: str
+    explanation: Optional[str] = None
+
+class GeneratePaperRequest(BaseModel):
+    title: str = Field(default="Periodic Assessment - 2025")
+    class_name: str = Field(..., example="Class 10")
+    subject: str = Field(..., example="Science")
+    chapter: str = Field(..., example="Chemical Reactions and Equations")
+    difficulty: str = Field(default="medium", example="medium") # easy, medium, hard, mixed
+    total_marks: int = Field(default=80)
+    time_allowed_mins: int = Field(default=180)
+    num_mcqs: int = Field(default=10)
+    num_short: int = Field(default=5)
+    num_long: int = Field(default=3)
+    num_case_studies: int = Field(default=1)
+    school_name: str = Field(default="Apex International Academy")
+    custom_instructions: Optional[str] = None
+
+class GeneratedPaperResponse(BaseModel):
+    title: str
+    class_name: str
+    subject: str
+    chapter: str
+    difficulty: str
+    total_marks: int
+    time_allowed_mins: int
+    instructions: List[str]
+    questions: List[QuestionItem]
+    school_name: str
