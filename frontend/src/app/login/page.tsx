@@ -7,8 +7,8 @@ import { ArrowRight, Lock, Mail, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("ananya.roy@dgepltd.in");
-  const [password, setPassword] = useState("Password@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"teacher" | "student" | "parent" | "super_admin">("teacher");
   const [loading, setLoading] = useState(false);
@@ -19,15 +19,6 @@ export default function LoginPage() {
 
   const handleRoleChange = (selectedRole: "teacher" | "student" | "parent" | "super_admin") => {
     setRole(selectedRole);
-    if (selectedRole === "teacher") {
-      setEmail("ananya.roy@dgepltd.in");
-    } else if (selectedRole === "student") {
-      setEmail("aarav.student@dgepltd.in");
-    } else if (selectedRole === "parent") {
-      setEmail("sharma.parent@dgepltd.in");
-    } else {
-      setEmail("admin@dgepltd.in");
-    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {

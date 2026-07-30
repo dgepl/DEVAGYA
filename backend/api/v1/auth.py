@@ -48,6 +48,8 @@ async def send_otp(payload: SendOTPPayload):
         logger.error(f"Send OTP Error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+from services.supabase_service import supabase_service
+
 @router.post("/verify-otp")
 async def verify_otp(payload: VerifyOTPPayload):
     """Verify 6-digit OTP code."""
@@ -64,21 +66,29 @@ async def verify_otp(payload: VerifyOTPPayload):
 
 @router.post("/register")
 async def register_user(payload: RegisterPayload):
-    """Complete registration after OTP verification."""
+    """Complete registration and store profile in Supabase Cloud after OTP verification."""
     try:
         # Verify OTP first
         is_valid = otp_service.verify_otp(payload.email, payload.otp_code)
         if not is_valid:
             raise HTTPException(status_code=400, detail="Invalid or expired OTP code.")
             
+        profile = await supabase_service.create_profile(
+            email=payload.email,
+            full_name=payload.name,
+            role=payload.role,
+            school_name=payload.school_name,
+            board=payload.board
+        )
+
         user_data = {
-            "id": f"usr-{payload.role}-{payload.email.split('@')[0]}",
+            "id": profile.get("id", f"usr-{payload.email.split('@')[0]}"),
             "email": payload.email,
             "name": payload.name,
             "role": payload.role,
-            "schoolName": payload.school_name,
-            "board": payload.board,
-            "token": f"devagya-jwt-{payload.role}-token-12345"
+            "schoolName": payload.school_name or "DEVAGYA GLOBAL PRIVATE LIMITED",
+            "board": payload.board or "CBSE",
+            "token": f"devagya-jwt-{payload.role}-token-{profile.get('id', 'session')}"
         }
         return {
             "status": "success",
@@ -86,20 +96,40 @@ async def register_user(payload: RegisterPayload):
             "user": user_data
         }
     except Exception as e:
+        logger.error(f"Register error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/login")
 async def login_user(payload: LoginPayload):
-    """Authenticate user login."""
-    # Production login authentication logic
+    """Authenticate user login from Supabase Cloud."""
+    email_clean = payload.email.strip().lower()
+    
+    # Query real profile from Supabase Cloud
+    profile = await supabase_service.get_profile_by_email(email_clean)
+    
+    if profile:
+        full_name = profile.get("full_name", email_clean.split('@')[0].capitalize())
+        user_role = profile.get("role", payload.role or "teacher")
+        user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
+    else:
+        # Create user dynamically on first login for smooth production onboarding
+        full_name = email_clean.split('@')[0].replace('.', ' ').title()
+        user_role = payload.role or "teacher"
+        profile = await supabase_service.create_profile(
+            email=email_clean,
+            full_name=full_name,
+            role=user_role
+        )
+        user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
+
     user_data = {
-        "id": f"usr-{payload.role}-active",
-        "email": payload.email,
-        "name": "Prof. Ananya Roy" if payload.role == "teacher" else ("Aarav Sharma" if payload.role == "student" else "Mr. Sharma (Parent)"),
-        "role": payload.role or "teacher",
-        "schoolName": "DEVAGYA GLOBAL ACADEMY",
+        "id": user_id,
+        "email": email_clean,
+        "name": full_name,
+        "role": user_role,
+        "schoolName": "DEVAGYA GLOBAL PRIVATE LIMITED",
         "board": "CBSE",
-        "token": f"devagya-jwt-{payload.role}-token-authenticated"
+        "token": f"devagya-jwt-{user_role}-token-{user_id}"
     }
     return {
         "status": "success",

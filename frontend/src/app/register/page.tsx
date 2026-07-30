@@ -8,12 +8,12 @@ import { useAppStore } from "@/store/useAppStore";
 import { OTPModal } from "@/components/auth/OTPModal";
 
 export default function RegisterPage() {
-  const [name, setName] = useState("Ananya Roy");
-  const [email, setEmail] = useState("ananya.roy@dgepltd.in");
-  const [password, setPassword] = useState("Password@123");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"teacher" | "student" | "parent">("teacher");
-  const [schoolName, setSchoolName] = useState("DEVAGYA GLOBAL ACADEMY");
+  const [schoolName, setSchoolName] = useState("");
   const [board, setBoard] = useState("CBSE");
   
   const [loading, setLoading] = useState(false);
