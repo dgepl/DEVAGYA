@@ -9,7 +9,7 @@ import { OTPModal } from "@/components/auth/OTPModal";
 
 export default function RegisterPage() {
   const [name, setName] = useState("Ananya Roy");
-  const [email, setEmail] = useState("ananya.roy@devagyaglobal.com");
+  const [email, setEmail] = useState("ananya.roy@dgepltd.in");
   const [password, setPassword] = useState("Password@123");
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"teacher" | "student" | "parent">("teacher");

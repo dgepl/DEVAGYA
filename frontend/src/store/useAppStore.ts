@@ -33,38 +33,38 @@ const roleProfiles: Record<string, UserProfile> = {
   teacher: {
     id: "usr-1",
     name: "Prof. Ananya Roy",
-    email: "ananya.roy@devagyaglobal.com",
+    email: "ananya.roy@dgepltd.in",
     role: "teacher",
     schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
     board: "CBSE"
   },
   student: {
-    id: "std-1",
+    id: "usr-student-1",
     name: "Aarav Sharma",
-    email: "aarav.sharma@devagyaglobal.com",
+    email: "aarav.student@dgepltd.in",
     role: "student",
     schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
     board: "CBSE",
-    xp: 480,
-    streak: 7,
-    level: 5,
-    coins: 150
+    xp: 1450,
+    streak: 14,
+    level: 6,
+    coins: 380
   },
   parent: {
-    id: "prt-1",
-    name: "Rajesh & Meena Sharma",
-    email: "rajesh.sharma@gmail.com",
+    id: "usr-parent-1",
+    name: "Mr. Rajesh Sharma",
+    email: "sharma.parent@dgepltd.in",
     role: "parent",
     schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
     board: "CBSE"
   },
   super_admin: {
-    id: "admin-1",
+    id: "usr-admin-1",
     name: "System Administrator",
-    email: "admin@devagyaglobal.com",
+    email: "admin@dgepltd.in",
     role: "super_admin",
     schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
-    board: "GLOBAL"
+    board: "CBSE"
   }
 };
 

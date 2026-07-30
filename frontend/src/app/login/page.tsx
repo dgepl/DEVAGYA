@@ -7,7 +7,7 @@ import { ArrowRight, Lock, Mail, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("ananya.roy@devagyaglobal.com");
+  const [email, setEmail] = useState("ananya.roy@dgepltd.in");
   const [password, setPassword] = useState("Password@123");
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"teacher" | "student" | "parent" | "super_admin">("teacher");
@@ -20,13 +20,13 @@ export default function LoginPage() {
   const handleRoleChange = (selectedRole: "teacher" | "student" | "parent" | "super_admin") => {
     setRole(selectedRole);
     if (selectedRole === "teacher") {
-      setEmail("ananya.roy@devagyaglobal.com");
+      setEmail("ananya.roy@dgepltd.in");
     } else if (selectedRole === "student") {
-      setEmail("aarav.student@devagyaglobal.com");
+      setEmail("aarav.student@dgepltd.in");
     } else if (selectedRole === "parent") {
-      setEmail("sharma.parent@devagyaglobal.com");
+      setEmail("sharma.parent@dgepltd.in");
     } else {
-      setEmail("admin@devagyaglobal.com");
+      setEmail("admin@dgepltd.in");
     }
   };
 
