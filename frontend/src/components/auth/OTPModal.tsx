@@ -69,7 +69,8 @@ export function OTPModal({ email, name, isOpen, debugCode, onClose, onVerified }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/auth/verify-otp", {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const res = await fetch(`${baseUrl}/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp_code: code })
@@ -90,7 +91,8 @@ export function OTPModal({ email, name, isOpen, debugCode, onClose, onVerified }
     setLoading(true);
     setError(null);
     try {
-      await fetch("http://localhost:8000/api/v1/auth/send-otp", {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      await fetch(`${baseUrl}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name })
