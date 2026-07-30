@@ -1,0 +1,50 @@
+services:
+  # 1. FastAPI Python Backend Engine
+  - type: web
+    name: devagya-backend
+    env: python
+    region: oregon
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    rootDir: backend
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: AI_MODEL
+        value: llama-3.3-70b-versatile
+      - key: SUPABASE_URL
+        value: https://amlvyskjrencrolnppgs.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_5pGOV4xrWewa6O-PobdtDg_tbRD7fl9
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        value: devagya
+      - key: CLOUDINARY_API_KEY
+        value: 187887846778974
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+
+  # 2. Next.js 15 Frontend Web App
+  - type: web
+    name: devagya-frontend
+    env: node
+    region: oregon
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
+    rootDir: frontend
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://devagya-backend.onrender.com/api/v1
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://amlvyskjrencrolnppgs.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        value: sb_publishable_5pGOV4xrWewa6O-PobdtDg_tbRD7fl9
+      - key: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+        value: devagya
