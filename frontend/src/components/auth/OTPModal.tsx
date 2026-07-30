@@ -127,11 +127,6 @@ export function OTPModal({ email, name, isOpen, debugCode, onClose, onVerified }
           <p className="text-xs text-slate-500 font-medium leading-relaxed">
             We sent a 6-digit OTP code to <strong className="text-slate-900">{email}</strong>
           </p>
-          {debugCode && (
-            <p className="text-xs text-indigo-700 bg-indigo-50 p-2 rounded-xl border border-indigo-200 font-mono font-bold">
-              Resend Test Mode: Verification Code is {debugCode}
-            </p>
-          )}
         </div>
 
         {error && (

@@ -41,8 +41,7 @@ async def send_otp(payload: SendOTPPayload):
             "status": "success",
             "message": f"Verification code sent to {payload.email}",
             "expires_in_seconds": 600,
-            # In Resend test domain mode (onboarding@resend.dev), provide debug_code for instant testing with any email
-            "debug_code": otp_code if "onboarding@resend.dev" in otp_service.RESEND_FROM_EMAIL or not otp_service.RESEND_API_KEY else None
+            "debug_code": None
         }
     except Exception as e:
         logger.error(f"Send OTP Error: {e}")
