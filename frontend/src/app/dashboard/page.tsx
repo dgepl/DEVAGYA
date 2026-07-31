@@ -5,13 +5,13 @@ import { Sparkles, ScanText, FileText, ArrowRight, Zap, BookOpen } from "lucide-
 import { useAppStore } from "@/store/useAppStore";
 
 export default function DashboardOverviewPage() {
-  const { user } = useAppStore();
+  const { user, savedPapers } = useAppStore();
 
   const metrics = [
-    { label: "Question Papers Generated", value: "24", change: "+12 this month" },
-    { label: "OCR Textbook Scans", value: "18", change: "100% Accuracy" },
-    { label: "Active NCERT Chapters", value: "36", change: "Class 9, 10 & 12" },
-    { label: "ReportLab PDFs Synthesized", value: "42", change: "With School Logo" },
+    { label: "Question Papers Saved", value: `${savedPapers.length}`, change: "Saved in Session" },
+    { label: "OCR Textbook Scans", value: "0", change: "Ready for Scan" },
+    { label: "Active School Board", value: `${user.board || "CBSE"}`, change: `${user.schoolName || "DEVAGYA GLOBAL"}` },
+    { label: "PDF Export Status", value: "Active", change: "With School Header" },
   ];
 
   const recentActivity = [

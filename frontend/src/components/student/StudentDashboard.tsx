@@ -51,7 +51,7 @@ export function StudentDashboard() {
               Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-200">{user.name}</span>! 👋
             </h1>
             <p className="text-indigo-200 text-sm max-w-xl">
-              You are on a <span className="text-amber-300 font-bold">7-Day Learning Streak</span>! Complete today&apos;s goal to level up to <span className="font-bold text-white">Level 6</span>.
+              You are on a <span className="text-amber-300 font-bold">{user.streak || 1}-Day Learning Streak</span>! Keep completing goals to level up.
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export function StudentDashboard() {
               <Flame className="w-6 h-6 text-amber-400 fill-amber-400 animate-bounce" />
               <div>
                 <div className="text-xs text-amber-200 font-bold uppercase tracking-wider">Streak</div>
-                <div className="text-lg font-black text-amber-300">7 Days</div>
+                <div className="text-lg font-black text-amber-300">{user.streak || 1} Days</div>
               </div>
             </div>
 
@@ -69,15 +69,15 @@ export function StudentDashboard() {
               <Zap className="w-6 h-6 text-indigo-400 fill-indigo-400" />
               <div>
                 <div className="text-xs text-indigo-200 font-bold uppercase tracking-wider">XP Points</div>
-                <div className="text-lg font-black text-white">480 XP</div>
+                <div className="text-lg font-black text-white">{user.xp || 100} XP</div>
               </div>
             </div>
 
             <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-emerald-400/30">
               <Trophy className="w-6 h-6 text-emerald-400" />
               <div>
-                <div className="text-xs text-emerald-200 font-bold uppercase tracking-wider">Leaderboard</div>
-                <div className="text-lg font-black text-emerald-300">Rank #3</div>
+                <div className="text-xs text-emerald-200 font-bold uppercase tracking-wider">Level</div>
+                <div className="text-lg font-black text-emerald-300">Level {user.level || 1}</div>
               </div>
             </div>
           </div>
@@ -86,11 +86,11 @@ export function StudentDashboard() {
         {/* PROGRESS BAR TO NEXT LEVEL */}
         <div className="mt-6 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-indigo-200">Level 5 Scholar</span>
+            <span className="font-bold text-indigo-200">Level {user.level || 1} Scholar</span>
             <div className="w-48 sm:w-64 h-2.5 bg-white/10 rounded-full overflow-hidden p-0.5">
-              <div className="bg-gradient-to-r from-amber-400 to-yellow-300 h-full rounded-full w-[75%]" />
+              <div className="bg-gradient-to-r from-amber-400 to-yellow-300 h-full rounded-full w-[45%]" />
             </div>
-            <span className="font-bold text-amber-300">750 / 1000 XP</span>
+            <span className="font-bold text-amber-300">{user.xp || 100} / 500 XP</span>
           </div>
           <Link 
             href="/dashboard/student/tutor" 

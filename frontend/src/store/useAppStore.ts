@@ -27,57 +27,60 @@ interface AppState {
   savePaper: (paper: GeneratedPaperResponse) => void;
   setOcrDraftText: (text: string) => void;
   setActiveChildId: (childId: string) => void;
+  logout: () => void;
 }
 
-const roleProfiles: Record<string, UserProfile> = {
-  teacher: {
-    id: "usr-1",
-    name: "Prof. Ananya Roy",
-    email: "ananya.roy@dgepltd.in",
-    role: "teacher",
-    schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
-    board: "CBSE"
-  },
-  student: {
-    id: "usr-student-1",
-    name: "Aarav Sharma",
-    email: "aarav.student@dgepltd.in",
-    role: "student",
-    schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
-    board: "CBSE",
-    xp: 1450,
-    streak: 14,
-    level: 6,
-    coins: 380
-  },
-  parent: {
-    id: "usr-parent-1",
-    name: "Mr. Rajesh Sharma",
-    email: "sharma.parent@dgepltd.in",
-    role: "parent",
-    schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
-    board: "CBSE"
-  },
-  super_admin: {
-    id: "usr-admin-1",
-    name: "System Administrator",
-    email: "admin@dgepltd.in",
-    role: "super_admin",
-    schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
-    board: "CBSE"
+const defaultUser: UserProfile = {
+  id: "usr-guest",
+  name: "Guest User",
+  email: "",
+  role: "student",
+  schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
+  board: "CBSE",
+  xp: 0,
+  streak: 0,
+  level: 1,
+  coins: 0
+};
+
+// Helper to get initial stored session
+const getInitialUser = (): UserProfile => {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("devagya_user");
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.error("Error reading stored user session", e);
+    }
   }
+  return defaultUser;
 };
 
 export const useAppStore = create<AppState>((set) => ({
-  user: roleProfiles.student, // Default to student persona for Phase 3 exploration
+  user: defaultUser,
   activePaper: null,
   savedPapers: [],
   ocrDraftText: "",
-  activeChildId: "std-1",
-  setUser: (user) => set({ user }),
-  switchRole: (role) => set({ user: roleProfiles[role] || roleProfiles.student }),
+  activeChildId: "",
+  setUser: (user) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("devagya_user", JSON.stringify(user));
+      } catch (e) {}
+    }
+    set({ user });
+  },
+  switchRole: (role) => set((state) => ({ user: { ...state.user, role } })),
   setActivePaper: (paper) => set({ activePaper: paper }),
   savePaper: (paper) => set((state) => ({ savedPapers: [paper, ...state.savedPapers] })),
   setOcrDraftText: (ocrDraftText) => set({ ocrDraftText }),
   setActiveChildId: (activeChildId) => set({ activeChildId }),
+  logout: () => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("devagya_user");
+      } catch (e) {}
+    }
+    set({ user: defaultUser, activePaper: null, savedPapers: [] });
+  }
 }));
