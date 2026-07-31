@@ -3,26 +3,37 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Lock, Mail, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ArrowRight, Lock, Mail, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<"teacher" | "student" | "parent" | "super_admin">("teacher");
+  const [role, setRole] = useState<"teacher" | "student" | "parent">("teacher");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { setUser } = useAppStore();
   const router = useRouter();
 
-  const handleRoleChange = (selectedRole: "teacher" | "student" | "parent" | "super_admin") => {
-    setRole(selectedRole);
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    if (val.includes(" ")) {
+      setError("Email address cannot contain spaces.");
+    } else {
+      setError(null);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (email.includes(" ")) {
+      setError("Email address cannot contain spaces.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -31,7 +42,7 @@ export default function LoginPage() {
       const res = await fetch(`${baseUrl}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role })
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password, role })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Authentication failed.");
@@ -40,10 +51,13 @@ export default function LoginPage() {
 
       if (role === "student") router.push("/dashboard/student");
       else if (role === "parent") router.push("/dashboard/parent");
-      else if (role === "super_admin") router.push("/admin");
       else router.push("/dashboard");
     } catch (err: any) {
-      setError(err.message || "Failed to log in.");
+      if (err?.message === "Failed to fetch") {
+        setError("Unable to connect to the authentication server. Please check your network connection.");
+      } else {
+        setError(err.message || "Failed to log in.");
+      }
     } finally {
       setLoading(false);
     }
@@ -53,46 +67,47 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-indigo-100/60 blur-[100px] rounded-full pointer-events-none" />
 
-      <div className="w-full max-w-md bg-white p-8 rounded-3xl border border-slate-200 shadow-xl relative z-10 space-y-6">
+      <div className="w-full max-w-md bg-white p-8 sm:p-10 rounded-3xl border border-slate-200/80 shadow-2xl relative z-10 space-y-6">
         
-        {/* LOGO ONLY */}
+        {/* LOGO BRANDING */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center justify-center">
             <img 
               src="/logo.png" 
               alt="DEVAGYA GLOBAL PRIVATE LIMITED" 
-              className="h-14 sm:h-16 w-auto max-h-16 object-contain mix-blend-multiply mx-auto" 
+              className="h-16 w-auto max-h-16 object-contain mix-blend-multiply mx-auto" 
             />
           </Link>
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider pt-1">Select Portal to Sign In</p>
+          <h1 className="text-xl font-black text-slate-900 tracking-tight">Portal Sign In</h1>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Select your role to access your dashboard</p>
         </div>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold">
-            {error}
+          <div className="p-3.5 bg-red-50/80 border border-red-200 rounded-2xl text-red-700 text-xs font-bold flex items-center gap-2.5 shadow-sm">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+            <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-5">
           
-          {/* PORTAL ROLE SELECTOR */}
+          {/* PUBLIC ROLE SELECTOR (TEACHER, STUDENT, PARENT ONLY - SUPER ADMIN REMOVED) */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Select Your Portal</label>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Account Role</label>
+            <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200">
               {[
                 { id: "teacher", label: "Teacher" },
                 { id: "student", label: "Student" },
-                { id: "parent", label: "Parent" },
-                { id: "super_admin", label: "Super Admin" }
+                { id: "parent", label: "Parent" }
               ].map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => handleRoleChange(tab.id as any)}
-                  className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                  onClick={() => setRole(tab.id as any)}
+                  className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
                     role === tab.id
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                   }`}
                 >
                   {tab.label}
@@ -102,39 +117,41 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Work / Student Email</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                placeholder="you@domain.com"
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-semibold"
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-semibold transition-all shadow-inner"
               />
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-bold text-slate-700">Password</label>
               <Link href="/register" className="text-[11px] text-indigo-600 font-bold hover:underline">
                 Forgot password?
               </Link>
             </div>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-semibold"
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-semibold transition-all shadow-inner"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700"
+                className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-700 transition-colors"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -144,25 +161,19 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-glow transition-all flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 transition-all flex items-center justify-center gap-2"
           >
-            <ShieldCheck className="w-4 h-4" />
-            Sign In to {role.replace('_', ' ').toUpperCase()} Portal
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <ShieldCheck className="w-4 h-4" />}
+            Sign In to {role.toUpperCase()} Portal
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        <div className="text-center pt-2 border-t border-slate-100 space-y-2">
+        <div className="text-center pt-3 border-t border-slate-100 space-y-2">
           <p className="text-xs text-slate-500 font-semibold">
             Don&apos;t have an account yet?{" "}
             <Link href="/register" className="text-indigo-600 font-bold hover:underline">
-              Create Free Account
-            </Link>
-          </p>
-          <p className="text-xs text-slate-500 font-semibold">
-            Need to register a school?{" "}
-            <Link href="/onboarding" className="text-indigo-600 font-bold hover:underline">
-              School Campus Setup
+              Create Account
             </Link>
           </p>
         </div>

@@ -31,15 +31,31 @@ class LoginPayload(BaseModel):
     password: str
     role: Optional[str] = "teacher"
 
+from services.supabase_service import supabase_service
+
 @router.post("/send-otp")
 async def send_otp(payload: SendOTPPayload):
     """Generate 6-digit OTP and send via Resend API."""
+    raw_email = payload.email or ""
+    if " " in raw_email.strip():
+        raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
+        
+    email_clean = raw_email.strip().lower()
+    
+    # Check if account with this email already exists in Supabase Cloud
+    existing = await supabase_service.get_profile_by_email(email_clean)
+    if existing:
+        raise HTTPException(
+            status_code=400, 
+            detail="An account with this email address already exists. Please log in instead."
+        )
+
     try:
-        otp_code = otp_service.generate_otp(payload.email)
-        await otp_service.send_otp_email(payload.email, payload.name or "User", otp_code)
+        otp_code = otp_service.generate_otp(email_clean)
+        await otp_service.send_otp_email(email_clean, payload.name or "User", otp_code)
         return {
             "status": "success",
-            "message": f"Verification code sent to {payload.email}",
+            "message": f"Verification code sent to {email_clean}",
             "expires_in_seconds": 600,
             "debug_code": None
         }
@@ -47,13 +63,16 @@ async def send_otp(payload: SendOTPPayload):
         logger.error(f"Send OTP Error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-from services.supabase_service import supabase_service
-
 @router.post("/verify-otp")
 async def verify_otp(payload: VerifyOTPPayload):
     """Verify 6-digit OTP code."""
+    raw_email = payload.email or ""
+    if " " in raw_email.strip():
+        raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
+    email_clean = raw_email.strip().lower()
+    
     try:
-        is_valid = otp_service.verify_otp(payload.email, payload.otp_code)
+        is_valid = otp_service.verify_otp(email_clean, payload.otp_code)
         if not is_valid:
             raise HTTPException(status_code=400, detail="Invalid OTP code. Please check your email and try again.")
         return {
@@ -66,14 +85,27 @@ async def verify_otp(payload: VerifyOTPPayload):
 @router.post("/register")
 async def register_user(payload: RegisterPayload):
     """Complete registration and store profile in Supabase Cloud after OTP verification."""
+    raw_email = payload.email or ""
+    if " " in raw_email.strip():
+        raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
+    email_clean = raw_email.strip().lower()
+
+    # Check duplicate email
+    existing = await supabase_service.get_profile_by_email(email_clean)
+    if existing:
+        raise HTTPException(
+            status_code=400, 
+            detail="An account with this email address already exists. Please log in instead."
+        )
+
     try:
         # Verify OTP first
-        is_valid = otp_service.verify_otp(payload.email, payload.otp_code)
+        is_valid = otp_service.verify_otp(email_clean, payload.otp_code)
         if not is_valid:
             raise HTTPException(status_code=400, detail="Invalid or expired OTP code.")
             
         profile = await supabase_service.create_profile(
-            email=payload.email,
+            email=email_clean,
             full_name=payload.name,
             role=payload.role,
             school_name=payload.school_name,
@@ -81,8 +113,8 @@ async def register_user(payload: RegisterPayload):
         )
 
         user_data = {
-            "id": profile.get("id", f"usr-{payload.email.split('@')[0]}"),
-            "email": payload.email,
+            "id": profile.get("id", f"usr-{email_clean.split('@')[0]}"),
+            "email": email_clean,
             "name": payload.name,
             "role": payload.role,
             "schoolName": payload.school_name or "DEVAGYA GLOBAL PRIVATE LIMITED",
@@ -101,25 +133,23 @@ async def register_user(payload: RegisterPayload):
 @router.post("/login")
 async def login_user(payload: LoginPayload):
     """Authenticate user login from Supabase Cloud."""
-    email_clean = payload.email.strip().lower()
+    raw_email = payload.email or ""
+    if " " in raw_email.strip():
+        raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
+    email_clean = raw_email.strip().lower()
     
     # Query real profile from Supabase Cloud
     profile = await supabase_service.get_profile_by_email(email_clean)
     
-    if profile:
-        full_name = profile.get("full_name", email_clean.split('@')[0].capitalize())
-        user_role = profile.get("role", payload.role or "teacher")
-        user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
-    else:
-        # Create user dynamically on first login for smooth production onboarding
-        full_name = email_clean.split('@')[0].replace('.', ' ').title()
-        user_role = payload.role or "teacher"
-        profile = await supabase_service.create_profile(
-            email=email_clean,
-            full_name=full_name,
-            role=user_role
+    if not profile:
+        raise HTTPException(
+            status_code=400, 
+            detail="No account found with this email address. Please create an account first."
         )
-        user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
+
+    full_name = profile.get("full_name", email_clean.split('@')[0].capitalize())
+    user_role = profile.get("role", payload.role or "teacher")
+    user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
 
     user_data = {
         "id": user_id,

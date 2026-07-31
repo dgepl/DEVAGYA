@@ -36,6 +36,7 @@ import {
   DollarSign
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useEffect } from "react";
 import { SmartSearchBar } from "@/components/search/SmartSearchBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 
@@ -43,6 +44,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const { user, switchRole } = useAppStore();
+
+  // Strict Role-Based Access Control (RBAC) Route Guard
+  useEffect(() => {
+    if (!user || !user.role) return;
+
+    if (user.role === "student") {
+      const isStudentAllowed = 
+        pathname.startsWith("/dashboard/student") ||
+        pathname === "/dashboard/agents" ||
+        pathname === "/dashboard/knowledge" ||
+        pathname === "/dashboard/chat" ||
+        pathname === "/dashboard/voice" ||
+        pathname === "/dashboard/profile";
+
+      if (!isStudentAllowed) {
+        router.replace("/dashboard/student");
+      }
+    } else if (user.role === "parent") {
+      const isParentAllowed = 
+        pathname.startsWith("/dashboard/parent") ||
+        pathname === "/dashboard/profile";
+
+      if (!isParentAllowed) {
+        router.replace("/dashboard/parent");
+      }
+    } else if (user.role === "teacher") {
+      if (pathname.startsWith("/dashboard/student") || pathname.startsWith("/dashboard/parent")) {
+        router.replace("/dashboard");
+      }
+    }
+  }, [user, pathname, router]);
 
   // Role-based Nav Specifications including AI OS Extensions
   let navItems = [

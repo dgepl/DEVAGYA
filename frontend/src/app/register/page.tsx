@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Lock, Mail, User, Building2, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ArrowRight, Lock, Mail, User, Building2, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { OTPModal } from "@/components/auth/OTPModal";
 
@@ -19,13 +19,27 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOTPModalOpen, setIsOTPModalOpen] = useState(false);
-  const [debugCode, setDebugCode] = useState<string | null>(null);
 
   const { setUser } = useAppStore();
   const router = useRouter();
 
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    if (val.includes(" ")) {
+      setError("Email address cannot contain spaces.");
+    } else {
+      setError(null);
+    }
+  };
+
   const handleStartRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (email.includes(" ")) {
+      setError("Email address cannot contain spaces.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -35,22 +49,16 @@ export default function RegisterPage() {
       const res = await fetch(`${baseUrl}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, role })
+        body: JSON.stringify({ email: email.trim(), name, role })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to send verification email.");
-
-      if (data.debug_code) {
-        setDebugCode(data.debug_code);
-      } else {
-        setDebugCode(null);
-      }
 
       // Open 6-digit OTP verification modal
       setIsOTPModalOpen(true);
     } catch (err: any) {
       if (err?.message === "Failed to fetch") {
-        setError("Unable to connect to the authentication server. Starting backend service, please try again in a few seconds.");
+        setError("Unable to connect to the authentication server. Please try again in a few seconds.");
       } else {
         setError(err.message || "Failed to send OTP code.");
       }
@@ -69,11 +77,11 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          email: email.trim(),
           password,
           name,
           role,
-          school_name: schoolName,
+          school_name: schoolName || "DEVAGYA GLOBAL PRIVATE LIMITED",
           board,
           otp_code: otpCode
         })
@@ -88,7 +96,7 @@ export default function RegisterPage() {
       else if (role === "parent") router.push("/dashboard/parent");
       else router.push("/dashboard");
     } catch (err: any) {
-      setError(err.message || "Registration completed with fallback session.");
+      setError(err.message || "Registration failed.");
     } finally {
       setLoading(false);
     }
@@ -98,7 +106,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-indigo-100/60 blur-[100px] rounded-full pointer-events-none" />
 
-      <div className="w-full max-w-lg bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-xl relative z-10 space-y-6">
+      <div className="w-full max-w-lg bg-white p-8 sm:p-10 rounded-3xl border border-slate-200/80 shadow-2xl relative z-10 space-y-6">
         
         {/* BRAND HEADER */}
         <div className="text-center space-y-2">
@@ -114,8 +122,9 @@ export default function RegisterPage() {
         </div>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold">
-            {error}
+          <div className="p-3.5 bg-red-50/80 border border-red-200 rounded-2xl text-red-700 text-xs font-bold flex items-center gap-2.5 shadow-sm">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -123,13 +132,13 @@ export default function RegisterPage() {
           
           {/* ROLE SELECTOR PILLS */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Select Your Role</label>
-            <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Your Role</label>
+            <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200">
               <button
                 type="button"
                 onClick={() => setRole("teacher")}
-                className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                  role === "teacher" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
+                  role === "teacher" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
               >
                 Teacher
@@ -137,8 +146,8 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setRole("student")}
-                className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                  role === "student" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
+                  role === "student" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
               >
                 Student
@@ -146,8 +155,8 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setRole("parent")}
-                className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                  role === "parent" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
+                  role === "parent" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
               >
                 Parent
@@ -156,54 +165,57 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">Full Name</label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your full name"
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-semibold"
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold shadow-inner transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                placeholder="you@domain.com (No spaces)"
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-semibold"
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold shadow-inner transition-all"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Institution / School</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Institution / School</label>
               <div className="relative">
-                <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <input
                   type="text"
                   value={schoolName}
                   onChange={(e) => setSchoolName(e.target.value)}
+                  placeholder="School name"
                   required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-xs text-slate-900 font-semibold"
+                  className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-3 py-3 text-xs text-slate-900 font-semibold shadow-inner transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Board</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Board</label>
               <select
                 value={board}
                 onChange={(e) => setBoard(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold"
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl px-3 py-3 text-xs text-slate-900 font-semibold shadow-inner transition-all"
               >
                 <option value="CBSE">CBSE Board</option>
                 <option value="ICSE">ICSE / ISC</option>
@@ -214,20 +226,21 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">Password</label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-semibold"
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold shadow-inner transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700"
+                className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-700 transition-colors"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -237,10 +250,10 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-glow transition-all flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 transition-all flex items-center justify-center gap-2"
           >
-            <ShieldCheck className="w-4 h-4" />
-            Send OTP Verification Code
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <ShieldCheck className="w-4 h-4" />}
+            Send Verification Code
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
@@ -258,10 +271,9 @@ export default function RegisterPage() {
 
       {/* 6-DIGIT RESEND OTP MODAL */}
       <OTPModal
-        email={email}
+        email={email.trim()}
         name={name}
         isOpen={isOTPModalOpen}
-        debugCode={debugCode}
         onClose={() => setIsOTPModalOpen(false)}
         onVerified={handleOTPVerified}
       />
