@@ -49,7 +49,11 @@ export default function RegisterPage() {
       // Open 6-digit OTP verification modal
       setIsOTPModalOpen(true);
     } catch (err: any) {
-      setError(err.message || "Failed to send OTP code.");
+      if (err?.message === "Failed to fetch") {
+        setError("Unable to connect to the authentication server. Starting backend service, please try again in a few seconds.");
+      } else {
+        setError(err.message || "Failed to send OTP code.");
+      }
     } finally {
       setLoading(false);
     }
