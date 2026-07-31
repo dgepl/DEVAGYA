@@ -43,7 +43,14 @@ import { PageTransition } from "@/components/ui/PageTransition";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, switchRole } = useAppStore();
+  const { user, logout } = useAppStore();
+
+  const handleSignOut = () => {
+    logout();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+  };
 
   // Strict Role-Based Access Control (RBAC) Route Guard
   useEffect(() => {
@@ -121,13 +128,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     navItems.push({ label: "Super Admin", href: "/admin", icon: ShieldCheck });
   }
 
-  const handleRoleChange = (newRole: "teacher" | "student" | "parent" | "super_admin") => {
-    switchRole(newRole);
-    if (newRole === "student") router.push("/dashboard/student");
-    else if (newRole === "parent") router.push("/dashboard/parent");
-    else if (newRole === "super_admin") router.push("/admin");
-    else router.push("/dashboard");
-  };
+
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row">
@@ -177,13 +178,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
-          <Link
-            href="/"
+          <button
+            onClick={handleSignOut}
             className="w-full px-3 py-1.5 text-xs text-slate-600 hover:text-red-600 font-bold flex items-center gap-2 hover:bg-slate-100 rounded-lg transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
-          </Link>
+          </button>
         </div>
 
       </aside>
