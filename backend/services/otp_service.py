@@ -20,7 +20,7 @@ class OTPService:
 
     @property
     def RESEND_FROM_EMAIL(self) -> str:
-        return os.getenv("RESEND_FROM_EMAIL", "DEVAGYA GLOBAL <onboarding@resend.dev>")
+        return os.getenv("RESEND_FROM_EMAIL", "DEVAGYA GLOBAL <onboarding@dgepltd.in>")
 
     def generate_otp(self, email: str) -> str:
         """Generate a cryptographically secure 6-digit OTP code with 10-min expiry."""
