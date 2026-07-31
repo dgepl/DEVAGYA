@@ -127,4 +127,31 @@ class SupabaseService:
             except Exception as e:
                 logger.error(f"Error creating student record: {e}")
 
+    async def get_all_profiles(self) -> list:
+        """Fetch all user profiles from Supabase Cloud public.profiles for Admin Management."""
+        if not SERVICE_KEY:
+            return []
+        url = f"{SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.desc"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                res = await client.get(url, headers=headers)
+                if res.status_code == 200:
+                    return res.json()
+            except Exception as e:
+                logger.error(f"Error fetching all Supabase profiles: {e}")
+        return []
+
+    async def delete_profile(self, profile_id: str) -> bool:
+        """Delete user profile from Supabase Cloud by profile_id."""
+        if not SERVICE_KEY:
+            return False
+        url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{profile_id}"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                res = await client.delete(url, headers=headers)
+                return res.status_code in (200, 204)
+            except Exception as e:
+                logger.error(f"Error deleting Supabase profile {profile_id}: {e}")
+        return False
+
 supabase_service = SupabaseService()

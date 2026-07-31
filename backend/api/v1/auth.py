@@ -162,6 +162,13 @@ async def login_user(payload: LoginPayload):
     user_role = profile.get("role", payload.role or "teacher")
     user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
 
+    # Enforce strict Role Matching
+    if payload.role and payload.role.strip().lower() != user_role.strip().lower():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Role Mismatch: This account is registered as a {user_role.capitalize()}. Please select the {user_role.capitalize()} tab to log in."
+        )
+
     user_data = {
         "id": user_id,
         "email": email_clean,

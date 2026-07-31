@@ -198,19 +198,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             
-            {/* DEMO ROLE SWITCHER PILL */}
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold">
-              <UsersRound className="w-3.5 h-3.5 text-indigo-600 ml-1 hidden sm:inline" />
-              <select
-                value={user.role}
-                onChange={(e) => handleRoleChange(e.target.value as any)}
-                className="bg-transparent text-xs font-extrabold text-slate-800 focus:outline-none cursor-pointer pr-1"
-              >
-                <option value="student">Role: Student</option>
-                <option value="parent">Role: Parent</option>
-                <option value="teacher">Role: Teacher</option>
-                <option value="super_admin">Role: Admin</option>
-              </select>
+            {/* FIXED USER ROLE BADGE (ROLE SWITCHING DISABLED IN PRODUCTION) */}
+            <div className="flex items-center gap-1.5 bg-indigo-50 px-3 py-1.5 rounded-2xl border border-indigo-200 text-xs font-extrabold text-indigo-700">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="capitalize">{user.role || "User"} Portal</span>
             </div>
 
             <Link
