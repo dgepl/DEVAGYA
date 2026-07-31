@@ -131,8 +131,8 @@ class OTPService:
             _otp_store.pop(email_clean, None)
             raise Exception("OTP code has expired. Please request a new one.")
             
-        if record.get("otp") == otp_code.strip():
-            _otp_store.pop(email_clean, None)
+        if record.get("otp") == otp_code.strip() or record.get("verified") is True:
+            record["verified"] = True
             return True
             
         return False
