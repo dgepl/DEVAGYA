@@ -16,26 +16,29 @@ class GroqAIService:
         if self.client:
             try:
                 prompt = f"""
-You are a Senior CBSE & NCERT Subject Matter Expert & Master Teacher.
-Generate an official high-quality NCERT-aligned Question Paper based on these exact constraints:
+You are DEVAGYA's Senior CBSE & NCERT Master Assessment Creator.
+Generate an official high-quality Examination Question Paper strictly adhering to these user-specified constraints:
 
-School Name: {req.school_name}
-Class: {req.class_name}
-Subject: {req.subject}
-Chapter: {req.chapter}
-Difficulty: {req.difficulty}
-Total Marks: {req.total_marks}
-Time Allowed: {req.time_allowed_mins} minutes
+Paper Details:
+- Title: {req.title}
+- Target Grade/Class: {req.class_name}
+- Subject: {req.subject}
+- Syllabus Chapter/Topic: {req.chapter}
+- Difficulty Level: {req.difficulty}
+- Total Marks: {req.total_marks}
+- Time Allowed: {req.time_allowed_mins} minutes
+- School Name: {req.school_name}
 
-Question Breakdown:
-- Multiple Choice Questions (MCQs): {req.num_mcqs} (1 mark each)
-- Short Answer Questions: {req.num_short} (3 marks each)
-- Long Answer Questions: {req.num_long} (5 marks each)
-- Case Study / Passage Based: {req.num_case_studies} (4 marks each)
+Exact Question Breakdown Required:
+1. Multiple Choice Questions (MCQs): EXACTLY {req.num_mcqs} questions (1 mark each). Include 4 options (A, B, C, D) for each MCQ.
+2. Short Answer Questions: EXACTLY {req.num_short} questions (3 marks each).
+3. Long Answer Questions: EXACTLY {req.num_long} questions (5 marks each).
+4. Case Study / Passage Questions: EXACTLY {req.num_case_studies} questions (4 marks each). Include a short passage followed by sub-questions.
 
-Custom Instructions: {req.custom_instructions or "Focus on core NCERT concepts, high HOTS questions."}
+Custom Teacher Instructions:
+{req.custom_instructions or "Ensure high NCERT curriculum alignment and HOTS (Higher Order Thinking Skills) questions."}
 
-You MUST respond strictly with a JSON object in the following format (no markdown surrounding, no preamble):
+You MUST respond strictly with a valid JSON object matching this structure:
 {{
   "title": "{req.title}",
   "class_name": "{req.class_name}",
@@ -46,7 +49,7 @@ You MUST respond strictly with a JSON object in the following format (no markdow
   "time_allowed_mins": {req.time_allowed_mins},
   "instructions": [
     "All questions are compulsory.",
-    "The question paper consists of 4 sections: Section A, B, C, and D.",
+    "The question paper consists of 4 sections: Section A (MCQs), Section B (Short), Section C (Long), Section D (Case Study).",
     "Section A contains MCQs of 1 mark each.",
     "Section B contains Short Answer questions of 3 marks each.",
     "Section C contains Long Answer questions of 5 marks each.",
@@ -57,11 +60,11 @@ You MUST respond strictly with a JSON object in the following format (no markdow
       "id": 1,
       "question_number": 1,
       "question_type": "mcq",
-      "question_text": "Sample MCQ question text?",
+      "question_text": "Question text specifically about {req.chapter} in {req.subject}...",
       "marks": 1,
       "options": ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"],
       "answer": "(A) Option 1",
-      "explanation": "Detailed explanation based on NCERT textbook."
+      "explanation": "Detailed explanation based on {req.subject} textbook principles."
     }}
   ],
   "school_name": "{req.school_name}"
@@ -69,12 +72,12 @@ You MUST respond strictly with a JSON object in the following format (no markdow
 """
                 response = self.client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": "You are a specialized AI JSON question paper generator for Indian Schools."},
+                        {"role": "system", "content": f"You are a specialized AI question paper synthesizer for {req.class_name} {req.subject}."},
                         {"role": "user", "content": prompt}
                     ],
                     model=settings.GROQ_MODEL,
                     response_format={"type": "json_object"},
-                    temperature=0.4
+                    temperature=0.5
                 )
                 
                 raw_text = response.choices[0].message.content
@@ -83,7 +86,7 @@ You MUST respond strictly with a JSON object in the following format (no markdow
             except Exception as e:
                 logger.error(f"Groq API error, falling back to intelligent synthesizer: {e}")
 
-        # Intelligent Fallback Synthesizer for demo / offline mode
+        # Dynamic Fallback Synthesizer
         return self._generate_fallback_paper(req)
 
     def _generate_fallback_paper(self, req: GeneratePaperRequest) -> GeneratedPaperResponse:
@@ -91,62 +94,47 @@ You MUST respond strictly with a JSON object in the following format (no markdow
         q_counter = 1
 
         # 1. MCQs
-        mcq_templates = [
-            ("Which of the following processes represents a chemical change?", ["(A) Rusting of iron", "(B) Melting of ice", "(C) Boiling of water", "(D) Dissolving salt in water"], "(A) Rusting of iron", "Rusting creates a new chemical compound (Hydrated Iron Oxide)."),
-            ("What is the IUPAC name or formula corresponding to the primary reaction in this topic?", ["(A) CaCO3", "(B) CaO", "(C) Ca(OH)2", "(D) CaCl2"], "(A) CaCO3", "Calcium Carbonate is formed during lime water precipitation."),
-            ("Identify the oxidizing agent in a standard redox reaction.", ["(A) Oxygen donor", "(B) Electron donor", "(C) Hydrogen donor", "(D) Proton acceptor"], "(A) Oxygen donor", "Substances that add oxygen or remove hydrogen act as oxidizing agents."),
-            ("Which law of conservation is strictly satisfied in a balanced chemical equation?", ["(A) Conservation of Mass", "(B) Conservation of Energy", "(C) Conservation of Volume", "(D) Conservation of Momentum"], "(A) Conservation of Mass", "Total mass of reactants equals total mass of products."),
-            ("What type of reaction occurs when silver bromide is exposed to sunlight?", ["(A) Photolytic Decomposition", "(B) Thermal Decomposition", "(C) Combination", "(D) Double Displacement"], "(A) Photolytic Decomposition", "Sunlight breaks down AgBr into silver metal and bromine gas.")
-        ]
-
         for i in range(req.num_mcqs):
-            template = mcq_templates[i % len(mcq_templates)]
             questions.append(QuestionItem(
                 id=q_counter,
                 question_number=q_counter,
                 question_type="mcq",
-                question_text=f"{template[0]} (Re: {req.chapter})",
+                question_text=f"Which of the following fundamental principles applies to {req.chapter} in {req.subject} for {req.class_name} (Part {i+1})?",
                 marks=1,
-                options=template[1],
-                answer=template[2],
-                explanation=template[3]
+                options=[
+                    f"(A) Core Principle A of {req.chapter}",
+                    f"(B) Secondary Effect B",
+                    f"(C) Inverse Relationship C",
+                    f"(D) None of the above"
+                ],
+                answer=f"(A) Core Principle A of {req.chapter}",
+                explanation=f"Based on standard NCERT textbook guidelines for {req.subject} ({req.class_name})."
             ))
             q_counter += 1
 
         # 2. Short Questions
-        short_templates = [
-            ("Explain the concept of balanced chemical equations with one example from the NCERT chapter.", "Write down the molecular equation and ensure atom count on LHS equals RHS."),
-            ("Differentiate between exothermic and endothermic reactions with suitable examples.", "Exothermic releases heat (e.g., respiration), while endothermic absorbs heat (e.g., photosynthesis)."),
-            ("What is a double displacement reaction? Give a balanced reaction showing precipitate formation.", "Reaction where ions are exchanged between two compounds to form an insoluble salt.")
-        ]
         for i in range(req.num_short):
-            template = short_templates[i % len(short_templates)]
             questions.append(QuestionItem(
                 id=q_counter,
                 question_number=q_counter,
                 question_type="short",
-                question_text=f"Q{q_counter}. {template[0]}",
+                question_text=f"Q{q_counter}. Explain the core concepts of '{req.chapter}' in {req.subject}. Give two key examples relevant to {req.class_name}.",
                 marks=3,
-                answer=template[1],
-                explanation=f"Key scoring point: State definitions clearly and include balanced chemical equations."
+                answer=f"State definitions clearly, specify key equations/laws applicable to {req.chapter}, and provide examples.",
+                explanation=f"Focus on key scoring terms from the {req.subject} syllabus."
             ))
             q_counter += 1
 
         # 3. Long Questions
-        long_templates = [
-            ("A shiny brown element 'X' on heating in air becomes black in color. Name the element 'X' and the black-colored compound formed. Write a balanced chemical equation for the reaction and describe how it can be converted back to 'X'.", "Element 'X' is Copper (Cu). The black compound is Copper(II) Oxide (CuO). Equation: 2Cu + O2 -> 2CuO. Passing hydrogen gas over heated CuO converts it back: CuO + H2 -> Cu + H2O."),
-            ("Describe an activity to demonstrate the decomposition of ferrous sulphate crystals when heated in a dry boiling tube. State the chemical equation and observe changes in color and odor.", "Ferrous sulphate crystals (FeSO4.7H2O) are green. On heating, water of crystallization is lost. On further heating, it decomposes into ferric oxide (Fe2O3), SO2, and SO3 gases with suffocating sulphur odor.")
-        ]
         for i in range(req.num_long):
-            template = long_templates[i % len(long_templates)]
             questions.append(QuestionItem(
                 id=q_counter,
                 question_number=q_counter,
                 question_type="long",
-                question_text=f"Q{q_counter}. {template[0]}",
+                question_text=f"Q{q_counter}. Describe a detailed analytical experiment or theoretical derivation regarding '{req.chapter}' ({req.subject}). Draw a neat labeled diagram where applicable.",
                 marks=5,
-                answer=template[1],
-                explanation="Draw clear diagrams where applicable and mention state symbols (s, l, g, aq)."
+                answer=f"Detailed step-by-step breakdown of {req.chapter} with diagrams, state symbols, and mathematical derivations.",
+                explanation="Draw clear diagrams where applicable and show all calculation steps."
             ))
             q_counter += 1
 
@@ -156,22 +144,22 @@ You MUST respond strictly with a JSON object in the following format (no markdow
                 id=q_counter,
                 question_number=q_counter,
                 question_type="case_study",
-                passage=f"Case Study ({req.chapter}): Students conducted an experiment in the chemistry lab by taking 2g of lead nitrate powder in a boiling tube and heating it over a burner flames...",
-                question_text=f"Q{q_counter}. (i) What color fumes are evolved during heating?\n(ii) Name the brown fumes gas and write the balanced chemical equation.",
+                passage=f"Case Study ({req.chapter} - {req.subject}): A group of students conducted a laboratory experiment on {req.chapter}. They recorded parameters and observed key phenomena under controlled conditions...",
+                question_text=f"Q{q_counter}. (i) State the main hypothesis being tested.\n(ii) Write the governing mathematical expression or reaction equation.",
                 marks=4,
-                answer="(i) Brown fumes of Nitrogen Dioxide (NO2) are evolved.\n(ii) Equation: 2Pb(NO3)2 -> 2PbO + 4NO2 + O2.",
-                explanation="Lead nitrate decomposes into lead oxide, nitrogen dioxide, and oxygen gas."
+                answer=f"(i) Hypothesis regarding {req.chapter}.\n(ii) Standard formula/equation for {req.subject}.",
+                explanation=f"Passage analysis evaluating critical thinking in {req.subject}."
             ))
             q_counter += 1
 
         return GeneratedPaperResponse(
-            title=req.title,
-            class_name=req.class_name,
-            subject=req.subject,
-            chapter=req.chapter,
-            difficulty=req.difficulty,
-            total_marks=req.total_marks,
-            time_allowed_mins=req.time_allowed_mins,
+            title=req.title or f"{req.subject} Examination",
+            class_name=req.class_name or "Class 10",
+            subject=req.subject or "Science",
+            chapter=req.chapter or "NCERT Syllabus",
+            difficulty=req.difficulty or "medium",
+            total_marks=req.total_marks or 40,
+            time_allowed_mins=req.time_allowed_mins or 90,
             instructions=[
                 "Read all questions carefully before attempting.",
                 "Section A contains MCQs (1 mark each).",
@@ -180,7 +168,7 @@ You MUST respond strictly with a JSON object in the following format (no markdow
                 "Section D contains Case Study questions (4 marks each)."
             ],
             questions=questions,
-            school_name=req.school_name
+            school_name=req.school_name or "DEVAGYA GLOBAL ACADEMY"
         )
 
     async def socratic_chat(self, question: str, subject: str = "Science", grade: str = "Class 10", action: str = "normal") -> dict:
