@@ -51,24 +51,30 @@ export function AIParentingCoach() {
     setLoading(true);
 
     try {
-      const res = await askParentingCoach(queryText);
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const res = await fetch(`${baseUrl}/parent/coach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: queryText, category: "general" })
+      });
+      const data = await res.json();
       setConversation(prev => [
         ...prev,
         {
           sender: "coach",
-          advice: res.advice,
-          tips: res.actionable_tips,
-          discussionStarter: res.recommended_discussion_starter
+          advice: data.advice || "Focus on establishing a regular daily routine and positive reinforcement.",
+          tips: data.practical_steps || ["Set clear study hours", "Provide a quiet workspace", "Encourage short breaks"],
+          discussionStarter: data.communication_script || "Let's review today's study plan together!"
         }
       ]);
-    } catch (e) {
+    } catch (err) {
       setConversation(prev => [
         ...prev,
         {
           sender: "coach",
-          advice: "Supporting your child with study habits is essential!\n\n### Strategic Suggestions:\n1. Establish a consistent study routine.\n2. Create a distraction-free study space.\n3. Focus on effort and curiosity.",
-          tips: ["Set up a joint 25-minute quiet study block.", "Have your child explain one concept to you."],
-          discussionStarter: "What was one cool thing you learned today?"
+          advice: "Establish a quiet, distraction-free environment and encourage short 25-minute study intervals with breaks.",
+          tips: ["Set daily study goals", "Praise effort over marks", "Encourage 5-minute stretch breaks"],
+          discussionStarter: "How can I support your study plan today?"
         }
       ]);
     } finally {

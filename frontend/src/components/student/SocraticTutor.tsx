@@ -219,6 +219,25 @@ export function SocraticTutor() {
         )}
       </div>
 
+      {/* SOCRATIC QUICK ACTION BUTTONS */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {[
+          { label: "Explain Differently", action: "explain_differently", icon: "💡" },
+          { label: "Give Me an Example", action: "give_example", icon: "📝" },
+          { label: "Check My Answer", action: "check_answer", icon: "✅" }
+        ].map((item, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => handleSubmit(undefined, `[Action: ${item.action}] Can you please ${item.label.toLowerCase()} for this problem?`)}
+            className="px-3 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 font-extrabold text-[11px] rounded-xl border border-indigo-200 shadow-sm transition-all shrink-0 flex items-center gap-1.5"
+          >
+            <span>{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* CHAT INPUT AREA */}
       <form onSubmit={handleSubmit} className="bg-white p-3 rounded-3xl border border-slate-200 shadow-lg space-y-2">
         <textarea

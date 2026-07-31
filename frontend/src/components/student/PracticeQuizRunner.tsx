@@ -70,13 +70,27 @@ export function PracticeQuizRunner() {
     setCurrentIdx(0);
     setUserAnswers({});
     try {
-      const res = await generateAdaptiveQuiz({
-        subject,
-        chapter,
-        question_types: ["mcq", "assertion_reason", "true_false"],
-        num_questions: 5
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const res = await fetch(`${baseUrl}/student/practice-quiz`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, topic: chapter, difficulty: "Medium", num_questions: 5 })
       });
-      setQuiz(res);
+      const data = await res.json();
+      if (data.questions && data.questions.length > 0) {
+        setQuiz({
+          title: `Practice Quiz: ${chapter}`,
+          questions: data.questions.map((q: any, i: number) => ({
+            id: i + 1,
+            question_type: "mcq",
+            question: q.question,
+            options: q.options || ["Option A", "Option B", "Option C", "Option D"],
+            correct_answer: (q.options && q.options[q.correct_option]) || q.options[0],
+            explanation: q.explanation || "Correct based on core NCERT concepts.",
+            hint: "Recall standard textbook principles."
+          }))
+        });
+      }
     } catch (e) {
       console.error(e);
     } finally {

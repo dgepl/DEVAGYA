@@ -12,6 +12,21 @@ async def generate_paper(request: GeneratePaperRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/teaching-assistant")
+async def generate_teaching_material(payload: dict):
+    """AI Teaching Assistant: Generate worksheets, homework, MCQs, topic explanations, and revision materials."""
+    content_type = payload.get("content_type", "worksheet")
+    topic = payload.get("topic", "Chemical Reactions")
+    grade = payload.get("grade", "Class 10")
+    subject = payload.get("subject", "Science")
+    difficulty = payload.get("difficulty", "Medium")
+    
+    result = await groq_service.teacher_assistant_generate(content_type, topic, grade, subject, difficulty)
+    return {
+        "status": "success",
+        "data": result
+    }
+
 @router.get("/ncert-chapters")
 async def get_ncert_chapters(subject: str = "Science", class_name: str = "Class 10"):
     """NCERT Subject & Chapter Directory Catalog."""

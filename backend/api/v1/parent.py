@@ -13,10 +13,24 @@ async def get_parent_dashboard(
     """Fetch complete parent overview for linked child."""
     return await parent_service.get_child_overview(parent_id, child_id)
 
+from services.groq_service import groq_service
+
 @router.post("/coach")
 async def ask_parenting_coach(payload: ParentCoachPayload):
-    """AI Parenting Coach for evidence-based study guidance and advice."""
-    return await parent_service.process_parent_query(payload)
+    """24/7 AI Parenting Coach & Child Psychology Guidance Engine powered by Groq AI."""
+    guidance = await groq_service.parenting_coach_guidance(
+        query_type=payload.category or "general",
+        query_text=payload.query,
+        child_age_or_grade="Class 10"
+    )
+    return {
+        "status": "success",
+        "category": payload.category,
+        "advice": guidance.get("advice", ""),
+        "practical_steps": guidance.get("practical_steps", []),
+        "communication_script": guidance.get("communication_script", ""),
+        "when_to_seek_help": guidance.get("when_to_seek_help", "")
+    }
 
 @router.get("/notifications")
 async def get_parent_notifications(parent_id: str = Query("prt-1")):

@@ -16,10 +16,53 @@ async def get_student_dashboard(student_id: str = Query("std-1")):
     """Fetch complete dynamic dashboard data for student."""
     return await student_service.get_student_dashboard_data(student_id)
 
+from services.groq_service import groq_service
+
 @router.post("/socratic-tutor", response_model=SocraticResponse)
 async def ask_socratic_tutor(payload: SocraticQueryPayload):
-    """Socratic AI Homework Tutor endpoint - guides learning without directly spoiling answers."""
-    return await socratic_tutor_service.process_student_query(payload)
+    """Socratic AI Homework Tutor endpoint - guides learning with hints without directly spoiling answers."""
+    result = await groq_service.socratic_chat(
+        question=payload.query,
+        subject=payload.subject or "Science",
+        grade=payload.grade or "Class 10",
+        action=payload.action or "normal"
+    )
+    return {
+        "response": result.get("response", ""),
+        "hints": result.get("hints", []),
+        "guiding_question": result.get("guiding_question", ""),
+        "suggested_actions": ["Explain differently", "Give me an example", "Check my answer"]
+    }
+
+@router.post("/voice-tutor")
+async def voice_tutor_chat(payload: Dict[str, Any]):
+    """AI Voice Tutor - Spoken audio transcription response."""
+    transcript = payload.get("transcript", "")
+    subject = payload.get("subject", "Science")
+    grade = payload.get("grade", "Class 10")
+    response_text = await groq_service.voice_tutor_response(transcript, subject, grade)
+    return {
+        "status": "success",
+        "transcript": transcript,
+        "response": response_text
+    }
+
+@router.post("/practice-quiz")
+async def generate_practice_quiz_groq(payload: Dict[str, Any]):
+    """Generate AI practice questions with explanations."""
+    subject = payload.get("subject", "Science")
+    topic = payload.get("topic", "Chemical Reactions")
+    difficulty = payload.get("difficulty", "Medium")
+    num_questions = payload.get("num_questions", 5)
+    
+    questions = await groq_service.generate_practice_quiz(subject, topic, difficulty, num_questions)
+    return {
+        "status": "success",
+        "subject": subject,
+        "topic": topic,
+        "difficulty": difficulty,
+        "questions": questions
+    }
 
 @router.post("/generate-planner")
 async def generate_student_planner(payload: StudyPlanGeneratePayload):
