@@ -1,4 +1,11 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const getApiBase = () => {
+  if (typeof window !== "undefined") {
+    return process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+};
+
+const API_BASE = getApiBase();
 
 export interface GeneratePaperPayload {
   title: string;
@@ -42,7 +49,7 @@ export interface GeneratedPaperResponse {
 }
 
 export async function generateQuestionPaper(payload: GeneratePaperPayload): Promise<GeneratedPaperResponse> {
-  const res = await fetch(`${API_BASE}/generator/generate`, {
+  const res = await fetch(`${getApiBase()}/generator/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
@@ -52,7 +59,7 @@ export async function generateQuestionPaper(payload: GeneratePaperPayload): Prom
 }
 
 export async function getNCERTChapters(className: string = "Class 10", subject: string = "Science") {
-  const res = await fetch(`${API_BASE}/generator/ncert-chapters?class_name=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}`);
+  const res = await fetch(`${getApiBase()}/generator/ncert-chapters?class_name=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}`);
   if (!res.ok) throw new Error("Failed to fetch chapters");
   return res.json();
 }
