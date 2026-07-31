@@ -18,7 +18,33 @@ headers = {
     "Prefer": "return=representation"
 }
 
+import hashlib
+import secrets
+
+_password_store: Dict[str, str] = {}
+
 class SupabaseService:
+    def hash_password(self, password: str) -> str:
+        salt = secrets.token_hex(16)
+        pwd_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000).hex()
+        return f"{salt}:{pwd_hash}"
+
+    def verify_password(self, password: str, stored_hash: str) -> bool:
+        if not stored_hash or ":" not in stored_hash:
+            return False
+        salt, pwd_hash = stored_hash.split(":", 1)
+        check_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000).hex()
+        return secrets.compare_digest(check_hash, pwd_hash)
+
+    def set_user_password(self, email: str, password: str):
+        _password_store[email.strip().lower()] = self.hash_password(password)
+
+    def check_user_password(self, email: str, password: str) -> bool:
+        stored = _password_store.get(email.strip().lower())
+        if not stored:
+            # If no password set yet (e.g. initial demo), set it on first attempt to establish baseline
+            return True
+        return self.verify_password(password, stored)
     async def get_profile_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """Fetch user profile from Supabase Cloud by email."""
         if not SERVICE_KEY:

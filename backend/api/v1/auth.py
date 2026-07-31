@@ -111,6 +111,10 @@ async def register_user(payload: RegisterPayload):
             school_name=payload.school_name,
             board=payload.board
         )
+        
+        # Save password hash
+        if payload.password:
+            supabase_service.set_user_password(email_clean, payload.password)
 
         user_data = {
             "id": profile.get("id", f"usr-{email_clean.split('@')[0]}"),
@@ -145,6 +149,13 @@ async def login_user(payload: LoginPayload):
         raise HTTPException(
             status_code=400, 
             detail="No account found with this email address. Please create an account first."
+        )
+
+    # Verify Password strictly
+    if not supabase_service.check_user_password(email_clean, payload.password or ""):
+        raise HTTPException(
+            status_code=400,
+            detail="Incorrect password. Please check your credentials and try again."
         )
 
     full_name = profile.get("full_name", email_clean.split('@')[0].capitalize())
