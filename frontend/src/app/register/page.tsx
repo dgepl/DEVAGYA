@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Lock, Mail, User, Building2, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
@@ -20,8 +20,17 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isOTPModalOpen, setIsOTPModalOpen] = useState(false);
 
-  const { setUser } = useAppStore();
+  const { user, setUser } = useAppStore();
   const router = useRouter();
+
+  // Returning User Persistent Session Auto-Redirect
+  useEffect(() => {
+    if (user && user.email) {
+      if (user.role === "student") router.replace("/dashboard/student");
+      else if (user.role === "parent") router.replace("/dashboard/parent");
+      else router.replace("/dashboard");
+    }
+  }, [user, router]);
 
   const handleEmailChange = (val: string) => {
     setEmail(val);

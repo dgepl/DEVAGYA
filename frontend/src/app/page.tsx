@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAppStore } from "@/store/useAppStore";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Hero } from "@/components/landing/Hero";
@@ -14,6 +17,18 @@ import { FAQSection } from "@/components/landing/FAQSection";
 import { PageTransition } from "@/components/ui/PageTransition";
 
 export default function LandingPage() {
+  const { user } = useAppStore();
+  const router = useRouter();
+
+  // Seamless Persistent Session Auto-Redirect for Returning Users
+  useEffect(() => {
+    if (user && user.email) {
+      if (user.role === "student") router.replace("/dashboard/student");
+      else if (user.role === "parent") router.replace("/dashboard/parent");
+      else router.replace("/dashboard");
+    }
+  }, [user, router]);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-indigo-500 selection:text-white">
       <Navbar />

@@ -27,6 +27,7 @@ interface AppState {
   savePaper: (paper: GeneratedPaperResponse) => void;
   setOcrDraftText: (text: string) => void;
   setActiveChildId: (childId: string) => void;
+  initSession: () => void;
   logout: () => void;
 }
 
@@ -48,7 +49,10 @@ const getInitialUser = (): UserProfile => {
   if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem("devagya_user");
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.email) return parsed;
+      }
     } catch (e) {
       console.error("Error reading stored user session", e);
     }
@@ -57,7 +61,7 @@ const getInitialUser = (): UserProfile => {
 };
 
 export const useAppStore = create<AppState>((set) => ({
-  user: defaultUser,
+  user: getInitialUser(),
   activePaper: null,
   savedPapers: [],
   ocrDraftText: "",
@@ -68,6 +72,10 @@ export const useAppStore = create<AppState>((set) => ({
         localStorage.setItem("devagya_user", JSON.stringify(user));
       } catch (e) {}
     }
+    set({ user });
+  },
+  initSession: () => {
+    const user = getInitialUser();
     set({ user });
   },
   switchRole: (role) => set((state) => ({ user: { ...state.user, role } })),
