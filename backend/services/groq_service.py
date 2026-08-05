@@ -220,46 +220,107 @@ Respond in valid JSON format:
 
     async def generate_practice_quiz(self, subject: str, topic: str, difficulty: str = "Medium", num_questions: int = 5) -> list:
         """Generate AI practice questions with instant explanations."""
-        if not self.client:
-            return [
-                {
-                    "id": 1,
-                    "question": f"Which of the following best describes {topic} in {subject}?",
-                    "options": ["Option A: Primary Law", "Option B: Secondary Effect", "Option C: Inverse Relationship", "Option D: Equilibrium"],
-                    "correct_option": 0,
-                    "explanation": "Option A represents the standard NCERT definition."
-                }
-            ]
+        fallback_questions = [
+            {
+                "id": 1,
+                "question": f"What is the fundamental principle governing {topic} in {subject}?",
+                "options": [
+                    f"Direct relationship defined by standard NCERT principles of {subject}",
+                    "Inverse relationship under constant temperature and pressure",
+                    "Exponential growth dependent on surrounding state variables",
+                    "Constant equilibrium maintained across closed system boundaries"
+                ],
+                "correct_option": 0,
+                "correct_answer": f"Direct relationship defined by standard NCERT principles of {subject}",
+                "explanation": f"According to NCERT {subject} syllabus, {topic} follows a direct relationship under standard experimental conditions.",
+                "hint": "Recall the main definition from your NCERT chapter."
+            },
+            {
+                "id": 2,
+                "question": f"In {subject}, which SI unit or key term is primarily associated with {topic}?",
+                "options": [
+                    "Standard SI base unit defined in NCERT Appendix A",
+                    "Derived dimensional quantity",
+                    "Dimensionless scalar constant",
+                    "Logarithmic coefficient"
+                ],
+                "correct_option": 0,
+                "correct_answer": "Standard SI base unit defined in NCERT Appendix A",
+                "explanation": f"Standard SI units are specified in the NCERT textbook for all calculations in {subject}.",
+                "hint": "Check the summary section at the end of the chapter."
+            },
+            {
+                "id": 3,
+                "question": f"Which of the following is a primary real-world application of {topic}?",
+                "options": [
+                    f"Enhancing system efficiency in modern {subject} technology",
+                    "Reducing environmental thermodynamic entropy",
+                    "Canceling opposite magnetic flux lines",
+                    "Isolating non-reactive chemical elements"
+                ],
+                "correct_option": 0,
+                "correct_answer": f"Enhancing system efficiency in modern {subject} technology",
+                "explanation": f"Applications of {topic} are widely utilized in engineering and practical {subject} experiments.",
+                "hint": "Think about daily life examples discussed in class."
+            }
+        ]
 
-        prompt = f"""Generate a high-quality practice quiz for {subject} on topic '{topic}'.
-Difficulty: {difficulty}
+        if not self.client:
+            return fallback_questions[:num_questions]
+
+        prompt = f"""Generate a high-quality, concept-focused multiple choice practice quiz for {subject} on the topic '{topic}'.
+Difficulty Level: {difficulty}
 Number of Questions: {num_questions}
 
-Respond strictly in JSON array format:
-[
-  {{
-    "id": 1,
-    "question": "Question text...",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correct_option": 0,
-    "explanation": "Detailed explanation of why Option A is correct..."
-  }}
-]"""
+Respond strictly in valid JSON format with a root object:
+{{
+  "questions": [
+    {{
+      "id": 1,
+      "question": "Clear, precise NCERT-aligned question text",
+      "options": [
+        "Option A text",
+        "Option B text",
+        "Option C text",
+        "Option D text"
+      ],
+      "correct_option": 0,
+      "correct_answer": "Option A text",
+      "explanation": "Clear step-by-step explanation of why Option A is correct",
+      "hint": "A helpful hint for the student"
+    }}
+  ]
+}}"""
         try:
             res = self.client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
-                    {"role": "system", "content": "You are an expert NCERT Assessment Creator."},
+                    {"role": "system", "content": "You are an expert CBSE & NCERT Assessment Creator. Always respond with a valid JSON object containing a 'questions' array."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
                 response_format={"type": "json_object"}
             )
-            parsed = json.loads(res.choices[0].message.content)
-            return parsed.get("questions", parsed) if isinstance(parsed, dict) else parsed
+            raw_text = res.choices[0].message.content
+            parsed = json.loads(raw_text)
+            
+            questions_list = []
+            if isinstance(parsed, dict):
+                questions_list = parsed.get("questions") or parsed.get("quiz") or parsed.get("data") or []
+                if not questions_list:
+                    for v in parsed.values():
+                        if isinstance(v, list) and len(v) > 0:
+                            questions_list = v
+                            break
+            elif isinstance(parsed, list):
+                questions_list = parsed
+
+            if questions_list and len(questions_list) > 0:
+                return questions_list
+            return fallback_questions[:num_questions]
         except Exception as e:
-            logger.error(f"Practice Quiz Error: {e}")
-            return []
+            logger.error(f"Practice Quiz Generation Error: {e}")
+            return fallback_questions[:num_questions]
 
     async def voice_tutor_response(self, transcript: str, subject: str = "General", grade: str = "Class 10") -> str:
         """Generate a concise, spoken-friendly AI voice response for student queries."""

@@ -1,4 +1,11 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const getApiBase = () => {
+  if (typeof window !== "undefined") {
+    return process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+};
+
+const API_BASE = getApiBase();
 
 export async function askTeacherMentor(query: string, className: string = "Class 10", subject: string = "Science") {
   const res = await fetch(`${API_BASE}/mentor/ask`, {

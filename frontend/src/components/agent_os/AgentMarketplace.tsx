@@ -84,8 +84,14 @@ interface AttachedImage {
   dataUrl: string;
 }
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const getApiBase = () => {
+  if (typeof window !== "undefined") {
+    return process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+};
+
+const API_BASE = getApiBase();
 const MAX_IMAGES = 4;
 
 const LANGUAGES = [
@@ -751,6 +757,34 @@ export function AgentMarketplace() {
                               <Copy className="w-3.5 h-3.5" />
                             )}
                           </button>
+                        </div>
+                      )}
+
+                      {/* QUICK STARTER SUGGESTION CHIPS FOR MOBILE & DESKTOP */}
+                      {m.id === "welcome" && messages.length <= 1 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100">
+                          {[
+                            { label: "Explain NCERT Chapter", icon: "💡", prompt: "Explain the core concepts of Class 10 Science Chapter 1 step by step." },
+                            { label: "Generate Practice Quiz", icon: "🎯", prompt: "Create a 5-question multiple choice practice quiz for me on Class 10 Mathematics." },
+                            { label: "Help with Homework", icon: "📝", prompt: "Help me solve my homework problem step by step with Socratic hints." },
+                            { label: "High-Yield Revision Notes", icon: "📚", prompt: "Give me concise revision notes and key formulas for my upcoming exam." },
+                          ].map((chip, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setInput(chip.prompt);
+                                setTimeout(() => inputRef.current?.focus(), 100);
+                              }}
+                              className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-left hover:border-indigo-300 hover:bg-indigo-50/60 transition-all shadow-xs group active:scale-95 flex items-center gap-2.5"
+                            >
+                              <span className="text-base shrink-0">{chip.icon}</span>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-xs font-bold text-slate-800 group-hover:text-indigo-700 block leading-tight truncate">{chip.label}</span>
+                                <span className="text-[9px] text-slate-400 font-medium block truncate mt-0.5">{chip.prompt}</span>
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>

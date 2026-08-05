@@ -51,7 +51,14 @@ interface AttachedImage {
   dataUrl: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const getApiBase = () => {
+  if (typeof window !== "undefined") {
+    return process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+};
+
+const API_BASE = getApiBase();
 const MAX_IMAGES = 4;
 
 const WELCOME_MSG: ChatMessage = {
