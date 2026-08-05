@@ -91,11 +91,11 @@ export default function ProfilePage() {
             <div className="border border-dashed border-slate-300 bg-slate-50 p-6 rounded-2xl flex items-center justify-center gap-4">
               <img 
                 src="/logo.png" 
-                alt="DEVAGYA GLOBAL PRIVATE LIMITED" 
+                alt="DEVGYA GLOBAL PRIVATE LIMITED" 
                 className="h-12 w-auto object-contain" 
               />
               <div>
-                <p className="text-xs font-bold text-slate-900">DEVAGYA GLOBAL Official Logo</p>
+                <p className="text-xs font-bold text-slate-900">DEVGYA GLOBAL Official Logo</p>
                 <p className="text-[10px] text-slate-500 font-medium">Used for official PDF headers and watermarks</p>
               </div>
             </div>

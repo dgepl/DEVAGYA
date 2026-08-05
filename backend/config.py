@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings
 load_dotenv()
 
 class Settings(BaseSettings):
-    APP_NAME: str = "DEVAGYA GLOBAL AI Engine"
+    APP_NAME: str = "DEVGYA GLOBAL AI Engine"
     API_V1_STR: str = "/api/v1"
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", os.getenv("AI_API_KEY", ""))
     GROQ_MODEL: str = os.getenv("AI_MODEL", "llama-3.3-70b-versatile")

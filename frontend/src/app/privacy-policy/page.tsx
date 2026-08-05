@@ -14,13 +14,13 @@ export default function PrivacyPolicyPage() {
           <div className="text-center space-y-3 border-b border-slate-200 pb-8">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-extrabold uppercase tracking-wider">
               <ShieldCheck className="w-4 h-4 text-indigo-600" />
-              <span>DEVAGYA GLOBAL Privacy Policy</span>
+              <span>DEVGYA GLOBAL Privacy Policy</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
               Privacy Policy & Data Security
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-semibold max-w-2xl mx-auto">
-              Effective Date: July 2026 • DEVAGYA GLOBAL PRIVATE LIMITED
+              Effective Date: July 2026 • DEVGYA GLOBAL PRIVATE LIMITED
             </p>
           </div>
 
@@ -60,7 +60,7 @@ export default function PrivacyPolicyPage() {
                 1. Overview & Commitment
               </h3>
               <p>
-                At <strong>DEVAGYA GLOBAL PRIVATE LIMITED</strong>, we prioritize the protection of educational data. 
+                At <strong>DEVGYA GLOBAL PRIVATE LIMITED</strong>, we prioritize the protection of educational data. 
                 Whether you are a teacher creating CBSE NCERT question papers, a student using the Socratic AI Tutor, or a parent monitoring academic progress, your information is handled under strict security standards.
               </p>
             </section>
@@ -84,8 +84,8 @@ export default function PrivacyPolicyPage() {
             <section className="space-y-3 border-t border-slate-100 pt-6">
               <h3 className="text-lg font-black text-slate-900">4. Contact Data Protection Officer</h3>
               <p className="text-xs text-slate-600">
-                For privacy inquiries or data removal requests, contact DEVAGYA GLOBAL PRIVATE LIMITED at:<br />
-                <strong className="text-slate-900">Email:</strong> privacy@devagyaglobal.com | <strong className="text-slate-900">Phone:</strong> +91 8307224756
+                For privacy inquiries or data removal requests, contact DEVGYA GLOBAL PRIVATE LIMITED at:<br />
+                <strong className="text-slate-900">Email:</strong> privacy@devgyaglobal.com | <strong className="text-slate-900">Phone:</strong> +91 8307224756
               </p>
             </section>
 

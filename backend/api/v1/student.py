@@ -107,3 +107,86 @@ async def log_pomodoro_session(payload: PomodoroLogPayload):
         "xp_earned": earned_xp,
         "message": f"Awesome focus! You logged {payload.duration_seconds // 60} mins of deep study and earned +{earned_xp} XP!"
     }
+
+@router.post("/exam-prep")
+async def generate_exam_prep(payload: Dict[str, Any]):
+    """AI Exam Preparation — generates strategy, high-yield topics, revision roadmap, expected questions."""
+    exam_name = payload.get("exam_name", "CBSE Board Exam")
+    subject = payload.get("subject", "Science")
+    days_remaining = payload.get("days_remaining", 14)
+
+    prompt = f"""You are an expert CBSE/NCERT exam coach. Generate a comprehensive exam preparation strategy.
+
+Exam: {exam_name}
+Subject: {subject}
+Days Remaining: {days_remaining}
+
+Return a valid JSON object with EXACTLY this structure (no markdown, no extra text):
+{{
+  "exam_name": "{exam_name}",
+  "subject": "{subject}",
+  "confidence_score": <number 50-95>,
+  "high_yield_topics": [
+    {{"topic": "<topic name>", "weightage_marks": <marks out of total>}},
+    {{"topic": "<topic name>", "weightage_marks": <marks>}},
+    {{"topic": "<topic name>", "weightage_marks": <marks>}},
+    {{"topic": "<topic name>", "weightage_marks": <marks>}},
+    {{"topic": "<topic name>", "weightage_marks": <marks>}}
+  ],
+  "revision_roadmap": [
+    {{"day": 1, "focus": "<what to study>", "hours": <float>}},
+    {{"day": 2, "focus": "<what to study>", "hours": <float>}},
+    {{"day": 3, "focus": "<what to study>", "hours": <float>}},
+    {{"day": 4, "focus": "<what to study>", "hours": <float>}},
+    {{"day": 5, "focus": "<what to study>", "hours": <float>}}
+  ],
+  "expected_questions": [
+    {{"question": "<likely exam question>", "marks": <int>, "outline": "<brief answer outline>"}},
+    {{"question": "<likely exam question>", "marks": <int>, "outline": "<brief answer outline>"}},
+    {{"question": "<likely exam question>", "marks": <int>, "outline": "<brief answer outline>"}}
+  ],
+  "top_tips": [
+    "<exam tip 1>",
+    "<exam tip 2>",
+    "<exam tip 3>"
+  ]
+}}
+
+Generate {days_remaining} days in revision_roadmap if days_remaining <= 7, otherwise 7 days.
+Make topics, questions, and tips specific to {subject} for {exam_name}. Return ONLY valid JSON."""
+
+    try:
+        response = await ai_provider.chat_completion([
+            {"role": "system", "content": "You are an expert exam preparation AI. Return ONLY valid JSON, no markdown."},
+            {"role": "user", "content": prompt}
+        ])
+        
+        # Parse JSON from response
+        text = response.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        
+        data = json.loads(text)
+        return data
+    except json.JSONDecodeError:
+        # Fallback with basic structure
+        return {
+            "exam_name": exam_name,
+            "subject": subject,
+            "confidence_score": 72,
+            "high_yield_topics": [
+                {"topic": f"{subject} - Core Chapter 1", "weightage_marks": 12},
+                {"topic": f"{subject} - Core Chapter 2", "weightage_marks": 10},
+                {"topic": f"{subject} - Core Chapter 3", "weightage_marks": 8},
+            ],
+            "revision_roadmap": [
+                {"day": i + 1, "focus": f"Day {i+1}: Revise key concepts", "hours": 3.0}
+                for i in range(min(days_remaining, 7))
+            ],
+            "expected_questions": [
+                {"question": "AI could not generate questions. Please try again.", "marks": 5, "outline": "Try regenerating."}
+            ],
+            "top_tips": ["Focus on NCERT textbook", "Practice previous year papers", "Revise formulas daily"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

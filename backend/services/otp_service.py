@@ -20,7 +20,7 @@ class OTPService:
 
     @property
     def RESEND_FROM_EMAIL(self) -> str:
-        return os.getenv("RESEND_FROM_EMAIL", "DEVAGYA GLOBAL <onboarding@devgya.in>")
+        return os.getenv("RESEND_FROM_EMAIL", "DEVGYA GLOBAL <onboarding@devgya.in>")
 
     def generate_otp(self, email: str) -> str:
         """Generate a cryptographically secure 6-digit OTP code with 10-min expiry."""
@@ -78,7 +78,7 @@ class OTPService:
         <body>
           <div class="container">
             <div class="logo">
-              <h2 style="color: #4f46e5; margin: 0; font-size: 24px; font-weight: 900;">DEVAGYA GLOBAL</h2>
+              <h2 style="color: #4f46e5; margin: 0; font-size: 24px; font-weight: 900;">DEVGYA GLOBAL</h2>
               <span style="font-size: 10px; color: #64748b; font-weight: 700; letter-spacing: 2px;">EDUTECH PRIVATE LIMITED</span>
             </div>
             
@@ -90,7 +90,7 @@ class OTPService:
             <div class="subtext">This code is valid for <strong>10 minutes</strong>. If you did not request this verification, please ignore this email.</div>
             
             <div class="footer">
-              &copy; 2026 DEVAGYA GLOBAL PRIVATE LIMITED. All rights reserved.<br>
+              &copy; 2026 DEVGYA GLOBAL PRIVATE LIMITED. All rights reserved.<br>
               AI-Powered K-12 Education & School Platform.
             </div>
           </div>
@@ -101,7 +101,7 @@ class OTPService:
         payload = {
             "from": self.RESEND_FROM_EMAIL,
             "to": [email_clean],
-            "subject": f"{otp_code} is your DEVAGYA Verification Code",
+            "subject": f"{otp_code} is your DEVGYA Verification Code",
             "html": html_content
         }
 

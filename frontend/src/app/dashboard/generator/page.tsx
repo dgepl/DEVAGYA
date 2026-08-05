@@ -78,7 +78,7 @@ export default function GeneratorPage() {
         num_short: parsedShort || 2,
         num_long: parsedLong || 1,
         num_case_studies: parsedCase || 1,
-        school_name: "DEVAGYA GLOBAL ACADEMY",
+        school_name: "DEVGYA GLOBAL ACADEMY",
         custom_instructions: customPrompt
       });
       setPaper(res);

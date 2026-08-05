@@ -80,7 +80,7 @@ export default function LoginPage() {
           <Link href="/" className="inline-flex items-center justify-center">
             <img 
               src="/logo.png" 
-              alt="DEVAGYA GLOBAL PRIVATE LIMITED" 
+              alt="DEVGYA GLOBAL PRIVATE LIMITED" 
               className="h-16 w-auto max-h-16 object-contain mix-blend-multiply mx-auto" 
             />
           </Link>

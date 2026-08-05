@@ -6,7 +6,7 @@ import { ChevronDown } from "lucide-react";
 export function FAQSection() {
   const faqs = [
     {
-      q: "How does Devagya Global ensure NCERT & CBSE compliance?",
+      q: "How does Devgya Global ensure NCERT & CBSE compliance?",
       a: "Our AI engine is fine-tuned with exact NCERT chapter structures, marking schemes (1, 3, 5 marks), and HOTS (Higher Order Thinking Skills) guidelines as prescribed by CBSE & ICSE boards."
     },
     {

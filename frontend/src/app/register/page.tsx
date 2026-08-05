@@ -90,7 +90,7 @@ export default function RegisterPage() {
           password,
           name,
           role,
-          school_name: schoolName || "DEVAGYA GLOBAL PRIVATE LIMITED",
+          school_name: schoolName || "DEVGYA GLOBAL PRIVATE LIMITED",
           board,
           otp_code: otpCode
         })
@@ -122,12 +122,12 @@ export default function RegisterPage() {
           <Link href="/" className="inline-flex items-center justify-center mb-1">
             <img 
               src="/logo.png" 
-              alt="DEVAGYA GLOBAL PRIVATE LIMITED" 
+              alt="DEVGYA GLOBAL PRIVATE LIMITED" 
               className="h-16 w-auto object-contain mx-auto mix-blend-multiply" 
             />
           </Link>
           <h1 className="text-xl font-black text-slate-900 tracking-tight">Create Your Account</h1>
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Join DEVAGYA AI Learning Platform</p>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Join DEVGYA AI Learning Platform</p>
         </div>
 
         {error && (

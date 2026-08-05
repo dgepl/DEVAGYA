@@ -16,7 +16,7 @@ async def admin_login(payload: AdminLoginPayload):
         return {
             "status": "success",
             "message": "Super Admin access granted",
-            "token": "devagya-super-admin-auth-token-9999"
+            "token": "devgya-super-admin-auth-token-9999"
         }
     raise HTTPException(status_code=401, detail="Invalid Super Admin credentials. Use username: admin, password: admin123")
 

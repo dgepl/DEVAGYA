@@ -46,7 +46,7 @@ export function Hero() {
       ],
       ctaText: "Get Started Free",
       ctaLink: "/login",
-      mockupTitle: "Student Portal • DEVAGYA GLOBAL",
+      mockupTitle: "Student Portal • DEVGYA GLOBAL",
       mockupHeader: "Good morning, Ananya! 👋",
       mockupSub: "Ready to learn something amazing today?",
       card1Title: "Study Streak",
@@ -391,7 +391,7 @@ export function Hero() {
               {/* MOBILE IPHONE MOCKUP OVERLAY */}
               <div className="absolute -bottom-4 -right-3 sm:-right-6 z-20 w-44 sm:w-52 bg-[#0F0D29] border-2 border-[#252250] rounded-2xl p-2.5 shadow-2xl hidden sm:block space-y-2">
                 <div className="flex items-center justify-between text-[9px] font-bold text-purple-300 border-b border-white/10 pb-1">
-                  <span>Devagya Mobile App</span>
+                  <span>Devgya Mobile App</span>
                   <Smartphone className="w-3 h-3 text-purple-400" />
                 </div>
                 <div className="flex items-center gap-1.5 bg-white/5 p-1.5 rounded-xl">
@@ -399,7 +399,7 @@ export function Hero() {
                     DG
                   </div>
                   <div>
-                    <h5 className="text-[10px] font-bold text-white">Devagya AI OS</h5>
+                    <h5 className="text-[10px] font-bold text-white">Devgya AI OS</h5>
                     <span className="text-[8px] text-slate-400">Class K-12</span>
                   </div>
                 </div>

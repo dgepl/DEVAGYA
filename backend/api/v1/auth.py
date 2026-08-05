@@ -22,7 +22,7 @@ class RegisterPayload(BaseModel):
     password: str
     name: str
     role: str = "teacher"
-    school_name: Optional[str] = "DEVAGYA GLOBAL ACADEMY"
+    school_name: Optional[str] = "DEVGYA GLOBAL ACADEMY"
     board: Optional[str] = "CBSE"
     otp_code: str
 
@@ -121,9 +121,9 @@ async def register_user(payload: RegisterPayload):
             "email": email_clean,
             "name": payload.name,
             "role": payload.role,
-            "schoolName": payload.school_name or "DEVAGYA GLOBAL PRIVATE LIMITED",
+            "schoolName": payload.school_name or "DEVGYA GLOBAL PRIVATE LIMITED",
             "board": payload.board or "CBSE",
-            "token": f"devagya-jwt-{payload.role}-token-{profile.get('id', 'session')}"
+            "token": f"devgya-jwt-{payload.role}-token-{profile.get('id', 'session')}"
         }
         return {
             "status": "success",
@@ -174,9 +174,9 @@ async def login_user(payload: LoginPayload):
         "email": email_clean,
         "name": full_name,
         "role": user_role,
-        "schoolName": "DEVAGYA GLOBAL PRIVATE LIMITED",
+        "schoolName": "DEVGYA GLOBAL PRIVATE LIMITED",
         "board": "CBSE",
-        "token": f"devagya-jwt-{user_role}-token-{user_id}"
+        "token": f"devgya-jwt-{user_role}-token-{user_id}"
     }
     return {
         "status": "success",

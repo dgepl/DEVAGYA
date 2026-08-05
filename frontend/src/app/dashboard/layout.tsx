@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { 
   LayoutDashboard, 
   Sparkles, 
@@ -33,7 +33,11 @@ import {
   GitFork,
   Code,
   Settings,
-  DollarSign
+  DollarSign,
+  Compass,
+  Flame,
+  Search,
+  Video
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useEffect, useState } from "react";
@@ -43,8 +47,10 @@ import { PageTransition } from "@/components/ui/PageTransition";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, logout } = useAppStore();
   const [mounted, setMounted] = useState(false);
+  const isAgentsPage = pathname?.startsWith("/dashboard/agents");
 
   useEffect(() => {
     setMounted(true);
@@ -64,10 +70,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (user.role === "student") {
       const isStudentAllowed = 
         pathname.startsWith("/dashboard/student") ||
-        pathname === "/dashboard/agents" ||
+        pathname.startsWith("/dashboard/agents") ||
         pathname === "/dashboard/knowledge" ||
         pathname === "/dashboard/chat" ||
         pathname === "/dashboard/voice" ||
+        pathname === "/dashboard/video-consultation" ||
         pathname === "/dashboard/profile";
 
       if (!isStudentAllowed) {
@@ -76,6 +83,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     } else if (user.role === "parent") {
       const isParentAllowed = 
         pathname.startsWith("/dashboard/parent") ||
+        pathname.startsWith("/dashboard/agents") ||
+        pathname === "/dashboard/video-consultation" ||
         pathname === "/dashboard/profile";
 
       if (!isParentAllowed) {
@@ -96,44 +105,65 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  // Role-based Nav Specifications including AI OS Extensions
+  // Role-based Nav Specifications — each agent is a direct sidebar link
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "AI Agent OS", href: "/dashboard/agents", icon: Bot },
-    { label: "RAG Knowledge Base", href: "/dashboard/knowledge", icon: Layers },
-    { label: "AI Workflows", href: "/dashboard/workflows", icon: GitFork },
-    { label: "Prompt Studio", href: "/dashboard/prompts-studio", icon: Code },
-    { label: "Memory 2.0", href: "/dashboard/memory-studio", icon: Brain },
-    { label: "AI Generator", href: "/dashboard/generator", icon: Sparkles },
+    // Teacher AI Agents
+    { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
+    { label: "Question Generator", href: "/dashboard/agents?agent=question_generator", icon: Sparkles },
+    { label: "Lesson Planner AI", href: "/dashboard/agents?agent=lesson_planner", icon: BookOpen },
+    { label: "Analytics AI", href: "/dashboard/agents?agent=analytics_assistant", icon: Activity },
+    // General AI Agents
+    { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
+    { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
+    { label: "Document AI", href: "/dashboard/agents?agent=document_assistant", icon: Layers },
+    // Other tools
     { label: "AI Chat Studio", href: "/dashboard/chat", icon: MessageSquare },
+    { label: "AI Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "AI Lesson Planner", href: "/dashboard/lesson-planner", icon: BookOpen },
+    { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
     { label: "Voice AI Coach", href: "/dashboard/voice", icon: Mic },
     { label: "AI Model Settings", href: "/dashboard/settings/ai-models", icon: Settings },
-    { label: "AI Cost Analytics", href: "/dashboard/analytics/ai-costs", icon: Activity },
   ];
 
   if (user.role === "student") {
     navItems = [
       { label: "Student Home", href: "/dashboard/student", icon: LayoutDashboard },
-      { label: "AI Agents OS", href: "/dashboard/agents", icon: Bot },
-      { label: "Socratic AI Tutor", href: "/dashboard/student/tutor", icon: Brain },
-      { label: "Practice & Quizzes", href: "/dashboard/student/practice", icon: Target },
-      { label: "AI Flashcards", href: "/dashboard/student/flashcards", icon: Layers },
-      { label: "Knowledge Base", href: "/dashboard/knowledge", icon: Layers },
-      { label: "AI Study Planner", href: "/dashboard/student/planner", icon: Clock },
-      { label: "Revision Studio", href: "/dashboard/student/revision", icon: BookOpen },
+      // Student AI Agents
+      { label: "Homework Helper", href: "/dashboard/agents?agent=homework_assistant", icon: FileText },
+      { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain },
+      { label: "Exam Strategist", href: "/dashboard/agents?agent=exam_strategist", icon: Trophy },
+      { label: "Revision Assistant", href: "/dashboard/agents?agent=revision_assistant", icon: GitFork },
+      { label: "Study Planner", href: "/dashboard/agents?agent=study_planner", icon: Clock },
+      { label: "Career Counselor", href: "/dashboard/agents?agent=career_counselor", icon: Compass },
+      { label: "Motivation Coach", href: "/dashboard/agents?agent=motivation_coach", icon: Flame },
+      // General AI Agents
+      { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
+      { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
+      { label: "Document AI", href: "/dashboard/agents?agent=document_assistant", icon: Layers },
+      // Other tools
+      { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
       { label: "AI Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy },
+      { label: "AI Chat Studio", href: "/dashboard/chat", icon: MessageSquare },
+      { label: "Practice & Quizzes", href: "/dashboard/student/practice", icon: Target },
       { label: "Notion Smart Notes", href: "/dashboard/student/notes", icon: FileText },
-      { label: "Leaderboard", href: "/dashboard/student/leaderboard", icon: Trophy },
       { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock },
+      { label: "Leaderboard", href: "/dashboard/student/leaderboard", icon: Trophy },
     ];
   } else if (user.role === "parent") {
     navItems = [
       { label: "Parent Dashboard", href: "/dashboard/parent", icon: LayoutDashboard },
-      { label: "AI Parenting Coach", href: "/dashboard/parent/coach", icon: HeartHandshake },
+      // Parent AI Agents
+      { label: "Parenting Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake },
+      // General AI Agents
+      { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
+      { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
+      { label: "Document AI", href: "/dashboard/agents?agent=document_assistant", icon: Layers },
+      // Other tools
+      { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
       { label: "Child Analytics", href: "/dashboard/parent/analytics", icon: Activity },
-      { label: "Notifications & Alerts", href: "/dashboard/parent/notifications", icon: Bell },
+      { label: "Notifications", href: "/dashboard/parent/notifications", icon: Bell },
     ];
   }
 
@@ -153,7 +183,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Link href="/" className="flex items-center px-2">
           <img
             src="/logo.png"
-            alt="DEVAGYA GLOBAL PRIVATE LIMITED"
+            alt="DEVGYA GLOBAL PRIVATE LIMITED"
             className="h-10 w-auto max-h-12 object-contain mix-blend-multiply"
           />
         </Link>
@@ -161,7 +191,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Primary Nav */}
         <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            // Match active state: for agent links compare full path+query, for others just pathname
+            const itemUrl = new URL(item.href, "http://x");
+            const isActive = item.href.includes("?") 
+              ? pathname === itemUrl.pathname && itemUrl.search === `?${searchParams.toString()}`
+              : pathname === item.href;
             return (
               <Link
                 key={item.href}
@@ -230,7 +264,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* PAGE CONTENT WITH SMOOTH ANIMATIONS */}
-        <main className="p-4 sm:p-6 lg:p-8 flex-1">
+        <main className={`${isAgentsPage ? 'p-2 sm:p-3' : 'p-4 sm:p-6 lg:p-8'} flex-1`}>
           <PageTransition>
             {children}
           </PageTransition>
@@ -238,30 +272,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       </div>
 
-      {/* MOBILE ADAPTIVE BOTTOM NAVIGATION BAR */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-slate-200 bg-white/95 backdrop-blur-2xl px-2 py-2 flex items-center justify-around">
-        {[
-          { label: "Agents", href: "/dashboard/agents", icon: Bot },
-          { label: "RAG", href: "/dashboard/knowledge", icon: Layers },
-          { label: "Workflows", href: "/dashboard/workflows", icon: GitFork },
-          { label: "Notes", href: "/dashboard/notebook", icon: FileText },
-          { label: "Models", href: "/dashboard/settings/ai-models", icon: Settings }
-        ].map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-bold transition-all ${
-                isActive ? "text-indigo-600 font-black" : "text-slate-500"
-              }`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+
 
     </div>
   );

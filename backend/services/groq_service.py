@@ -16,7 +16,7 @@ class GroqAIService:
         if self.client:
             try:
                 prompt = f"""
-You are DEVAGYA's Senior CBSE & NCERT Master Assessment Creator.
+You are DEVGYA's Senior CBSE & NCERT Master Assessment Creator.
 Generate an official high-quality Examination Question Paper strictly adhering to these user-specified constraints:
 
 Paper Details:
@@ -168,7 +168,7 @@ You MUST respond strictly with a valid JSON object matching this structure:
                 "Section D contains Case Study questions (4 marks each)."
             ],
             questions=questions,
-            school_name=req.school_name or "DEVAGYA GLOBAL ACADEMY"
+            school_name=req.school_name or "DEVGYA GLOBAL ACADEMY"
         )
 
     async def socratic_chat(self, question: str, subject: str = "Science", grade: str = "Class 10", action: str = "normal") -> dict:
@@ -187,7 +187,7 @@ You MUST respond strictly with a valid JSON object matching this structure:
             "normal": "Act as a master Socratic Tutor. DO NOT give the direct final answer. Instead, ask 1-2 guiding questions, provide a helpful hint, and explain the underlying principle."
         }
 
-        system_prompt = f"""You are DEVAGYA's Master Socratic AI Tutor for {grade} {subject}.
+        system_prompt = f"""You are DEVGYA's Master Socratic AI Tutor for {grade} {subject}.
 Your Goal: Guide the student to discover the answer themselves through encouraging questions, hints, and simple conceptual explanations.
 Constraint: DO NOT output the complete final answer directly.
 Action Mode: {action_instructions.get(action, action_instructions['normal'])}
@@ -270,7 +270,7 @@ Respond strictly in JSON array format:
             res = self.client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
-                    {"role": "system", "content": f"You are DEVAGYA AI Voice Tutor for {grade} {subject}. Keep your response short, conversational, encouraging, and under 3 sentences for natural speech synthesis. Ask 1 follow-up question."},
+                    {"role": "system", "content": f"You are DEVGYA AI Voice Tutor for {grade} {subject}. Keep your response short, conversational, encouraging, and under 3 sentences for natural speech synthesis. Ask 1 follow-up question."},
                     {"role": "user", "content": transcript}
                 ],
                 max_tokens=150,
@@ -325,7 +325,7 @@ Respond strictly in JSON format:
                 "when_to_seek_help": "If persistent anxiety, sleep disturbances, or total withdrawal continues for more than 2 weeks."
             }
 
-        system_prompt = """You are DEVAGYA's 24/7 AI Parenting Coach & Child Psychology Specialist.
+        system_prompt = """You are DEVGYA's 24/7 AI Parenting Coach & Child Psychology Specialist.
 Your Goal: Provide empathetic, practical, evidence-based parenting guidance for supporting children's education and emotional well-being.
 Important Safety Constraint: DO NOT provide clinical medical diagnoses. Indicate when consulting a professional guidance counselor or pediatrician is recommended.
 

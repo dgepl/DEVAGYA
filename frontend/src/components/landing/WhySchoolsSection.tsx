@@ -31,7 +31,7 @@ export function WhySchoolsSection() {
   ];
 
   return (
-    <section id="why-devagya" className="py-24 bg-slate-50 relative overflow-hidden">
+    <section id="why-devgya" className="py-24 bg-slate-50 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
         
         <div className="text-center max-w-3xl mx-auto space-y-4">
@@ -39,7 +39,7 @@ export function WhySchoolsSection() {
             End-to-End Educational Partner
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
-            WHY CHOOSE DEVAGYA GLOBAL?
+            WHY CHOOSE DEVGYA GLOBAL?
           </h2>
           <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
             Rather than acting merely as an equipment vendor, we serve as an end-to-end strategic educational partner for schools and study centers.

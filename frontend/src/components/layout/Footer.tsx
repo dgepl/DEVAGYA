@@ -11,7 +11,7 @@ export function Footer() {
             <Link href="/" className="inline-block">
               <img 
                 src="/logo.png" 
-                alt="DEVAGYA GLOBAL PRIVATE LIMITED" 
+                alt="DEVGYA GLOBAL PRIVATE LIMITED" 
                 className="h-12 sm:h-14 w-auto max-h-14 object-contain mix-blend-multiply" 
               />
             </Link>
@@ -20,7 +20,7 @@ export function Footer() {
             </p>
             <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full w-fit font-semibold">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>Devagya AI Operating System Active • System Normal</span>
+              <span>Devgya AI Operating System Active • System Normal</span>
             </div>
           </div>
 
@@ -61,7 +61,7 @@ export function Footer() {
 
         <div className="border-t border-slate-200 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="space-y-1">
-            <p>© 2026 Devagya Global Private Limited. All rights reserved.</p>
+            <p>© 2026 Devgya Global Private Limited. All rights reserved.</p>
             <p className="text-[11px] font-extrabold text-indigo-600">Designed and Developed by pratikk yadav +91 8307224756</p>
           </div>
           <div className="flex items-center gap-6">

@@ -11,16 +11,16 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://devgya.in"),
   title: {
-    default: "DEVAGYA GLOBAL PRIVATE LIMITED — Smart AI Education & School Solutions",
-    template: "%s | DEVAGYA GLOBAL"
+    default: "DEVGYA GLOBAL PRIVATE LIMITED — Smart AI Education & School Solutions",
+    template: "%s | DEVGYA GLOBAL"
   },
-  description: "At DEVAGYA GLOBAL PRIVATE LIMITED, we combine physical school infrastructure—textbooks, certified science labs, smart hardware—with an advanced AI learning platform for schools, teachers, students, and parents.",
+  description: "At DEVGYA GLOBAL PRIVATE LIMITED, we combine physical school infrastructure—textbooks, certified science labs, smart hardware—with an advanced AI learning platform for schools, teachers, students, and parents.",
   keywords: [
-    "DEVAGYA",
-    "DEVAGYA GLOBAL",
-    "DEVAGYA GLOBAL PRIVATE LIMITED",
+    "DEVGYA",
+    "DEVGYA GLOBAL",
+    "DEVGYA GLOBAL PRIVATE LIMITED",
     "devgya.in",
-    "DEVAGYA AI Learning Platform",
+    "DEVGYA AI Learning Platform",
     "AI Education Platform India",
     "Smart School Learning Management System",
     "AI Question Paper Generator CBSE ICSE",
@@ -28,9 +28,9 @@ export const metadata: Metadata = {
     "Socratic AI Tutor",
     "School Lab Hardware & Textbook Provider India"
   ],
-  authors: [{ name: "DEVAGYA GLOBAL PRIVATE LIMITED", url: "https://devgya.in" }],
-  creator: "DEVAGYA GLOBAL PRIVATE LIMITED",
-  publisher: "DEVAGYA GLOBAL PRIVATE LIMITED",
+  authors: [{ name: "DEVGYA GLOBAL PRIVATE LIMITED", url: "https://devgya.in" }],
+  creator: "DEVGYA GLOBAL PRIVATE LIMITED",
+  publisher: "DEVGYA GLOBAL PRIVATE LIMITED",
   icons: {
     icon: [
       { url: "/logo.png", type: "image/png" },
@@ -43,16 +43,16 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   openGraph: {
-    title: "DEVAGYA GLOBAL PRIVATE LIMITED — Smart AI Education Platform",
+    title: "DEVGYA GLOBAL PRIVATE LIMITED — Smart AI Education Platform",
     description: "Empowering schools, teachers, students, and parents with cutting-edge AI learning tools, certified lab hardware, and smart classroom solutions.",
     url: "https://devgya.in",
-    siteName: "DEVAGYA GLOBAL",
+    siteName: "DEVGYA GLOBAL",
     images: [
       {
         url: "https://devgya.in/logo.png",
         width: 1200,
         height: 630,
-        alt: "DEVAGYA GLOBAL PRIVATE LIMITED Logo"
+        alt: "DEVGYA GLOBAL PRIVATE LIMITED Logo"
       }
     ],
     locale: "en_IN",
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "DEVAGYA GLOBAL — Smart AI Education Platform",
+    title: "DEVGYA GLOBAL — Smart AI Education Platform",
     description: "AI Question Paper Generation, Socratic Tutor, OCR Scanner & School Hardware Solutions.",
     images: ["https://devgya.in/logo.png"]
   },
@@ -89,7 +89,7 @@ export default function RootLayout({
       {
         "@type": "Organization",
         "@id": "https://devgya.in/#organization",
-        "name": "DEVAGYA GLOBAL PRIVATE LIMITED",
+        "name": "DEVGYA GLOBAL PRIVATE LIMITED",
         "url": "https://devgya.in",
         "logo": "https://devgya.in/logo.png",
         "sameAs": [],
@@ -99,7 +99,7 @@ export default function RootLayout({
         "@type": "WebSite",
         "@id": "https://devgya.in/#website",
         "url": "https://devgya.in",
-        "name": "DEVAGYA GLOBAL",
+        "name": "DEVGYA GLOBAL",
         "publisher": {
           "@id": "https://devgya.in/#organization"
         },
@@ -107,7 +107,7 @@ export default function RootLayout({
       },
       {
         "@type": "EducationalApplication",
-        "name": "DEVAGYA AI Learning Platform",
+        "name": "DEVGYA AI Learning Platform",
         "operatingSystem": "Web",
         "applicationCategory": "EducationalApplication",
         "offers": {

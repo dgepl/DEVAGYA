@@ -36,7 +36,7 @@ const defaultUser: UserProfile = {
   name: "Guest User",
   email: "",
   role: "student",
-  schoolName: "DEVAGYA GLOBAL PRIVATE LIMITED",
+  schoolName: "DEVGYA GLOBAL PRIVATE LIMITED",
   board: "CBSE",
   xp: 0,
   streak: 0,
@@ -48,7 +48,7 @@ const defaultUser: UserProfile = {
 const getInitialUser = (): UserProfile => {
   if (typeof window !== "undefined") {
     try {
-      const stored = localStorage.getItem("devagya_user");
+      const stored = localStorage.getItem("devgya_user");
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed && parsed.email) return parsed;
@@ -69,7 +69,7 @@ export const useAppStore = create<AppState>((set) => ({
   setUser: (user) => {
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem("devagya_user", JSON.stringify(user));
+        localStorage.setItem("devgya_user", JSON.stringify(user));
       } catch (e) {}
     }
     set({ user });
@@ -86,7 +86,7 @@ export const useAppStore = create<AppState>((set) => ({
   logout: () => {
     if (typeof window !== "undefined") {
       try {
-        localStorage.removeItem("devagya_user");
+        localStorage.removeItem("devgya_user");
       } catch (e) {}
     }
     set({ user: defaultUser, activePaper: null, savedPapers: [] });

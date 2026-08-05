@@ -23,8 +23,8 @@ export function ParentDashboard() {
   const { user, activeChildId, setActiveChildId } = useAppStore();
 
   const [children] = useState([
-    { id: "std-1", name: "Aarav Sharma", class: "Class 10-A", school: user.schoolName || "DEVAGYA GLOBAL PRIVATE LIMITED" },
-    { id: "std-2", name: "Ananya Sharma", class: "Class 7-B", school: user.schoolName || "DEVAGYA GLOBAL PRIVATE LIMITED" }
+    { id: "std-1", name: "Aarav Sharma", class: "Class 10-A", school: user.schoolName || "DEVGYA GLOBAL PRIVATE LIMITED" },
+    { id: "std-2", name: "Ananya Sharma", class: "Class 7-B", school: user.schoolName || "DEVGYA GLOBAL PRIVATE LIMITED" }
   ]);
 
   const selectedChild = children.find(c => c.id === activeChildId) || children[0];

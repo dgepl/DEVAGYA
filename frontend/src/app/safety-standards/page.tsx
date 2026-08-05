@@ -20,7 +20,7 @@ export default function SafetyStandardsPage() {
               Quality & Safety Standards
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-semibold max-w-2xl mx-auto">
-              DEVAGYA GLOBAL PRIVATE LIMITED • Certified K-12 Educational Infrastructure & Ethical AI
+              DEVGYA GLOBAL PRIVATE LIMITED • Certified K-12 Educational Infrastructure & Ethical AI
             </p>
           </div>
 
@@ -60,7 +60,7 @@ export default function SafetyStandardsPage() {
                 1. Physical School Infrastructure & Science Laboratory Safety
               </h3>
               <p>
-                At <strong>DEVAGYA GLOBAL PRIVATE LIMITED</strong>, our physical school infrastructure—ranging from curriculum-aligned textbooks to certified science laboratories—undergoes rigorous quality assurance checks before deployment to schools.
+                At <strong>DEVGYA GLOBAL PRIVATE LIMITED</strong>, our physical school infrastructure—ranging from curriculum-aligned textbooks to certified science laboratories—undergoes rigorous quality assurance checks before deployment to schools.
               </p>
             </section>
 
@@ -75,8 +75,8 @@ export default function SafetyStandardsPage() {
               <h3 className="text-lg font-black text-slate-900">3. Quality Certification & Verification Contact</h3>
               <p className="text-xs text-slate-600">
                 For safety documentation or institutional compliance verification:<br />
-                <strong className="text-slate-900">DEVAGYA GLOBAL PRIVATE LIMITED</strong><br />
-                Phone: +91 8307224756 | Email: quality@devagyaglobal.com
+                <strong className="text-slate-900">DEVGYA GLOBAL PRIVATE LIMITED</strong><br />
+                Phone: +91 8307224756 | Email: quality@devgyaglobal.com
               </p>
             </section>
 

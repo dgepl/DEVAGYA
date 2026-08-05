@@ -10,7 +10,7 @@ export default function DashboardOverviewPage() {
   const metrics = [
     { label: "Question Papers Saved", value: `${savedPapers.length}`, change: "Saved in Session" },
     { label: "OCR Textbook Scans", value: "0", change: "Ready for Scan" },
-    { label: "Active School Board", value: `${user.board || "CBSE"}`, change: `${user.schoolName || "DEVAGYA GLOBAL"}` },
+    { label: "Active School Board", value: `${user.board || "CBSE"}`, change: `${user.schoolName || "DEVGYA GLOBAL"}` },
     { label: "PDF Export Status", value: "Active", change: "With School Header" },
   ];
 

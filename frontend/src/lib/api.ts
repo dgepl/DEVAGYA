@@ -275,6 +275,29 @@ export async function executeAgent(payload: { agent_code: string; query: string 
   return res.json();
 }
 
+// Agent OS Chat History APIs
+export async function getAgentConversations(userId: string, agentCode?: string) {
+  let url = `${API_BASE}/agents/conversations?user_id=${encodeURIComponent(userId)}`;
+  if (agentCode) url += `&agent_code=${encodeURIComponent(agentCode)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch agent conversations");
+  return res.json();
+}
+
+export async function getAgentConversation(conversationId: string, userId: string) {
+  const res = await fetch(`${API_BASE}/agents/conversations/${conversationId}?user_id=${encodeURIComponent(userId)}`);
+  if (!res.ok) throw new Error("Failed to fetch agent conversation");
+  return res.json();
+}
+
+export async function deleteAgentConversation(conversationId: string, userId: string) {
+  const res = await fetch(`${API_BASE}/agents/conversations/${conversationId}?user_id=${encodeURIComponent(userId)}`, {
+    method: "DELETE"
+  });
+  if (!res.ok) throw new Error("Failed to delete agent conversation");
+  return res.json();
+}
+
 // 2. Knowledge Base & Document AI APIs
 export async function getKnowledgeDocuments() {
   const res = await fetch(`${API_BASE}/knowledge/documents`);

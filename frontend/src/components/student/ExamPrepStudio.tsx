@@ -11,15 +11,18 @@ import {
   RefreshCw, 
   Award, 
   FileText,
-  HelpCircle
+  HelpCircle,
+  Lightbulb
 } from "lucide-react";
-import { generateExamPrep } from "@/lib/api";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 export function ExamPrepStudio() {
   const [examName, setExamName] = useState("CBSE Class 10 Board Exam");
   const [subject, setSubject] = useState("Science");
   const [daysRemaining, setDaysRemaining] = useState(14);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [examData, setExamData] = useState<any>({
     exam_name: "CBSE Class 10 Board Exam",
     subject: "Science",
@@ -54,11 +57,22 @@ export function ExamPrepStudio() {
 
   const handleGenerate = async () => {
     setLoading(true);
+    setError("");
     try {
-      const res = await generateExamPrep({ exam_name: examName, subject, days_remaining: daysRemaining });
-      setExamData(res);
+      const res = await fetch(`${API_BASE}/student/exam-prep`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exam_name: examName, subject, days_remaining: daysRemaining }),
+      });
+      const data = await res.json();
+      if (data.high_yield_topics) {
+        setExamData(data);
+      } else {
+        setError(data.detail || "Failed to generate. Try again.");
+      }
     } catch (e) {
       console.error(e);
+      setError("Connection failed. Make sure backend is running.");
     } finally {
       setLoading(false);
     }

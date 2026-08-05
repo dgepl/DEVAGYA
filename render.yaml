@@ -1,7 +1,7 @@
 services:
   # 1. FastAPI Python Backend Engine
   - type: web
-    name: devagya-backend
+    name: devgya-backend
     env: python
     region: oregon
     buildCommand: "pip install -r requirements.txt"
@@ -23,7 +23,7 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: CLOUDINARY_CLOUD_NAME
-        value: devagya
+        value: devgya
       - key: CLOUDINARY_API_KEY
         value: 187887846778974
       - key: CLOUDINARY_API_SECRET
@@ -33,7 +33,7 @@ services:
 
   # 2. Next.js 15 Frontend Web App
   - type: web
-    name: devagya-frontend
+    name: devgya-frontend
     env: node
     region: oregon
     buildCommand: "npm install && npm run build"
@@ -41,10 +41,10 @@ services:
     rootDir: frontend
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        value: https://devagya-backend.onrender.com/api/v1
+        value: https://devgya-backend.onrender.com/api/v1
       - key: NEXT_PUBLIC_SUPABASE_URL
         value: https://amlvyskjrencrolnppgs.supabase.co
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         value: sb_publishable_5pGOV4xrWewa6O-PobdtDg_tbRD7fl9
       - key: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-        value: devagya
+        value: devgya

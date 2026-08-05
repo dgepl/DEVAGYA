@@ -34,6 +34,9 @@ from api.v1.prompt_studio import router as prompt_studio_router
 from api.v1.memory_v2 import router as memory_v2_router
 from api.v1.ai_models import router as ai_models_router
 
+# Phase 5 Routers
+from api.v1.xp import router as xp_router
+
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
@@ -51,6 +54,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Conversation-Id", "X-XP-Earned"],
 )
 
 # Mount Phase 1 Routers
@@ -83,6 +87,9 @@ app.include_router(workflows_router, prefix=settings.API_V1_STR)
 app.include_router(prompt_studio_router, prefix=settings.API_V1_STR)
 app.include_router(memory_v2_router, prefix=settings.API_V1_STR)
 app.include_router(ai_models_router, prefix=settings.API_V1_STR)
+
+# Mount Phase 5 Routers
+app.include_router(xp_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():

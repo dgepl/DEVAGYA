@@ -65,7 +65,7 @@ class SupabaseService:
         email: str, 
         full_name: str, 
         role: str, 
-        school_name: Optional[str] = "DEVAGYA GLOBAL PRIVATE LIMITED",
+        school_name: Optional[str] = "DEVGYA GLOBAL PRIVATE LIMITED",
         board: Optional[str] = "CBSE"
     ) -> Dict[str, Any]:
         """Create real profile record in Supabase Cloud public.profiles table."""
@@ -107,7 +107,7 @@ class SupabaseService:
             "email": email_clean,
             "full_name": full_name,
             "role": role,
-            "schoolName": school_name or "DEVAGYA GLOBAL PRIVATE LIMITED",
+            "schoolName": school_name or "DEVGYA GLOBAL PRIVATE LIMITED",
             "board": board or "CBSE"
         }
 
