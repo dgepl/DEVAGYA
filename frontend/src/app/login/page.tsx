@@ -14,17 +14,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, setUser } = useAppStore();
+  const { user, setUser, logout } = useAppStore();
   const router = useRouter();
-
-  // Returning User Persistent Session Auto-Redirect
-  useEffect(() => {
-    if (user && user.email) {
-      if (user.role === "student") router.replace("/dashboard/student");
-      else if (user.role === "parent") router.replace("/dashboard/parent");
-      else router.replace("/dashboard");
-    }
-  }, [user, router]);
 
   const handleEmailChange = (val: string) => {
     setEmail(val);
@@ -54,7 +45,13 @@ export default function LoginPage() {
         body: JSON.stringify({ email: email.trim().toLowerCase(), password, role })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Authentication failed.");
+      if (!res.ok) {
+        throw new Error(data.detail || "Authentication failed. Invalid email or password.");
+      }
+
+      if (!data.user) {
+        throw new Error("Invalid response from server. Login failed.");
+      }
 
       setUser(data.user);
 
@@ -191,3 +188,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

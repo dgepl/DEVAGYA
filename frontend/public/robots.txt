@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 
-Sitemap: https://dgepltd.in/sitemap.xml
+Sitemap: https://devgya.in/sitemap.xml

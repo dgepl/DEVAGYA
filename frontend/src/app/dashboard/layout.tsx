@@ -36,7 +36,7 @@ import {
   DollarSign
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { SmartSearchBar } from "@/components/search/SmartSearchBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 
@@ -44,6 +44,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSignOut = () => {
     logout();
@@ -54,7 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Strict Role-Based Access Control (RBAC) Route Guard
   useEffect(() => {
-    if (!user || !user.role) return;
+    if (!mounted || !user || !user.role) return;
 
     if (user.role === "student") {
       const isStudentAllowed = 
@@ -81,7 +86,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace("/dashboard");
       }
     }
-  }, [user, pathname, router]);
+  }, [user, pathname, router, mounted]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   // Role-based Nav Specifications including AI OS Extensions
   let navItems = [
@@ -138,10 +151,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         
         {/* Brand Header - Logo Only */}
         <Link href="/" className="flex items-center px-2">
-          <img 
-            src="/logo.png" 
-            alt="DEVAGYA GLOBAL PRIVATE LIMITED" 
-            className="h-10 w-auto max-h-12 object-contain mix-blend-multiply" 
+          <img
+            src="/logo.png"
+            alt="DEVAGYA GLOBAL PRIVATE LIMITED"
+            className="h-10 w-auto max-h-12 object-contain mix-blend-multiply"
           />
         </Link>
 
@@ -253,3 +266,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+

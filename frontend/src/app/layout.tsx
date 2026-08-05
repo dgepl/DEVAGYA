@@ -9,7 +9,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://dgepltd.in"),
+  metadataBase: new URL("https://devgya.in"),
   title: {
     default: "DEVAGYA GLOBAL PRIVATE LIMITED — Smart AI Education & School Solutions",
     template: "%s | DEVAGYA GLOBAL"
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     "DEVAGYA",
     "DEVAGYA GLOBAL",
     "DEVAGYA GLOBAL PRIVATE LIMITED",
-    "dgepltd.in",
+    "devgya.in",
     "DEVAGYA AI Learning Platform",
     "AI Education Platform India",
     "Smart School Learning Management System",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     "Socratic AI Tutor",
     "School Lab Hardware & Textbook Provider India"
   ],
-  authors: [{ name: "DEVAGYA GLOBAL PRIVATE LIMITED", url: "https://dgepltd.in" }],
+  authors: [{ name: "DEVAGYA GLOBAL PRIVATE LIMITED", url: "https://devgya.in" }],
   creator: "DEVAGYA GLOBAL PRIVATE LIMITED",
   publisher: "DEVAGYA GLOBAL PRIVATE LIMITED",
   icons: {
@@ -45,11 +45,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: "DEVAGYA GLOBAL PRIVATE LIMITED — Smart AI Education Platform",
     description: "Empowering schools, teachers, students, and parents with cutting-edge AI learning tools, certified lab hardware, and smart classroom solutions.",
-    url: "https://dgepltd.in",
+    url: "https://devgya.in",
     siteName: "DEVAGYA GLOBAL",
     images: [
       {
-        url: "https://dgepltd.in/logo.png",
+        url: "https://devgya.in/logo.png",
         width: 1200,
         height: 630,
         alt: "DEVAGYA GLOBAL PRIVATE LIMITED Logo"
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "DEVAGYA GLOBAL — Smart AI Education Platform",
     description: "AI Question Paper Generation, Socratic Tutor, OCR Scanner & School Hardware Solutions.",
-    images: ["https://dgepltd.in/logo.png"]
+    images: ["https://devgya.in/logo.png"]
   },
   robots: {
     index: true,
@@ -88,20 +88,20 @@ export default function RootLayout({
     "@graph": [
       {
         "@type": "Organization",
-        "@id": "https://dgepltd.in/#organization",
+        "@id": "https://devgya.in/#organization",
         "name": "DEVAGYA GLOBAL PRIVATE LIMITED",
-        "url": "https://dgepltd.in",
-        "logo": "https://dgepltd.in/logo.png",
+        "url": "https://devgya.in",
+        "logo": "https://devgya.in/logo.png",
         "sameAs": [],
         "description": "Provider of physical school infrastructure, certified science labs, textbooks, and AI digital learning platform."
       },
       {
         "@type": "WebSite",
-        "@id": "https://dgepltd.in/#website",
-        "url": "https://dgepltd.in",
+        "@id": "https://devgya.in/#website",
+        "url": "https://devgya.in",
         "name": "DEVAGYA GLOBAL",
         "publisher": {
-          "@id": "https://dgepltd.in/#organization"
+          "@id": "https://devgya.in/#organization"
         },
         "inLanguage": "en-US"
       },
@@ -138,3 +138,4 @@ export default function RootLayout({
     </html>
   );
 }
+

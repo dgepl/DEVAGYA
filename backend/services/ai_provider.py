@@ -21,7 +21,7 @@ class AIProviderService:
 
     @property
     def base_url(self) -> str:
-        return os.getenv("AI_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+        return os.getenv("AI_BASE_URL", "[https://api.groq.com/openai/v1](https://api.groq.com/openai/v1)").rstrip("/")
 
     @property
     def model(self) -> str:
@@ -47,7 +47,7 @@ class AIProviderService:
         
         payload: Dict[str, Any] = {
             "model": self.model,
-            "messages": messages,
+            "messages": self._optimize_messages(messages),
             "temperature": temperature,
             "max_tokens": max_tokens
         }
@@ -64,6 +64,33 @@ class AIProviderService:
             except Exception as e:
                 logger.error(f"AI Provider ({self.base_url}) Error: {e}")
                 raise e
+
+    def _optimize_messages(self, messages: List[Dict[str, str]], max_turns: int = 6) -> List[Dict[str, str]]:
+        """
+        Compresses conversation history to conserve API tokens and credits:
+        1. Preserves system prompt.
+        2. Retains the latest max_turns message exchanges.
+        3. Strips extraneous white space from messages.
+        """
+        if not messages:
+            return []
+
+        optimized = []
+        system_msgs = [m for m in messages if m.get("role") == "system"]
+        user_assistant_msgs = [m for m in messages if m.get("role") != "system"]
+
+        for sm in system_msgs:
+            sm_copy = dict(sm)
+            sm_copy["content"] = " ".join(sm_copy["content"].split())
+            optimized.append(sm_copy)
+
+        recent_msgs = user_assistant_msgs[-max_turns:]
+        for m in recent_msgs:
+            m_copy = dict(m)
+            m_copy["content"] = " ".join(m_copy["content"].split())
+            optimized.append(m_copy)
+
+        return optimized
 
     async def stream_chat_completion(
         self,
@@ -82,7 +109,7 @@ class AIProviderService:
         }
         payload = {
             "model": self.model,
-            "messages": messages,
+            "messages": self._optimize_messages(messages),
             "temperature": temperature,
             "stream": True
         }
@@ -103,3 +130,4 @@ class AIProviderService:
                             continue
 
 ai_provider = AIProviderService()
+
