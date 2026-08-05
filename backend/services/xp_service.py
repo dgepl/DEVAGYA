@@ -12,7 +12,13 @@ load_dotenv()
 
 logger = logging.getLogger("xp_service")
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+def _clean_supabase_url() -> str:
+    url = os.getenv("SUPABASE_URL", "https://amlvyskjrencrolnppgs.supabase.co").strip().rstrip("/")
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "https://" + url if url else "https://amlvyskjrencrolnppgs.supabase.co"
+    return url
+
+SUPABASE_URL = _clean_supabase_url()
 SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
 HEADERS = {

@@ -21,7 +21,12 @@ class AIProviderService:
 
     @property
     def base_url(self) -> str:
-        return os.getenv("AI_BASE_URL", "[https://api.groq.com/openai/v1](https://api.groq.com/openai/v1)").rstrip("/")
+        raw = os.getenv("AI_BASE_URL", "https://api.groq.com/openai/v1").strip().strip("'\"")
+        if raw.startswith("[") and "](" in raw:
+            raw = raw.split("](")[-1].rstrip(")")
+        if not raw.startswith("http://") and not raw.startswith("https://"):
+            raw = "https://" + raw
+        return raw.rstrip("/")
 
     @property
     def model(self) -> str:
