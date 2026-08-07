@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles, FileText, Download, CheckCircle, RefreshCw, Cpu } from "lucide-react";
+import { Sparkles, FileText, Download, CheckCircle, RefreshCw, Cpu, Lock } from "lucide-react";
 import { generateQuestionPaper, GeneratedPaperResponse, downloadPDF } from "@/lib/api";
 
 export function InteractiveDemoWidget() {
+  const router = useRouter();
   const [selectedClass, setSelectedClass] = useState("Class 10");
   const [selectedSubject, setSelectedSubject] = useState("Science");
   const [selectedChapter, setSelectedChapter] = useState("Chemical Reactions and Equations");
@@ -13,28 +15,13 @@ export function InteractiveDemoWidget() {
   const [loading, setLoading] = useState(false);
   const [paper, setPaper] = useState<GeneratedPaperResponse | null>(null);
 
-  const handleGenerate = async () => {
-    setLoading(true);
-    try {
-      const res = await generateQuestionPaper({
-        title: "CBSE Mid-Term Examination 2025",
-        class_name: selectedClass,
-        subject: selectedSubject,
-        chapter: selectedChapter,
-        difficulty: difficulty,
-        total_marks: 40,
-        time_allowed_mins: 90,
-        num_mcqs: 4,
-        num_short: 2,
-        num_long: 1,
-        school_name: "Apex International Academy"
-      });
-      setPaper(res);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+  // REDIRECT UNAUTHENTICATED HOMEPAGE USERS DIRECTLY TO LOGIN PAGE
+  const handleGenerate = () => {
+    router.push("/login");
+  };
+
+  const handlePdfRedirect = () => {
+    router.push("/login");
   };
 
   return (
@@ -50,7 +37,7 @@ export function InteractiveDemoWidget() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* Left Controls Card */}
-          <div className="lg:col-span-5 glass-panel p-6 rounded-3xl border border-slate-200 space-y-6">
+          <div className="lg:col-span-5 glass-panel p-6 rounded-3xl border border-slate-200 space-y-6 bg-white shadow-md">
             
             <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
               <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
@@ -72,7 +59,7 @@ export function InteractiveDemoWidget() {
                     onClick={() => setSelectedClass(cls)}
                     className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all ${
                       selectedClass === cls
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
                         : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
                     }`}
                   >
@@ -121,7 +108,7 @@ export function InteractiveDemoWidget() {
                     onClick={() => setDifficulty(diff)}
                     className={`py-2 text-xs font-bold rounded-xl border capitalize transition-all ${
                       difficulty === diff
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
                         : "bg-white text-slate-700 border-slate-200"
                     }`}
                   >
@@ -131,110 +118,104 @@ export function InteractiveDemoWidget() {
               </div>
             </div>
 
-            {/* Generate CTA Button */}
+            {/* Generate CTA Button - REDIRECTS TO LOGIN */}
             <button
               onClick={handleGenerate}
-              disabled={loading}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-glow transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider active:scale-95"
             >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-cyan-200" />
-                  Synthesizing NCERT Paper...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-cyan-200" />
-                  Generate Question Paper
-                </>
-              )}
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Generate Question Paper</span>
             </button>
 
           </div>
 
           {/* Right Live Preview Card */}
-          <div className="lg:col-span-7 glass-panel p-6 rounded-3xl border border-slate-200 min-h-[480px] flex flex-col justify-between">
+          <div className="lg:col-span-7 glass-panel p-6 rounded-3xl border border-slate-200 min-h-[480px] flex flex-col justify-between bg-white shadow-md">
             
-            {paper ? (
-              <div className="space-y-6">
-                
-                {/* Paper Header */}
-                <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-600">Sample Generated Output</span>
-                    <h4 className="text-lg font-bold text-slate-900">{paper.school_name}</h4>
-                    <p className="text-xs text-slate-600">{paper.title} • {paper.class_name} ({paper.subject})</p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => downloadPDF(paper, false)}
-                      className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Paper PDF
-                    </button>
-                    <button
-                      onClick={() => downloadPDF(paper, true)}
-                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      Answer Key PDF
-                    </button>
-                  </div>
+            <div className="space-y-6">
+              
+              {/* Paper Header */}
+              <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-[10px] uppercase font-extrabold tracking-widest text-indigo-600">Sample Generated Output</span>
+                  <h4 className="text-lg font-black text-slate-900">Apex International Academy</h4>
+                  <p className="text-xs text-slate-600 font-medium">CBSE Mid-Term Examination 2025 • Class 10 (Science)</p>
                 </div>
 
-                {/* Questions List */}
-                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
-                  {paper.questions.map((q) => (
-                    <motion.div
-                      key={q.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-indigo-600 uppercase tracking-wide">
-                          Question {q.question_number} • <span className="text-slate-600">{q.question_type.toUpperCase()}</span>
-                        </span>
-                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                          {q.marks} Mark{q.marks > 1 ? 's' : ''}
-                        </span>
-                      </div>
-                      <p className="text-sm font-bold text-slate-800">{q.question_text}</p>
-                      
-                      {q.options && (
-                        <div className="grid grid-cols-2 gap-2 pt-2">
-                          {q.options.map((opt, idx) => (
-                            <div key={idx} className="text-xs text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                              {opt}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePdfRedirect}
+                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Paper PDF
+                  </button>
+                  <button
+                    onClick={handlePdfRedirect}
+                    className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Answer Key PDF
+                  </button>
                 </div>
-
               </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4 animate-float">
-                  <FileText className="w-8 h-8" />
-                </div>
-                <h4 className="text-base font-bold text-slate-900 mb-2">Interactive AI Preview Ready</h4>
-                <p className="text-xs text-slate-600 max-w-sm mb-6">
-                  Click &quot;Generate Question Paper&quot; to invoke our backend REST API and see real AI output formatted instantly.
-                </p>
+
+              {/* Questions List */}
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
+                {[
+                  {
+                    num: 1,
+                    type: "MCQ",
+                    marks: 1,
+                    text: "What is the general equation for a chemical reaction?",
+                    opts: ["(A) a + b → c", "(B) a + b → c + d", "(C) a → b", "(D) a + b → ab"]
+                  },
+                  {
+                    num: 2,
+                    type: "MCQ",
+                    marks: 1,
+                    text: "What is the term for the amount of substance that changes during a chemical reaction?",
+                    opts: ["(A) Quantity", "(B) Mole", "(C) Mass", "(D) Volume"]
+                  }
+                ].map((q) => (
+                  <div
+                    key={q.num}
+                    className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-xs space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-indigo-600 uppercase tracking-wide">
+                        Question {q.num} • <span className="text-slate-600">{q.type}</span>
+                      </span>
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        {q.marks} Mark
+                      </span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">{q.text}</p>
+                    
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                      {q.opts.map((opt, idx) => (
+                        <div key={idx} className="text-xs text-slate-700 bg-white p-2 rounded-lg border border-slate-200 font-medium">
+                          {opt}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Direct Action Link */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Sign in to generate unlimited full-length papers</span>
                 <button
                   onClick={handleGenerate}
-                  className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
                 >
-                  <Sparkles className="w-4 h-4 text-cyan-300" />
-                  Run Quick Demo Generation
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Log In to Access</span>
                 </button>
               </div>
-            )}
+
+            </div>
 
           </div>
 
