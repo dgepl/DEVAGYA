@@ -250,48 +250,6 @@ export function MobileLandingView() {
 
       </div>
 
-      {/* FIXED GLASSMOBILITY MOBILE BOTTOM QUICK BAR */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-slate-900/90 backdrop-blur-xl border-t border-white/15 flex items-center justify-around shadow-2xl">
-        <Link
-          href="/"
-          className="flex flex-col items-center gap-1 text-[10px] font-extrabold text-indigo-400"
-        >
-          <Sparkles className="w-5 h-5" />
-          <span>Home</span>
-        </Link>
-
-        <Link
-          href="/login"
-          className="flex flex-col items-center gap-1 text-[10px] font-extrabold text-slate-400 hover:text-white"
-        >
-          <BookOpen className="w-5 h-5" />
-          <span>Generator</span>
-        </Link>
-
-        <Link
-          href="/login"
-          className="w-12 h-12 -mt-6 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/40 active:scale-95 transition-transform"
-        >
-          <Zap className="w-6 h-6 text-amber-300 animate-pulse" />
-        </Link>
-
-        <Link
-          href="/login"
-          className="flex flex-col items-center gap-1 text-[10px] font-extrabold text-slate-400 hover:text-white"
-        >
-          <ScanText className="w-5 h-5" />
-          <span>OCR Vision</span>
-        </Link>
-
-        <Link
-          href="/login"
-          className="flex flex-col items-center gap-1 text-[10px] font-extrabold text-slate-400 hover:text-white"
-        >
-          <Bot className="w-5 h-5" />
-          <span>Sign In</span>
-        </Link>
-      </div>
-
     </div>
   );
 }

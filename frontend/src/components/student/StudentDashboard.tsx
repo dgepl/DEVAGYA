@@ -309,36 +309,6 @@ export function StudentDashboard() {
           </div>
         )}
       </div>
-
-      {/* ── STICKY/FIXED PROFESSIONAL MOBILE BOTTOM NAVBAR ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] px-4 py-2 flex items-center justify-around md:hidden pb-[max(0.6rem,env(safe-area-inset-bottom))]">
-        {[
-          { key: "home" as const, icon: Home, label: "Home" },
-          { key: "agents" as const, icon: Bot, label: "AI Agents" },
-          { key: "rank" as const, icon: Trophy, label: "Rankings" },
-        ].map((tab) => {
-          const isActive = mobileTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setMobileTab(tab.key)}
-              className={`flex flex-col items-center justify-center gap-1 px-5 py-1 rounded-2xl transition-all duration-200 relative active:scale-95 ${
-                isActive
-                  ? "text-indigo-600 font-extrabold"
-                  : "text-slate-400 hover:text-slate-600 font-medium"
-              }`}
-            >
-              {isActive && (
-                <span className="absolute -top-2 w-8 h-1 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full shadow-sm animate-in fade-in zoom-in duration-200" />
-              )}
-              <div className={`p-1.5 rounded-xl transition-all ${isActive ? "bg-indigo-50/80 scale-110 shadow-sm" : ""}`}>
-                <tab.icon className={`w-5 h-5 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
-              </div>
-              <span className="text-[10px] tracking-tight">{tab.label}</span>
-            </button>
-          );
-        })}
-      </nav>
     </div>
   );
 
