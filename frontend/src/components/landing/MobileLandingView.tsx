@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { 
   Sparkles, 
   BookOpen, 
@@ -32,336 +31,245 @@ import {
 } from "lucide-react";
 
 export function MobileLandingView() {
-  const router = useRouter();
+  const [activePreview, setActivePreview] = useState<"ocr" | "generator" | "planner">("ocr");
 
-  // Low-Scroll Segmented Tab State
-  const [sectionTab, setSectionTab] = useState<"overview" | "about" | "features">("overview");
-
-  // Tool preview tab state
-  const [activeTool, setActiveTool] = useState<"generator" | "planner" | "ocr" | "agents">("ocr");
-
-  // Interactive ROI Calculator State
-  const [teachersCount, setTeachersCount] = useState(25);
-  const hoursSavedPerTeacher = 4.5;
-  const totalWeeklyHoursSaved = teachersCount * hoursSavedPerTeacher;
-  const annualSavingsINR = teachersCount * 85000;
-
-  const mobileTools = [
+  const coreFeatures = [
     {
       id: "ocr",
       title: "Vision Book Scanner",
       badge: "AI Vision • OCR",
-      desc: "Snap textbook photos or handwritten answer sheets to extract clean text & questions instantly.",
+      desc: "Snap textbook photos or handwritten answer sheets to extract clean text & questions in 3 seconds.",
       icon: ScanText,
-      color: "from-cyan-600 to-blue-600",
+      color: "bg-cyan-500",
+      accent: "text-cyan-600 bg-cyan-50 border-cyan-200",
       img: "/showcase-ocr.png",
+      href: "/login"
     },
     {
       id: "generator",
-      title: "AI Paper Studio",
+      title: "AI Question Generator",
       badge: "CBSE / NCERT",
-      desc: "Generate 1M, 3M, 5M periodic assessment papers with step-by-step NCERT marking schemes.",
-      icon: Sparkles,
-      color: "from-indigo-600 to-purple-600",
+      desc: "Generate 1M, 3M, 5M NCERT periodic assessment papers with step-by-step model answer keys.",
+      icon: Zap,
+      color: "bg-indigo-600",
+      accent: "text-indigo-600 bg-indigo-50 border-indigo-200",
       img: "/showcase-generator.png",
+      href: "/login"
     },
     {
       id: "planner",
       title: "5E Lesson Planner",
       badge: "NCERT 5E",
-      desc: "Build 5E pedagogical Framework unit plans, learning outcomes & activity timelines.",
+      desc: "Build 5E Framework daily lesson blueprints, learning outcomes & activity timelines.",
       icon: BookOpen,
-      color: "from-emerald-600 to-teal-600",
+      color: "bg-purple-600",
+      accent: "text-purple-600 bg-purple-50 border-purple-200",
       img: "/showcase-planner.png",
-    },
-    {
-      id: "agents",
-      title: "15 AI Teaching Agents",
-      badge: "Specialized AI",
-      desc: "Role-filtered AI assistants for Teachers, Students & Parents.",
-      icon: Bot,
-      color: "from-violet-600 to-pink-600",
-      img: "/logo.png",
+      href: "/login"
     }
   ];
 
-  const agentList = [
-    { code: "teacher_mentor", name: "Teacher Mentor AI", role: "Teacher", desc: "Pedagogical guidance & CBSE syllabus strategy" },
-    { code: "question_generator", name: "Question Generator AI", role: "Teacher", desc: "HOTS questions & blueprints" },
-    { code: "lesson_planner", name: "Lesson Planner AI", role: "Teacher", desc: "5E framework & unit plans" },
-    { code: "student_tutor", name: "AI Student Tutor", role: "Student", desc: "Step-by-step math & science problem solver" },
-    { code: "exam_strategist", name: "Exam Strategist AI", role: "Student", desc: "Board mark weightage analysis" },
-    { code: "parent_coach", name: "Parenting Coach AI", role: "Parent", desc: "Screen-time & study habits balance" }
+  const aiAgents = [
+    { code: "teacher_mentor", name: "Teacher Mentor AI", role: "Teacher", desc: "Pedagogical guidance & CBSE strategy", icon: GraduationCap },
+    { code: "question_generator", name: "Question Generator AI", role: "Teacher", desc: "HOTS questions & NCERT blueprints", icon: Sparkles },
+    { code: "student_tutor", name: "Socratic AI Tutor", role: "Student", desc: "Step-by-step math & science master", icon: Brain },
+    { code: "parent_coach", name: "Parenting Coach AI", role: "Parent", desc: "Screen-time & home routine balance", icon: HeartHandshake }
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white pb-12 pt-20 relative overflow-hidden selection:bg-indigo-500 selection:text-white md:hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 pt-16 relative overflow-hidden font-sans md:hidden">
       
-      {/* GLOW BACKGROUND */}
-      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-80 h-80 bg-indigo-600/25 blur-[100px] rounded-full pointer-events-none" />
+      {/* BACKGROUND DECORATIVE GLOW */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-indigo-100/70 blur-[90px] rounded-full pointer-events-none" />
 
-      {/* COMPACT APP HEADER BANNER */}
-      <div className="px-4 text-center space-y-3 pt-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-md">
-          <Smartphone className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-200">
-            Dedicated Mobile App UI
-          </span>
+      {/* 1. HERO HERO BANNER */}
+      <div className="px-5 pt-4 text-center space-y-4 relative z-10">
+        
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-indigo-100 shadow-xs text-indigo-700 text-[11px] font-extrabold">
+          <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+          <span>DEVGYA AI School OS • K-12</span>
         </div>
 
-        <h1 className="text-2xl font-black tracking-tight text-white leading-tight">
-          DEVGYA GLOBAL <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300">
-            AI School OS • K-12
+        <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
+          Smart AI Platform for <br />
+          <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+            CBSE & NCERT Schools
           </span>
         </h1>
 
-        {/* TOP SEGMENTED TAB SWITCHER FOR LOW-SCROLL NAVIGATION */}
-        <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900/90 rounded-2xl border border-slate-800 backdrop-blur-xl shadow-lg mt-2">
-          <button
-            onClick={() => setSectionTab("overview")}
-            className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
-              sectionTab === "overview"
-                ? "bg-indigo-600 text-white shadow-md"
-                : "text-slate-400 hover:text-white"
-            }`}
+        <p className="text-xs text-slate-600 font-medium leading-relaxed max-w-xs mx-auto">
+          Physical school infrastructure, certified science labs, and textbook provider powered by 15 AI Agents.
+        </p>
+
+        {/* HERO CTA BUTTONS */}
+        <div className="space-y-2.5 pt-2">
+          <Link
+            href="/login"
+            className="w-full py-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-extrabold text-xs rounded-2xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 uppercase tracking-wider active:scale-95 transition-transform"
           >
-            ⚡ AI Tools
-          </button>
-          <button
-            onClick={() => setSectionTab("about")}
-            className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
-              sectionTab === "about"
-                ? "bg-indigo-600 text-white shadow-md"
-                : "text-slate-400 hover:text-white"
-            }`}
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span>Sign In to School Platform</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+
+          <Link
+            href="/register"
+            className="w-full py-3.5 bg-white hover:bg-slate-50 text-slate-800 font-extrabold text-xs rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-center gap-2 active:scale-95 transition-transform"
           >
-            🏫 About Us
-          </button>
-          <button
-            onClick={() => setSectionTab("features")}
-            className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
-              sectionTab === "features"
-                ? "bg-indigo-600 text-white shadow-md"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            🚀 Features & ROI
-          </button>
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Create Free Account</span>
+          </Link>
+        </div>
+
+      </div>
+
+      {/* 2. CORE FEATURES CAROUSEL SHOWCASE */}
+      <div className="mt-10 px-5 space-y-4 relative z-10">
+        
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-black uppercase tracking-wider text-slate-500">
+            Core AI Suite
+          </h2>
+          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+            Tap to preview
+          </span>
+        </div>
+
+        {/* TAB SELECTOR PILLS */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {coreFeatures.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setActivePreview(f.id as any)}
+              className={`px-3.5 py-2.5 rounded-xl font-extrabold text-xs shrink-0 transition-all border flex items-center gap-1.5 ${
+                activePreview === f.id
+                  ? "bg-white text-indigo-600 border-indigo-200 shadow-md font-black"
+                  : "bg-slate-100 text-slate-600 border-slate-200"
+              }`}
+            >
+              <f.icon className="w-3.5 h-3.5" />
+              {f.title}
+            </button>
+          ))}
+        </div>
+
+        {/* ACTIVE FEATURE SHOWCASE CARD (ALL REDIRECT TO /LOGIN) */}
+        {coreFeatures.map((f) => {
+          if (f.id !== activePreview) return null;
+          return (
+            <div
+              key={f.id}
+              className="p-5 rounded-3xl bg-white border border-slate-200/90 shadow-xl space-y-3.5 animate-in fade-in duration-300"
+            >
+              <div className="flex items-center justify-between">
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${f.accent}`}>
+                  {f.badge}
+                </span>
+                <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Ready
+                </span>
+              </div>
+
+              <div>
+                <h3 className="text-base font-black text-slate-900">{f.title}</h3>
+                <p className="text-xs text-slate-600 font-medium leading-relaxed mt-0.5">{f.desc}</p>
+              </div>
+
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 aspect-video shadow-inner">
+                <img
+                  src={f.img}
+                  alt={f.title}
+                  className="w-full h-full object-cover object-top"
+                />
+              </div>
+
+              {/* REDIRECT TO LOGIN ON CLICK */}
+              <Link
+                href="/login"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 uppercase tracking-wider active:scale-95 transition-transform"
+              >
+                <span>Launch {f.title} (Sign In)</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          );
+        })}
+
+      </div>
+
+      {/* 3. PHYSICAL SCHOOL INFRASTRUCTURE + AI PILLAR */}
+      <div className="mt-8 px-5 relative z-10">
+        <div className="p-5 rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white shadow-xl space-y-3">
+          <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-cyan-300 border border-white/20">
+            <Building2 className="w-5 h-5" />
+          </div>
+          <h3 className="text-base font-black">Physical Labs + Digital AI Platform</h3>
+          <p className="text-xs text-slate-200 font-medium leading-relaxed">
+            DEVGYA GLOBAL supplies physical lab hardware, composite science kits, and NCERT textbooks while automating teacher prep with AI.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/about"
+              className="inline-flex items-center gap-1.5 text-xs font-black text-cyan-300 hover:underline"
+            >
+              <span>Learn About Our Infrastructure</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* SECTION 1: OVERVIEW & AI TOOLS TAB */}
-      {sectionTab === "overview" && (
-        <div className="px-4 mt-6 space-y-6 animate-in fade-in duration-300">
-          
-          {/* PRIMARY CALL TO ACTION */}
-          <div className="p-4 rounded-3xl bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 border border-indigo-500/30 space-y-3 shadow-xl">
-            <p className="text-xs text-indigo-100 font-medium leading-relaxed">
-              Combine physical school infrastructure with automated NCERT Question Paper Generation, Vision Book Scanning, and 15 AI Teaching Agents.
-            </p>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 text-white font-extrabold text-xs rounded-xl text-center shadow-md flex items-center justify-center gap-1.5 uppercase tracking-wider active:scale-95"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>Launch App</span>
-              </Link>
-              <Link
-                href="/login"
-                className="px-4 py-3 bg-white/10 text-white font-bold text-xs rounded-xl border border-white/20 active:scale-95"
-              >
-                Sign In
-              </Link>
-            </div>
-          </div>
+      {/* 4. 15 SPECIALIZED AI ASSISTANTS GRID */}
+      <div className="mt-8 px-5 space-y-3 relative z-10">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-black uppercase tracking-wider text-slate-500">
+            Specialized AI Agents
+          </h2>
+          <Link href="/login" className="text-xs font-bold text-indigo-600">
+            View All 15 →
+          </Link>
+        </div>
 
-          {/* INTERACTIVE TOOL PREVIEW SELECTOR */}
-          <div className="space-y-3">
-            <h2 className="text-xs font-black uppercase tracking-wider text-slate-400">
-              Interactive Tools Preview
-            </h2>
-
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              {mobileTools.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveTool(t.id as any)}
-                  className={`px-3 py-2 rounded-xl font-extrabold text-[11px] shrink-0 transition-all border flex items-center gap-1.5 ${
-                    activeTool === t.id
-                      ? "bg-indigo-600 text-white border-indigo-400 shadow-md"
-                      : "bg-white/5 text-slate-400 border-white/10"
-                  }`}
-                >
-                  <t.icon className="w-3.5 h-3.5" />
-                  {t.title}
-                </button>
-              ))}
-            </div>
-
-            {/* ACTIVE TOOL CARD PREVIEW WITH VISION BOOK SCANNER LOGIN REDIRECT */}
-            {mobileTools.map((t) => {
-              if (t.id !== activeTool) return null;
-              return (
-                <div
-                  key={t.id}
-                  className="p-5 rounded-3xl bg-slate-900 border border-indigo-500/30 space-y-3 shadow-xl"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 px-2.5 py-0.5 rounded-full">
-                      {t.badge}
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Ready
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="text-base font-black text-white">{t.title}</h3>
-                    <p className="text-xs text-slate-300 font-medium leading-relaxed mt-0.5">{t.desc}</p>
-                  </div>
-
-                  <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-slate-950 aspect-video">
-                    <img
-                      src={t.img}
-                      alt={t.title}
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-
-                  {/* ALL CLICK ACTION BUTTONS REDIRECT DIRECTLY TO LOGIN PAGE */}
-                  <Link
-                    href="/login"
-                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform uppercase tracking-wider"
-                  >
-                    <span>Use {t.title} (Sign In)</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
+        <div className="space-y-2">
+          {aiAgents.map((ag) => (
+            <Link
+              key={ag.code}
+              href="/login"
+              className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center justify-between gap-3 active:scale-95 transition-transform"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100">
+                    {ag.role}
+                  </span>
+                  <h4 className="text-xs font-bold text-slate-900 truncate">{ag.name}</h4>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* 15 AI AGENTS LIST */}
-          <div className="space-y-2">
-            <h2 className="text-xs font-black uppercase tracking-wider text-slate-400">
-              15 AI Assistants
-            </h2>
-
-            <div className="space-y-2">
-              {agentList.map((ag) => (
-                <Link
-                  key={ag.code}
-                  href="/login"
-                  className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 active:scale-95 transition-transform"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-200 px-2 py-0.5 rounded-full">
-                        {ag.role}
-                      </span>
-                      <h4 className="text-xs font-bold text-white truncate">{ag.name}</h4>
-                    </div>
-                    <p className="text-[10px] text-slate-400 truncate mt-0.5">{ag.desc}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
-                </Link>
-              ))}
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {/* SECTION 2: ABOUT US & INFRASTRUCTURE TAB */}
-      {sectionTab === "about" && (
-        <div className="px-4 mt-6 space-y-5 animate-in fade-in duration-300">
-          
-          <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600/30 border border-indigo-400/40 text-indigo-300 flex items-center justify-center">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <h2 className="text-base font-black text-white">Physical School Infrastructure + Digital AI</h2>
-            <p className="text-xs text-slate-300 font-medium leading-relaxed">
-              At DEVGYA GLOBAL EDUTECH PRIVATE LIMITED, we don't just sell software. We manufacture certified composite science lab hardware, deliver NCERT aligned textbooks, and equip K-12 schools with full digital AI classrooms.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-              <span className="text-lg font-black text-cyan-300">100%</span>
-              <h3 className="text-xs font-bold text-white">CBSE & ICSE Mapped</h3>
-              <p className="text-[10px] text-slate-400">Strictly mapped to NCERT guidelines</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-              <span className="text-lg font-black text-pink-300">4.5 Hrs</span>
-              <h3 className="text-xs font-bold text-white">Weekly Time Saved</h3>
-              <p className="text-[10px] text-slate-400">Automated paper creation & grading</p>
-            </div>
-          </div>
-
-          <Link
-            href="/about"
-            className="w-full py-3.5 bg-indigo-600 text-white font-extrabold text-xs rounded-2xl text-center flex items-center justify-center gap-2 uppercase tracking-wider shadow-lg active:scale-95"
-          >
-            <span>Read Full About Us Page</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-
-        </div>
-      )}
-
-      {/* SECTION 3: FEATURES & ROI CALCULATOR TAB */}
-      {sectionTab === "features" && (
-        <div className="px-4 mt-6 space-y-5 animate-in fade-in duration-300">
-          
-          {/* INTERACTIVE TIME SAVINGS WIDGET */}
-          <div className="p-5 rounded-3xl bg-gradient-to-br from-slate-900 to-indigo-950 border border-indigo-500/30 space-y-4 shadow-xl">
-            <div className="flex items-center gap-2 text-xs font-black uppercase text-amber-300">
-              <Calculator className="w-4 h-4" />
-              <span>School Time & Cost Savings Widget</span>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-200 flex justify-between">
-                <span>Number of School Teachers:</span>
-                <span className="text-indigo-300 font-extrabold">{teachersCount} Teachers</span>
-              </label>
-              <input
-                type="range"
-                min={5}
-                max={150}
-                step={5}
-                value={teachersCount}
-                onChange={(e) => setTeachersCount(Number(e.target.value))}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-center">
-              <div className="p-3 bg-white/5 rounded-2xl border border-white/10">
-                <span className="text-sm font-black text-emerald-400">{totalWeeklyHoursSaved} Hrs/wk</span>
-                <p className="text-[9px] text-slate-300 font-semibold mt-0.5">Faculty Hours Saved</p>
+                <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">{ag.desc}</p>
               </div>
-              <div className="p-3 bg-white/5 rounded-2xl border border-white/10">
-                <span className="text-sm font-black text-amber-300">₹{(annualSavingsINR / 100000).toFixed(1)} Lakhs</span>
-                <p className="text-[9px] text-slate-300 font-semibold mt-0.5">Annual Time Savings Value</p>
-              </div>
-            </div>
-          </div>
-
-          <Link
-            href="/why-choose-us"
-            className="w-full py-3.5 bg-indigo-600 text-white font-extrabold text-xs rounded-2xl text-center flex items-center justify-center gap-2 uppercase tracking-wider shadow-lg active:scale-95"
-          >
-            <span>View Full Why Choose Us Page</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+            </Link>
+          ))}
         </div>
-      )}
+      </div>
+
+      {/* FOOTER CALLOUT */}
+      <div className="mt-10 px-5 text-center space-y-3 relative z-10">
+        <div className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-3">
+          <h3 className="text-sm font-black text-slate-900">Ready to Upgrade Your School?</h3>
+          <p className="text-xs text-slate-500 font-medium">Join schools across India using DEVGYA AI School OS.</p>
+          <Link
+            href="/register"
+            className="w-full py-3.5 bg-indigo-600 text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 uppercase tracking-wider active:scale-95 transition-transform"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span>Get Started Free</span>
+          </Link>
+        </div>
+      </div>
 
     </div>
   );
 }
+
+// Icon helper imports for agents
+import { GraduationCap, HeartHandshake } from "lucide-react";
