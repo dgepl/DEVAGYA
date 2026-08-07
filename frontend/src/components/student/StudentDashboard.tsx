@@ -9,6 +9,7 @@ import {
   Bot, Mic, Layers
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { MobileStudentDashboard } from "@/components/dashboard/MobileStudentDashboard";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
@@ -544,7 +545,7 @@ export function StudentDashboard() {
     <>
       {/* Mobile: visible on screens < 768px */}
       <div className="block md:hidden">
-        <MobileView />
+        <MobileStudentDashboard />
       </div>
       {/* Desktop: visible on screens >= 768px */}
       <div className="hidden md:block">

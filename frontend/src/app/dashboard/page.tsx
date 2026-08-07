@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF, GeneratedPaperResponse } from "@/lib/api";
+import { MobileTeacherDashboard } from "@/components/dashboard/MobileTeacherDashboard";
 
 interface ChatConvSummary {
   id: string;
@@ -171,9 +172,12 @@ export default function TeacherDashboardOverviewPage() {
   ];
 
   return (
-    <div className="space-y-8 pb-12">
-      
-      {/* Welcome Banner */}
+    <>
+      <MobileTeacherDashboard />
+
+      <div className="hidden md:block space-y-8 pb-12">
+        
+        {/* Welcome Banner */}
       <div className="p-8 rounded-3xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white relative overflow-hidden flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 shadow-2xl">
         <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="space-y-3 max-w-2xl relative z-10">
@@ -502,7 +506,7 @@ export default function TeacherDashboardOverviewPage() {
           })}
         </div>
       </div>
-
     </div>
-  );
+  </>
+);
 }

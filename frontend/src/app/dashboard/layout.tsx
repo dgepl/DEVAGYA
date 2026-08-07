@@ -43,6 +43,8 @@ import { useAppStore } from "@/store/useAppStore";
 import { useEffect, useState, Suspense } from "react";
 import { SmartSearchBar } from "@/components/search/SmartSearchBar";
 import { PageTransition } from "@/components/ui/PageTransition";
+import { MobileTopHeader } from "@/components/layout/MobileTopHeader";
+import { MobileBottomDock } from "@/components/layout/MobileBottomDock";
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -231,8 +233,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 md:pl-64 flex flex-col min-h-screen pb-20 md:pb-8">
         
-        {/* TOP BAR WITH ROLE SWITCHER & AI OS SHORTCUTS */}
-        <header className="h-16 border-b border-slate-200 bg-white/85 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 gap-4">
+        {/* NATIVE MOBILE HEADER */}
+        <MobileTopHeader />
+        
+        {/* TOP BAR WITH ROLE SWITCHER & AI OS SHORTCUTS (DESKTOP ONLY) */}
+        <header className="hidden md:flex h-16 border-b border-slate-200 bg-white/85 backdrop-blur-md px-4 sm:px-6 items-center justify-between sticky top-0 z-30 gap-4">
           
           <SmartSearchBar />
 
@@ -378,6 +383,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
+
+      {/* NATIVE MOBILE BOTTOM NAVIGATION DOCK */}
+      <MobileBottomDock />
 
     </div>
   );

@@ -17,12 +17,16 @@ import {
   Target
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { MobileParentDashboard } from "@/components/dashboard/MobileParentDashboard";
 
 export function ParentDashboard() {
   const { user } = useAppStore();
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+    <>
+      <MobileParentDashboard />
+
+      <div className="hidden md:block space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       
       {/* HERO WELCOME HEADER */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl border border-indigo-800/40 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -224,7 +228,7 @@ export function ParentDashboard() {
 
         </div>
       </div>
-
     </div>
-  );
+  </>
+);
 }
