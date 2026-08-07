@@ -508,7 +508,7 @@ export function AgentMarketplace() {
     const fd = new FormData();
     fd.append("message", text);
     fd.append("agent_code", selectedAgentCode);
-    fd.append("user_id", user.id);
+    fd.append("user_id", user?.id || "usr-guest");
     fd.append("language", language);
     fd.append("stream", "true");
     if (activeConvId) fd.append("conversation_id", activeConvId);
@@ -563,7 +563,7 @@ export function AgentMarketplace() {
       }
 
       // Read XP earned from response header (Students only)
-      if (user.role === "student") {
+      if (user?.role === "student") {
         const xpEarned = res.headers.get("X-XP-Earned");
         if (xpEarned) {
           const xpNum = parseInt(xpEarned, 10);
