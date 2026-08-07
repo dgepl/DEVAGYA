@@ -11,14 +11,14 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://devgya.in"),
   title: {
-    default: "DEVGYA GLOBAL PRIVATE LIMITED — Smart AI Education & School Solutions",
+    default: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED — Smart AI Education & School Solutions",
     template: "%s | DEVGYA GLOBAL"
   },
-  description: "At DEVGYA GLOBAL PRIVATE LIMITED, we combine physical school infrastructure—textbooks, certified science labs, smart hardware—with an advanced AI learning platform for schools, teachers, students, and parents.",
+  description: "At DEVGYA GLOBAL EDUTECH PRIVATE LIMITED, we combine physical school infrastructure—textbooks, certified science labs, smart hardware—with an advanced AI learning platform for schools, teachers, students, and parents.",
   keywords: [
     "DEVGYA",
     "DEVGYA GLOBAL",
-    "DEVGYA GLOBAL PRIVATE LIMITED",
+    "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
     "devgya.in",
     "DEVGYA AI Learning Platform",
     "AI Education Platform India",
@@ -28,9 +28,9 @@ export const metadata: Metadata = {
     "Socratic AI Tutor",
     "School Lab Hardware & Textbook Provider India"
   ],
-  authors: [{ name: "DEVGYA GLOBAL PRIVATE LIMITED", url: "https://devgya.in" }],
-  creator: "DEVGYA GLOBAL PRIVATE LIMITED",
-  publisher: "DEVGYA GLOBAL PRIVATE LIMITED",
+  authors: [{ name: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED", url: "https://devgya.in" }],
+  creator: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+  publisher: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
   icons: {
     icon: [
       { url: "/logo.png", type: "image/png" },
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   openGraph: {
-    title: "DEVGYA GLOBAL PRIVATE LIMITED — Smart AI Education Platform",
+    title: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED — Smart AI Education Platform",
     description: "Empowering schools, teachers, students, and parents with cutting-edge AI learning tools, certified lab hardware, and smart classroom solutions.",
     url: "https://devgya.in",
     siteName: "DEVGYA GLOBAL",
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
         url: "https://devgya.in/logo.png",
         width: 1200,
         height: 630,
-        alt: "DEVGYA GLOBAL PRIVATE LIMITED Logo"
+        alt: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED Logo"
       }
     ],
     locale: "en_IN",
@@ -89,7 +89,7 @@ export default function RootLayout({
       {
         "@type": "Organization",
         "@id": "https://devgya.in/#organization",
-        "name": "DEVGYA GLOBAL PRIVATE LIMITED",
+        "name": "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
         "url": "https://devgya.in",
         "logo": "https://devgya.in/logo.png",
         "sameAs": [],

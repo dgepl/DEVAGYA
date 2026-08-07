@@ -121,7 +121,7 @@ async def register_user(payload: RegisterPayload):
             "email": email_clean,
             "name": payload.name,
             "role": payload.role,
-            "schoolName": payload.school_name or "DEVGYA GLOBAL PRIVATE LIMITED",
+            "schoolName": payload.school_name or "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
             "board": payload.board or "CBSE",
             "token": f"devgya-jwt-{payload.role}-token-{profile.get('id', 'session')}"
         }
@@ -174,7 +174,7 @@ async def login_user(payload: LoginPayload):
         "email": email_clean,
         "name": full_name,
         "role": user_role,
-        "schoolName": "DEVGYA GLOBAL PRIVATE LIMITED",
+        "schoolName": "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
         "board": "CBSE",
         "token": f"devgya-jwt-{user_role}-token-{user_id}"
     }

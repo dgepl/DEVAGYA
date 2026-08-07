@@ -33,7 +33,7 @@ export function AboutSection() {
           
           <div className="space-y-4 text-slate-700 text-base leading-relaxed font-normal border-b border-slate-100 pb-8">
             <p className="text-slate-900 font-semibold text-lg leading-relaxed">
-              At <span className="text-indigo-600 font-extrabold">Devgya Global Private Limited</span>, we are a comprehensive school solutions provider dedicated to transforming K-12 education. We combine physical school infrastructure—including curriculum-aligned textbooks, certified science laboratories, and smart classroom hardware—with a cutting-edge digital learning platform.
+              At <span className="text-indigo-600 font-extrabold">Devgya Global Edutech Private Limited</span>, we are a comprehensive school solutions provider dedicated to transforming K-12 education. We combine physical school infrastructure—including curriculum-aligned textbooks, certified science laboratories, and smart classroom hardware—with a cutting-edge digital learning platform.
             </p>
             <p className="text-slate-600">
               Rather than acting merely as an equipment vendor, we serve as an end-to-end strategic educational partner for schools and study centers. Our all-in-one platform seamlessly supports every stakeholder in the learning journey:

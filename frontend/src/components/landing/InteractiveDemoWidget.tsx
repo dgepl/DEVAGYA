@@ -27,7 +27,6 @@ export function InteractiveDemoWidget() {
         num_mcqs: 4,
         num_short: 2,
         num_long: 1,
-        num_case_studies: 1,
         school_name: "Apex International Academy"
       });
       setPaper(res);

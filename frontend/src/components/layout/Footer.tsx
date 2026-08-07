@@ -11,7 +11,7 @@ export function Footer() {
             <Link href="/" className="inline-block">
               <img 
                 src="/logo.png" 
-                alt="DEVGYA GLOBAL PRIVATE LIMITED" 
+                alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED" 
                 className="h-12 sm:h-14 w-auto max-h-14 object-contain mix-blend-multiply" 
               />
             </Link>
@@ -61,7 +61,7 @@ export function Footer() {
 
         <div className="border-t border-slate-200 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="space-y-1">
-            <p>© 2026 Devgya Global Private Limited. All rights reserved.</p>
+            <p>© 2026 Devgya Global Edutech Private Limited. All rights reserved.</p>
             <p className="text-[11px] font-extrabold text-indigo-600">Designed and Developed by pratikk yadav +91 8307224756</p>
           </div>
           <div className="flex items-center gap-6">

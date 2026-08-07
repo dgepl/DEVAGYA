@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Sparkles, 
   Download, 
-  CheckCircle, 
+  CheckCircle2, 
   RefreshCw, 
   FileText, 
   Edit3, 
@@ -15,15 +16,37 @@ import {
   Check,
   Eye,
   Sliders,
-  Layers
+  Layers,
+  Upload,
+  X,
+  Plus,
+  Save,
+  GraduationCap,
+  Award,
+  Clock,
+  Building,
+  HelpCircle,
+  FileCheck,
+  History,
+  RotateCcw,
+  Send,
+  FileSpreadsheet
 } from "lucide-react";
-import { generateQuestionPaper, GeneratedPaperResponse, downloadPDF } from "@/lib/api";
+import { generateQuestionPaperFromFile, GeneratedPaperResponse, QuestionItem, downloadPDF } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 
-export default function GeneratorPage() {
-  const { ocrDraftText, activePaper, setActivePaper, savePaper } = useAppStore();
+const CLASS_OPTIONS = [
+  "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
+  "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
+  "Class 11", "Class 12", "College / Competitive Exam"
+];
 
-  // Clean empty default values (No hardcoded auto-fill)
+export default function GeneratorPage() {
+  const router = useRouter();
+  const { ocrDraftText, savedPapers, savePaper, deleteSavedPaper, setOcrDraftText } = useAppStore();
+
+  // Clean Form State (No Hardcoded Mock Pre-fills)
+  const [schoolName, setSchoolName] = useState("");
   const [title, setTitle] = useState("");
   const [className, setClassName] = useState("");
   const [subject, setSubject] = useState("");
@@ -31,24 +54,35 @@ export default function GeneratorPage() {
   const [difficulty, setDifficulty] = useState("medium");
   const [totalMarks, setTotalMarks] = useState<string>("");
   const [timeMins, setTimeMins] = useState<string>("");
-  const [numMcqs, setNumMcqs] = useState<string>("");
-  const [numShort, setNumShort] = useState<string>("");
-  const [numLong, setNumLong] = useState<string>("");
-  const [numCase, setNumCase] = useState<string>("");
+  const [numMcqs, setNumMcqs] = useState<string>("4");
+  const [numShort, setNumShort] = useState<string>("2");
+  const [numLong, setNumLong] = useState<string>("1");
   const [customPrompt, setCustomPrompt] = useState("");
   const [showAnswerKey, setShowAnswerKey] = useState(true);
 
+  // File Attachment State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Active Paper & History Modal State
+  const [paper, setPaper] = useState<GeneratedPaperResponse | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [isEditingHeader, setIsEditingHeader] = useState(false);
+
+  // Execution State
   const [loading, setLoading] = useState(false);
+  const [downloadingStudent, setDownloadingStudent] = useState(false);
+  const [downloadingTeacher, setDownloadingTeacher] = useState(false);
+  const [downloadingWorksheet, setDownloadingWorksheet] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paper, setPaper] = useState<GeneratedPaperResponse | null>(activePaper);
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
 
   // Real-time Mark Breakdown Tally Calculator
   const parsedMcqs = parseInt(numMcqs) || 0;
   const parsedShort = parseInt(numShort) || 0;
   const parsedLong = parseInt(numLong) || 0;
-  const parsedCase = parseInt(numCase) || 0;
-  const calculatedTotal = (parsedMcqs * 1) + (parsedShort * 3) + (parsedLong * 5) + (parsedCase * 4);
+  const calculatedTotal = (parsedMcqs * 1) + (parsedShort * 3) + (parsedLong * 5);
   const requestedTotal = parseInt(totalMarks) || 0;
 
   useEffect(() => {
@@ -57,48 +91,96 @@ export default function GeneratorPage() {
     }
   }, [ocrDraftText]);
 
-  const handleGenerate = async () => {
-    if (!title.trim() && !subject.trim() && !className.trim()) {
-      setError("Please enter an Assessment Title, Grade/Class, and Subject.");
-      return;
+  // Clean form when leaving page
+  useEffect(() => {
+    return () => {
+      setOcrDraftText("");
+    };
+  }, [setOcrDraftText]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    if (file.type.startsWith("image/")) {
+      setPreviewUrl(URL.createObjectURL(file));
+    } else {
+      setPreviewUrl(null);
     }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleStartNewPaper = () => {
+    setPaper(null);
+    setTitle("");
+    setClassName("");
+    setSubject("");
+    setChapter("");
+    setTotalMarks("");
+    setTimeMins("");
+    setCustomPrompt("");
+    removeFile();
+    setError(null);
+  };
+
+  const handleGenerate = async () => {
     setError(null);
     setLoading(true);
 
     try {
-      const res = await generateQuestionPaper({
-        title: title.trim() || `${subject.trim() || "Subject"} Exam`,
-        class_name: className.trim() || "Class 10",
-        subject: subject.trim() || "General Science",
-        chapter: chapter.trim() || "NCERT Comprehensive Syllabus",
-        difficulty,
-        total_marks: requestedTotal || calculatedTotal || 40,
-        time_allowed_mins: parseInt(timeMins) || 90,
-        num_mcqs: parsedMcqs || 4,
-        num_short: parsedShort || 2,
-        num_long: parsedLong || 1,
-        num_case_studies: parsedCase || 1,
-        school_name: "DEVGYA GLOBAL ACADEMY",
-        custom_instructions: customPrompt
-      });
+      const formData = new FormData();
+      if (selectedFile) {
+        formData.append("file", selectedFile);
+      }
+      formData.append("school_name", schoolName.trim() || "DEVGYA GLOBAL ACADEMY");
+      formData.append("title", title.trim() || `${subject.trim() || "General"} Assessment`);
+      formData.append("class_name", className || "Class 10");
+      formData.append("subject", subject.trim() || "General Studies");
+      formData.append("chapter", chapter.trim() || "General Syllabus");
+      formData.append("difficulty", difficulty);
+      formData.append("total_marks", String(requestedTotal || calculatedTotal || 40));
+      formData.append("time_allowed_mins", String(parseInt(timeMins) || 90));
+      formData.append("num_mcqs", String(parsedMcqs));
+      formData.append("num_short", String(parsedShort));
+      formData.append("num_long", String(parsedLong));
+      formData.append("custom_instructions", customPrompt);
+
+      const res = await generateQuestionPaperFromFile(formData);
       setPaper(res);
-      setActivePaper(res);
       savePaper(res);
     } catch (err: any) {
       console.error("Generation error:", err);
-      setError("Failed to generate AI paper. Please verify connection.");
+      setError("Failed to generate AI paper. Please check connection.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateQuestionText = (id: number, text: string) => {
+  // Edit Header (Total Marks, Title, School Name, Time) After Paper Creation
+  const handleUpdatePaperHeader = (fields: Partial<GeneratedPaperResponse>) => {
+    if (!paper) return;
+    const updated = { ...paper, ...fields };
+    setPaper(updated);
+    savePaper(updated);
+  };
+
+  // Inline Question Editing
+  const handleUpdateQuestion = (id: number, updatedFields: Partial<QuestionItem>) => {
     if (!paper) return;
     const updated = {
       ...paper,
-      questions: paper.questions.map(q => q.id === id ? { ...q, question_text: text } : q)
+      questions: paper.questions.map(q => q.id === id ? { ...q, ...updatedFields } : q)
     };
     setPaper(updated);
+    savePaper(updated);
   };
 
   const handleDeleteQuestion = (id: number) => {
@@ -108,372 +190,663 @@ export default function GeneratorPage() {
       questions: paper.questions.filter(q => q.id !== id)
     };
     setPaper(updated);
+    savePaper(updated);
   };
 
-  // Class & Subject suggestion chips
-  const classSuggestions = ["Class 1", "Class 5", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12", "JEE / NEET"];
-  const subjectSuggestions = ["Science", "Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "History", "Economics", "French"];
+  const handleAddQuestion = () => {
+    if (!paper) return;
+    const newId = (paper.questions.length > 0 ? Math.max(...paper.questions.map(q => q.id)) : 0) + 1;
+    const newQ: QuestionItem = {
+      id: newId,
+      question_number: newId,
+      question_type: "mcq",
+      question_text: "New custom question added by teacher...",
+      marks: 1,
+      options: ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"],
+      answer: "(A) Option 1",
+      explanation: "Step-by-step teacher explanation."
+    };
+    const updated = {
+      ...paper,
+      questions: [...paper.questions, newQ]
+    };
+    setPaper(updated);
+    savePaper(updated);
+    setEditingQuestionId(newId);
+  };
 
-  // Group questions into Section A, B, C, D
-  const sectionA = paper?.questions.filter(q => q.question_type === "mcq") || [];
-  const sectionB = paper?.questions.filter(q => q.question_type === "short") || [];
-  const sectionC = paper?.questions.filter(q => q.question_type === "long") || [];
-  const sectionD = paper?.questions.filter(q => q.question_type === "case_study") || [];
+  const handleSelectFromHistory = (selected: GeneratedPaperResponse) => {
+    setPaper(selected);
+    setShowHistory(false);
+  };
+
+  const handleDownloadStudentPDF = async () => {
+    if (!paper) return;
+    setDownloadingStudent(true);
+    try {
+      await downloadPDF(paper, false);
+    } catch (err) {
+      console.error(err);
+      alert("Error generating Student Question Paper PDF.");
+    } finally {
+      setDownloadingStudent(false);
+    }
+  };
+
+  const handleDownloadTeacherPDF = async () => {
+    if (!paper) return;
+    setDownloadingTeacher(true);
+    try {
+      await downloadPDF(paper, true);
+    } catch (err) {
+      console.error(err);
+      alert("Error generating Teacher Answer Key PDF.");
+    } finally {
+      setDownloadingTeacher(false);
+    }
+  };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
+    <div className="space-y-8 animate-in fade-in duration-500 relative">
       
-      {/* HEADER */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Enterprise AI Question Paper Studio</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">
-              Groq AI Powered
-            </span>
+      {/* HEADER BAR */}
+      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 border border-indigo-700/50">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-amber-300" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black">AI Question Paper Studio</h1>
+              <p className="text-indigo-200 text-xs sm:text-sm">
+                Full-control assessment builder with custom file uploads, inline question editing, and clean watermark-free PDF exports.
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-slate-500 font-semibold">Generate NCERT & CBSE Exam Papers for Any Class & Subject with Real-time Mark Validation</p>
         </div>
 
-        {paper && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowAnswerKey(!showAnswerKey)}
-              className={`px-3.5 py-2 rounded-xl font-bold text-xs border transition-all flex items-center gap-1.5 ${
-                showAnswerKey ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-slate-50 border-slate-200 text-slate-600"
-              }`}
-            >
-              <Eye className="w-4 h-4" />
-              {showAnswerKey ? "Hide Answer Key" : "Show Answer Key"}
-            </button>
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          
+          {/* PAPER HISTORY BUTTON (CLOCK SIGN 🕒) */}
+          <button
+            onClick={() => setShowHistory(true)}
+            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 border border-white/20 text-white font-extrabold text-xs rounded-2xl backdrop-blur-md transition-all flex items-center gap-2"
+            title="View Paper History"
+          >
+            <Clock className="w-4 h-4 text-amber-300" />
+            <span>Paper History</span>
+            {savedPapers.length > 0 && (
+              <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black">
+                {savedPapers.length}
+              </span>
+            )}
+          </button>
 
-            <button
-              onClick={() => downloadPDF(paper, false)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Paper PDF
-            </button>
-            <button
-              onClick={() => downloadPDF(paper, true)}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Answer Key PDF
-            </button>
-          </div>
-        )}
+          {paper && (
+            <>
+              <button
+                onClick={handleStartNewPaper}
+                className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold text-xs rounded-2xl transition-all flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>New Paper</span>
+              </button>
+
+              <button
+                onClick={handleDownloadStudentPDF}
+                disabled={downloadingStudent}
+                className="px-4 py-2.5 bg-white text-indigo-950 font-black text-xs rounded-2xl hover:bg-slate-100 transition-all flex items-center gap-2 shadow-lg"
+                title="Download Clean Question Paper PDF (No Watermark)"
+              >
+                <Download className="w-4 h-4 text-indigo-600" />
+                <span>{downloadingStudent ? "Building..." : "Student PDF"}</span>
+              </button>
+
+              <button
+                onClick={handleDownloadTeacherPDF}
+                disabled={downloadingTeacher}
+                className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-2 shadow-lg"
+                title="Download Teacher Answer Key PDF (No Watermark)"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>{downloadingTeacher ? "Building..." : "Teacher Key PDF"}</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* LEFT FORM CONTROLS */}
-        <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 space-y-5 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Paper Parameters</h2>
-            <button
-              type="button"
-              onClick={() => {
-                setTitle("");
-                setClassName("");
-                setSubject("");
-                setChapter("");
-                setTotalMarks("");
-                setTimeMins("");
-                setNumMcqs("");
-                setNumShort("");
-                setNumLong("");
-                setNumCase("");
-                setCustomPrompt("");
-                setError(null);
-              }}
-              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
-            >
-              Clear All
-            </button>
+        {/* FORM PANEL (LEFT) */}
+        <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 sm:p-7 shadow-sm space-y-6">
+          
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-indigo-600" />
+              Assessment Configuration Form
+            </h2>
+            <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">
+              Fields Optional
+            </span>
           </div>
 
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-700 font-bold">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Assessment Title *</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Periodic Assessment 1 - 2026"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
-            />
-          </div>
-
-          {/* GRADE / CLASS (FREE FORM INPUT + CHIPS) */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Grade / Class (Enter Any Class) *</label>
-            <input
-              type="text"
-              value={className}
-              onChange={(e) => setClassName(e.target.value)}
-              placeholder="e.g. Class 10, Class 12, B.Tech, etc."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600 mb-2"
-            />
-            <div className="flex flex-wrap gap-1.5">
-              {classSuggestions.map((cls) => (
-                <button
-                  key={cls}
-                  type="button"
-                  onClick={() => setClassName(cls)}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-colors ${
-                    className === cls ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {cls}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* SUBJECT (FREE FORM INPUT + CHIPS) */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Subject (Enter Any Subject) *</label>
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="e.g. Science, Physics, French, History, etc."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600 mb-2"
-            />
-            <div className="flex flex-wrap gap-1.5">
-              {subjectSuggestions.slice(0, 6).map((sub) => (
-                <button
-                  key={sub}
-                  type="button"
-                  onClick={() => setSubject(sub)}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-colors ${
-                    subject === sub ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {sub}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">NCERT Chapter / Topic</label>
-            <input
-              type="text"
-              value={chapter}
-              onChange={(e) => setChapter(e.target.value)}
-              placeholder="e.g. Light Reflection and Refraction"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          {/* 1. School & Title */}
+          <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Total Marks Target</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <Building className="w-4 h-4 text-indigo-500" /> School / Institute Name
+              </label>
+              <input
+                type="text"
+                value={schoolName}
+                onChange={(e) => setSchoolName(e.target.value)}
+                placeholder="e.g. DEVGYA GLOBAL ACADEMY"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-purple-500" /> Exam / Assessment Title
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Mid-Term Examination 2026"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* 2. Class & Subject (OPTIONAL) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4 text-emerald-500" /> Target Class
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold">(Optional)</span>
+              </label>
+              <select
+                value={className}
+                onChange={(e) => setClassName(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select Class (Optional)</option>
+                {CLASS_OPTIONS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-blue-500" /> Subject
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="e.g. Science, Mathematics"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* 3. Chapter & Difficulty (OPTIONAL) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                <span>Chapter / Topic</span>
+                <span className="text-[10px] text-slate-400 font-semibold">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={chapter}
+                onChange={(e) => setChapter(e.target.value)}
+                placeholder="e.g. Acids, Bases & Salts"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Difficulty Level</label>
+              <select
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 capitalize"
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 4. Marks & Time (EDITABLE BEFORE GENERATION) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                <Award className="w-3.5 h-3.5 text-amber-500" /> Total Marks
+              </label>
               <input
                 type="number"
                 value={totalMarks}
                 onChange={(e) => setTotalMarks(e.target.value)}
                 placeholder="40"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Time (Minutes)</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-rose-500" /> Time (Mins)
+              </label>
               <input
                 type="number"
                 value={timeMins}
                 onChange={(e) => setTimeMins(e.target.value)}
                 placeholder="90"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
 
-          {/* QUESTION BREAKDOWN & REAL-TIME MARK CALCULATOR */}
-          <div className="space-y-3 pt-3 border-t border-slate-200">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1">
-                <Calculator className="w-3.5 h-3.5" />
-                Question Breakdown
-              </label>
-
-              {/* TALLY BADGE */}
-              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
-                requestedTotal > 0 && calculatedTotal === requestedTotal
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                  : "bg-indigo-50 text-indigo-700 border-indigo-200"
+          {/* 5. Question Breakdown Controls */}
+          <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <span className="text-xs font-extrabold text-slate-900">Section Breakdown</span>
+              <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
+                calculatedTotal === requestedTotal ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
               }`}>
-                Sum: {calculatedTotal} Marks
+                Tally: {calculatedTotal} / {requestedTotal || calculatedTotal} Marks
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-3 gap-2.5 text-center">
               <div>
-                <span className="text-slate-600 font-bold">MCQs (1m):</span>
+                <label className="block text-[10px] font-extrabold text-slate-500 mb-1">MCQs (1M)</label>
                 <input
                   type="number"
+                  min={0}
                   value={numMcqs}
                   onChange={(e) => setNumMcqs(e.target.value)}
-                  placeholder="4"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 mt-1 text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-white border border-slate-300 rounded-lg py-1.5 text-xs font-black text-center text-slate-800"
                 />
               </div>
+
               <div>
-                <span className="text-slate-600 font-bold">Short (3m):</span>
+                <label className="block text-[10px] font-extrabold text-slate-500 mb-1">Short (3M)</label>
                 <input
                   type="number"
+                  min={0}
                   value={numShort}
                   onChange={(e) => setNumShort(e.target.value)}
-                  placeholder="2"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 mt-1 text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-white border border-slate-300 rounded-lg py-1.5 text-xs font-black text-center text-slate-800"
                 />
               </div>
+
               <div>
-                <span className="text-slate-600 font-bold">Long (5m):</span>
+                <label className="block text-[10px] font-extrabold text-slate-500 mb-1">Long (5M)</label>
                 <input
                   type="number"
+                  min={0}
                   value={numLong}
                   onChange={(e) => setNumLong(e.target.value)}
-                  placeholder="1"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 mt-1 text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
-                />
-              </div>
-              <div>
-                <span className="text-slate-600 font-bold">Case Study (4m):</span>
-                <input
-                  type="number"
-                  value={numCase}
-                  onChange={(e) => setNumCase(e.target.value)}
-                  placeholder="1"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 mt-1 text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-white border border-slate-300 rounded-lg py-1.5 text-xs font-black text-center text-slate-800"
                 />
               </div>
             </div>
           </div>
 
+          {/* 6. File Attachment Upload */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Custom Instructions / OCR Context</label>
+            <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Upload className="w-4 h-4 text-indigo-600" /> Attach Reference PDF / Worksheet / Photo
+              </span>
+              <span className="text-[10px] text-slate-400 font-semibold">PDF, DOCX, PNG, JPG</span>
+            </label>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.doc,.txt,image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {!selectedFile ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-3 px-4 bg-slate-50 hover:bg-indigo-50 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-2xl text-xs font-bold text-slate-600 transition-all flex items-center justify-center gap-2 group"
+              >
+                <Upload className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                <span>Upload PDF, Word document, or Worksheet photo to base paper on</span>
+              </button>
+            ) : (
+              <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-2xl">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  {previewUrl ? (
+                    <img src={previewUrl} alt="Preview" className="w-10 h-10 object-cover rounded-xl border border-indigo-300 shrink-0" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center shrink-0">
+                      <FileText className="w-5 h-5 text-red-600" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-900 truncate">{selectedFile.name}</p>
+                    <p className="text-[10px] text-slate-500 font-medium">Attached to paper prompt</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={removeFile}
+                  className="p-1.5 hover:bg-indigo-200 text-indigo-800 rounded-xl transition-colors shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 7. Custom Prompt Instructions */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+              <HelpCircle className="w-4 h-4 text-indigo-500" /> Custom Teacher Instructions (Optional)
+            </label>
             <textarea
               rows={3}
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder="e.g. Focus heavily on NCERT numerical problems and HOTS..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none font-medium"
+              placeholder="e.g. Include 2 numerical problems on Ohm's Law and emphasize NCERT HOTS questions..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
+          {/* ERROR DISPLAY */}
+          {error && (
+            <p className="text-xs text-rose-600 font-bold bg-rose-50 p-3 rounded-xl border border-rose-200">
+              ⚠️ {error}
+            </p>
+          )}
+
+          {/* GENERATE BUTTON */}
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
           >
-            {loading ? <RefreshCw className="w-4 h-4 animate-spin text-cyan-200" /> : <Sparkles className="w-4 h-4 text-cyan-200" />}
-            {loading ? "Generating Groq AI Paper..." : "Generate AI Paper"}
+            {loading ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Synthesizing Question Paper...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>Generate Question Paper</span>
+              </>
+            )}
           </button>
+
         </div>
 
-        {/* RIGHT OFFICIAL EXAM PAPER PREVIEW */}
-        <div className="lg:col-span-8 bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 space-y-6 shadow-sm min-h-[500px]">
+        {/* PAPER PREVIEW & EDIT STUDIO (RIGHT) */}
+        <div className="lg:col-span-7 space-y-6">
           
-          {paper ? (
-            <div className="space-y-6">
-              
-              {/* OFFICIAL EXAM HEADER */}
-              <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1.5">
-                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{paper.school_name}</h2>
-                <h3 className="text-base font-bold text-slate-800 uppercase">{paper.title}</h3>
-                <div className="flex items-center justify-between text-xs font-bold text-slate-700 pt-2 px-2 border-t border-slate-200">
-                  <span>CLASS: {paper.class_name.toUpperCase()} ({paper.subject.toUpperCase()})</span>
-                  <span>TIME ALLOWED: {paper.time_allowed_mins} MINS</span>
-                  <span>MAX MARKS: {paper.total_marks}</span>
-                </div>
+          {!paper ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4 shadow-sm flex flex-col items-center justify-center min-h-[500px]">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <FileText className="w-8 h-8" />
               </div>
-
-              {/* GENERAL INSTRUCTIONS */}
-              {paper.instructions && paper.instructions.length > 0 && (
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
-                  <span className="font-bold text-slate-900 block uppercase tracking-wider text-[10px]">General Instructions:</span>
-                  <ul className="list-disc list-inside text-slate-700 space-y-1 font-medium">
-                    {paper.instructions.map((inst, i) => (
-                      <li key={i}>{inst}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* SECTION A: MCQS */}
-              {sectionA.length > 0 && (
-                <div className="space-y-4">
-                  <div className="bg-slate-100 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center">
-                    <span className="text-xs font-black uppercase text-slate-900">SECTION A: Multiple Choice Questions (1 Mark Each)</span>
-                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                      {sectionA.length} Questions
-                    </span>
-                  </div>
-                  {sectionA.map((q) => renderQuestionCard(q))}
-                </div>
-              )}
-
-              {/* SECTION B: SHORT ANSWER */}
-              {sectionB.length > 0 && (
-                <div className="space-y-4">
-                  <div className="bg-slate-100 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center">
-                    <span className="text-xs font-black uppercase text-slate-900">SECTION B: Short Answer Questions (3 Marks Each)</span>
-                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                      {sectionB.length} Questions
-                    </span>
-                  </div>
-                  {sectionB.map((q) => renderQuestionCard(q))}
-                </div>
-              )}
-
-              {/* SECTION C: LONG ANSWER */}
-              {sectionC.length > 0 && (
-                <div className="space-y-4">
-                  <div className="bg-slate-100 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center">
-                    <span className="text-xs font-black uppercase text-slate-900">SECTION C: Long Answer Questions (5 Marks Each)</span>
-                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                      {sectionC.length} Questions
-                    </span>
-                  </div>
-                  {sectionC.map((q) => renderQuestionCard(q))}
-                </div>
-              )}
-
-              {/* SECTION D: CASE STUDY */}
-              {sectionD.length > 0 && (
-                <div className="space-y-4">
-                  <div className="bg-slate-100 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center">
-                    <span className="text-xs font-black uppercase text-slate-900">SECTION D: Case Study / Passage Questions (4 Marks Each)</span>
-                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                      {sectionD.length} Questions
-                    </span>
-                  </div>
-                  {sectionD.map((q) => renderQuestionCard(q))}
-                </div>
-              )}
-
+              <h3 className="text-base font-extrabold text-slate-900">No Active Paper Loaded</h3>
+              <p className="text-xs text-slate-500 font-medium max-w-sm">
+                Fill out the configuration form on the left or click <b>Paper History (🕒)</b> to load a saved exam paper.
+              </p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full py-24 text-center space-y-4 text-slate-400">
-              <div className="w-16 h-16 rounded-3xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                <BookOpen className="w-8 h-8" />
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6 animate-in fade-in">
+              
+              {/* EDITABLE PAPER HEADER (EDIT MARKS / TITLE AFTER GENERATION) */}
+              <div className="border-b border-slate-200 pb-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-md text-[10px] font-black uppercase">
+                      {paper.class_name || "Class 10"} • {paper.subject || "General"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsEditingHeader(!isEditingHeader)}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-colors"
+                      title="Edit Paper Details & Total Marks"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>{isEditingHeader ? "Save Details" : "Edit Marks & Header"}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowAnswerKey(!showAnswerKey)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all border flex items-center gap-1.5 ${
+                        showAnswerKey ? "bg-emerald-50 text-emerald-700 border-emerald-300" : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>{showAnswerKey ? "Hide Solutions" : "Show Solutions"}</span>
+                    </button>
+
+                    <button
+                      onClick={handleAddQuestion}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1 transition-colors shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Question</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* DISPLAY OR EDIT HEADER DETAILS */}
+                {isEditingHeader ? (
+                  <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Exam Title</label>
+                        <input
+                          type="text"
+                          value={paper.title}
+                          onChange={(e) => handleUpdatePaperHeader({ title: e.target.value })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 mb-0.5">School Name</label>
+                        <input
+                          type="text"
+                          value={paper.school_name}
+                          onChange={(e) => handleUpdatePaperHeader({ school_name: e.target.value })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Total Marks (Editable)</label>
+                        <input
+                          type="number"
+                          value={paper.total_marks}
+                          onChange={(e) => handleUpdatePaperHeader({ total_marks: Number(e.target.value) || 0 })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Time Allowed (Mins)</label>
+                        <input
+                          type="number"
+                          value={paper.time_allowed_mins}
+                          onChange={(e) => handleUpdatePaperHeader({ time_allowed_mins: Number(e.target.value) || 0 })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900">{paper.title}</h2>
+                    <p className="text-xs text-slate-600 font-bold mt-0.5">
+                      {paper.school_name} • <span className="text-indigo-700 font-extrabold">{paper.total_marks} Total Marks</span> • {paper.time_allowed_mins} Mins
+                    </p>
+                  </div>
+                )}
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">No Question Paper Generated Yet</h3>
-                <p className="text-xs text-slate-500 max-w-sm mt-1">
-                  Fill in your custom Assessment Title, Grade/Class, and Subject on the left, then click <strong>Generate AI Paper</strong>.
-                </p>
+
+              {/* QUESTIONS LIST WITH INLINE EDITING */}
+              <div className="space-y-4">
+                {paper.questions.map((q, index) => {
+                  const isEditing = editingQuestionId === q.id;
+                  return (
+                    <div
+                      key={q.id}
+                      className={`p-5 rounded-2xl border transition-all ${
+                        isEditing ? "bg-amber-50/60 border-amber-300 ring-2 ring-amber-400" : "bg-slate-50/70 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2 text-xs font-black text-indigo-700">
+                            <span>Q{index + 1}. ({q.question_type.toUpperCase()})</span>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={q.marks}
+                                onChange={(e) => handleUpdateQuestion(q.id, { marks: Number(e.target.value) || 1 })}
+                                className="w-14 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-xs font-bold text-slate-900"
+                                title="Edit Question Marks"
+                              />
+                            ) : (
+                              <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md text-[10px]">
+                                {q.marks} Mark{q.marks > 1 ? "s" : ""}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* QUESTION TEXT (DISPLAY OR EDIT) */}
+                          {isEditing ? (
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 mb-1">Question Text</label>
+                              <textarea
+                                rows={3}
+                                value={q.question_text}
+                                onChange={(e) => handleUpdateQuestion(q.id, { question_text: e.target.value })}
+                                className="w-full bg-white border border-amber-300 rounded-xl p-3 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed whitespace-pre-line">
+                              {q.question_text}
+                            </p>
+                          )}
+
+                          {/* OPTIONS FOR MCQ */}
+                          {q.options && q.options.length > 0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                              {q.options.map((opt, optIdx) => (
+                                <div key={optIdx}>
+                                  {isEditing ? (
+                                    <input
+                                      type="text"
+                                      value={opt}
+                                      onChange={(e) => {
+                                        const newOpts = [...q.options!];
+                                        newOpts[optIdx] = e.target.value;
+                                        handleUpdateQuestion(q.id, { options: newOpts });
+                                      }}
+                                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800"
+                                    />
+                                  ) : (
+                                    <span className="text-xs font-semibold text-slate-700 block bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+                                      {opt}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* ANSWER & EXPLANATION (EDITABLE) */}
+                          {showAnswerKey && (
+                            <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1">
+                              <div className="flex items-center gap-1.5 font-extrabold text-emerald-800">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Correct Answer:</span>
+                                {isEditing ? (
+                                  <input
+                                    type="text"
+                                    value={q.answer}
+                                    onChange={(e) => handleUpdateQuestion(q.id, { answer: e.target.value })}
+                                    className="flex-1 bg-white border border-emerald-300 rounded px-2 py-0.5 text-xs font-bold text-slate-900"
+                                  />
+                                ) : (
+                                  <span>{q.answer}</span>
+                                )}
+                              </div>
+
+                              {q.explanation && (
+                                <p className="text-[11px] text-emerald-700 font-medium italic pt-1">
+                                  💡 <b>Explanation:</b> {q.explanation}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                        </div>
+
+                        {/* ACTIONS (EDIT / DELETE) */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {isEditing ? (
+                            <button
+                              onClick={() => setEditingQuestionId(null)}
+                              className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-sm"
+                              title="Done Editing"
+                            >
+                              <Save className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setEditingQuestionId(q.id)}
+                              className="p-2 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-colors"
+                              title="Edit Question"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleDeleteQuestion(q.id)}
+                            className="p-2 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors"
+                            title="Delete Question"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+
             </div>
           )}
 
@@ -481,68 +854,83 @@ export default function GeneratorPage() {
 
       </div>
 
-    </div>
-  );
+      {/* PAPER HISTORY DRAWER / MODAL (CLOCK ICON 🕒) */}
+      {showHistory && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-end p-4 sm:p-6 animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg h-full max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
+            
+            {/* DRAWER HEADER */}
+            <div className="p-6 bg-gradient-to-r from-indigo-900 to-purple-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black">Question Paper History</h3>
+                  <p className="text-indigo-200 text-xs font-semibold">{savedPapers.length} Saved Exam Papers</p>
+                </div>
+              </div>
 
-  function renderQuestionCard(q: any) {
-    return (
-      <div key={q.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-extrabold text-indigo-700 uppercase">
-            Q{q.question_number} ({q.marks} Mark{q.marks > 1 ? 's' : ''})
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setEditingQuestionId(editingQuestionId === q.id ? null : q.id)}
-              className="p-1 hover:bg-slate-200 rounded text-slate-600"
-              title="Edit Question"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => handleDeleteQuestion(q.id)}
-              className="p-1 hover:bg-red-100 rounded text-red-600"
-              title="Delete Question"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* PAPERS LIST */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-3">
+              {savedPapers.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 space-y-2">
+                  <History className="w-10 h-10 mx-auto opacity-50 text-indigo-400" />
+                  <p className="text-xs font-bold">No saved question papers in history yet.</p>
+                </div>
+              ) : (
+                savedPapers.map((saved, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-2xl border border-slate-200 hover:border-indigo-300 bg-slate-50 hover:bg-indigo-50/50 transition-all flex items-start justify-between gap-3 group"
+                  >
+                    <button
+                      onClick={() => handleSelectFromHistory(saved)}
+                      className="text-left flex-1 space-y-1 min-w-0"
+                    >
+                      <h4 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+                        {saved.title}
+                      </h4>
+                      <p className="text-[11px] font-bold text-slate-500">
+                        {saved.class_name} • {saved.subject} • {saved.total_marks} Marks ({saved.time_allowed_mins} Mins)
+                      </p>
+                      <span className="text-[10px] text-slate-400 font-semibold block">
+                        {saved.questions?.length || 0} Questions included
+                      </span>
+                    </button>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleSelectFromHistory(saved)}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-colors"
+                      >
+                        Load
+                      </button>
+                      <button
+                        onClick={() => deleteSavedPaper(idx)}
+                        className="p-1.5 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors"
+                        title="Delete from history"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
           </div>
         </div>
+      )}
 
-        {q.passage && (
-          <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 text-xs text-slate-800 font-medium italic">
-            {q.passage}
-          </div>
-        )}
-
-        {editingQuestionId === q.id ? (
-          <textarea
-            rows={2}
-            value={q.question_text}
-            onChange={(e) => handleUpdateQuestionText(q.id, e.target.value)}
-            className="w-full bg-white border border-indigo-300 rounded-xl p-2 text-xs font-medium text-slate-900 focus:outline-none"
-          />
-        ) : (
-          <p className="text-xs font-semibold text-slate-900 whitespace-pre-line">{q.question_text}</p>
-        )}
-
-        {q.options && q.options.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            {q.options.map((opt: string, oIdx: number) => (
-              <div key={oIdx} className="text-[11px] p-2 bg-white rounded-lg border border-slate-200 text-slate-700 font-medium">
-                {opt}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {showAnswerKey && q.answer && (
-          <div className="pt-2 border-t border-slate-200 text-[11px] text-emerald-700 font-medium space-y-0.5">
-            <div><span className="font-bold">Answer Key:</span> {q.answer}</div>
-            {q.explanation && <div className="text-slate-500 text-[10px]"><span className="font-bold">Scoring Notes:</span> {q.explanation}</div>}
-          </div>
-        )}
-      </div>
-    );
-  }
+    </div>
+  );
 }

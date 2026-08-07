@@ -1,4 +1,4 @@
--- DEVAGYA XP System - Run this in Supabase SQL Editor
+-- DEVGYA XP System - Run this in Supabase SQL Editor
 -- Table for tracking user XP, levels, and streaks
 
 CREATE TABLE IF NOT EXISTS user_xp (

@@ -90,7 +90,7 @@ class OTPService:
             <div class="subtext">This code is valid for <strong>10 minutes</strong>. If you did not request this verification, please ignore this email.</div>
             
             <div class="footer">
-              &copy; 2026 DEVGYA GLOBAL PRIVATE LIMITED. All rights reserved.<br>
+              &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.<br>
               AI-Powered K-12 Education & School Platform.
             </div>
           </div>

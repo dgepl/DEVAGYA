@@ -1,5 +1,5 @@
 -- =========================================================
--- DEVAGYA AI CHAT HISTORY — SUPABASE SCHEMA (Phase 5)
+-- DEVGYA AI CHAT HISTORY — SUPABASE SCHEMA (Phase 5)
 -- Migrates chat_conversations + chat_messages to Supabase Cloud
 -- Supports: AI Agent OS, AI Chat Studio, Language Preference
 -- =========================================================

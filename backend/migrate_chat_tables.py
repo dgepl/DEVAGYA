@@ -40,7 +40,7 @@ def create_tables_via_insert():
     If they don't exist, print instructions for the user to run the SQL manually.
     """
     print("=" * 60)
-    print("DEVAGYA Chat Tables Migration Check")
+    print("DEVGYA Chat Tables Migration Check")
     print("=" * 60)
 
     conv_exists = check_table_exists("chat_conversations")
@@ -62,7 +62,7 @@ def create_tables_via_insert():
     print("=" * 60)
 
     sql = """
--- DEVAGYA AI Chat History Tables (Phase 5)
+-- DEVGYA AI Chat History Tables (Phase 5)
 
 CREATE TABLE IF NOT EXISTS public.chat_conversations (
     id TEXT PRIMARY KEY,

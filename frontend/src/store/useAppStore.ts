@@ -25,6 +25,7 @@ interface AppState {
   switchRole: (role: "teacher" | "student" | "parent" | "super_admin") => void;
   setActivePaper: (paper: GeneratedPaperResponse | null) => void;
   savePaper: (paper: GeneratedPaperResponse) => void;
+  deleteSavedPaper: (index: number) => void;
   setOcrDraftText: (text: string) => void;
   setActiveChildId: (childId: string) => void;
   initSession: () => void;
@@ -36,7 +37,7 @@ const defaultUser: UserProfile = {
   name: "Guest User",
   email: "",
   role: "student",
-  schoolName: "DEVGYA GLOBAL PRIVATE LIMITED",
+  schoolName: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
   board: "CBSE",
   xp: 0,
   streak: 0,
@@ -44,7 +45,6 @@ const defaultUser: UserProfile = {
   coins: 0
 };
 
-// Helper to get initial stored session
 const getInitialUser = (): UserProfile => {
   if (typeof window !== "undefined") {
     try {
@@ -60,10 +60,23 @@ const getInitialUser = (): UserProfile => {
   return defaultUser;
 };
 
+const getInitialSavedPapers = (): GeneratedPaperResponse[] => {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("devgya_saved_papers");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+  }
+  return [];
+};
+
 export const useAppStore = create<AppState>((set) => ({
   user: getInitialUser(),
   activePaper: null,
-  savedPapers: [],
+  savedPapers: getInitialSavedPapers(),
   ocrDraftText: "",
   activeChildId: "",
   setUser: (user) => {
@@ -80,13 +93,32 @@ export const useAppStore = create<AppState>((set) => ({
   },
   switchRole: (role) => set((state) => ({ user: { ...state.user, role } })),
   setActivePaper: (paper) => set({ activePaper: paper }),
-  savePaper: (paper) => set((state) => ({ savedPapers: [paper, ...state.savedPapers] })),
+  savePaper: (paper) => set((state) => {
+    const filtered = state.savedPapers.filter(p => !(p.title === paper.title && p.class_name === paper.class_name));
+    const updated = [paper, ...filtered];
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("devgya_saved_papers", JSON.stringify(updated));
+      } catch (e) {}
+    }
+    return { savedPapers: updated };
+  }),
+  deleteSavedPaper: (index) => set((state) => {
+    const updated = state.savedPapers.filter((_, i) => i !== index);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("devgya_saved_papers", JSON.stringify(updated));
+      } catch (e) {}
+    }
+    return { savedPapers: updated };
+  }),
   setOcrDraftText: (ocrDraftText) => set({ ocrDraftText }),
   setActiveChildId: (activeChildId) => set({ activeChildId }),
   logout: () => {
     if (typeof window !== "undefined") {
       try {
         localStorage.removeItem("devgya_user");
+        localStorage.removeItem("devgya_saved_papers");
       } catch (e) {}
     }
     set({ user: defaultUser, activePaper: null, savedPapers: [] });

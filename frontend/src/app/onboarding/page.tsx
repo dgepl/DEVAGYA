@@ -130,7 +130,7 @@ export default function SchoolOnboardingPage() {
             <div className="border-2 border-dashed border-slate-300 bg-white rounded-2xl p-8 flex flex-col items-center justify-center text-center space-y-3 hover:border-indigo-500 transition-colors">
               <img 
                 src="/logo.png" 
-                alt="DEVGYA GLOBAL PRIVATE LIMITED" 
+                alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED" 
                 className="h-14 w-auto object-contain" 
               />
               <span className="text-xs text-slate-800 font-bold">DEVGYA GLOBAL Logo Active</span>

@@ -6,6 +6,9 @@ import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+if not os.getenv("AI_API_KEY") and not os.getenv("GROQ_API_KEY"):
+    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+    load_dotenv("backend/.env")
 
 logger = logging.getLogger("ai_provider")
 
@@ -34,7 +37,10 @@ class AIProviderService:
 
     @property
     def vision_model(self) -> str:
-        return os.getenv("AI_VISION_MODEL", "qwen/qwen3.6-27b")
+        model_env = os.getenv("AI_VISION_MODEL", "llama-3.2-11b-vision-preview")
+        if "groq.com" in self.base_url and ("qwen" in model_env.lower() or not model_env):
+            return "llama-3.2-11b-vision-preview"
+        return model_env
 
     def build_vision_content(self, text: str, image_data_urls: List[str]) -> List[Dict[str, Any]]:
         """Build an OpenAI-style multi-part message content for vision-capable models."""
@@ -77,7 +83,7 @@ class AIProviderService:
             "max_tokens": max_tokens
         }
         
-        if response_format_json:
+        if response_format_json and not self._has_images(messages):
             payload["response_format"] = {"type": "json_object"}
 
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -87,8 +93,17 @@ class AIProviderService:
                 data = res.json()
                 return data["choices"][0]["message"]["content"]
             except Exception as e:
-                logger.error(f"AI Provider ({self.base_url}) Error: {e}")
-                raise e
+                logger.warning(f"Primary model {selected_model} error: {e}. Retrying with fallback model llama-3.1-8b-instant...")
+                try:
+                    payload["model"] = "llama-3.1-8b-instant"
+                    payload["max_tokens"] = min(max_tokens, 3500)
+                    res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
+                    res.raise_for_status()
+                    data = res.json()
+                    return data["choices"][0]["message"]["content"]
+                except Exception as fallback_err:
+                    logger.error(f"Fallback model error: {fallback_err}")
+                    raise e
 
     def _optimize_messages(self, messages: List[Dict[str, Any]], max_turns: int = 6) -> List[Dict[str, Any]]:
         """
@@ -102,7 +117,7 @@ class AIProviderService:
 
         def _normalize(value: Any) -> Any:
             if isinstance(value, str):
-                return " ".join(value.split())
+                return value.strip()
             return value
 
         optimized = []

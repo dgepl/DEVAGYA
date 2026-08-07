@@ -1,7 +1,7 @@
-# DEVAGYA Project Rules & Context
+# DEVGYA Project Rules & Context
 
 ## Project Overview
-DEVAGYA is an AI-powered K-12 education SaaS platform (CBSE/NCERT focused). It has a FastAPI backend and Next.js 15 frontend.
+DEVGYA GLOBAL EDUTECH PRIVATE LIMITED is an AI-powered K-12 education SaaS platform (CBSE/NCERT focused). It has a FastAPI backend and Next.js 15 frontend.
 
 ## Tech Stack
 - **Backend**: Python 3.14, FastAPI, Uvicorn, httpx, Pillow, python-dotenv

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Sparkles, 
   BookOpen, 
@@ -45,6 +45,51 @@ export default function TeachingAssistantPage() {
     { id: "as-1", title: "Worksheet: Chemical Equations Practice", targetClass: "Class 10-A", dueDate: "Tomorrow, 5:00 PM", status: "Published", submissions: 28, totalStudents: 32 },
     { id: "as-2", title: "MCQ Quiz: Reflection Ray Diagrams", targetClass: "Class 10-B", dueDate: "2 Aug 2026", status: "Published", submissions: 15, totalStudents: 30 }
   ]);
+
+  // Check for transferred paper from Question Paper Studio
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("devgya_transferred_worksheet");
+      if (stored) {
+        const paper = JSON.parse(stored);
+        if (paper && paper.title) {
+          setTopic(paper.chapter || paper.title);
+          setGrade(paper.class_name || "Class 10");
+          setSubject(paper.subject || "Science");
+          setContentType("worksheet");
+
+          let formattedText = `## WORKSHEET: ${paper.title.toUpperCase()}\n`;
+          formattedText += `**School:** ${paper.school_name} | **Subject:** ${paper.subject} | **Class:** ${paper.class_name}\n`;
+          formattedText += `**Total Marks:** ${paper.total_marks} | **Time:** ${paper.time_allowed_mins} Mins\n\n`;
+          formattedText += `### General Instructions:\n`;
+          (paper.instructions || []).forEach((inst: string) => {
+            formattedText += `- ${inst}\n`;
+          });
+          formattedText += `\n---\n\n### Questions:\n`;
+
+          (paper.questions || []).forEach((q: any, idx: number) => {
+            formattedText += `**Q${idx + 1}. ${q.question_text}** [${q.marks} Mark${q.marks > 1 ? "s" : ""}]\n`;
+            if (q.options && q.options.length > 0) {
+              formattedText += `${q.options.join("    ")}\n`;
+            }
+            formattedText += `*Answer:* ___________________________________________________\n\n`;
+          });
+
+          setGeneratedContent({
+            title: `Transferred Worksheet: ${paper.title}`,
+            content: formattedText
+          });
+          setEditedText(formattedText);
+          setReviewStage("generated");
+
+          localStorage.removeItem("devgya_transferred_worksheet");
+        }
+      }
+    } catch (e) {
+      console.error("Error reading transferred worksheet:", e);
+    }
+  }, []);
 
   const handleGenerateContent = async () => {
     setLoading(true);

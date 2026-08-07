@@ -43,6 +43,12 @@ export function LeaderboardWidget() {
   const top3 = leaders.slice(0, 3);
   const rest = leaders.slice(3);
 
+  const getStudentDisplayName = (entry: LeaderEntry, index: number) => {
+    if (entry.user_id === user.id) return user.name || "You";
+    if (entry.user_name && entry.user_name !== "Student" && entry.user_name !== "Guest User") return entry.user_name;
+    return entry.user_name || "Learner";
+  };
+
   const PODIUM_STYLES = [
     { bg: "from-amber-400 via-yellow-400 to-amber-500", shadow: "shadow-amber-300/50", ring: "ring-amber-300", h: "h-32", icon: Crown, label: "🥇", order: "order-2" },
     { bg: "from-slate-300 via-gray-300 to-slate-400", shadow: "shadow-slate-300/50", ring: "ring-slate-300", h: "h-24", icon: Award, label: "🥈", order: "order-1" },
@@ -112,7 +118,7 @@ export function LeaderboardWidget() {
                   <PodIcon className="w-7 h-7 text-white" />
                 </div>
                 <p className="text-xs font-extrabold text-slate-900 text-center max-w-[100px] truncate">
-                  {entry.user_name || "Student"}
+                  {getStudentDisplayName(entry, i)}
                 </p>
                 <p className="text-[10px] text-slate-500 font-bold">{entry.total_xp} XP</p>
                 {/* Podium block */}
@@ -169,7 +175,7 @@ export function LeaderboardWidget() {
                   {/* Name */}
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-bold truncate ${isMe ? "text-indigo-700" : "text-slate-800"}`}>
-                      {entry.user_name || "Student"}
+                      {getStudentDisplayName(entry, rank - 1)}
                       {isMe && <span className="text-indigo-500 ml-1">(You)</span>}
                     </p>
                     <div className="flex items-center gap-3 mt-0.5">

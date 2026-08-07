@@ -150,7 +150,17 @@ class AgentManagerService:
         return DEFAULT_AGENTS
 
     def get_agent_by_code(self, agent_code: str) -> Optional[Dict[str, Any]]:
-        return next((a for a in DEFAULT_AGENTS if a["agent_code"] == agent_code), DEFAULT_AGENTS[0])
+        agent = next((a for a in DEFAULT_AGENTS if a["agent_code"] == agent_code), DEFAULT_AGENTS[0])
+        doc_guidance = (
+            "\n\nDOCUMENTS & WORKSHEETS: You can analyze and explain attached PDF files, worksheets, documents, and images. "
+            "When given an attached document or worksheet, carefully analyze its text/questions step-by-step. "
+            "Explain concepts clearly, solve any questions or exercises inside it with step-by-step working, "
+            "and provide helpful summaries or answers as requested."
+        )
+        return {
+            **agent,
+            "system_prompt": agent["system_prompt"] + doc_guidance
+        }
 
     async def execute_agent(self, payload: AgentExecutePayload) -> AgentResponse:
         agent = self.get_agent_by_code(payload.agent_code)

@@ -78,10 +78,13 @@ interface Conversation {
   message_count: number;
 }
 
-interface AttachedImage {
+interface AttachedItem {
   id: string;
   name: string;
-  dataUrl: string;
+  type: "image" | "pdf" | "document";
+  dataUrl?: string;
+  file: File;
+  sizeStr: string;
 }
 
 const getApiBase = () => {
@@ -100,11 +103,156 @@ const LANGUAGES = [
   { code: "hinglish", label: "Hinglish", flag: "🔀" },
 ];
 
-const WELCOME_MSG: ChatMessage = {
-  id: "welcome",
-  sender: "assistant",
-  content:
-    "Hello! 👋 I'm your **AI Employee**, ready to assist.\n\n- Ask me anything related to my specialization.\n- **Attach images** 📎 (handwritten notes, textbook pages, worksheets) for analysis.\n- Select your preferred **language** (English, Hindi, Hinglish) above.\n- Your conversations are **saved automatically** — use the **🕘 History** button to revisit any past chat.",
+interface AgentConfig {
+  welcomeText: string;
+  chips: Array<{ label: string; icon: string; prompt: string }>;
+}
+
+const AGENT_CUSTOM_WELCOME: Record<string, AgentConfig> = {
+  teacher_mentor: {
+    welcomeText: "Hello Educator! 👋 I'm your **Teacher Mentor AI**. I'm here to assist you with lesson strategies, classroom engagement ideas, grading rubrics, and pedagogical guidance.\n\nHow can I support your classroom teaching today?",
+    chips: [
+      { label: "Class Activity Ideas", icon: "💡", prompt: "Suggest 3 engaging classroom activities to introduce Photosynthesis to Class 10 students." },
+      { label: "Grading Rubric", icon: "📊", prompt: "Create a 4-level rubric for evaluating an oral presentation on Climate Change." },
+      { label: "Student Engagement", icon: "🤝", prompt: "How do I handle indifferent or low-engagement students during group discussions?" },
+      { label: "Differentiated Teaching", icon: "🎯", prompt: "Provide 3 differentiated learning strategies for a mixed-ability mathematics class." },
+    ]
+  },
+  question_generator: {
+    welcomeText: "Welcome! 📝 I'm **Question Generator AI**. I specialize in creating CBSE, ICSE & NCERT aligned exam papers, chapter tests, Bloom's taxonomy indexed questions, and answer keys.\n\nTell me the Subject, Class, and Chapter to generate a custom paper!",
+    chips: [
+      { label: "Class 10 Science Test", icon: "🧪", prompt: "Generate a 20-mark chapter test for Class 10 Science: Chemical Reactions with Answer Key." },
+      { label: "Class 12 Physics MCQs", icon: "⚡", prompt: "Create 5 assertion-reasoning questions for Class 12 Physics: Electrostatics." },
+      { label: "Bloom's HOTS Questions", icon: "🔥", prompt: "Generate 3 High-Order Thinking (HOTS) questions for Class 9 Polynomials." },
+      { label: "NCERT Worksheet", icon: "📋", prompt: "Create a 10-question practice worksheet for Class 8 Coal and Petroleum." },
+    ]
+  },
+  lesson_planner: {
+    welcomeText: "Hello! 📖 I'm **Lesson Planner AI**. I craft structured 45-minute daily lesson plans, weekly unit blueprints, and learning outcomes mapped to NCERT and CBSE standards.\n\nWhich chapter or topic are you planning today?",
+    chips: [
+      { label: "45-Min Lesson Plan", icon: "⏰", prompt: "Design a 45-minute lesson plan for Class 10 Quadratic Equations including warm-up and assessment." },
+      { label: "Weekly Unit Plan", icon: "📅", prompt: "Create a 5-day unit plan for Class 9 English: The Sound of Music." },
+      { label: "Hands-on Lab Activity", icon: "🔬", prompt: "Suggest 2 interactive lab activities for Class 7 Acids, Bases, and Salts." },
+      { label: "SMART Learning Outcomes", icon: "🎯", prompt: "List SMART learning outcomes for Class 11 Microeconomics: Consumer Equilibrium." },
+    ]
+  },
+  homework_assistant: {
+    welcomeText: "Hi there! 📝 I'm **Homework Assistant AI**. Attach your worksheet, PDF, or type your question, and I'll guide you through each step with clear examples!\n\nWhat assignment are we tackling today?",
+    chips: [
+      { label: "Math Problem Step", icon: "📐", prompt: "Solve 2x^2 + 5x - 3 = 0 step-by-step with explanation." },
+      { label: "Physics Numerical", icon: "⚡", prompt: "Calculate equivalent resistance of three 6-ohm resistors in parallel." },
+      { label: "Grammar Correction", icon: "✍️", prompt: "Check and correct the grammar of this paragraph: 'She don't know where is the book.'" },
+      { label: "Explain Worksheet Q", icon: "📄", prompt: "Explain how to balance chemical equations with 2 simple examples." },
+    ]
+  },
+  student_tutor: {
+    welcomeText: "Greetings Explorer! 🧠 I'm your **Socratic AI Student Tutor**. I won't just give away final answers—instead, I'll guide you step-by-step with probing questions so you truly master the concept!\n\nWhat topic would you like to explore today?",
+    chips: [
+      { label: "Why Sky is Blue", icon: "🌌", prompt: "Why is the sky blue during the day but red during sunset? Guide me!" },
+      { label: "Pythagoras Theorem", icon: "📐", prompt: "I don't understand how Pythagoras theorem works. Help me discover it!" },
+      { label: "Ohm's Law Analogy", icon: "⚡", prompt: "Explain Ohm's Law V = IR using a simple water pipe analogy." },
+      { label: "Photosynthesis Steps", icon: "🌿", prompt: "Guide me step-by-step through the light and dark reactions of photosynthesis." },
+    ]
+  },
+  english_coach: {
+    welcomeText: "Welcome! 🗣️ I'm your **English & Communication Coach**. I help you refine spoken English fluency, master grammar rules, polish vocabulary, and grade essays.\n\nHow can we elevate your English skills today?",
+    chips: [
+      { label: "Grade Essay Intro", icon: "📝", prompt: "Grade and polish this essay intro: 'Technology has changed our world in many good ways.'" },
+      { label: "Spoken English Practice", icon: "🎙️", prompt: "Let's practice a conversational dialogue for a job interview or school debate." },
+      { label: "Vocabulary Booster", icon: "✨", prompt: "Give me 5 advanced vocabulary words to replace common words like 'good', 'bad', and 'big'." },
+      { label: "Grammar Rules Explained", icon: "📚", prompt: "Explain the difference between Present Perfect and Past Simple tenses with examples." },
+    ]
+  },
+  research_assistant: {
+    welcomeText: "Hello Scholar! 🔬 I'm your **Academic Research Assistant**. I analyze research papers, extract citations, summarize complex scientific literature, and structure academic essays.\n\nWhat research topic or document shall we investigate?",
+    chips: [
+      { label: "Literature Review", icon: "📚", prompt: "Summarize recent advances in Renewable Solar Energy Technology for a school paper." },
+      { label: "Format APA Citations", icon: "📌", prompt: "Format citations in APA 7th edition for 3 sources on Artificial Intelligence in Education." },
+      { label: "Formulate Hypothesis", icon: "🧪", prompt: "Help me formulate a testable scientific hypothesis for a Class 11 Biology project." },
+      { label: "Quantum Physics Summary", icon: "⚛️", prompt: "Explain the key concepts of quantum entanglement in simple, accessible terms." },
+    ]
+  },
+  document_assistant: {
+    welcomeText: "Welcome! 📄 I'm **Document AI Assistant**. Upload any PDF, textbook chapter, or worksheet (or paste text), and I'll extract key summaries, formulas, flashcards, and quizzes for you!\n\nAttach a document or paste text to begin.",
+    chips: [
+      { label: "Extract All Formulas", icon: "📐", prompt: "Extract all mathematical formulas and definitions from my attached PDF chapter." },
+      { label: "Create 10 Flashcards", icon: "🎴", prompt: "Generate 10 active recall flashcards from the attached study material." },
+      { label: "Executive Summary", icon: "📝", prompt: "Summarize the main arguments and conclusions from this document." },
+      { label: "Generate 5-Q Quiz", icon: "🎯", prompt: "Build a 5-question quiz with answer key based on the uploaded document." },
+    ]
+  },
+  analytics_assistant: {
+    welcomeText: "Hello! 📊 I'm **Analytics & Performance AI**. I analyze student marks, identify class weak spots, track attendance trends, and generate actionable academic performance reports.\n\nShare your class marks data to begin!",
+    chips: [
+      { label: "Class Weak Spot Radar", icon: "🎯", prompt: "Analyze these test scores: Math (55%), Science (78%), English (88%). Where should we focus?" },
+      { label: "Progress Report Summary", icon: "📄", prompt: "Draft an encouraging progress report card summary for a student improving in Mathematics." },
+      { label: "Attendance Impact", icon: "📈", prompt: "How does student attendance correlate with quarterly exam results?" },
+      { label: "Grade Trend Evaluation", icon: "📊", prompt: "Evaluate a 3-month performance trend showing a dip in mid-term physics scores." },
+    ]
+  },
+  parent_coach: {
+    welcomeText: "Welcome Parents! 🤝 I'm **AI Parenting & Study Coach**. I provide evidence-based strategies for managing screen time, building home study routines, and fostering positive child motivation.\n\nHow can I support your parenting journey today?",
+    chips: [
+      { label: "Manage Screen Time", icon: "📱", prompt: "How do I set healthy screen time limits for a 14-year-old without causing arguments?" },
+      { label: "Home Study Routine", icon: "🏠", prompt: "Design a balanced 2-hour evening home study schedule for a Class 10 board exam student." },
+      { label: "Overcome Exam Stress", icon: "💙", prompt: "How can I help my child manage exam anxiety and build confidence?" },
+      { label: "Focus & Distractions", icon: "🎯", prompt: "What are proven techniques to keep teenagers focused away from mobile phones while studying?" },
+    ]
+  },
+  career_counselor: {
+    welcomeText: "Hello Future Leader! 🧭 I'm your **Career & Stream Counselor**. I help high school students choose academic streams (PCM / PCB / Commerce / Humanities), explore college degrees, and map out career paths.\n\nWhat stream or career options are on your mind?",
+    chips: [
+      { label: "Class 10 Stream Choice", icon: "🎓", prompt: "I like Mathematics and Physics but dislike Biology. Should I choose PCM or Commerce?" },
+      { label: "AI & Robotics Career", icon: "🤖", prompt: "What degree and entrance exams (JEE, etc.) should I prepare for a career in AI & Robotics?" },
+      { label: "Commerce vs Humanities", icon: "⚖️", prompt: "Compare career opportunities in Commerce with Economics vs Humanities with Law." },
+      { label: "Top Entrance Exams India", icon: "🏆", prompt: "List top national entrance exams in India after Class 12 for Engineering, Management, and Law." },
+    ]
+  },
+  revision_assistant: {
+    welcomeText: "Welcome! ⚡ I'm **Revision & Mindmap Assistant**. I create 1-Day & 7-Day high-yield revision cheat sheets, formula mindmaps, and exam survival summaries.\n\nWhich subject or chapter are we revising today?",
+    chips: [
+      { label: "1-Day Exam Cheat Sheet", icon: "📋", prompt: "Create a 1-page high-yield revision cheat sheet for Class 10 Light Reflection & Refraction." },
+      { label: "Formula Mindmap", icon: "🧮", prompt: "List all essential formulas for Class 12 Mathematics: Integration & Differentiation." },
+      { label: "7-Day Revision Plan", icon: "📅", prompt: "Design a 7-day revision timetable for CBSE Class 10 Social Science." },
+      { label: "Important Diagram List", icon: "🎨", prompt: "List all must-draw labeled diagrams for Class 10 Biology board exam." },
+    ]
+  },
+  exam_strategist: {
+    welcomeText: "Welcome Champion! 🏆 I'm **Exam Preparation Strategist**. I create board exam time-allocation strategies, mock exam plans, paper solving hacks, and expected question blueprints.\n\nWhich exam are you preparing for?",
+    chips: [
+      { label: "3-Hour Time Allocation", icon: "⏱️", prompt: "How should I allocate my 3 hours during CBSE Class 10 Math board exam?" },
+      { label: "Avoid Silly Mistakes", icon: "❌", prompt: "Give me 5 proven tips to avoid silly calculation mistakes during Science exams." },
+      { label: "Mock Test Frequency", icon: "📝", prompt: "How many mock tests should I attempt 1 month before CBSE Class 12 Board Exams?" },
+      { label: "High-Weightage Topics", icon: "🎯", prompt: "List the highest weightage chapters in Class 10 CBSE Science exam." },
+    ]
+  },
+  motivation_coach: {
+    welcomeText: "Hey Champion! 🔥 I'm your **Growth Mindset & Motivation Coach**. Feeling overwhelmed or burnt out? I'm here to boost your confidence, reignite your focus, and keep your study streak alive!\n\nHow are you feeling about your studies today?",
+    chips: [
+      { label: "Overcome Study Burnout", icon: "💆‍♂️", prompt: "I feel exhausted and demotivated after studying for 4 hours. How do I reset?" },
+      { label: "Beat Procrastination", icon: "🚀", prompt: "I keep delaying studying for my upcoming history test. Help me start now!" },
+      { label: "Build Daily Consistency", icon: "🔥", prompt: "How do I build a 30-day consistent study habit without giving up?" },
+      { label: "Exam Confidence Boost", icon: "⭐", prompt: "Give me 3 powerful affirmations for staying calm and confident during exam week." },
+    ]
+  },
+  study_planner: {
+    welcomeText: "Hello! ⏰ I'm **AI Study Schedule Planner**. I calculate realistic daily and weekly study timetables based on your weak subjects, school hours, and target exam dates.\n\nLet's build your perfect study timetable!",
+    chips: [
+      { label: "Daily 3-Hour Timetable", icon: "📅", prompt: "Create a realistic 3-hour evening study timetable for a Class 10 student." },
+      { label: "Weekly Board Exam Plan", icon: "🗓️", prompt: "Design a weekly timetable balancing Math, Science, English, and Social Studies." },
+      { label: "Pomodoro Study Method", icon: "⏱️", prompt: "Explain how to use 25-minute Pomodoro cycles effectively for tough subjects." },
+      { label: "Weak Subject Priority", icon: "📈", prompt: "How do I structure my timetable when Math is my weakest subject?" },
+    ]
+  }
+};
+
+const getWelcomeMsg = (agentCode: string): ChatMessage => {
+  const config = AGENT_CUSTOM_WELCOME[agentCode] || AGENT_CUSTOM_WELCOME["teacher_mentor"];
+  return {
+    id: "welcome",
+    sender: "assistant",
+    content: config.welcomeText,
+  };
 };
 
 const dataUrlToBlob = (dataUrl: string): Blob => {
@@ -134,25 +282,30 @@ export function AgentMarketplace() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [selectedAgentCode, setSelectedAgentCode] = useState("teacher_mentor");
 
-  // Read agent from URL query param
+  // Read agent & prompt from URL query params
   const searchParams = useSearchParams();
   useEffect(() => {
     const agentParam = searchParams.get("agent");
+    const promptParam = searchParams.get("prompt");
     if (agentParam) {
       setSelectedAgentCode(agentParam);
       // Reset chat when switching agents via sidebar
-      setMessages([WELCOME_MSG]);
+      setMessages([getWelcomeMsg(agentParam)]);
       setActiveConvId(null);
+    }
+    if (promptParam) {
+      setInput(promptParam);
+      setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [searchParams]);
 
   // Chat state
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MSG]);
+  const [messages, setMessages] = useState<ChatMessage[]>([getWelcomeMsg("teacher_mentor")]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [language, setLanguage] = useState("english");
-  const [attached, setAttached] = useState<AttachedImage[]>([]);
+  const [attached, setAttached] = useState<AttachedItem[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [xpToast, setXpToast] = useState<number | null>(null);
 
@@ -170,6 +323,13 @@ export function AgentMarketplace() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const langDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   // Load agents
   useEffect(() => {
@@ -273,7 +433,7 @@ export function AgentMarketplace() {
   const newChat = () => {
     abortRef.current?.abort();
     setActiveConvId(null);
-    setMessages([WELCOME_MSG]);
+    setMessages([getWelcomeMsg(selectedAgentCode)]);
     setAttached([]);
     setInput("");
     setStreaming(false);
@@ -286,39 +446,55 @@ export function AgentMarketplace() {
     abortRef.current?.abort();
     setSelectedAgentCode(agentCode);
     setActiveConvId(null);
-    setMessages([WELCOME_MSG]);
+    setMessages([getWelcomeMsg(agentCode)]);
     setAttached([]);
     setInput("");
     setStreaming(false);
     setHistoryOpen(false);
   };
 
-  // Handle image files
+  // Handle images, PDFs, and document files
   const handleFiles = (files: FileList | null) => {
     if (!files || streaming) return;
-    const accepted = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/gif",
-      "image/bmp",
-    ];
     const remaining = MAX_IMAGES - attached.length;
     Array.from(files)
       .slice(0, remaining)
       .forEach((file) => {
-        if (!accepted.includes(file.type)) return;
-        const reader = new FileReader();
-        reader.onload = () =>
+        const ext = file.name.split(".").pop()?.toLowerCase() || "";
+        const isImage = file.type.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(ext);
+        const isPdf = file.type === "application/pdf" || ext === "pdf";
+        
+        const fileId = `file-${Date.now()}-${Math.random()}`;
+        const itemType: "image" | "pdf" | "document" = isImage ? "image" : isPdf ? "pdf" : "document";
+
+        if (isImage) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            setAttached((prev) => [
+              ...prev,
+              {
+                id: fileId,
+                name: file.name,
+                type: itemType,
+                dataUrl: reader.result as string,
+                file: file,
+                sizeStr: formatFileSize(file.size),
+              },
+            ]);
+          };
+          reader.readAsDataURL(file);
+        } else {
           setAttached((prev) => [
             ...prev,
             {
-              id: `img-${Date.now()}-${Math.random()}`,
+              id: fileId,
               name: file.name,
-              dataUrl: reader.result as string,
+              type: itemType,
+              file: file,
+              sizeStr: formatFileSize(file.size),
             },
           ]);
-        reader.readAsDataURL(file);
+        }
       });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -336,15 +512,30 @@ export function AgentMarketplace() {
     fd.append("language", language);
     fd.append("stream", "true");
     if (activeConvId) fd.append("conversation_id", activeConvId);
-    attached.forEach((img) => {
-      fd.append("images", dataUrlToBlob(img.dataUrl), img.name || "image.jpg");
+
+    // Append images and documents
+    const imageUrls: string[] = [];
+    attached.forEach((item) => {
+      if (item.type === "image" && item.dataUrl) {
+        fd.append("images", dataUrlToBlob(item.dataUrl), item.name || "image.jpg");
+        imageUrls.push(item.dataUrl);
+      } else {
+        fd.append("documents", item.file, item.name);
+      }
     });
 
-    const imageUrls = attached.map((a) => a.dataUrl);
+    const docNames = attached.filter(a => a.type !== "image").map(a => a.name).join(", ");
+    let userDisplayContent = text;
+    if (!text && docNames) {
+      userDisplayContent = `📄 *(Attached Worksheet/Document: ${docNames})*`;
+    } else if (!text && imageUrls.length > 0) {
+      userDisplayContent = "📷 *(Image attached)*";
+    }
+
     const optimisticUser: ChatMessage = {
       id: `local-user-${Date.now()}`,
       sender: "user",
-      content: text || "*(Image attached)*",
+      content: userDisplayContent,
       image_urls: imageUrls,
     };
     setMessages((prev) => [...prev, optimisticUser]);
@@ -371,13 +562,15 @@ export function AgentMarketplace() {
         setActiveConvId(newConvId);
       }
 
-      // Read XP earned from response header
-      const xpEarned = res.headers.get("X-XP-Earned");
-      if (xpEarned) {
-        const xpNum = parseInt(xpEarned, 10);
-        if (xpNum > 0) {
-          setXpToast(xpNum);
-          setTimeout(() => setXpToast(null), 3500);
+      // Read XP earned from response header (Students only)
+      if (user.role === "student") {
+        const xpEarned = res.headers.get("X-XP-Earned");
+        if (xpEarned) {
+          const xpNum = parseInt(xpEarned, 10);
+          if (xpNum > 0) {
+            setXpToast(xpNum);
+            setTimeout(() => setXpToast(null), 3500);
+          }
         }
       }
 
@@ -763,12 +956,7 @@ export function AgentMarketplace() {
                       {/* QUICK STARTER SUGGESTION CHIPS FOR MOBILE & DESKTOP */}
                       {m.id === "welcome" && messages.length <= 1 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100">
-                          {[
-                            { label: "Explain NCERT Chapter", icon: "💡", prompt: "Explain the core concepts of Class 10 Science Chapter 1 step by step." },
-                            { label: "Generate Practice Quiz", icon: "🎯", prompt: "Create a 5-question multiple choice practice quiz for me on Class 10 Mathematics." },
-                            { label: "Help with Homework", icon: "📝", prompt: "Help me solve my homework problem step by step with Socratic hints." },
-                            { label: "High-Yield Revision Notes", icon: "📚", prompt: "Give me concise revision notes and key formulas for my upcoming exam." },
-                          ].map((chip, idx) => (
+                          {(AGENT_CUSTOM_WELCOME[selectedAgentCode] || AGENT_CUSTOM_WELCOME["teacher_mentor"]).chips.map((chip, idx) => (
                             <button
                               key={idx}
                               type="button"
@@ -800,21 +988,33 @@ export function AgentMarketplace() {
             onSubmit={handleSend}
             className="p-4 border border-slate-200 border-t-0 bg-white rounded-b-3xl"
           >
-            {/* Attached image previews */}
+            {/* Attached file & document previews */}
             {attached.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2.5">
-                {attached.map((img) => (
-                  <div key={img.id} className="relative group">
-                    <img
-                      src={img.dataUrl}
-                      alt={img.name}
-                      className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-sm"
-                    />
+                {attached.map((item) => (
+                  <div key={item.id} className="relative group">
+                    {item.type === "image" && item.dataUrl ? (
+                      <img
+                        src={item.dataUrl}
+                        alt={item.name}
+                        className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-xs"
+                      />
+                    ) : (
+                      <div className="h-16 px-3 py-2 bg-gradient-to-br from-slate-50 to-indigo-50/50 border border-slate-200 rounded-xl flex items-center gap-2 shadow-xs min-w-[140px] max-w-[200px]">
+                        <div className="w-8 h-8 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center shrink-0">
+                          <FileText className="w-4 h-4 text-red-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-800 truncate leading-tight">{item.name}</p>
+                          <p className="text-[10px] font-semibold text-slate-400 mt-0.5">{item.type.toUpperCase()} • {item.sizeStr}</p>
+                        </div>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() =>
                         setAttached((prev) =>
-                          prev.filter((a) => a.id !== img.id)
+                          prev.filter((a) => a.id !== item.id)
                         )
                       }
                       className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"
@@ -827,9 +1027,10 @@ export function AgentMarketplace() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 flex items-center justify-center transition-colors"
+                    className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 flex flex-col items-center justify-center gap-0.5 transition-colors"
                   >
-                    <ImageIcon className="w-5 h-5" />
+                    <Plus className="w-4 h-4" />
+                    <span className="text-[9px] font-bold">Add file</span>
                   </button>
                 )}
               </div>
@@ -839,7 +1040,7 @@ export function AgentMarketplace() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.pdf,.docx,.doc,.txt,.md,.csv"
                 multiple
                 className="hidden"
                 onChange={(e) => handleFiles(e.target.files)}
@@ -848,8 +1049,8 @@ export function AgentMarketplace() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={streaming || attached.length >= MAX_IMAGES}
-                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0"
-                title="Attach an image (up to 4)"
+                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0 flex items-center gap-1"
+                title="Attach PDF, worksheet, document, or image (up to 4)"
               >
                 <Paperclip className="w-4 h-4" />
               </button>
@@ -868,7 +1069,7 @@ export function AgentMarketplace() {
                     handleSend();
                   }
                 }}
-                placeholder={`Ask ${selectedAgent?.name || "AI Agent"} anything — or attach an image...`}
+                placeholder={`Ask ${selectedAgent?.name || "AI Agent"} anything — or attach a PDF, worksheet 📄, or image...`}
                 className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 resize-none max-h-40"
               />
 

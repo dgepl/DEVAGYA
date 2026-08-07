@@ -9,7 +9,11 @@ async def scan_textbook_page(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="No file uploaded")
     try:
         content = await file.read()
-        extracted_text = await ocr_service.extract_text_from_bytes(content, file.filename or "scanned_doc.jpg")
+        extracted_text = await ocr_service.extract_text_from_bytes(
+            content, 
+            file.filename or "scanned_doc.jpg",
+            file.content_type or ""
+        )
         return {
             "filename": file.filename,
             "content_type": file.content_type,

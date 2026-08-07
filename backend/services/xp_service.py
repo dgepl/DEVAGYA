@@ -147,15 +147,46 @@ class XPService:
         return {"total_xp": xp_amount, "level": 1, "streak": 0, "xp_earned": xp_amount}
 
     async def get_leaderboard(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Fetch top users by XP."""
+        """Fetch top real users by XP from Supabase."""
         if not SERVICE_KEY:
             return []
-        url = f"{SUPABASE_URL}/rest/v1/user_xp?select=user_id,user_name,total_xp,level,streak&order=total_xp.desc&limit={limit}"
+        url = f"{SUPABASE_URL}/rest/v1/user_xp?select=user_id,user_name,user_email,total_xp,level,streak&order=total_xp.desc&limit={limit}"
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 res = await client.get(url, headers=HEADERS)
                 if res.status_code == 200:
-                    return res.json()
+                    data = res.json()
+                    cleaned_leaderboard = []
+                    for row in data:
+                        uname = (row.get("user_name") or "").strip()
+                        uemail = (row.get("user_email") or "").strip()
+                        uid = (row.get("user_id") or "").strip()
+                        
+                        # If user_name is default/generic, resolve real full_name from Supabase profiles
+                        if not uname or uname in ("Student", "Guest User"):
+                            try:
+                                p_url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{uid}&select=full_name,email"
+                                p_res = await client.get(p_url, headers=HEADERS)
+                                if p_res.status_code == 200 and p_res.json():
+                                    prof = p_res.json()[0]
+                                    uname = prof.get("full_name") or prof.get("email", "").split("@")[0].capitalize()
+                            except Exception:
+                                pass
+                        
+                        if not uname or uname in ("Student", "Guest User"):
+                            if uemail and "@" in uemail:
+                                uname = uemail.split("@")[0].capitalize()
+                            else:
+                                uname = "Learner"
+
+                        cleaned_leaderboard.append({
+                            "user_id": uid,
+                            "user_name": uname,
+                            "total_xp": row.get("total_xp", 0),
+                            "level": row.get("level", 1),
+                            "streak": row.get("streak", 0)
+                        })
+                    return cleaned_leaderboard
             except Exception as e:
                 logger.error(f"Error fetching leaderboard: {e}")
         return []

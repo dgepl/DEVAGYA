@@ -11,6 +11,7 @@ from schemas.phase4 import AgentExecutePayload, AgentResponse
 from services.agent_manager import agent_manager_service
 from services.ai_provider import ai_provider
 from services.chat_history_service import chat_history_service
+from services.pdf_service import extract_document_text
 from services.xp_service import xp_service, calculate_xp
 
 logger = logging.getLogger("agents_router")
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/agents", tags=["AI Agent OS & Agent Marketplace"])
 
 MAX_IMAGES = 4
 MAX_IMAGE_BYTES = 6 * 1024 * 1024
+MAX_DOC_BYTES = 15 * 1024 * 1024
 
 LANGUAGE_INSTRUCTIONS = {
     "hindi": "CRITICAL INSTRUCTION: You MUST reply ONLY in Hindi (Devanagari script). Every word of your response must be in Hindi. Do NOT use English at all.",
@@ -48,6 +50,11 @@ def _derive_title(message: str) -> str:
     clean = " ".join((message or "").split())
     if not clean:
         return "New Chat"
+    # If starting with document marker, pull title from filename or clean text
+    if "[ATTACHED WORKSHEET / DOCUMENT:" in clean:
+        parts = clean.split("]", 1)
+        if len(parts) > 0:
+            return parts[0].replace("[ATTACHED WORKSHEET / DOCUMENT:", "Doc:").strip()[:60]
     return clean[:60] + ("..." if len(clean) > 60 else "")
 
 
@@ -108,7 +115,7 @@ async def execute_agent_query(payload: AgentExecutePayload):
 
 
 # ============================================================
-# NEW: Agent Chat with Streaming, Images & Language
+# NEW: Agent Chat with Streaming, Images, PDFs & Language
 # ============================================================
 
 @router.get("/conversations")
@@ -147,25 +154,58 @@ async def agent_chat_message(
     language: str = Form("english"),
     stream: bool = Form(True),
     images: List[UploadFile] = File([]),
+    documents: List[UploadFile] = File([]),
+    files: List[UploadFile] = File([]),
 ):
     """
-    Send a chat message to a specific AI Agent with optional images.
+    Send a chat message to a specific AI Agent with optional images, PDFs, and worksheets.
 
     - If conversation_id is provided, continues that conversation.
-    - Otherwise a new conversation is created under that agent_code.
+    - Supports uploading PDF, DOCX, TXT worksheets and documents.
     - Language can be: english, hindi, hinglish.
     - Returns a streaming Markdown response saved to history.
     """
     user_id = (user_id or "usr-guest").strip()
     message = (message or "").strip()
 
-    if not message and not images:
-        raise HTTPException(status_code=400, detail="Message or an image is required.")
+    # Combine documents and files lists
+    all_doc_files = (documents or []) + (files or [])
+
+    if not message and not images and not all_doc_files:
+        raise HTTPException(status_code=400, detail="Message, image, or document/worksheet is required.")
 
     # Resolve the agent
     agent = agent_manager_service.get_agent_by_code(agent_code)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found.")
+
+    # Process uploaded documents / PDFs / Worksheets -> extract text
+    doc_sections: List[str] = []
+    for d in all_doc_files:
+        data = await d.read()
+        if len(data) > MAX_DOC_BYTES:
+            raise HTTPException(status_code=400, detail=f"Document '{d.filename}' is too large. Maximum size is 15 MB.")
+        extracted_text = extract_document_text(data, d.filename or "worksheet.pdf", d.content_type or "")
+        doc_sections.append(
+            f"📄 **[ATTACHED WORKSHEET / DOCUMENT: {d.filename or 'worksheet.pdf'}]**\n"
+            f"```\n{extracted_text}\n```"
+        )
+
+    # Combine extracted document text with user message
+    final_user_prompt = ""
+    if doc_sections:
+        combined_docs = "\n\n".join(doc_sections)
+        if message:
+            final_user_prompt = f"{combined_docs}\n\n**User Question/Instruction:**\n{message}"
+        else:
+            final_user_prompt = (
+                f"{combined_docs}\n\n"
+                f"**User Instruction:**\n"
+                f"Please carefully analyze and explain the attached document/worksheet above step-by-step. "
+                f"Solve any questions or exercises inside it, explain key concepts in detail, and highlight important points."
+            )
+    else:
+        final_user_prompt = message
 
     # Resolve or create the conversation
     conv = None
@@ -178,7 +218,7 @@ async def agent_chat_message(
             chat_history_service.update_language(conversation_id, language)
     else:
         conv = chat_history_service.create_conversation(
-            user_id, _derive_title(message), agent_code=agent_code, language=language
+            user_id, _derive_title(message or (doc_sections[0] if doc_sections else "Document Chat")), agent_code=agent_code, language=language
         )
 
     # Process uploaded images -> compressed base64 data URLs
@@ -191,10 +231,10 @@ async def agent_chat_message(
 
     # Persist the user message
     chat_history_service.add_message(
-        conv["id"], "user", message or "*(Image attached)*", data_urls
+        conv["id"], "user", final_user_prompt or "*(Document attached)*", data_urls
     )
-    if conv.get("title") in ("New Chat", None) and message:
-        chat_history_service.update_title(conv["id"], _derive_title(message))
+    if conv.get("title") in ("New Chat", None) and final_user_prompt:
+        chat_history_service.update_title(conv["id"], _derive_title(message or (all_doc_files[0].filename if all_doc_files else "New Chat")))
 
     # Build AI messages from full conversation context
     ai_messages = _build_agent_ai_messages(conv["id"], user_id, agent["system_prompt"], language)
@@ -217,23 +257,31 @@ async def agent_chat_message(
 
         response = StreamingResponse(event_generator(), media_type="text/plain")
         response.headers["X-Conversation-Id"] = conv["id"]
-        # Award XP
-        xp_amount = calculate_xp(message, has_image=len(data_urls) > 0)
-        try:
-            await xp_service.award_xp(user_id, "", xp_amount)
-        except Exception:
-            pass
-        response.headers["X-XP-Earned"] = str(xp_amount)
+        
+        # Award XP (Students only)
+        is_parent = user_id.startswith("prt-") or agent_code == "parent_coach"
+        if not is_parent:
+            xp_amount = calculate_xp(message, has_image=len(data_urls) > 0)
+            try:
+                await xp_service.award_xp(user_id, "", xp_amount)
+            except Exception:
+                pass
+            response.headers["X-XP-Earned"] = str(xp_amount)
+
         return response
 
     # Non-streaming fallback
     content = await ai_provider.chat_completion(ai_messages)
     chat_history_service.add_message(conv["id"], "assistant", content)
     chat_history_service.touch_conversation(conv["id"])
-    # Award XP
-    xp_amount = calculate_xp(message, has_image=len(data_urls) > 0)
-    try:
-        await xp_service.award_xp(user_id, "", xp_amount)
-    except Exception:
-        pass
+
+    is_parent = user_id.startswith("prt-") or agent_code == "parent_coach"
+    xp_amount = 0
+    if not is_parent:
+        xp_amount = calculate_xp(message, has_image=len(data_urls) > 0)
+        try:
+            await xp_service.award_xp(user_id, "", xp_amount)
+        except Exception:
+            pass
+
     return {"response": content, "conversation_id": conv["id"], "xp_earned": xp_amount}

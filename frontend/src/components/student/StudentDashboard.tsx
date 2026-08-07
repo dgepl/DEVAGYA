@@ -6,7 +6,7 @@ import {
   Flame, Trophy, Sparkles, Target, Brain, Zap, ArrowRight,
   Video, MessageSquare, Clock, FileText, Play, Award, Crown,
   BookOpen, Compass, Shield, ChevronRight, Star, Home, Users,
-  Bot, Mic
+  Bot, Mic, Layers
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -43,15 +43,14 @@ export function StudentDashboard() {
 
   const QUICK_TOOLS = [
     { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain, color: "from-indigo-500 to-violet-600", desc: "Ask anything" },
+    { label: "Flashcards", href: "/dashboard/student/flashcards", icon: Layers, color: "from-amber-500 to-yellow-600", desc: "Active recall" },
     { label: "Quiz", href: "/dashboard/student/practice", icon: Target, color: "from-emerald-500 to-teal-600", desc: "Test yourself" },
     { label: "Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy, color: "from-rose-500 to-pink-600", desc: "Board strategy" },
     { label: "Video Call", href: "/dashboard/video-consultation", icon: Video, color: "from-purple-500 to-fuchsia-600", desc: "Live AI tutor" },
-    { label: "Chat", href: "/dashboard/chat", icon: MessageSquare, color: "from-blue-500 to-cyan-600", desc: "Chat studio" },
     { label: "Timer", href: "/dashboard/student/timer", icon: Clock, color: "from-amber-500 to-orange-600", desc: "Pomodoro" },
   ];
 
   const AI_AGENTS = [
-    { label: "Homework Helper", href: "/dashboard/agents?agent=homework_assistant", icon: FileText, color: "text-blue-600 bg-blue-50", gradient: "from-blue-500 to-blue-600" },
     { label: "Exam Strategist", href: "/dashboard/agents?agent=exam_strategist", icon: Trophy, color: "text-rose-600 bg-rose-50", gradient: "from-rose-500 to-rose-600" },
     { label: "Revision AI", href: "/dashboard/agents?agent=revision_assistant", icon: BookOpen, color: "text-purple-600 bg-purple-50", gradient: "from-purple-500 to-purple-600" },
     { label: "Study Planner", href: "/dashboard/agents?agent=study_planner", icon: Clock, color: "text-emerald-600 bg-emerald-50", gradient: "from-emerald-500 to-emerald-600" },
@@ -62,6 +61,12 @@ export function StudentDashboard() {
   ];
 
   const RANK_COLORS = ["from-amber-400 to-yellow-500", "from-slate-300 to-slate-400", "from-amber-600 to-orange-700"];
+
+  const getStudentDisplayName = (entry: { user_id: string; user_name: string }, index: number) => {
+    if (entry.user_id === user.id) return user.name || "You";
+    if (entry.user_name && entry.user_name !== "Student" && entry.user_name !== "Guest User") return entry.user_name;
+    return entry.user_name || "Learner";
+  };
 
   // ══════════════════════════════════════
   // MOBILE VIEW (completely different layout)
@@ -169,7 +174,7 @@ export function StudentDashboard() {
                         {i + 1}
                       </div>
                       <span className="text-xs font-bold text-slate-800 flex-1 truncate">
-                        {e.user_name || "Student"} {e.user_id === user.id && <span className="text-indigo-500">(You)</span>}
+                        {getStudentDisplayName(e, i)} {e.user_id === user.id && <span className="text-indigo-500">(You)</span>}
                       </span>
                       <span className="text-xs font-extrabold text-indigo-600">{e.total_xp} XP</span>
                     </div>
@@ -292,7 +297,7 @@ export function StudentDashboard() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-bold truncate ${isMe ? "text-indigo-700" : "text-slate-800"}`}>
-                      {entry.user_name || "Student"} {isMe && <span className="text-indigo-500">(You)</span>}
+                      {getStudentDisplayName(entry, i)} {isMe && <span className="text-indigo-500">(You)</span>}
                     </p>
                     <p className="text-[10px] text-slate-400">Lv.{entry.level} • {entry.streak} day streak</p>
                   </div>
@@ -499,7 +504,7 @@ export function StudentDashboard() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className={`text-xs font-bold truncate ${isMe ? "text-indigo-700" : "text-slate-800"}`}>
-                        {entry.user_name || "Student"} {isMe && <span className="text-indigo-500">(You)</span>}
+                        {getStudentDisplayName(entry, i)} {isMe && <span className="text-indigo-500">(You)</span>}
                       </p>
                       <p className="text-[10px] text-slate-400">Level {entry.level}</p>
                     </div>

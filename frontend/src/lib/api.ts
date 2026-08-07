@@ -18,7 +18,6 @@ export interface GeneratePaperPayload {
   num_mcqs: number;
   num_short: number;
   num_long: number;
-  num_case_studies: number;
   school_name: string;
   custom_instructions?: string;
 }
@@ -30,7 +29,6 @@ export interface QuestionItem {
   question_text: string;
   marks: number;
   options?: string[];
-  passage?: string;
   answer: string;
   explanation?: string;
 }
@@ -55,6 +53,15 @@ export async function generateQuestionPaper(payload: GeneratePaperPayload): Prom
     body: JSON.stringify(payload)
   });
   if (!res.ok) throw new Error("Failed to generate question paper");
+  return res.json();
+}
+
+export async function generateQuestionPaperFromFile(formData: FormData): Promise<GeneratedPaperResponse> {
+  const res = await fetch(`${getApiBase()}/generator/generate-from-file`, {
+    method: "POST",
+    body: formData
+  });
+  if (!res.ok) throw new Error("Failed to generate question paper from file");
   return res.json();
 }
 
@@ -88,7 +95,7 @@ export async function downloadPDF(paper: GeneratedPaperResponse, includeAnswers:
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${paper.subject}_${paper.class_name}_${includeAnswers ? 'AnswerKey' : 'Paper'}.pdf`;
+  a.download = `${paper.subject}_${paper.class_name}_${includeAnswers ? 'AnswerKey' : 'Paper'}.pdf`.replace(/\s+/g, "_");
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -170,17 +177,10 @@ export async function logPomodoroSession(payload: { duration_seconds: number; fo
   return res.json();
 }
 
-// 2. Practice & Quiz APIs
-export async function generateAdaptiveQuiz(payload: {
-  subject: string;
-  chapter: string;
-  question_types: string[];
-  num_questions: number;
-}) {
-  const res = await fetch(`${API_BASE}/quizzes/generate`, {
+export async function generatePracticeQuizFromFile(formData: FormData) {
+  const res = await fetch(`${API_BASE}/student/practice-quiz-from-file`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: formData
   });
   if (!res.ok) throw new Error("Quiz generation failed");
   return res.json();
@@ -200,12 +200,20 @@ export async function submitQuizAnswers(payload: {
   return res.json();
 }
 
-// 3. Flashcards, Revision & Exam Prep APIs
 export async function generateFlashcards(payload: { subject: string; topic: string; num_cards: number }) {
   const res = await fetch(`${API_BASE}/revision/flashcards`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error("Flashcards generation failed");
+  return res.json();
+}
+
+export async function generateFlashcardsFromFile(formData: FormData) {
+  const res = await fetch(`${API_BASE}/revision/flashcards-from-file`, {
+    method: "POST",
+    body: formData
   });
   if (!res.ok) throw new Error("Flashcards generation failed");
   return res.json();

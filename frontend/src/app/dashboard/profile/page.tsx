@@ -91,7 +91,7 @@ export default function ProfilePage() {
             <div className="border border-dashed border-slate-300 bg-slate-50 p-6 rounded-2xl flex items-center justify-center gap-4">
               <img 
                 src="/logo.png" 
-                alt="DEVGYA GLOBAL PRIVATE LIMITED" 
+                alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED" 
                 className="h-12 w-auto object-contain" 
               />
               <div>

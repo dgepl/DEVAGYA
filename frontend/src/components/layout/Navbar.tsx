@@ -16,7 +16,7 @@ export function Navbar() {
           <Link href="/" className="flex items-center group pl-8 sm:pl-16">
             <img 
               src="/logo.png" 
-              alt="DEVGYA GLOBAL PRIVATE LIMITED" 
+              alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED" 
               className="h-16 sm:h-20 w-auto max-h-20 object-contain mix-blend-multiply group-hover:scale-105 transition-transform" 
             />
           </Link>

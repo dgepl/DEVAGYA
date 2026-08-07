@@ -39,6 +39,7 @@ export default function PapersPage() {
                 <button
                   onClick={() => downloadPDF(paper, false)}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-glow transition-all flex items-center gap-1.5"
+                  title="Download Question Paper PDF (No Watermark)"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Paper PDF
@@ -46,6 +47,7 @@ export default function PapersPage() {
                 <button
                   onClick={() => downloadPDF(paper, true)}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-glow transition-all flex items-center gap-1.5"
+                  title="Download Teacher Answer Key PDF (No Watermark)"
                 >
                   <CheckCircle className="w-3.5 h-3.5" />
                   Answer Key

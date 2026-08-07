@@ -52,7 +52,7 @@ def check_table():
 
 def main():
     print("=" * 60)
-    print("DEVAGYA XP Table Migration Check")
+    print("DEVGYA XP Table Migration Check")
     print("=" * 60)
 
     if check_table():

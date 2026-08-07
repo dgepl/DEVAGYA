@@ -1,11 +1,62 @@
 import io
 import os
+import re
+import zipfile
+import xml.etree.ElementTree as ET
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from schemas.question import GeneratedPaperResponse
+
+
+def extract_text_from_pdf(file_bytes: bytes, max_pages: int = 30) -> str:
+    """Extract text from a PDF file using pypdf."""
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+        pages_text = []
+        for idx, page in enumerate(reader.pages[:max_pages]):
+            text = page.extract_text() or ""
+            if text.strip():
+                pages_text.append(f"--- Page {idx + 1} ---\n{text.strip()}")
+        if not pages_text:
+            return "[Attached PDF Document: Contains scanned images or visual worksheet pages]"
+        return "\n\n".join(pages_text)
+    except Exception as e:
+        return f"[Error parsing PDF document: {e}]"
+
+
+def extract_docx_text(file_bytes: bytes) -> str:
+    """Extract text from a DOCX file using standard library zipfile."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+            xml_content = z.read("word/document.xml")
+            tree = ET.fromstring(xml_content)
+            texts = [node.text for node in tree.iter() if node.tag.endswith("t") and node.text]
+            return "\n".join(texts)
+    except Exception as e:
+        return f"[Error parsing Word document: {e}]"
+
+
+def extract_document_text(file_bytes: bytes, filename: str, content_type: str = "") -> str:
+    """Extract readable text content from PDF, DOCX, TXT, or Worksheet files."""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext == ".pdf" or "pdf" in (content_type or "").lower():
+        text = extract_text_from_pdf(file_bytes)
+    elif ext in (".docx", ".doc"):
+        text = extract_docx_text(file_bytes)
+    else:
+        try:
+            text = file_bytes.decode("utf-8", errors="ignore")
+        except Exception:
+            text = f"[Attached Document: {filename}]"
+
+    # Truncate if larger than 35k chars to keep LLM context clean
+    if len(text) > 35000:
+        text = text[:35000] + f"\n\n[...Truncated remaining text of {filename} for prompt context size limit...]"
+    return text
 
 class NumberedCanvas(canvas.Canvas):
     """Custom canvas for adding page numbers and subtle watermark."""
@@ -27,25 +78,12 @@ class NumberedCanvas(canvas.Canvas):
 
     def draw_watermark_and_footer(self, page_count):
         self.saveState()
-        # Watermark
-        self.setFont("Helvetica-Bold", 45)
-        self.setFillColor(colors.HexColor("#F1F5F9")) # Slate 100
-        self.saveState()
-        self.translate(300, 400)
-        self.rotate(45)
-        self.drawCentredString(0, 0, "ACADEMIX AI - CONFIDENTIAL")
-        self.restoreState()
-
-        # Footer
+        # Clean Footer with Page Numbers only (No Watermark/Platform Branding)
         self.setFont("Helvetica", 9)
         self.setFillColor(colors.HexColor("#64748B"))
-        self.drawString(40, 20, "Generated via Academix AI Platform | Official NCERT Format")
         page_str = f"Page {self._pageNumber} of {page_count}"
         self.drawRightString(A4[0] - 40, 20, page_str)
         
-        # Bottom Line
-        self.setStrokeColor(colors.HexColor("#CBD5E1"))
-        self.setLineWidth(0.5)
         self.line(40, 32, A4[0] - 40, 32)
         self.restoreState()
 
@@ -145,12 +183,24 @@ class PDFGeneratorService:
             textColor=colors.HexColor("#047857") # Emerald 700
         )
 
+        worksheet_line_style = ParagraphStyle(
+            'WorksheetLine',
+            parent=styles['Normal'],
+            fontName='Helvetica-Oblique',
+            fontSize=9,
+            leading=14,
+            leftIndent=15,
+            textColor=colors.HexColor("#94A3B8")
+        )
+
         story = []
 
         # Header Block
+        header_title = f"{paper.title} (TEACHER ANSWER KEY)" if include_answers else paper.title
+
         story.append(Paragraph(paper.school_name.upper(), title_style))
         story.append(Spacer(1, 4))
-        story.append(Paragraph(f"{paper.title} — {paper.subject.upper()}", subtitle_style))
+        story.append(Paragraph(f"{header_title} — {paper.subject.upper()}", subtitle_style))
         story.append(Spacer(1, 8))
 
         # Metadata Table (Class, Time, Marks, Chapter)
@@ -187,20 +237,18 @@ class PDFGeneratorService:
         mcqs = [q for q in paper.questions if q.question_type == 'mcq']
         shorts = [q for q in paper.questions if q.question_type == 'short']
         longs = [q for q in paper.questions if q.question_type == 'long']
-        cases = [q for q in paper.questions if q.question_type == 'case_study']
-
         def render_question_block(q):
             q_elements = []
-            q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q.question_text} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
-            
-            if q.passage:
-                story.append(Paragraph(f"<i>Passage: {q.passage}</i>", option_style))
+
+            q_text_formatted = q.question_text.replace("\n", "<br/>")
+            q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_text_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
 
             if q.options:
                 opt_str = "&nbsp;&nbsp;&nbsp;&nbsp;".join(q.options)
+                q_elements.append(Spacer(1, 3))
                 q_elements.append(Paragraph(opt_str, option_style))
 
-            if include_answers:
+            if is_answer_key or include_answers:
                 q_elements.append(Spacer(1, 2))
                 q_elements.append(Paragraph(f"<b>Correct Answer:</b> {q.answer}", answer_style))
                 if q.explanation:
@@ -222,11 +270,6 @@ class PDFGeneratorService:
         if longs:
             story.append(Paragraph("SECTION C: LONG ANSWER QUESTIONS", section_style))
             for q in longs:
-                story.extend(render_question_block(q))
-
-        if cases:
-            story.append(Paragraph("SECTION D: CASE STUDY & PASSAGE BASED QUESTIONS", section_style))
-            for q in cases:
                 story.extend(render_question_block(q))
 
         doc.build(story, canvasmaker=NumberedCanvas)

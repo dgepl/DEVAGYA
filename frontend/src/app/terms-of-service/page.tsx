@@ -20,7 +20,7 @@ export default function TermsOfServicePage() {
               Terms of Service
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-semibold max-w-2xl mx-auto">
-              DEVGYA GLOBAL PRIVATE LIMITED • End-to-End Educational Solution Provider
+              DEVGYA GLOBAL EDUTECH PRIVATE LIMITED • End-to-End Educational Solution Provider
             </p>
           </div>
 
@@ -60,14 +60,14 @@ export default function TermsOfServicePage() {
                 1. Acceptance of Terms
               </h3>
               <p>
-                By accessing or using the platform, software tools, textbooks, or laboratory equipment provided by <strong>DEVGYA GLOBAL PRIVATE LIMITED</strong>, schools, educators, and students agree to be bound by these Terms of Service.
+                By accessing or using the platform, software tools, textbooks, or laboratory equipment provided by <strong>DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</strong>, schools, educators, and students agree to be bound by these Terms of Service.
               </p>
             </section>
 
             <section className="space-y-3 border-t border-slate-100 pt-6">
               <h3 className="text-lg font-black text-slate-900">2. Scope of Services</h3>
               <p>
-                Devgya Global Private Limited acts as an end-to-end strategic educational partner for K-12 schools and study centers. Services include:
+                Devgya Global Edutech Private Limited acts as an end-to-end strategic educational partner for K-12 schools and study centers. Services include:
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-slate-600">
                 <li>Physical school infrastructure (curriculum textbooks, science lab equipment, smart hardware).</li>
@@ -87,7 +87,7 @@ export default function TermsOfServicePage() {
               <h3 className="text-lg font-black text-slate-900">4. Support & Contact</h3>
               <p className="text-xs text-slate-600">
                 For contract or technical support inquiries:<br />
-                <strong className="text-slate-900">DEVGYA GLOBAL PRIVATE LIMITED</strong><br />
+                <strong className="text-slate-900">DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</strong><br />
                 Phone: +91 8307224756 | Email: support@devgyaglobal.com
               </p>
             </section>

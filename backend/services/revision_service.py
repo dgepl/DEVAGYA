@@ -36,6 +36,69 @@ Format in JSON.
 """
 
 class RevisionService:
+    async def generate_flashcards_from_content(
+        self,
+        student_class: str = "Class 10",
+        subject: str = "",
+        topic: str = "",
+        num_cards: int = 5,
+        extracted_text: str = "",
+        image_data_url: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Generate flashcards tailored for a specific Class level from document text, photo, or topic."""
+        num_cards = max(1, min(25, num_cards))
+        target_class = student_class or "Class 10"
+        
+        system_instruction = f"""
+You are an expert tutor creating study flashcards for active recall and spaced repetition, tailored specifically for {target_class} students (CBSE/NCERT aligned curriculum level).
+Return a valid JSON object with key "cards" containing EXACTLY {num_cards} flashcards based on the provided material/photo or topic.
+Ensure the difficulty, language, and concept depth match {target_class} level.
+Each card must have:
+- "id": unique string ID (e.g. "card-1")
+- "front": clear prompt / question
+- "back": concise, accurate answer
+- "hint": memory clue
+- "difficulty": "easy", "medium", or "hard"
+"""
+        subj_str = subject or "General Studies"
+        top_str = topic or "Chapter Concepts"
+
+        if image_data_url:
+            user_content = [
+                {"type": "text", "text": f"Create {num_cards} flashcards for {target_class} based on this textbook page / worksheet image. Subject: {subj_str}, Topic: {top_str}."},
+                {"type": "image_url", "image_url": {"url": image_data_url}}
+            ]
+        elif extracted_text.strip():
+            user_content = f"Target Grade: {target_class}\nSubject: {subj_str}\nTopic: {top_str}\nNumber of Cards: {num_cards}\n\nDocument Text:\n{extracted_text}"
+        else:
+            user_content = f"Target Grade: {target_class}, Subject: {subj_str}, Topic: {top_str}, Number of Cards: {num_cards}"
+
+        messages = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_content}
+        ]
+
+        try:
+            raw = await ai_provider.chat_completion(messages, temperature=0.5, response_format_json=True)
+            data = json.loads(raw)
+            cards = data.get("cards", [])
+            if cards:
+                return cards
+        except Exception as e:
+            logger.error(f"Flashcard Content Generation Error: {e}")
+
+        # Fallback generator
+        return [
+            {
+                "id": f"card-{i+1}",
+                "front": f"Key Question {i+1} regarding {topic or subject}",
+                "back": f"Essential concept overview for card {i+1} from attached study material.",
+                "hint": "Focus on core textbook definitions.",
+                "difficulty": "medium"
+            }
+            for i in range(num_cards)
+        ]
+
     async def generate_flashcards(self, payload: FlashcardGeneratePayload) -> List[Dict[str, Any]]:
         prompt = f"Subject: {payload.subject}, Topic: {payload.topic}, Number of Cards: {payload.num_cards}"
         messages = [

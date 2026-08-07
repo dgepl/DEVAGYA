@@ -1,5 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import Dict, Any, List
+import io
+import base64
+from typing import Dict, Any, List, Optional
+from fastapi import APIRouter, HTTPException, Query, File, UploadFile, Form
+from PIL import Image
 from schemas.phase3 import (
     SocraticQueryPayload, SocraticResponse,
     StudyPlanGeneratePayload, NoteCreatePayload, NoteActionPayload, PomodoroLogPayload
@@ -7,6 +10,7 @@ from schemas.phase3 import (
 from services.socratic_tutor_service import socratic_tutor_service
 from services.student_service import student_service
 from services.ai_provider import ai_provider
+from services.pdf_service import extract_document_text
 import json
 
 router = APIRouter(prefix="/student", tags=["Student Portal & AI Services"])
@@ -50,14 +54,74 @@ async def voice_tutor_chat(payload: Dict[str, Any]):
 @router.post("/practice-quiz")
 async def generate_practice_quiz_groq(payload: Dict[str, Any]):
     """Generate AI practice questions with explanations."""
+    student_class = payload.get("student_class", "Class 10")
     subject = payload.get("subject", "Science")
-    topic = payload.get("topic", "Chemical Reactions")
+    topic = payload.get("topic", "")
     difficulty = payload.get("difficulty", "Medium")
     num_questions = payload.get("num_questions", 5)
     
-    questions = await groq_service.generate_practice_quiz(subject, topic, difficulty, num_questions)
+    questions = await groq_service.generate_practice_quiz_from_content(
+        student_class=student_class,
+        subject=subject,
+        topic=topic,
+        difficulty=difficulty,
+        num_questions=num_questions
+    )
     return {
         "status": "success",
+        "student_class": student_class,
+        "subject": subject,
+        "topic": topic,
+        "difficulty": difficulty,
+        "questions": questions
+    }
+
+@router.post("/practice-quiz-from-file")
+async def generate_practice_quiz_from_file(
+    file: Optional[UploadFile] = File(None),
+    student_class: str = Form("Class 10"),
+    subject: str = Form("Science"),
+    topic: str = Form(""),
+    difficulty: str = Form("Medium"),
+    num_questions: int = Form(5)
+):
+    """Generate AI practice quiz questions from uploaded photo, document (PDF, DOCX, TXT), or topic."""
+    extracted_text = ""
+    image_data_url = None
+
+    if file:
+        file_bytes = await file.read()
+        filename = file.filename or "attachment"
+        content_type = (file.content_type or "").lower()
+
+        if "image" in content_type or filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+            try:
+                img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+                if img.width > 1280:
+                    h = int(img.height * 1280 / img.width)
+                    img = img.resize((1280, h))
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=80)
+                enc = base64.b64encode(buf.getvalue()).decode("ascii")
+                image_data_url = f"data:image/jpeg;base64,{enc}"
+            except Exception:
+                enc = base64.b64encode(file_bytes).decode("ascii")
+                image_data_url = f"data:{content_type or 'image/jpeg'};base64,{enc}"
+        else:
+            extracted_text = extract_document_text(file_bytes, filename, content_type)
+
+    questions = await groq_service.generate_practice_quiz_from_content(
+        student_class=student_class,
+        subject=subject,
+        topic=topic,
+        difficulty=difficulty,
+        num_questions=num_questions,
+        extracted_text=extracted_text,
+        image_data_url=image_data_url
+    )
+    return {
+        "status": "success",
+        "student_class": student_class,
         "subject": subject,
         "topic": topic,
         "difficulty": difficulty,

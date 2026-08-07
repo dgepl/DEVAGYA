@@ -74,7 +74,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         pathname.startsWith("/dashboard/agents") ||
         pathname === "/dashboard/knowledge" ||
         pathname === "/dashboard/chat" ||
-        pathname === "/dashboard/voice" ||
         pathname === "/dashboard/video-consultation" ||
         pathname === "/dashboard/profile";
 
@@ -109,31 +108,26 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   // Role-based Nav Specifications — each agent is a direct sidebar link
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    // Teacher Core Studios
+    { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
+    { label: "AI Lesson Planner", href: "/dashboard/lesson-planner", icon: BookOpen },
+    { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
     // Teacher AI Agents
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
-    { label: "Question Generator", href: "/dashboard/agents?agent=question_generator", icon: Sparkles },
-    { label: "Lesson Planner AI", href: "/dashboard/agents?agent=lesson_planner", icon: BookOpen },
     { label: "Analytics AI", href: "/dashboard/agents?agent=analytics_assistant", icon: Activity },
-    // General AI Agents
+    // General AI Agents & Tools
     { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
     { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
     { label: "Document AI", href: "/dashboard/agents?agent=document_assistant", icon: Layers },
-    // Other tools
-    { label: "AI Chat Studio", href: "/dashboard/chat", icon: MessageSquare },
-    { label: "AI Generator", href: "/dashboard/generator", icon: Sparkles },
-    { label: "AI Lesson Planner", href: "/dashboard/lesson-planner", icon: BookOpen },
     { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
-    { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
-    { label: "Voice AI Coach", href: "/dashboard/voice", icon: Mic },
-    { label: "AI Model Settings", href: "/dashboard/settings/ai-models", icon: Settings },
   ];
 
   if (user.role === "student") {
     navItems = [
       { label: "Student Home", href: "/dashboard/student", icon: LayoutDashboard },
       // Student AI Agents
-      { label: "Homework Helper", href: "/dashboard/agents?agent=homework_assistant", icon: FileText },
       { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain },
+      { label: "AI Flashcards", href: "/dashboard/student/flashcards", icon: Layers },
       { label: "Exam Strategist", href: "/dashboard/agents?agent=exam_strategist", icon: Trophy },
       { label: "Revision Assistant", href: "/dashboard/agents?agent=revision_assistant", icon: GitFork },
       { label: "Study Planner", href: "/dashboard/agents?agent=study_planner", icon: Clock },
@@ -160,11 +154,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       // General AI Agents
       { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
       { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
-      { label: "Document AI", href: "/dashboard/agents?agent=document_assistant", icon: Layers },
       // Other tools
       { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
-      { label: "Child Analytics", href: "/dashboard/parent/analytics", icon: Activity },
-      { label: "Notifications", href: "/dashboard/parent/notifications", icon: Bell },
     ];
   }
 
@@ -180,12 +171,12 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       {/* DESKTOP & TABLET SIDEBAR */}
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-slate-200 p-4 space-y-6 fixed inset-y-0 z-40 bg-white/95 backdrop-blur-xl">
         
-        {/* Brand Header - Logo Only */}
-        <Link href="/" className="flex items-center px-2">
+        {/* Brand Header - Prominent Logo */}
+        <Link href="/" className="flex items-center justify-start px-2 py-1 group">
           <img
             src="/logo.png"
-            alt="DEVGYA GLOBAL PRIVATE LIMITED"
-            className="h-10 w-auto max-h-12 object-contain mix-blend-multiply"
+            alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED"
+            className="h-16 w-auto max-h-20 max-w-[210px] object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
           />
         </Link>
 
@@ -252,14 +243,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
               <span className="capitalize">{user.role || "User"} Portal</span>
             </div>
-
-            <Link
-              href="/dashboard/agents"
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-glow transition-all flex items-center gap-1.5"
-            >
-              <Bot className="w-3.5 h-3.5 text-amber-300" />
-              <span className="hidden sm:inline">AI Agents OS</span>
-            </Link>
 
           </div>
         </header>
