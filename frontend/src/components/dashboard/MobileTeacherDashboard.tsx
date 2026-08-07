@@ -20,7 +20,7 @@ export function MobileTeacherDashboard() {
   const { user, savedPapers } = useAppStore();
 
   return (
-    <div className="space-y-6 pb-6 animate-in fade-in duration-300 md:hidden">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-300 md:hidden">
       
       {/* MOBILE APP BANNER */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-slate-900 text-white p-6 rounded-3xl shadow-xl relative overflow-hidden space-y-4">

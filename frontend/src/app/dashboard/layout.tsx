@@ -44,6 +44,7 @@ import { useEffect, useState, Suspense } from "react";
 import { SmartSearchBar } from "@/components/search/SmartSearchBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { MobileTopHeader } from "@/components/layout/MobileTopHeader";
+import { MobileBottomDock } from "@/components/layout/MobileBottomDock";
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -259,6 +260,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </main>
 
       </div>
+
+      {/* ROLE-SPECIFIC NATIVE MOBILE BOTTOM NAVBAR DOCK */}
+      <MobileBottomDock />
 
     </div>
   );

@@ -19,7 +19,7 @@ export function MobileStudentDashboard() {
   const { user } = useAppStore();
 
   return (
-    <div className="space-y-6 pb-6 animate-in fade-in duration-300 md:hidden">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-300 md:hidden">
       
       {/* GAMIFIED APP HEADER CARD */}
       <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-800 text-white p-6 rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
