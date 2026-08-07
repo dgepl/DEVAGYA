@@ -20,7 +20,7 @@ class OTPService:
 
     @property
     def RESEND_FROM_EMAIL(self) -> str:
-        return os.getenv("RESEND_FROM_EMAIL", "DEVAGYA GLOBAL <onboarding@dgepl.info>")
+        return os.getenv("RESEND_FROM_EMAIL", "DEVGYA GLOBAL <onboarding@devgya.in>")
 
     def generate_otp(self, email: str) -> str:
         """Generate a cryptographically secure 6-digit OTP code with 10-min expiry."""
@@ -98,36 +98,27 @@ class OTPService:
         </html>
         """
 
-        from_senders = [
-            self.RESEND_FROM_EMAIL,
-            "DEVGYA GLOBAL <onboarding@dgepl.info>",
-            "DEVGYA GLOBAL <onboarding@resend.dev>"
-        ]
+        sender = self.RESEND_FROM_EMAIL
+        payload = {
+            "from": sender,
+            "to": [email_clean],
+            "subject": f"{otp_code} is your DEVGYA Verification Code",
+            "html": html_content
+        }
 
-        # Try senders in sequence
-        last_error = ""
         async with httpx.AsyncClient(timeout=10.0) as client:
-            for sender in from_senders:
-                payload = {
-                    "from": sender,
-                    "to": [email_clean],
-                    "subject": f"{otp_code} is your DEVGYA Verification Code",
-                    "html": html_content
-                }
-                try:
-                    res = await client.post(url, headers=headers, json=payload)
-                    if res.status_code in (200, 201):
-                        logger.info(f"Resend OTP email sent successfully to {email_clean} via {sender}")
-                        return True
-                    else:
-                        last_error = res.text
-                        logger.warning(f"Resend API Notice ({res.status_code}): {res.text}")
-                except Exception as ex:
-                    last_error = str(ex)
-                    logger.warning(f"HTTP exception sending via {sender}: {ex}")
+            try:
+                res = await client.post(url, headers=headers, json=payload)
+                if res.status_code in (200, 201):
+                    logger.info(f"Resend OTP email sent successfully to {email_clean} via {sender}")
+                    return True
+                else:
+                    logger.warning(f"Resend API Notice ({res.status_code}): {res.text}")
+            except Exception as ex:
+                logger.warning(f"HTTP exception sending via {sender}: {ex}")
 
-        # If domain is not verified yet or recipient is outside sandbox whitelist, log debug OTP code gracefully
-        logger.info(f"[RESEND SANDBOX / UNVERIFIED DOMAIN] OTP for {email_clean} is: {otp_code}")
+        # Log OTP for verification backup
+        logger.info(f"[DEVGYA OTP BACKUP] OTP for {email_clean} is: {otp_code}")
         return True
 
     def verify_otp(self, email: str, otp_code: str) -> bool:
