@@ -35,7 +35,7 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
   const handleSignOut = () => {
     logout();
     if (typeof window !== "undefined") {
-      window.location.href = "/login";
+      window.location.href = "/";
     }
   };
 
