@@ -1,75 +1,125 @@
+"use client";
+
 import Link from "next/link";
-import { Cpu, ShieldCheck, Sparkles } from "lucide-react";
+import { 
+  ShieldCheck, 
+  Sparkles, 
+  Bot, 
+  BookOpen, 
+  ScanText, 
+  ArrowRight, 
+  CheckCircle2, 
+  Heart, 
+  Code2, 
+  PhoneCall 
+} from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="border-t border-slate-200 bg-white text-slate-600 py-16 relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-12 mb-16">
+    <footer className="bg-[#09071B] text-slate-300 border-t border-purple-900/30 pt-16 pb-12 relative overflow-hidden selection:bg-indigo-500 selection:text-white">
+      
+      {/* BACKGROUND AMBIENT GLOWS */}
+      <div className="absolute top-0 left-1/3 w-96 h-96 bg-purple-600/10 blur-[130px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-12">
+        
+        {/* MAIN 4-COLUMN FOOTER GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           
-          <div className="md:col-span-2 space-y-4">
+          {/* BRAND COLUMN */}
+          <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="inline-block">
               <img 
                 src="/logo.png" 
                 alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED" 
-                className="h-12 sm:h-14 w-auto max-h-14 object-contain mix-blend-multiply" 
+                className="h-14 sm:h-16 w-auto max-h-16 object-contain mix-blend-lighten" 
               />
             </Link>
-            <p className="text-sm text-slate-600 max-w-sm leading-relaxed font-medium">
-              Empowering Schools with Smart Learning, Teacher Tools, and an All-in-One Digital Platform. Comprehensive K-12 education partner combining physical school infrastructure with cutting-edge AI learning technology.
+            <p className="text-xs text-slate-400 max-w-sm leading-relaxed font-medium">
+              DEVGYA GLOBAL EDUTECH PRIVATE LIMITED is an AI-powered K-12 education platform built for CBSE & NCERT schools. Combining physical school solutions, lab infrastructure, and cutting-edge digital AI tools.
             </p>
-            <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full w-fit font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>Devgya AI Operating System Active • System Normal</span>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <div className="flex items-center gap-2 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-full font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>Devgya AI Operating System Active</span>
+              </div>
             </div>
           </div>
 
-          <div>
-            <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Platform</h4>
-            <ul className="space-y-2.5 text-sm">
-              <li><Link href="/dashboard/agents" className="hover:text-indigo-600 transition-colors">15 Specialized AI Agents</Link></li>
-              <li><Link href="/dashboard/knowledge" className="hover:text-indigo-600 transition-colors">RAG Knowledge Base</Link></li>
-              <li><Link href="/dashboard/workflows" className="hover:text-indigo-600 transition-colors">AI Workflows</Link></li>
-              <li><Link href="/dashboard/student" className="hover:text-indigo-600 transition-colors">Student Self-Study Corner</Link></li>
-              <li><Link href="/dashboard/parent" className="hover:text-indigo-600 transition-colors">Parenting Guidance</Link></li>
+          {/* COLUMN 1: NAVIGATION & COMPANY */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/10 pb-2">
+              Company Navigation
+            </h4>
+            <ul className="space-y-2 text-xs font-semibold text-slate-400">
+              <li><Link href="/" className="hover:text-cyan-300 transition-colors">Home Page</Link></li>
+              <li><Link href="/about" className="hover:text-cyan-300 transition-colors">About Us</Link></li>
+              <li><Link href="/why-choose-us" className="hover:text-cyan-300 transition-colors">Why Choose Us</Link></li>
+              <li><Link href="/features" className="hover:text-cyan-300 transition-colors">Platform Features</Link></li>
+              <li><Link href="/ai-platform" className="hover:text-cyan-300 transition-colors">AI Platform Demo</Link></li>
+              <li><Link href="/faq" className="hover:text-cyan-300 transition-colors">FAQ & Support</Link></li>
             </ul>
           </div>
 
-          <div>
-            <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Stakeholders</h4>
-            <ul className="space-y-2.5 text-sm">
-              <li><span className="text-indigo-600 font-semibold">Teachers & Educators</span></li>
-              <li><span className="text-indigo-600 font-semibold">School Management</span></li>
-              <li><span className="text-indigo-600 font-semibold">Students & Gamified Learning</span></li>
-              <li><span className="text-indigo-600 font-semibold">Parents & Screen Time</span></li>
-              <li><span className="text-indigo-600 font-semibold">Study Centers</span></li>
+          {/* COLUMN 2: AI TOOLS & PORTALS */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/10 pb-2">
+              Core AI Studios
+            </h4>
+            <ul className="space-y-2 text-xs font-semibold text-slate-400">
+              <li><Link href="/login" className="hover:text-purple-300 transition-colors">AI Question Generator</Link></li>
+              <li><Link href="/login" className="hover:text-purple-300 transition-colors">5E Lesson Planner</Link></li>
+              <li><Link href="/login" className="hover:text-purple-300 transition-colors">OCR Book Scanner</Link></li>
+              <li><Link href="/login" className="hover:text-purple-300 transition-colors">15 Specialized AI Agents</Link></li>
+              <li><Link href="/login" className="hover:text-purple-300 transition-colors">Socratic Student Tutor</Link></li>
+              <li><Link href="/login" className="hover:text-purple-300 transition-colors">Parenting Guidance Coach</Link></li>
+              <li><Link href="/login" className="hover:text-purple-300 transition-colors">Video Consultation Studio</Link></li>
             </ul>
           </div>
 
-          <div>
-            <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Security & Tech</h4>
-            <ul className="space-y-2.5 text-sm">
-              <li><span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-indigo-600" /> Certified Safety & Security</span></li>
-              <li><span className="flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-cyan-600" /> Multi-Model AI Engine</span></li>
-              <li><span>Python FastAPI Engine</span></li>
-              <li><span>Next.js 15 App Router</span></li>
-              <li><span>Textbooks & Lab Hardware</span></li>
+          {/* COLUMN 3: PORTALS & SECURITY */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/10 pb-2">
+              Access & Security
+            </h4>
+            <ul className="space-y-2 text-xs font-semibold text-slate-400">
+              <li><Link href="/login" className="hover:text-pink-300 transition-colors">Teacher Sign In Portal</Link></li>
+              <li><Link href="/login" className="hover:text-pink-300 transition-colors">Student Self-Study Corner</Link></li>
+              <li><Link href="/login" className="hover:text-pink-300 transition-colors">Parent Growth Dashboard</Link></li>
+              <li><Link href="/register" className="hover:text-pink-300 transition-colors">Create Educator Account</Link></li>
+              <li><Link href="/forgot-password" className="hover:text-pink-300 transition-colors">Forgot Password Reset</Link></li>
+              <li><Link href="/safety-standards" className="hover:text-pink-300 transition-colors">Bank-Grade Data Privacy</Link></li>
             </ul>
           </div>
 
         </div>
 
-        <div className="border-t border-slate-200 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div className="space-y-1">
-            <p>© 2026 Devgya Global Edutech Private Limited. All rights reserved.</p>
-            <p className="text-[11px] font-extrabold text-indigo-600">Designed and Developed by pratikk yadav +91 8307224756</p>
+        {/* BOTTOM COPYRIGHT & DEVELOPER CREDITS BAR */}
+        <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+          
+          <div className="space-y-1 text-center md:text-left">
+            <p className="text-slate-400 font-medium">
+              &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.
+            </p>
+            <p className="text-[12px] font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 flex items-center justify-center md:justify-start gap-1.5">
+              <Code2 className="w-3.5 h-3.5 text-cyan-400 inline" />
+              <span>Designed and Developed by <strong>Pratikk Yadav</strong></span>
+              <span className="text-slate-400 font-normal ml-1 flex items-center gap-1">
+                <PhoneCall className="w-3 h-3 text-indigo-400 inline" /> +91 8307224756
+              </span>
+            </p>
           </div>
-          <div className="flex items-center gap-6">
-            <Link href="/privacy-policy" className="hover:text-slate-900 transition-colors">Privacy Policy</Link>
-            <Link href="/terms-of-service" className="hover:text-slate-900 transition-colors">Terms of Service</Link>
-            <Link href="/safety-standards" className="hover:text-slate-900 transition-colors">Quality & Safety Standards</Link>
+
+          <div className="flex flex-wrap items-center justify-center gap-5 text-xs font-bold text-slate-400">
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <Link href="/terms-of-service" className="hover:text-white transition-colors">Terms of Service</Link>
+            <Link href="/safety-standards" className="hover:text-white transition-colors">Quality & Safety Standards</Link>
           </div>
+
         </div>
+
       </div>
     </footer>
   );
