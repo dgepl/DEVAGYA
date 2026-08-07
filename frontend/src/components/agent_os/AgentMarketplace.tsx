@@ -888,10 +888,10 @@ export function AgentMarketplace() {
                     </div>
 
                     <div
-                      className={`max-w-[85%] px-4 py-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                      className={`max-w-[88%] sm:max-w-[80%] px-4.5 py-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-xs ${
                         m.sender === "user"
-                          ? "bg-indigo-600 text-white font-medium rounded-tr-sm"
-                          : "bg-white border border-slate-200 text-slate-800 rounded-tl-sm"
+                          ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-tr-xs shadow-md"
+                          : "bg-white border border-slate-200 text-slate-900 rounded-tl-xs shadow-xs"
                       }`}
                     >
                       {/* Attached images */}
