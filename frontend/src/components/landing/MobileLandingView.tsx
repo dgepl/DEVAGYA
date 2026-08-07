@@ -77,7 +77,7 @@ export function MobileLandingView() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 pt-16 relative overflow-hidden font-sans md:hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 pt-24 relative overflow-hidden font-sans md:hidden">
       
       {/* BACKGROUND DECORATIVE GLOW */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-indigo-100/70 blur-[90px] rounded-full pointer-events-none" />

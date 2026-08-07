@@ -31,6 +31,9 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-indigo-500 selection:text-white">
+      {/* GLOBAL NAVBAR FOR MOBILE AND DESKTOP */}
+      <Navbar />
+
       {/* DEDICATED MOBILE HOMEPAGE ARCHITECTURE */}
       <div className="block md:hidden">
         <MobileLandingView />
@@ -38,7 +41,6 @@ export default function LandingPage() {
 
       {/* DEDICATED DESKTOP HOMEPAGE ARCHITECTURE */}
       <div className="hidden md:block">
-        <Navbar />
         <PageTransition>
           <main className="flex-1">
             <Hero />
