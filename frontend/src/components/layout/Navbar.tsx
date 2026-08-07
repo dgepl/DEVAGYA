@@ -28,7 +28,6 @@ export function Navbar() {
             <Link href="/why-choose-us" className="hover:text-indigo-600 transition-colors">Why Choose Us</Link>
             <Link href="/features" className="hover:text-indigo-600 transition-colors">Features</Link>
             <Link href="/ai-platform" className="hover:text-indigo-600 transition-colors">AI Platform</Link>
-            <Link href="/pricing" className="hover:text-indigo-600 transition-colors">Pricing</Link>
             <Link href="/faq" className="hover:text-indigo-600 transition-colors">FAQ</Link>
           </div>
 
@@ -67,7 +66,6 @@ export function Navbar() {
           <Link href="/why-choose-us" onClick={() => setMobileMenuOpen(false)} className="block text-slate-800 hover:text-indigo-600 py-1.5 font-bold text-xs uppercase tracking-wider">Why Choose Us</Link>
           <Link href="/features" onClick={() => setMobileMenuOpen(false)} className="block text-slate-800 hover:text-indigo-600 py-1.5 font-bold text-xs uppercase tracking-wider">Features</Link>
           <Link href="/ai-platform" onClick={() => setMobileMenuOpen(false)} className="block text-slate-800 hover:text-indigo-600 py-1.5 font-bold text-xs uppercase tracking-wider">AI Platform Demo</Link>
-          <Link href="/pricing" onClick={() => setMobileMenuOpen(false)} className="block text-slate-800 hover:text-indigo-600 py-1.5 font-bold text-xs uppercase tracking-wider">Pricing</Link>
           <Link href="/faq" onClick={() => setMobileMenuOpen(false)} className="block text-slate-800 hover:text-indigo-600 py-1.5 font-bold text-xs uppercase tracking-wider">FAQ</Link>
           
           <div className="pt-3 border-t border-slate-200">

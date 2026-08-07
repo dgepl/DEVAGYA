@@ -6,7 +6,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '',
     '/about',
     '/features',
-    '/pricing',
     '/faq',
     '/why-choose-us',
     '/ai-platform',
