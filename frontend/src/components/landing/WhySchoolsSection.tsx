@@ -20,13 +20,13 @@ export function WhySchoolsSection() {
       title: "360° All-in-One School Partner",
       description: "From printed textbooks and lab equipment to smart boards and digital learning tools—everything under one roof.",
       icon: BookOpen,
-      color: "from-blue-500 to-indigo-600"
+      color: "from-blue-600 to-indigo-600"
     },
     {
       title: "Teacher Empowerment",
       description: "Practical digital tools that save 98% preparation time, reduce administrative load, and boost English communication skills.",
       icon: Sparkles,
-      color: "from-purple-500 to-pink-600"
+      color: "from-purple-600 to-pink-600"
     },
     {
       title: "Student & Parent Engagement",
@@ -38,33 +38,33 @@ export function WhySchoolsSection() {
       title: "Uncompromised Quality & Security",
       description: "Highest standards in book publications, laboratory safety, and Supabase multi-tenant database isolation.",
       icon: ShieldCheck,
-      color: "from-emerald-500 to-teal-600"
+      color: "from-emerald-600 to-teal-600"
     }
   ];
 
   return (
-    <section id="why-devgya" className="py-24 bg-slate-900 text-white relative overflow-hidden selection:bg-indigo-500 selection:text-white">
+    <section id="why-devgya" className="py-24 bg-slate-50 text-slate-900 relative overflow-hidden selection:bg-indigo-500 selection:text-white">
       
       {/* GLOWING BACKGROUND ORBS */}
-      <div className="absolute top-0 right-1/3 w-96 h-96 bg-indigo-600/15 blur-[140px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-purple-600/15 blur-[130px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 right-1/3 w-96 h-96 bg-indigo-100/60 blur-[140px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-purple-100/60 blur-[130px] rounded-full pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16 relative z-10">
         
         {/* HEADER */}
         <div className="text-center max-w-3xl mx-auto space-y-4">
-          <span className="text-xs font-extrabold uppercase tracking-widest text-cyan-300 bg-cyan-500/10 border border-cyan-400/30 px-3.5 py-1.5 rounded-full">
+          <span className="text-xs font-extrabold uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 px-3.5 py-1.5 rounded-full">
             Strategic Educational Partner
           </span>
           
-          <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+          <h2 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
             WHY 5,000+ SCHOOLS CHOOSE <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-200 to-pink-300">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">
               DEVGYA GLOBAL
             </span>
           </h2>
 
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed font-medium">
+          <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-medium">
             Rather than acting merely as an equipment vendor, we serve as an end-to-end strategic educational partner for schools and study centers.
           </p>
 
@@ -74,8 +74,8 @@ export function WhySchoolsSection() {
               onClick={() => setActiveTab("comparison")}
               className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all border ${
                 activeTab === "comparison"
-                  ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-600/30"
-                  : "bg-white/5 text-slate-400 border-white/10 hover:text-white"
+                  ? "bg-indigo-600 text-white border-indigo-400 shadow-md"
+                  : "bg-white text-slate-600 border-slate-200 hover:text-slate-900"
               }`}
             >
               Traditional vs DEVGYA Comparison
@@ -84,8 +84,8 @@ export function WhySchoolsSection() {
               onClick={() => setActiveTab("pillars")}
               className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all border ${
                 activeTab === "pillars"
-                  ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-600/30"
-                  : "bg-white/5 text-slate-400 border-white/10 hover:text-white"
+                  ? "bg-indigo-600 text-white border-indigo-400 shadow-md"
+                  : "bg-white text-slate-600 border-slate-200 hover:text-slate-900"
               }`}
             >
               4 Core Strategic Pillars
@@ -95,13 +95,13 @@ export function WhySchoolsSection() {
 
         {/* TAB 1: COMPARISON TABLE */}
         {activeTab === "comparison" && (
-          <div className="bg-slate-950/90 border border-indigo-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-4 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                <Zap className="w-5 h-5 text-amber-400" />
+          <div className="bg-white border border-indigo-200 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-500" />
                 Head-to-Head Capability Comparison
               </h3>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-3 py-1 rounded-full">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full">
                 98% Time Saved
               </span>
             </div>
@@ -109,23 +109,23 @@ export function WhySchoolsSection() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-white/10 text-xs font-black uppercase text-slate-400">
+                  <tr className="border-b border-slate-100 text-xs font-black uppercase text-slate-400">
                     <th className="py-3.5 px-4">School Capability</th>
-                    <th className="py-3.5 px-4 text-slate-500">Traditional Approach</th>
-                    <th className="py-3.5 px-4 text-cyan-300">DEVGYA AI Platform</th>
+                    <th className="py-3.5 px-4 text-slate-400">Traditional Approach</th>
+                    <th className="py-3.5 px-4 text-indigo-600">DEVGYA AI Platform</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 text-xs font-semibold">
+                <tbody className="divide-y divide-slate-100 text-xs font-semibold">
                   {comparisonData.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-white/5 transition-colors">
-                      <td className="py-4 px-4 font-extrabold text-white">{row.feature}</td>
-                      <td className="py-4 px-4 text-slate-400 flex items-center gap-2">
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-4 px-4 font-extrabold text-slate-900">{row.feature}</td>
+                      <td className="py-4 px-4 text-slate-500 flex items-center gap-2">
                         <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
                         <span>{row.traditional}</span>
                       </td>
-                      <td className="py-4 px-4 text-emerald-300 font-bold">
+                      <td className="py-4 px-4 text-emerald-700 font-extrabold">
                         <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                           <span>{row.devgya}</span>
                         </div>
                       </td>
@@ -143,14 +143,14 @@ export function WhySchoolsSection() {
             {pillars.map((item, i) => {
               const Icon = item.icon;
               return (
-                <div key={i} className="p-8 rounded-3xl bg-slate-950/90 border border-indigo-500/30 shadow-2xl space-y-4 hover:border-indigo-400/60 transition-all group">
+                <div key={i} className="p-8 rounded-3xl bg-white border border-indigo-200 shadow-md space-y-4 hover:shadow-xl transition-all group">
                   <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${item.color} text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform`}>
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${item.color} text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
                       <Icon className="w-6 h-6" />
                     </div>
-                    <h3 className="text-lg font-extrabold text-white group-hover:text-cyan-300 transition-colors">{item.title}</h3>
+                    <h3 className="text-lg font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">{item.title}</h3>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
                     {item.description}
                   </p>
                 </div>
