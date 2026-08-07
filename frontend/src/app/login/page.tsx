@@ -18,9 +18,11 @@ export default function LoginPage() {
   const router = useRouter();
 
   const handleEmailChange = (val: string) => {
-    setEmail(val);
+    // AUTOMATICALLY BLOCK & REMOVE SPACES IN EMAIL
+    const cleanEmail = val.replace(/\s+/g, "");
+    setEmail(cleanEmail);
     if (val.includes(" ")) {
-      setError("Email address cannot contain spaces.");
+      setError("Spaces are automatically blocked in email addresses.");
     } else {
       setError(null);
     }
@@ -130,7 +132,8 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => handleEmailChange(e.target.value)}
-                placeholder="you@domain.com"
+                onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}
+                placeholder="you@domain.com (Spaces blocked)"
                 required
                 className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-semibold transition-all shadow-inner"
               />

@@ -32,10 +32,23 @@ export default function RegisterPage() {
     }
   }, [user, router]);
 
+  const handleNameChange = (val: string) => {
+    // AUTOMATICALLY BLOCK & REMOVE NUMBERS/DIGITS IN NAME
+    const cleanName = val.replace(/[0-9]/g, "");
+    setName(cleanName);
+    if (/[0-9]/.test(val)) {
+      setError("Numbers are blocked in full name.");
+    } else {
+      setError(null);
+    }
+  };
+
   const handleEmailChange = (val: string) => {
-    setEmail(val);
+    // AUTOMATICALLY BLOCK & REMOVE SPACES IN EMAIL
+    const cleanEmail = val.replace(/\s+/g, "");
+    setEmail(cleanEmail);
     if (val.includes(" ")) {
-      setError("Email address cannot contain spaces.");
+      setError("Spaces are blocked in email addresses.");
     } else {
       setError(null);
     }
@@ -180,8 +193,9 @@ export default function RegisterPage() {
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your full name"
+                onChange={(e) => handleNameChange(e.target.value)}
+                onKeyDown={(e) => { if (/[0-9]/.test(e.key)) e.preventDefault(); }}
+                placeholder="Enter your full name (Numbers blocked)"
                 required
                 className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold shadow-inner transition-all"
               />
@@ -196,7 +210,8 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={(e) => handleEmailChange(e.target.value)}
-                placeholder="you@domain.com (No spaces)"
+                onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}
+                placeholder="you@domain.com (Spaces blocked)"
                 required
                 className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold shadow-inner transition-all"
               />

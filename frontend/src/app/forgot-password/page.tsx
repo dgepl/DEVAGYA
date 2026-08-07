@@ -210,8 +210,9 @@ export default function ForgotPasswordPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@school.com"
+                  onChange={(e) => setEmail(e.target.value.replace(/\s+/g, ""))}
+                  onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}
+                  placeholder="name@school.com (Spaces blocked)"
                   required
                   className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-semibold transition-all shadow-inner"
                 />
