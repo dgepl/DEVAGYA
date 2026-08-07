@@ -183,3 +183,88 @@ async def login_user(payload: LoginPayload):
         "message": "Login successful!",
         "user": user_data
     }
+
+
+class ForgotPasswordSendOTPPayload(BaseModel):
+    email: str
+
+class ForgotPasswordVerifyOTPPayload(BaseModel):
+    email: str
+    otp_code: str
+
+class ResetPasswordPayload(BaseModel):
+    email: str
+    otp_code: str
+    new_password: str
+
+@router.post("/forgot-password/send-otp")
+async def forgot_password_send_otp(payload: ForgotPasswordSendOTPPayload):
+    """Generate and send 6-digit OTP for Forgot Password flow."""
+    raw_email = payload.email or ""
+    if " " in raw_email.strip():
+        raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
+    email_clean = raw_email.strip().lower()
+
+    profile = await supabase_service.get_profile_by_email(email_clean)
+    if not profile:
+        raise HTTPException(
+            status_code=400,
+            detail="No account found with this email address. Please check your email or sign up."
+        )
+
+    user_name = profile.get("full_name", "Educator")
+    try:
+        otp_code = otp_service.generate_otp(email_clean)
+        await otp_service.send_otp_email(email_clean, user_name, otp_code)
+        return {
+            "status": "success",
+            "message": f"Password reset OTP code sent to {email_clean}",
+            "expires_in_seconds": 600
+        }
+    except Exception as e:
+        logger.error(f"Forgot password send OTP error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/forgot-password/verify-otp")
+async def forgot_password_verify_otp(payload: ForgotPasswordVerifyOTPPayload):
+    """Verify 6-digit OTP code for Forgot Password flow."""
+    raw_email = payload.email or ""
+    if " " in raw_email.strip():
+        raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
+    email_clean = raw_email.strip().lower()
+
+    try:
+        is_valid = otp_service.verify_otp(email_clean, payload.otp_code)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail="Invalid OTP code. Please check your email and try again.")
+        return {
+            "status": "success",
+            "message": "OTP verified successfully. You can now set a new password."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/forgot-password/reset")
+async def forgot_password_reset(payload: ResetPasswordPayload):
+    """Reset password after OTP verification."""
+    raw_email = payload.email or ""
+    if " " in raw_email.strip():
+        raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
+    email_clean = raw_email.strip().lower()
+
+    if not payload.new_password or len(payload.new_password.strip()) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters long.")
+
+    try:
+        is_valid = otp_service.verify_otp(email_clean, payload.otp_code)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail="Invalid or expired OTP code.")
+
+        supabase_service.set_user_password(email_clean, payload.new_password.strip())
+        return {
+            "status": "success",
+            "message": "Password reset successfully! You can now log in with your new password."
+        }
+    except Exception as e:
+        logger.error(f"Reset password error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))

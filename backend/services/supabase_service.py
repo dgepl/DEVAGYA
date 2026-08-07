@@ -26,8 +26,30 @@ headers = {
 
 import hashlib
 import secrets
+import json
+from pathlib import Path
 
-_password_store: Dict[str, str] = {}
+PASSWORD_FILE = Path(__file__).parent.parent / "data" / "user_passwords.json"
+
+def _load_password_store() -> Dict[str, str]:
+    if PASSWORD_FILE.exists():
+        try:
+            with open(PASSWORD_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error reading password store: {e}")
+            return {}
+    return {}
+
+def _save_password_store(store: Dict[str, str]):
+    try:
+        PASSWORD_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(PASSWORD_FILE, "w", encoding="utf-8") as f:
+            json.dump(store, f, indent=2)
+    except Exception as e:
+        logger.error(f"Failed to persist password store: {e}")
+
+_password_store: Dict[str, str] = _load_password_store()
 
 class SupabaseService:
     def hash_password(self, password: str) -> str:
@@ -43,12 +65,16 @@ class SupabaseService:
         return secrets.compare_digest(check_hash, pwd_hash)
 
     def set_user_password(self, email: str, password: str):
-        _password_store[email.strip().lower()] = self.hash_password(password)
+        email_clean = email.strip().lower()
+        _password_store[email_clean] = self.hash_password(password)
+        _save_password_store(_password_store)
 
     def check_user_password(self, email: str, password: str) -> bool:
-        stored = _password_store.get(email.strip().lower())
+        email_clean = email.strip().lower()
+        stored = _password_store.get(email_clean)
         if not stored:
-            # If no password set yet (e.g. initial demo), set it on first attempt to establish baseline
+            # If account has no password set in persistent store, register this initial password
+            self.set_user_password(email_clean, password)
             return True
         return self.verify_password(password, stored)
     async def get_profile_by_email(self, email: str) -> Optional[Dict[str, Any]]:

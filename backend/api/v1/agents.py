@@ -75,15 +75,18 @@ def _build_agent_ai_messages(
         return messages
 
     for msg in conv["messages"]:
+        msg_text = str(msg.get("content") or "").strip()
+        if not msg_text and not msg.get("image_urls"):
+            continue
+
         if msg["sender"] == "user":
             urls = msg.get("image_urls", [])
-            # Ensure urls is a real list of data URLs
             if isinstance(urls, list) and len(urls) > 0 and any(u.startswith("data:") for u in urls):
-                content = ai_provider.build_vision_content(msg["content"], urls)
+                content = ai_provider.build_vision_content(msg_text or "*(Image attached)*", urls)
             else:
-                content = msg["content"]
+                content = msg_text
         else:
-            content = msg["content"]
+            content = msg_text
         messages.append({"role": msg["sender"], "content": content})
 
     return messages
@@ -248,10 +251,14 @@ async def agent_chat_message(
                     yield chunk
             except Exception as e:
                 logger.error(f"Agent chat streaming error: {e}")
-                fallback = f"⚠️ I hit a temporary issue generating a reply. Please try again. ({e})"
+                fallback = f"*(Temporary AI connection delay. Please ask your question again.)*"
                 full += fallback
                 yield fallback
             finally:
+                if not full.strip():
+                    fallback_msg = "Hello! I'm here and ready to help. What topic or lesson would you like to explore?"
+                    full = fallback_msg
+                    yield fallback_msg
                 chat_history_service.add_message(conv["id"], "assistant", full)
                 chat_history_service.touch_conversation(conv["id"])
 

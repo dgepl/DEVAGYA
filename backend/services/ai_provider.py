@@ -143,7 +143,8 @@ class AIProviderService:
         temperature: float = 0.6,
         model: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
-        """SSE streaming generator for ChatGPT-style real-time typing effect."""
+        """SSE streaming generator for ChatGPT-style real-time typing effect with multi-model 429 rate limit fallback."""
+        import asyncio
         key = self.api_key
         if not key:
             yield "AI Provider API key is not configured. Please set AI_API_KEY in environment variables."
@@ -154,27 +155,62 @@ class AIProviderService:
             "Content-Type": "application/json"
         }
         selected_model = model or (self.vision_model if self._has_images(messages) else self.model)
+        
+        # Build candidate fallback models list (70b -> 8b-instant -> mixtral)
+        fallback_models = [selected_model]
+        for alt_m in ["llama-3.1-8b-instant", "mixtral-8x7b-32768"]:
+            if alt_m not in fallback_models:
+                fallback_models.append(alt_m)
+
         payload = {
-            "model": selected_model,
             "messages": self._optimize_messages(messages),
             "temperature": temperature,
             "stream": True
         }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            async with client.stream("POST", f"{self.base_url}/chat/completions", headers=headers, json=payload) as response:
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        data_str = line[6:].strip()
-                        if data_str == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(data_str)
-                            content = chunk["choices"][0]["delta"].get("content", "")
-                            if content:
-                                yield content
-                        except Exception:
+        for m_idx, current_model in enumerate(fallback_models):
+            payload["model"] = current_model
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    async with client.stream("POST", f"{self.base_url}/chat/completions", headers=headers, json=payload) as response:
+                        if response.status_code == 429 or response.status_code >= 400:
+                            logger.warning(f"Model {current_model} returned HTTP {response.status_code}. Retrying with fallback model...")
+                            if m_idx < len(fallback_models) - 1:
+                                await asyncio.sleep(0.5)
+                                continue
+                            else:
+                                yield f"\n\n*(Note: Groq AI rate limit reached. Please wait a few seconds and try again.)*"
+                                return
+
+                        has_yielded = False
+                        async for line in response.aiter_lines():
+                            if line.startswith("data: "):
+                                data_str = line[6:].strip()
+                                if data_str == "[DONE]":
+                                    break
+                                try:
+                                    chunk = json.loads(data_str)
+                                    content = chunk["choices"][0]["delta"].get("content", "")
+                                    if content:
+                                        has_yielded = True
+                                        yield content
+                                except Exception:
+                                    pass
+
+                        if has_yielded:
+                            return
+                        elif m_idx < len(fallback_models) - 1:
+                            logger.warning(f"Model {current_model} produced no content stream. Retrying next model...")
+                            await asyncio.sleep(0.5)
                             continue
+                        return
+            except Exception as e:
+                logger.error(f"Error streaming with model {current_model}: {e}")
+                if m_idx < len(fallback_models) - 1:
+                    await asyncio.sleep(0.5)
+                    continue
+                else:
+                    yield f"\n\n*(Error connecting to AI Provider: {e})*"
+                    return
 
 ai_provider = AIProviderService()
-

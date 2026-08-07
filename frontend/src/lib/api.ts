@@ -84,12 +84,16 @@ export async function scanOCRPage(file: File) {
 }
 
 export async function downloadPDF(paper: GeneratedPaperResponse, includeAnswers: boolean = false) {
-  const res = await fetch(`${API_BASE}/pdf/generate?include_answers=${includeAnswers}`, {
+  const res = await fetch(`${getApiBase()}/pdf/generate?include_answers=${includeAnswers}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(paper)
   });
-  if (!res.ok) throw new Error("Failed to generate PDF");
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    console.error("PDF API Error:", res.status, errText);
+    throw new Error(`Failed to generate PDF (${res.status}): ${errText || 'Server Error'}`);
+  }
 
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);

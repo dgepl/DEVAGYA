@@ -237,22 +237,26 @@ class PDFGeneratorService:
         mcqs = [q for q in paper.questions if q.question_type == 'mcq']
         shorts = [q for q in paper.questions if q.question_type == 'short']
         longs = [q for q in paper.questions if q.question_type == 'long']
+        import html
         def render_question_block(q):
             q_elements = []
 
-            q_text_formatted = q.question_text.replace("\n", "<br/>")
+            q_text_formatted = html.escape(q.question_text or "").replace("\n", "<br/>")
             q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_text_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
 
             if q.options:
-                opt_str = "&nbsp;&nbsp;&nbsp;&nbsp;".join(q.options)
+                escaped_opts = [html.escape(opt) for opt in q.options]
+                opt_str = "&nbsp;&nbsp;&nbsp;&nbsp;".join(escaped_opts)
                 q_elements.append(Spacer(1, 3))
                 q_elements.append(Paragraph(opt_str, option_style))
 
-            if is_answer_key or include_answers:
+            if include_answers:
                 q_elements.append(Spacer(1, 2))
-                q_elements.append(Paragraph(f"<b>Correct Answer:</b> {q.answer}", answer_style))
+                ans_text = html.escape(str(q.answer or ""))
+                q_elements.append(Paragraph(f"<b>Correct Answer:</b> {ans_text}", answer_style))
                 if q.explanation:
-                    q_elements.append(Paragraph(f"<b>Explanation:</b> {q.explanation}", answer_style))
+                    exp_text = html.escape(str(q.explanation or ""))
+                    q_elements.append(Paragraph(f"<b>Explanation:</b> {exp_text}", answer_style))
 
             q_elements.append(Spacer(1, 8))
             return q_elements
