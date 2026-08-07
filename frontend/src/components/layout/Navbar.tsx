@@ -3,7 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Sparkles, ArrowRight, Menu, X, Bot, ShieldCheck, Zap } from "lucide-react";
+import { 
+  Sparkles, 
+  ArrowRight, 
+  Menu, 
+  X, 
+  Home, 
+  Info, 
+  CheckCircle2, 
+  Zap, 
+  Bot, 
+  HelpCircle,
+  ChevronRight,
+  ShieldCheck
+} from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -12,7 +25,7 @@ export function Navbar() {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 20) {
+      if (window.scrollY > 15) {
         setScrolled(true);
       } else {
         setScrolled(false);
@@ -23,41 +36,41 @@ export function Navbar() {
   }, []);
 
   const navLinks = [
-    { label: "Home", href: "/" },
-    { label: "About Us", href: "/about" },
-    { label: "Why Choose Us", href: "/why-choose-us" },
-    { label: "Features", href: "/features" },
-    { label: "AI Platform", href: "/ai-platform" },
-    { label: "FAQ", href: "/faq" },
+    { label: "Home", href: "/", icon: Home },
+    { label: "About Us", href: "/about", icon: Info },
+    { label: "Why Choose Us", href: "/why-choose-us", icon: CheckCircle2 },
+    { label: "Features", href: "/features", icon: Zap },
+    { label: "AI Platform", href: "/ai-platform", icon: Bot },
+    { label: "FAQ", href: "/faq", icon: HelpCircle },
   ];
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       scrolled 
-        ? "bg-white/95 backdrop-blur-xl border-b border-indigo-100 shadow-md py-2.5" 
-        : "bg-white/85 backdrop-blur-md border-b border-slate-200/80 py-3.5"
+        ? "bg-white/95 backdrop-blur-xl border-b border-indigo-100/90 shadow-md py-2 sm:py-2.5" 
+        : "bg-white/85 backdrop-blur-md border-b border-slate-200/80 py-3 sm:py-3.5"
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
+        <div className="flex items-center justify-between h-14 sm:h-20">
           
           {/* ELEGANT BRAND LOGO */}
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
             <img 
               src="/logo.png" 
               alt="DEVGYA GLOBAL EDUTECH" 
-              className="h-12 sm:h-16 w-auto max-h-16 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+              className="h-10 sm:h-16 w-auto max-h-16 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
             />
-            <div className="hidden sm:flex flex-col border-l border-slate-200 pl-3">
-              <span className="font-extrabold text-[11px] text-slate-900 tracking-wide font-[family-name:var(--font-outfit)] uppercase">
+            <div className="flex flex-col border-l border-slate-200 pl-2.5">
+              <span className="font-extrabold text-[10px] sm:text-[11px] text-slate-900 tracking-wide font-[family-name:var(--font-outfit)] uppercase">
                 DEVGYA GLOBAL
               </span>
-              <span className="text-[10px] font-semibold text-indigo-600 tracking-normal font-[family-name:var(--font-jakarta)]">
-                AI School OS • K-12
+              <span className="text-[9px] font-bold text-indigo-600 tracking-normal font-[family-name:var(--font-jakarta)]">
+                AI School OS
               </span>
             </div>
           </Link>
 
-          {/* DESKTOP NAVIGATION LINKS WITH ELEGANT OUTFIT & JAKARTA TYPOGRAPHY */}
+          {/* DESKTOP NAVIGATION LINKS */}
           <div className="hidden lg:flex items-center gap-1 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200/80 backdrop-blur-md shadow-inner">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
@@ -80,7 +93,7 @@ export function Navbar() {
             })}
           </div>
 
-          {/* RIGHT ACTION: SHIMMER GLOW LOG IN BUTTON */}
+          {/* DESKTOP RIGHT ACTION LOG IN BUTTON */}
           <div className="hidden md:flex items-center gap-3">
             <Link
               href="/login"
@@ -94,44 +107,74 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* MOBILE MENU TOGGLE BUTTON */}
+          {/* MOBILE TOP CONTROLS: QUICK LOG IN PILL + HAMBURGER MENU BUTTON */}
           <div className="lg:hidden flex items-center gap-2">
+            <Link
+              href="/login"
+              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-extrabold text-[11px] rounded-xl shadow-md flex items-center gap-1 uppercase tracking-wider active:scale-95 font-[family-name:var(--font-outfit)]"
+            >
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              <span>Log In</span>
+            </Link>
+
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+              className="p-2.5 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors"
+              aria-label="Toggle Navigation Menu"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
 
         </div>
       </div>
 
-      {/* MOBILE MENU DROPDOWN DRAWER */}
+      {/* PROFESSIONAL MOBILE MENU DRAWER */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-b border-indigo-100 bg-white/98 backdrop-blur-xl px-6 pt-4 pb-6 space-y-3 shadow-2xl animate-in slide-in-from-top duration-300">
+        <div className="lg:hidden border-b border-indigo-100 bg-white/98 backdrop-blur-2xl px-5 pt-3 pb-6 space-y-4 shadow-2xl animate-in slide-in-from-top duration-300">
+          
+          {/* MENU HEADING */}
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Platform Navigation
+            </span>
+            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+              DEVGYA AI v2.0
+            </span>
+          </div>
+
+          {/* NAV LINKS WITH ICONS */}
           <div className="space-y-1">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
+              const IconComp = link.icon;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold font-[family-name:var(--font-jakarta)] transition-all ${
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold font-[family-name:var(--font-jakarta)] transition-all ${
                     isActive
-                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs"
                       : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  <span>{link.label}</span>
-                  {isActive && <span className="text-[10px] font-black text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">ACTIVE</span>}
+                  <span className="flex items-center gap-2.5">
+                    <IconComp className={`w-4 h-4 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+                    <span>{link.label}</span>
+                  </span>
+                  {isActive ? (
+                    <span className="text-[9px] font-black text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">ACTIVE</span>
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                  )}
                 </Link>
               );
             })}
           </div>
 
-          <div className="pt-3 border-t border-slate-200 space-y-2">
+          {/* MOBILE DRAWER CTA BUTTONS */}
+          <div className="pt-3 border-t border-slate-100 space-y-2">
             <Link
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
@@ -140,7 +183,17 @@ export function Navbar() {
               <Sparkles className="w-4 h-4 text-amber-300" />
               <span>Log In to School Platform</span>
             </Link>
+
+            <Link
+              href="/register"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-2xl text-center flex items-center justify-center gap-2 font-[family-name:var(--font-jakarta)]"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Create Free Account</span>
+            </Link>
           </div>
+
         </div>
       )}
     </header>
