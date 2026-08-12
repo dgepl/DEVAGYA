@@ -46,13 +46,6 @@ export default function AboutPage() {
     }
   ];
 
-  const milestones = [
-    { number: "5,000+", label: "Partner Schools & Institutions" },
-    { number: "100,000+", label: "Question Papers Generated" },
-    { number: "15", label: "Specialized AI Teaching Agents" },
-    { number: "98%", label: "Prep Time Saved for Teachers" }
-  ];
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col pt-24 md:pt-28 selection:bg-indigo-500 selection:text-white">
       <Navbar />
@@ -80,18 +73,6 @@ export default function AboutPage() {
               <p className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-3xl mx-auto font-medium">
                 At DEVGYA GLOBAL, we believe great education requires harmonizing physical school infrastructure, science laboratories, and curriculum textbooks with state-of-the-art AI technology.
               </p>
-
-              {/* MILESTONES COUNTER ROW */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-8">
-                {milestones.map((m, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
-                    <span className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 block">
-                      {m.number}
-                    </span>
-                    <span className="text-xs text-slate-600 font-bold block">{m.label}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </section>
 

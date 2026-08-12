@@ -197,7 +197,7 @@ export function MobileLandingView() {
 
       </div>
 
-      {/* 3. PHYSICAL SCHOOL INFRASTRUCTURE + AI PILLAR */}
+      {/* 3. PHYSICAL SCHOOL INFRASTRUCTURE + AI PILLAR (ABOUT DEVGYA) */}
       <div className="mt-8 px-5 relative z-10">
         <div className="p-5 rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white shadow-xl space-y-3">
           <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-cyan-300 border border-white/20">
@@ -216,54 +216,6 @@ export function MobileLandingView() {
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-        </div>
-      </div>
-
-      {/* 4. 15 SPECIALIZED AI ASSISTANTS GRID */}
-      <div className="mt-8 px-5 space-y-3 relative z-10">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-black uppercase tracking-wider text-slate-500">
-            Specialized AI Agents
-          </h2>
-          <Link href="/login" className="text-xs font-bold text-indigo-600">
-            View All 15 →
-          </Link>
-        </div>
-
-        <div className="space-y-2">
-          {aiAgents.map((ag) => (
-            <Link
-              key={ag.code}
-              href="/login"
-              className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center justify-between gap-3 active:scale-95 transition-transform"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100">
-                    {ag.role}
-                  </span>
-                  <h4 className="text-xs font-bold text-slate-900 truncate">{ag.name}</h4>
-                </div>
-                <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">{ag.desc}</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* FOOTER CALLOUT */}
-      <div className="mt-10 px-5 text-center space-y-3 relative z-10">
-        <div className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-3">
-          <h3 className="text-sm font-black text-slate-900">Ready to Upgrade Your School?</h3>
-          <p className="text-xs text-slate-500 font-medium">Join schools across India using DEVGYA AI School OS.</p>
-          <Link
-            href="/register"
-            className="w-full py-3.5 bg-indigo-600 text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 uppercase tracking-wider active:scale-95 transition-transform"
-          >
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>Get Started Free</span>
-          </Link>
         </div>
       </div>
 

@@ -88,7 +88,7 @@ export default function TermsOfServicePage() {
               <p className="text-xs text-slate-600">
                 For contract or technical support inquiries:<br />
                 <strong className="text-slate-900">DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</strong><br />
-                Phone: +91 8307224756 | Email: support@devgyaglobal.com
+                Phone: +91 9466966350 | Email: dgepl.info@gmail.com
               </p>
             </section>
 

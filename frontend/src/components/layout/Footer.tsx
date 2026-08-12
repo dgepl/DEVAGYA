@@ -10,8 +10,7 @@ import {
   ArrowRight, 
   CheckCircle2, 
   Heart, 
-  Code2, 
-  PhoneCall 
+  Code2 
 } from "lucide-react";
 
 export function Footer() {
@@ -57,8 +56,6 @@ export function Footer() {
               <li><Link href="/" className="hover:text-cyan-300 transition-colors">Home Page</Link></li>
               <li><Link href="/about" className="hover:text-cyan-300 transition-colors">About Us</Link></li>
               <li><Link href="/why-choose-us" className="hover:text-cyan-300 transition-colors">Why Choose Us</Link></li>
-              <li><Link href="/features" className="hover:text-cyan-300 transition-colors">Platform Features</Link></li>
-              <li><Link href="/ai-platform" className="hover:text-cyan-300 transition-colors">AI Platform Demo</Link></li>
               <li><Link href="/faq" className="hover:text-cyan-300 transition-colors">FAQ & Support</Link></li>
             </ul>
           </div>
@@ -103,12 +100,9 @@ export function Footer() {
             <p className="text-slate-400 font-medium">
               &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.
             </p>
-            <p className="text-[12px] font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 flex items-center justify-center md:justify-start gap-1.5">
+            <p className="text-[12px] font-bold text-slate-300 flex items-center justify-center md:justify-start gap-1.5">
               <Code2 className="w-3.5 h-3.5 text-cyan-400 inline" />
-              <span>Designed and Developed by <strong>Pratikk Yadav</strong></span>
-              <span className="text-slate-400 font-normal ml-1 flex items-center gap-1">
-                <PhoneCall className="w-3 h-3 text-indigo-400 inline" /> +91 8307224756
-              </span>
+              <span>Designed and developed by <strong className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300">PY team</strong></span>
             </p>
           </div>
 

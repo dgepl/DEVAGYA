@@ -76,7 +76,7 @@ export default function SafetyStandardsPage() {
               <p className="text-xs text-slate-600">
                 For safety documentation or institutional compliance verification:<br />
                 <strong className="text-slate-900">DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</strong><br />
-                Phone: +91 8307224756 | Email: quality@devgyaglobal.com
+                Phone: +91 9466966350 | Email: dgepl.info@gmail.com
               </p>
             </section>
 

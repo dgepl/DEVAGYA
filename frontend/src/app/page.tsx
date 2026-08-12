@@ -7,12 +7,6 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Hero } from "@/components/landing/Hero";
 import { AboutSection } from "@/components/landing/AboutSection";
-import { InteractiveDemoWidget } from "@/components/landing/InteractiveDemoWidget";
-import { OCRDemoWidget } from "@/components/landing/OCRDemoWidget";
-import { FeaturesSection } from "@/components/landing/FeaturesSection";
-import { HowItWorks } from "@/components/landing/HowItWorks";
-import { WhySchoolsSection } from "@/components/landing/WhySchoolsSection";
-import { FAQSection } from "@/components/landing/FAQSection";
 import { MobileLandingView } from "@/components/landing/MobileLandingView";
 import { PageTransition } from "@/components/ui/PageTransition";
 
@@ -45,12 +39,6 @@ export default function LandingPage() {
           <main className="flex-1">
             <Hero />
             <AboutSection />
-            <InteractiveDemoWidget />
-            <OCRDemoWidget />
-            <FeaturesSection />
-            <HowItWorks />
-            <WhySchoolsSection />
-            <FAQSection />
           </main>
         </PageTransition>
         <Footer />

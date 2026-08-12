@@ -85,7 +85,7 @@ export default function PrivacyPolicyPage() {
               <h3 className="text-lg font-black text-slate-900">4. Contact Data Protection Officer</h3>
               <p className="text-xs text-slate-600">
                 For privacy inquiries or data removal requests, contact DEVGYA GLOBAL EDUTECH PRIVATE LIMITED at:<br />
-                <strong className="text-slate-900">Email:</strong> privacy@devgyaglobal.com | <strong className="text-slate-900">Phone:</strong> +91 8307224756
+                <strong className="text-slate-900">Email:</strong> dgepl.info@gmail.com | <strong className="text-slate-900">Phone:</strong> +91 9466966350
               </p>
             </section>
 

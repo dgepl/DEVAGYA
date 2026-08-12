@@ -11,8 +11,6 @@ import {
   Home, 
   Info, 
   CheckCircle2, 
-  Zap, 
-  Bot, 
   HelpCircle,
   ChevronRight,
   ShieldCheck
@@ -39,8 +37,6 @@ export function Navbar() {
     { label: "Home", href: "/", icon: Home },
     { label: "About Us", href: "/about", icon: Info },
     { label: "Why Choose Us", href: "/why-choose-us", icon: CheckCircle2 },
-    { label: "Features", href: "/features", icon: Zap },
-    { label: "AI Platform", href: "/ai-platform", icon: Bot },
     { label: "FAQ", href: "/faq", icon: HelpCircle },
   ];
 
@@ -54,20 +50,12 @@ export function Navbar() {
         <div className="flex items-center justify-between h-14 sm:h-20">
           
           {/* ELEGANT BRAND LOGO */}
-          <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
+          <Link href="/" className="flex items-center ml-2 sm:ml-6 group">
             <img 
               src="/logo.png" 
               alt="DEVGYA GLOBAL EDUTECH" 
               className="h-10 sm:h-16 w-auto max-h-16 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
             />
-            <div className="flex flex-col border-l border-slate-200 pl-2.5">
-              <span className="font-extrabold text-[10px] sm:text-[11px] text-slate-900 tracking-wide font-[family-name:var(--font-outfit)] uppercase">
-                DEVGYA GLOBAL
-              </span>
-              <span className="text-[9px] font-bold text-indigo-600 tracking-normal font-[family-name:var(--font-jakarta)]">
-                AI School OS
-              </span>
-            </div>
           </Link>
 
           {/* DESKTOP NAVIGATION LINKS */}
