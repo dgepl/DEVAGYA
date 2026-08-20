@@ -497,25 +497,26 @@ export default function ChatStudioPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto bg-slate-50">
-          <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto bg-slate-50/50">
+          <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-4">
             {messages.map((m) => (
-              <div key={m.id} className={`flex items-start gap-3 ${m.sender === "user" ? "flex-row-reverse" : ""}`}>
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                    m.sender === "user"
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm"
-                  }`}
-                >
-                  {m.sender === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                </div>
+              <div
+                key={m.id}
+                className={`w-full flex items-start gap-3 my-2 ${
+                  m.sender === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                {m.sender === "assistant" && (
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-rose-500 text-white flex items-center justify-center font-bold shrink-0 shadow-md shadow-indigo-500/20 border border-white/20">
+                    <Bot className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                  </div>
+                )}
 
                 <div
-                  className={`max-w-[85%] px-4 py-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                  className={`relative min-w-[60px] max-w-[85%] sm:max-w-[78%] px-4.5 py-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm transition-all ${
                     m.sender === "user"
-                      ? "bg-indigo-600 text-white font-medium rounded-tr-sm"
-                      : "bg-white border border-slate-200 text-slate-800 rounded-tl-sm"
+                      ? "bg-indigo-600 text-white font-medium rounded-tr-xs shadow-indigo-600/10 text-left whitespace-pre-wrap break-words"
+                      : "bg-white border border-slate-200/90 text-slate-800 rounded-tl-xs shadow-xs"
                   }`}
                 >
                   {/* Attached images */}
@@ -537,14 +538,16 @@ export default function ChatStudioPage() {
                       <Markdown text={m.content} />
                     </div>
                   ) : (
-                    <div className="whitespace-pre-wrap font-sans">{m.content}</div>
+                    <div className="whitespace-pre-wrap font-sans text-white text-left break-words">
+                      {m.content}
+                    </div>
                   )}
 
                   {m.sender === "assistant" && m.id === messages[messages.length - 1].id && streaming && !m.content && (
                     <div className="flex items-center gap-1.5 py-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "0.15s" }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-bounce" style={{ animationDelay: "0.3s" }} />
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" />
+                      <span className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce" style={{ animationDelay: "0.15s" }} />
+                      <span className="w-2 h-2 rounded-full bg-purple-600 animate-bounce" style={{ animationDelay: "0.3s" }} />
                     </div>
                   )}
 
@@ -552,7 +555,7 @@ export default function ChatStudioPage() {
                     <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
                       <button
                         onClick={() => handleCopy(m.id, m.content)}
-                        className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
+                        className="p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                         title="Copy message"
                       >
                         {copiedId === m.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
@@ -560,6 +563,12 @@ export default function ChatStudioPage() {
                     </div>
                   )}
                 </div>
+
+                {m.sender === "user" && (
+                  <div className="w-8 h-8 rounded-xl bg-indigo-700 text-white flex items-center justify-center shrink-0 shadow-sm border border-indigo-500/30">
+                    <User className="w-4 h-4" />
+                  </div>
+                )}
               </div>
             ))}
             <div ref={chatEndRef} />

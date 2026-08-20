@@ -142,7 +142,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       // Other tools
       { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
       { label: "AI Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy },
-      { label: "AI Chat Studio", href: "/dashboard/chat", icon: MessageSquare },
       { label: "Practice & Quizzes", href: "/dashboard/student/practice", icon: Target },
       { label: "Notion Smart Notes", href: "/dashboard/student/notes", icon: FileText },
       { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock },
