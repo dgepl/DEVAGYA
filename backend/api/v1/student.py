@@ -254,3 +254,81 @@ Make topics, questions, and tips specific to {subject} for {exam_name}. Return O
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/explain-topic")
+async def explain_topic_briefly(payload: Dict[str, Any]):
+    """AI Brief Topic Explainer — provides a structured, concise breakdown for exam preparation topics."""
+    topic = payload.get("topic", "")
+    subject = payload.get("subject", "General")
+    exam_name = payload.get("exam_name", "Board Exam")
+
+    if not topic or not topic.strip():
+        raise HTTPException(status_code=400, detail="Topic is required.")
+
+    prompt = f"""You are a master NCERT & CBSE Exam Educator.
+Synthesize a clear, brief, structured revision guide for the following topic:
+
+Topic / Chapter: {topic}
+Subject: {subject}
+Target Exam: {exam_name}
+
+LANGUAGE DIRECTIVE: If the topic is written in Hindi (e.g. 'सूरजमुखी – कहानी का सार'), explain in clear, fluent Hindi. If in English, explain in English. Match the input topic's language naturally.
+
+Respond strictly with a valid JSON object matching this structure:
+{{
+  "topic": "{topic}",
+  "subject": "{subject}",
+  "title": "Brief Concept Explanation: {topic}",
+  "summary": "2-3 crisp sentences providing the core essence of the topic/chapter.",
+  "key_concepts": [
+    "Key Point 1: Essential definition or character/plot point",
+    "Key Point 2: Core principle, formula, or theme",
+    "Key Point 3: Important relationship or conclusion"
+  ],
+  "common_exam_traps": [
+    "Common mistake 1: What students often forget or lose marks on",
+    "Common mistake 2: Technical term or diagram label pitfall"
+  ],
+  "practice_question": {{
+    "question": "1 high-probability exam question on this topic",
+    "answer": "Concise 2-3 step model answer",
+    "explanation": "Scoring tip for full marks"
+  }}
+}}
+"""
+
+    try:
+        response = await ai_provider.chat_completion([
+            {"role": "system", "content": "You are a master CBSE/NCERT exam preparation assistant. Always return valid JSON."},
+            {"role": "user", "content": prompt}
+        ], temperature=0.4, max_tokens=3000, response_format_json=True)
+
+        text = (response or "").strip()
+        if "```json" in text:
+            text = text.split("```json", 1)[1].split("```", 1)[0].strip()
+        elif "```" in text:
+            text = text.split("```", 1)[1].split("```", 1)[0].strip()
+
+        data = json.loads(text)
+        return data
+    except Exception as e:
+        return {
+            "topic": topic,
+            "subject": subject,
+            "title": f"Revision Guide: {topic}",
+            "summary": f"Core concepts and revision points for {topic} in {subject}.",
+            "key_concepts": [
+                f"Review fundamental NCERT definitions and key principles of {topic}.",
+                "Focus on high-weightage sub-topics and solved textbook examples.",
+                "Practice writing structured step-by-step answers with neat diagrams/equations."
+            ],
+            "common_exam_traps": [
+                "Avoid skipping units or mandatory diagram labels.",
+                "Ensure technical terms are spelled accurately to secure full marks."
+            ],
+            "practice_question": {
+                "question": f"Explain the primary significance of {topic} in {subject}.",
+                "answer": "Refer to standard NCERT textbook solutions and marking guidelines.",
+                "explanation": "Highlight key technical terms in pencil for maximum examiner clarity."
+            }
+        }
