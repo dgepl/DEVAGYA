@@ -239,6 +239,13 @@ class OlympiadService:
             score_percentage = round((correct_count / total_questions) * 100, 1) if total_questions > 0 else 0
             sub_id = f"sub-{int(time.time() * 1000) % 1000000:06d}"
 
+            proctor_logs = submission_data.get("proctor_logs", [])
+            fullscreen_exits = submission_data.get("fullscreen_exits", 0)
+            face_missing_count = submission_data.get("face_missing_count", 0)
+
+            total_incidents = tab_switches + fullscreen_exits + face_missing_count
+            proctor_status = "100% SECURE - Clean Proctor" if total_incidents == 0 else f"Flagged ({total_incidents} Total Security Incidents)"
+
             submission_record = {
                 "id": sub_id,
                 "teacher_email": teacher_email,
@@ -249,8 +256,11 @@ class OlympiadService:
                 "correct_count": correct_count,
                 "score_percentage": score_percentage,
                 "tab_switch_count": tab_switches,
+                "fullscreen_exits": fullscreen_exits,
+                "face_missing_count": face_missing_count,
                 "webcam_active": webcam_active,
-                "proctor_status": "Clean" if tab_switches == 0 else f"Flagged ({tab_switches} warnings)",
+                "proctor_logs": proctor_logs,
+                "proctor_status": proctor_status,
                 "review_status": "pending_review",  # pending_review, evaluated, published
                 "official_feedback": "",
                 "published": False

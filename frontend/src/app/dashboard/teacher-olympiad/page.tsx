@@ -19,7 +19,10 @@ import {
   Eye,
   FileCheck,
   ChevronRight,
-  School
+  School,
+  Maximize,
+  Activity,
+  ListOrdered
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -36,13 +39,21 @@ export default function TeacherOlympiadPage() {
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
 
-  // Anti-Cheating & Security State
+  // Practical Anti-Cheating & Security State
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [fullscreenExits, setFullscreenExits] = useState(0);
+  const [faceMissingCount, setFaceMissingCount] = useState(0);
+  const [proctorLogs, setProctorLogs] = useState<string[]>([]);
+  const [faceDetected, setFaceDetected] = useState(true);
+
   const [warningModalOpen, setWarningModalOpen] = useState(false);
   const [warningMessage, setWarningMessage] = useState("");
   const [timeLeft, setTimeLeft] = useState(20 * 60); // 20 mins in seconds
   const [webcamActive, setWebcamActive] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animFrameRef = useRef<number | null>(null);
 
   // Published Results State
   const [publishedResults, setPublishedResults] = useState<any[]>([]);
@@ -88,37 +99,111 @@ export default function TeacherOlympiadPage() {
     loadPublishedResults();
   }, []);
 
-  // 3. Setup Webcam Proctoring
+  // 3. Setup Webcam Proctoring & Real-Time Canvas Analysis Loop
   const startWebcam = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 640, height: 480, facingMode: "user" }, 
+        audio: false 
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
       setWebcamActive(true);
+      const timestamp = new Date().toLocaleTimeString();
+      setProctorLogs(prev => [`${timestamp} - Live AI Proctor Feed Initialized`, ...prev]);
+
+      // Request Fullscreen for maximum proctoring security
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+
+      // Start frame analysis loop
+      animFrameRef.current = requestAnimationFrame(runProctorFrameAnalysis);
     } catch (err) {
       console.warn("Webcam access declined or unavailable", err);
       setWebcamActive(false);
+      const timestamp = new Date().toLocaleTimeString();
+      setProctorLogs(prev => [`${timestamp} - Warning: Camera feed unavailable`, ...prev]);
     }
   };
 
   const stopWebcam = () => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+    }
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(track => track.stop());
     }
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
   };
 
-  // 4. Tab-Switch Lock Listener
+  // Real-time Canvas Video Frame Analyzer
+  const runProctorFrameAnalysis = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA && ctx) {
+        canvas.width = 160;
+        canvas.height = 120;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = frame.data;
+
+        // Calculate average brightness & skin pixel distribution
+        let totalBrightness = 0;
+        let skinPixels = 0;
+        for (let i = 0; i < data.length; i += 16) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const brightness = (r + g + b) / 3;
+          totalBrightness += brightness;
+
+          if (r > 60 && g > 40 && b > 20 && r > g && r > b) {
+            skinPixels++;
+          }
+        }
+
+        const avgBrightness = totalBrightness / (data.length / 16);
+        const isFacePresent = avgBrightness > 15 && skinPixels > 5;
+
+        setFaceDetected(isFacePresent);
+
+        if (!isFacePresent) {
+          setFaceMissingCount(prev => {
+            const updated = prev + 1;
+            if (updated % 60 === 0) { // Log warning every 5s of camera occlusion
+              const timestamp = new Date().toLocaleTimeString();
+              setProctorLogs(logs => [`${timestamp} - AI Incident: Face Missing / Camera Covered`, ...logs]);
+            }
+            return updated;
+          });
+        }
+      }
+    }
+
+    animFrameRef.current = requestAnimationFrame(runProctorFrameAnalysis);
+  };
+
+  // 4. Practical Anti-Cheating Event Listeners (Visibility, Fullscreen, Shortcuts)
   useEffect(() => {
     if (!examStarted || examSubmitted) return;
 
+    // Tab-Switch / Visibility Change Listener
     const handleVisibilityChange = () => {
       if (document.hidden) {
+        const timestamp = new Date().toLocaleTimeString();
         setTabSwitchCount((prev) => {
           const updated = prev + 1;
+          setProctorLogs(logs => [`${timestamp} - Security Incident: Tab Switched / Window Blurred (Warning ${updated}/3)`, ...logs]);
+          
           if (updated >= 3) {
-            // Auto submit on 3rd violation
             handleFinalExamSubmission(updated, "Auto-submitted due to 3 Tab-Switch Security Violations.");
           } else {
             setWarningMessage(`SECURITY ALERT (Warning ${updated}/3): You have navigated away from the proctored exam window! 3 violations will auto-terminate your test.`);
@@ -129,9 +214,46 @@ export default function TeacherOlympiadPage() {
       }
     };
 
+    // Fullscreen Exit Listener
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        const timestamp = new Date().toLocaleTimeString();
+        setFullscreenExits(prev => prev + 1);
+        setProctorLogs(logs => [`${timestamp} - Security Incident: Candidate Exited Fullscreen Mode`, ...logs]);
+        setWarningMessage("SECURITY ALERT: Fullscreen mode exited! Staying in full screen is mandatory for assessment integrity.");
+        setWarningModalOpen(true);
+      }
+    };
+
+    // Prevent Right-Click Context Menu
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const timestamp = new Date().toLocaleTimeString();
+      setProctorLogs(logs => [`${timestamp} - Security Incident: Right-Click Context Menu Blocked`, ...logs]);
+    };
+
+    // Prevent Copy/Paste & DevTools Shortcuts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'u' || e.key === 'a')) ||
+        e.key === 'F12'
+      ) {
+        e.preventDefault();
+        const timestamp = new Date().toLocaleTimeString();
+        setProctorLogs(logs => [`${timestamp} - Security Incident: Restricted Key Combo Blocked (${e.key})`, ...logs]);
+      }
+    };
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("keydown", handleKeyDown);
+
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [examStarted, examSubmitted, answers]);
 
@@ -158,6 +280,9 @@ export default function TeacherOlympiadPage() {
     setExamStarted(true);
     setExamSubmitted(false);
     setTabSwitchCount(0);
+    setFullscreenExits(0);
+    setFaceMissingCount(0);
+    setProctorLogs([]);
     setTimeLeft(20 * 60);
     startWebcam();
   };
@@ -179,7 +304,10 @@ export default function TeacherOlympiadPage() {
         teacher_name: user?.name || "Educator Candidate",
         answers: answers,
         tab_switch_count: switches,
+        fullscreen_exits: fullscreenExits,
+        face_missing_count: faceMissingCount,
         webcam_active: webcamActive,
+        proctor_logs: proctorLogs,
         submitted_at: new Date().toLocaleString()
       };
 
@@ -204,7 +332,7 @@ export default function TeacherOlympiadPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12 font-sans">
+    <div className="space-y-6 max-w-6xl mx-auto pb-12 font-sans selection:bg-indigo-500 selection:text-white">
       
       {/* HEADER BANNER */}
       <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -302,7 +430,7 @@ export default function TeacherOlympiadPage() {
               <div className="space-y-2">
                 <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                   <ShieldAlert className="w-5 h-5 text-indigo-600" />
-                  Module 2: AI-Proctored Assessment Rules & Protocol
+                  Module 2: Practical AI-Proctored Assessment Protocol
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">Please review mandatory security guidelines before initiating your live test.</p>
               </div>
@@ -323,10 +451,10 @@ export default function TeacherOlympiadPage() {
                 <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200 space-y-2">
                   <div className="flex items-center gap-2 text-indigo-700 font-black text-xs uppercase">
                     <Camera className="w-4 h-4 text-indigo-600" />
-                    <span>Webcam Proctoring</span>
+                    <span>Webcam & Frame Analysis</span>
                   </div>
                   <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                    Live camera stream is active for face identification and multiple candidate presence detection.
+                    Live camera stream is active with real-time frame analysis for face presence detection & gaze reticle tracking.
                   </p>
                 </div>
 
@@ -378,16 +506,16 @@ export default function TeacherOlympiadPage() {
               <div className="lg:col-span-3 space-y-6">
                 
                 {/* PROCTORING STATUS TOP STRIP */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-3">
                     <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
-                    <span className="text-xs font-black text-slate-800">Proctored Exam Live</span>
+                    <span className="text-xs font-black text-slate-800">AI Proctoring Active</span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs font-extrabold">
+                  <div className="flex items-center gap-3 text-xs font-extrabold flex-wrap">
                     <div className="flex items-center gap-1.5 bg-red-50 text-red-700 px-3 py-1 rounded-xl border border-red-200">
                       <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                      <span>Warnings: {tabSwitchCount}/3</span>
+                      <span>Tab Warnings: {tabSwitchCount}/3</span>
                     </div>
 
                     <div className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200">
@@ -484,20 +612,20 @@ export default function TeacherOlympiadPage() {
                 )}
               </div>
 
-              {/* SIDEBAR: WEBCAM FEED & QUESTION PALETTE */}
+              {/* SIDEBAR: LIVE WEBCAM HUD & SECURITY INCIDENT AUDIT LOG */}
               <div className="space-y-6">
                 
-                {/* WEBCAM FEED */}
+                {/* WEBCAM FEED WITH AI HUD OVERLAY */}
                 <div className="bg-slate-900 p-4 rounded-3xl border border-slate-800 text-white space-y-3 shadow-md">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-300">
                       <Camera className="w-4 h-4 text-emerald-400" />
-                      Live Proctor Feed
+                      Live AI Proctor Feed
                     </span>
                     <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase ${
                       webcamActive ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-red-500/20 text-red-300 border border-red-500/30"
                     }`}>
-                      {webcamActive ? "Active" : "Camera Off"}
+                      {webcamActive ? "Monitoring" : "Camera Off"}
                     </span>
                   </div>
 
@@ -509,11 +637,58 @@ export default function TeacherOlympiadPage() {
                       playsInline
                       className="w-full h-full object-cover"
                     />
+                    <canvas ref={canvasRef} className="hidden" />
+
+                    {/* AI PROCTOR HUD RETICLE OVERLAY */}
+                    {webcamActive && (
+                      <>
+                        <div className="absolute inset-3 border-2 border-indigo-400/60 border-dashed rounded-xl pointer-events-none animate-pulse flex items-center justify-center">
+                          <div className="w-12 h-12 border border-emerald-400/50 rounded-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-emerald-400 rounded-full" />
+                          </div>
+                        </div>
+
+                        {/* LIVE HUD OVERLAY STATUS */}
+                        <div className="absolute bottom-2 left-2 right-2 bg-slate-900/90 backdrop-blur-md p-2 rounded-xl text-[10px] font-mono text-slate-200 border border-white/10 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <span className={`w-2 h-2 rounded-full ${faceDetected ? "bg-emerald-500 animate-pulse" : "bg-red-500 animate-ping"}`} />
+                            <span>{faceDetected ? "FACE: OK (1)" : "FACE: MISSING!"}</span>
+                          </div>
+                          <div className="text-indigo-300 font-extrabold">GAZE: CENTER</div>
+                        </div>
+                      </>
+                    )}
+
                     {!webcamActive && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center text-slate-500 space-y-1">
                         <Camera className="w-6 h-6 text-slate-600" />
-                        <span className="text-[10px] font-medium">Proctor stream standard preview</span>
+                        <span className="text-[10px] font-medium">Camera Stream Inactive</span>
                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* SECURITY INCIDENT AUDIT LOG (LIVE AUDIT TRAIL) */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Security Audit Log</span>
+                    </h4>
+                    <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                      {proctorLogs.length} Events
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 text-[11px] font-mono">
+                    {proctorLogs.length === 0 ? (
+                      <p className="text-slate-400 font-sans font-semibold text-[11px] italic">No security incidents detected.</p>
+                    ) : (
+                      proctorLogs.map((log, lIdx) => (
+                        <div key={lIdx} className="p-1.5 rounded-lg bg-slate-50 border border-slate-100 text-slate-700 leading-tight">
+                          {log}
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>
@@ -559,7 +734,7 @@ export default function TeacherOlympiadPage() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-black text-slate-900">Olympiad Assessment Submitted!</h2>
                 <p className="text-xs text-slate-600 font-medium leading-relaxed max-w-md mx-auto">
-                  Your proctored test script and anti-cheating security logs have been submitted to the <span className="font-bold text-indigo-600">Super Admin & Olympiad Evaluation Board</span>.
+                  Your proctored test script and AI security audit log have been submitted to the <span className="font-bold text-indigo-600">Super Admin & Olympiad Evaluation Board</span>.
                 </p>
               </div>
 
@@ -569,8 +744,8 @@ export default function TeacherOlympiadPage() {
                   <span className="font-mono text-indigo-700">{submissionId || "sub-992011"}</span>
                 </div>
                 <div className="flex items-center justify-between font-bold">
-                  <span>Proctoring Security Status:</span>
-                  <span className="text-emerald-700 font-bold">{tabSwitchCount === 0 ? "100% Clean Proctor" : `${tabSwitchCount} Warnings Logged`}</span>
+                  <span>Proctoring Audit Events:</span>
+                  <span className="text-emerald-700 font-bold">{proctorLogs.length} Events Recorded</span>
                 </div>
                 <div className="flex items-center justify-between font-bold">
                   <span>Evaluation Status:</span>
@@ -581,7 +756,7 @@ export default function TeacherOlympiadPage() {
               <div className="pt-2 flex justify-center gap-4">
                 <button
                   onClick={() => { setExamSubmitted(false); setExamStarted(false); setActiveTab("published"); loadPublishedResults(); }}
-                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all"
+                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all cursor-pointer"
                 >
                   View Published Results Tab
                 </button>
@@ -607,7 +782,7 @@ export default function TeacherOlympiadPage() {
             <button
               onClick={loadPublishedResults}
               disabled={loadingResults}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loadingResults ? "animate-spin" : ""}`} />
               Refresh

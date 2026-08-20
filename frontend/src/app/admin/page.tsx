@@ -1111,10 +1111,20 @@ export default function SuperAdminPage() {
               <button onClick={() => setSelectedSub(null)} className="text-slate-400 hover:text-slate-700 font-black text-sm">✕</button>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
               <div className="font-extrabold text-slate-900">{selectedSub.teacher_name} ({selectedSub.teacher_email})</div>
               <div className="text-slate-500">Auto Computed Score: <span className="font-bold text-indigo-600">{selectedSub.score_percentage}% ({selectedSub.correct_count}/{selectedSub.total_questions} correct)</span></div>
               <div className="text-slate-500">Anti-Cheating Proctor Status: <span className="font-bold text-rose-600">{selectedSub.proctor_status}</span></div>
+              {selectedSub.proctor_logs && selectedSub.proctor_logs.length > 0 && (
+                <div className="pt-2 border-t border-slate-200 space-y-1">
+                  <div className="font-black text-[10px] uppercase text-rose-700">Detailed AI Proctor Incident Logs ({selectedSub.proctor_logs.length} Events):</div>
+                  <div className="max-h-24 overflow-y-auto space-y-1 pr-1 font-mono text-[10px] text-slate-700">
+                    {selectedSub.proctor_logs.map((log: string, lIdx: number) => (
+                      <div key={lIdx} className="p-1 rounded bg-white border border-slate-200">{log}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">

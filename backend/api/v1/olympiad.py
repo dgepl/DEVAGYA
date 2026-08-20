@@ -10,7 +10,10 @@ class ExamSubmissionPayload(BaseModel):
     teacher_name: str
     answers: Dict[str, int]
     tab_switch_count: int = 0
+    fullscreen_exits: int = 0
+    face_missing_count: int = 0
     webcam_active: bool = True
+    proctor_logs: List[str] = []
     submitted_at: Optional[str] = None
 
 class PracticeEvaluatePayload(BaseModel):
