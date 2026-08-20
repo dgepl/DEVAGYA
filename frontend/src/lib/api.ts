@@ -52,7 +52,10 @@ export async function generateQuestionPaper(payload: GeneratePaperPayload): Prom
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  if (!res.ok) throw new Error("Failed to generate question paper");
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || "Failed to generate question paper");
+  }
   return res.json();
 }
 
@@ -61,7 +64,10 @@ export async function generateQuestionPaperFromFile(formData: FormData): Promise
     method: "POST",
     body: formData
   });
-  if (!res.ok) throw new Error("Failed to generate question paper from file");
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || "Unable to read attached file or generate question paper");
+  }
   return res.json();
 }
 

@@ -116,7 +116,7 @@ export function FlashcardDeck() {
         formData.append("file", selectedFile);
       }
       formData.append("student_class", studentClass || "Class 10");
-      formData.append("subject", subject || "General Studies");
+      formData.append("subject", subject || "General");
       formData.append("topic", topic || "");
       formData.append("num_cards", String(numCards));
 

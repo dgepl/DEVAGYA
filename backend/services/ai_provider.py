@@ -33,13 +33,13 @@ class AIProviderService:
 
     @property
     def model(self) -> str:
-        return os.getenv("AI_MODEL", "llama-3.3-70b-versatile")
+        return os.getenv("AI_MODEL", "openai/gpt-oss-120b")
 
     @property
     def vision_model(self) -> str:
-        model_env = os.getenv("AI_VISION_MODEL", "llama-3.2-11b-vision-preview")
-        if "groq.com" in self.base_url and ("qwen" in model_env.lower() or not model_env):
-            return "llama-3.2-11b-vision-preview"
+        model_env = os.getenv("AI_VISION_MODEL", "qwen/qwen3.6-27b")
+        if "groq.com" in self.base_url and (not model_env or "llama" in model_env.lower()):
+            return "qwen/qwen3.6-27b"
         return model_env
 
     def build_vision_content(self, text: str, image_data_urls: List[str]) -> List[Dict[str, Any]]:
@@ -80,7 +80,7 @@ class AIProviderService:
             "model": selected_model,
             "messages": self._optimize_messages(messages),
             "temperature": temperature,
-            "max_tokens": max_tokens
+            "max_tokens": min(max_tokens, 4096)
         }
         
         if response_format_json and not self._has_images(messages):
@@ -93,9 +93,9 @@ class AIProviderService:
                 data = res.json()
                 return data["choices"][0]["message"]["content"]
             except Exception as e:
-                logger.warning(f"Primary model {selected_model} error: {e}. Retrying with fallback model llama-3.1-8b-instant...")
+                logger.warning(f"Primary model {selected_model} error: {e}. Retrying with fallback model openai/gpt-oss-20b...")
                 try:
-                    payload["model"] = "llama-3.1-8b-instant"
+                    payload["model"] = "openai/gpt-oss-20b"
                     payload["max_tokens"] = min(max_tokens, 3500)
                     res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
                     res.raise_for_status()
@@ -156,9 +156,9 @@ class AIProviderService:
         }
         selected_model = model or (self.vision_model if self._has_images(messages) else self.model)
         
-        # Build candidate fallback models list (70b -> 8b-instant -> mixtral)
+        # Build candidate fallback models list
         fallback_models = [selected_model]
-        for alt_m in ["llama-3.1-8b-instant", "mixtral-8x7b-32768"]:
+        for alt_m in ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]:
             if alt_m not in fallback_models:
                 fallback_models.append(alt_m)
 

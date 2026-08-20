@@ -8,11 +8,11 @@ class ModelManagerService:
     def get_current_model_config(self) -> Dict[str, Any]:
         return {
             "provider": "groq",
-            "model_name": "llama-3.3-70b-versatile",
+            "model_name": "openai/gpt-oss-120b",
             "temperature": 0.5,
             "top_p": 0.9,
             "max_tokens": 2500,
-            "fallback_model": "llama-3.1-8b-instant",
+            "fallback_model": "openai/gpt-oss-20b",
             "retry_policy": "3 attempts with exponential backoff",
             "status": "online"
         }

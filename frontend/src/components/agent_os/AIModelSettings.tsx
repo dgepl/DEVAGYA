@@ -5,7 +5,7 @@ import { Settings, Cpu, ShieldCheck, CheckCircle2, Zap } from "lucide-react";
 
 export function AIModelSettings() {
   const [provider, setProvider] = useState("groq");
-  const [model, setModel] = useState("llama-3.3-70b-versatile");
+  const [model, setModel] = useState("openai/gpt-oss-120b");
   const [temperature, setTemperature] = useState(0.5);
   const [maxTokens, setMaxTokens] = useState(2500);
 

@@ -133,18 +133,22 @@ export default function GeneratorPage() {
 
   const handleGenerate = async () => {
     setError(null);
+
+    if (!selectedFile) {
+      setError("Reference document (PDF or Image) is required. Please attach a reference file to generate the paper.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const formData = new FormData();
-      if (selectedFile) {
-        formData.append("file", selectedFile);
-      }
+      formData.append("file", selectedFile);
       formData.append("school_name", schoolName.trim() || "DEVGYA GLOBAL ACADEMY");
       formData.append("title", title.trim() || `${subject.trim() || "General"} Assessment`);
       formData.append("class_name", className || "Class 10");
-      formData.append("subject", subject.trim() || "General Studies");
-      formData.append("chapter", chapter.trim() || "General Syllabus");
+      formData.append("subject", subject.trim() || "General");
+      formData.append("chapter", chapter.trim() || "NCERT Syllabus");
       formData.append("difficulty", difficulty);
       formData.append("total_marks", String(requestedTotal || calculatedTotal || 40));
       formData.append("time_allowed_mins", String(parseInt(timeMins) || 90));
@@ -158,7 +162,7 @@ export default function GeneratorPage() {
       savePaper(res);
     } catch (err: any) {
       console.error("Generation error:", err);
-      setError("Failed to generate AI paper. Please check connection.");
+      setError(err.message || "Failed to generate AI paper. Please check connection.");
     } finally {
       setLoading(false);
     }
@@ -504,13 +508,13 @@ export default function GeneratorPage() {
             </div>
           </div>
 
-          {/* 6. File Attachment Upload */}
+          {/* 6. File Attachment Upload (COMPULSORY) */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Upload className="w-4 h-4 text-indigo-600" /> Attach Reference PDF / Worksheet / Photo
+              <span className="flex items-center gap-1.5 text-slate-900">
+                <Upload className="w-4 h-4 text-indigo-600" /> Attach Reference PDF / Worksheet / Photo <span className="text-rose-600 font-extrabold text-[11px]">* Required</span>
               </span>
-              <span className="text-[10px] text-slate-400 font-semibold">PDF, DOCX, PNG, JPG</span>
+              <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">PDF, DOCX, PNG, JPG</span>
             </label>
 
             <input
@@ -525,10 +529,10 @@ export default function GeneratorPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-3 px-4 bg-slate-50 hover:bg-indigo-50 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-2xl text-xs font-bold text-slate-600 transition-all flex items-center justify-center gap-2 group"
+                className="w-full py-3.5 px-4 bg-rose-50/50 hover:bg-rose-50 border-2 border-dashed border-rose-300 hover:border-indigo-400 rounded-2xl text-xs font-bold text-slate-700 transition-all flex items-center justify-center gap-2 group"
               >
-                <Upload className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition-colors" />
-                <span>Upload PDF, Word document, or Worksheet photo to base paper on</span>
+                <Upload className="w-4 h-4 text-rose-500 group-hover:text-indigo-600 transition-colors" />
+                <span>Upload PDF, Word document, or photo (Compulsory)</span>
               </button>
             ) : (
               <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-2xl">

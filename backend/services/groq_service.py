@@ -89,7 +89,7 @@ You MUST respond strictly with a valid JSON object matching this structure:
         ]
 
         try:
-            raw = await ai_provider.chat_completion(messages, temperature=0.5, max_tokens=6000, response_format_json=True)
+            raw = await ai_provider.chat_completion(messages, temperature=0.5, max_tokens=4000, response_format_json=True)
             text = (raw or "").strip()
             if "```json" in text:
                 text = text.split("```json", 1)[1].split("```", 1)[0].strip()
@@ -104,8 +104,8 @@ You MUST respond strictly with a valid JSON object matching this structure:
             if isinstance(data, dict):
                 data["title"] = str(data.get("title") or req.title or "Examination Paper")
                 data["class_name"] = str(data.get("class_name") or req.class_name or "Class 10")
-                data["subject"] = str(data.get("subject") or req.subject or "General Studies")
-                data["chapter"] = str(data.get("chapter") or req.chapter or "General Syllabus")
+                data["subject"] = str(data.get("subject") or req.subject or "General")
+                data["chapter"] = str(data.get("chapter") or req.chapter or "NCERT Syllabus")
                 data["difficulty"] = str(data.get("difficulty") or req.difficulty or "medium")
                 data["total_marks"] = int(data.get("total_marks") or req.total_marks or 40)
                 data["time_allowed_mins"] = int(data.get("time_allowed_mins") or req.time_allowed_mins or 90)
@@ -158,9 +158,7 @@ You MUST respond strictly with a valid JSON object matching this structure:
             return GeneratedPaperResponse(**data)
         except Exception as e:
             logger.error(f"Error generating question paper: {e}")
-
-        # Dynamic Fallback Synthesizer
-        return self._generate_fallback_paper(req)
+            raise ValueError(f"Failed to generate AI paper: {e}")
 
     async def generate_question_paper_with_attachment(
         self,
@@ -245,10 +243,10 @@ Respond strictly with a valid JSON object matching this structure:
                 },
                 {"type": "image_url", "image_url": {"url": image_data_url}}
             ]
-        elif extracted_text.strip():
+        elif extracted_text and extracted_text.strip():
             user_content = f"CRITICAL DIRECTIVE: Base ALL questions DIRECTLY on the text, story, and topic of this attached document:\n\n{extracted_text[:6000]}\n\nDetect the real Subject, Chapter, and Title from this attached document.\n\n{prompt_text}"
         else:
-            user_content = prompt_text
+            raise ValueError("Reference document (PDF or Image) is compulsory and must contain readable content.")
 
         messages = [
             {"role": "system", "content": f"You are a senior AI assessment synthesizer. Base questions 100% on the user's uploaded attachment content. Detect the correct subject and chapter from the attachment. Always return valid JSON."},
@@ -256,7 +254,7 @@ Respond strictly with a valid JSON object matching this structure:
         ]
 
         try:
-            raw = await ai_provider.chat_completion(messages, temperature=0.3, max_tokens=6000, response_format_json=True)
+            raw = await ai_provider.chat_completion(messages, temperature=0.3, max_tokens=4000, response_format_json=True)
             text = (raw or "").strip()
             if "```json" in text:
                 text = text.split("```json", 1)[1].split("```", 1)[0].strip()
@@ -270,16 +268,16 @@ Respond strictly with a valid JSON object matching this structure:
 
             if isinstance(data, dict):
                 inferred_subj = str(data.get("subject") or "").strip()
-                if inferred_subj and inferred_subj.lower() != "general studies":
+                if inferred_subj and inferred_subj.lower() not in ["general studies", "general"]:
                     data["subject"] = inferred_subj
                 else:
-                    data["subject"] = str(req.subject or "General Studies")
+                    data["subject"] = str(req.subject or "General")
 
                 inferred_chap = str(data.get("chapter") or "").strip()
-                if inferred_chap and inferred_chap.lower() != "general syllabus":
+                if inferred_chap and inferred_chap.lower() not in ["general syllabus", "general"]:
                     data["chapter"] = inferred_chap
                 else:
-                    data["chapter"] = str(req.chapter or "General Syllabus")
+                    data["chapter"] = str(req.chapter or "NCERT Syllabus")
 
                 data["title"] = str(data.get("title") or req.title or f"{data['subject']} Assessment")
                 data["class_name"] = str(data.get("class_name") or req.class_name or "Class 10")
@@ -334,10 +332,8 @@ Respond strictly with a valid JSON object matching this structure:
 
             return GeneratedPaperResponse(**data)
         except Exception as e:
-            logger.error(f"Error generating paper: {e}")
-
-        # Dynamic Fallback Synthesizer
-        return self._generate_fallback_paper(req)
+            logger.error(f"Error generating paper from attachment: {e}")
+            raise ValueError(f"Unable to read or extract questions from the attached document. Please ensure the attached PDF or image is clear and readable.")
 
     def _enforce_exact_question_counts(self, clean_qs: List[Dict[str, Any]], req: GeneratePaperRequest) -> List[Dict[str, Any]]:
         """Guarantees the question array contains EXACTLY the counts specified in GeneratePaperRequest."""
@@ -424,122 +420,6 @@ Respond strictly with a valid JSON object matching this structure:
             q_counter += 1
 
         return final_qs
-
-    def _generate_fallback_paper(self, req: GeneratePaperRequest) -> GeneratedPaperResponse:
-        """Synthesize dynamic, topic-specific NCERT questions and step-by-step solutions if LLM response fails."""
-        subj = req.subject or "Science"
-        chap = req.chapter or "NCERT Syllabus"
-        cls = req.class_name or "Class 10"
-
-        questions: List[QuestionItem] = []
-        q_counter = 1
-
-        # 1. MCQs (Real concept questions)
-        mcq_templates = [
-            {
-                "q": f"Which process or phenomenon is fundamental to '{chap}' in {cls} {subj}?",
-                "opts": [
-                    f"(A) Primary mechanism governing {chap}",
-                    f"(B) Secondary equilibrium shift",
-                    f"(C) Inverse thermal decay",
-                    f"(D) Constant scalar zero-point shift"
-                ],
-                "ans": f"(A) Primary mechanism governing {chap}",
-                "exp": f"According to NCERT {subj} syllabus, {chap} relies primarily on this governing mechanism."
-            },
-            {
-                "q": f"What is the standard SI unit or defining property used when calculating parameters in '{chap}'?",
-                "opts": [
-                    f"(A) Standard NCERT unit for {subj}",
-                    f"(B) Dimensionless logarithmic scale",
-                    f"(C) Relativistic flux coefficient",
-                    f"(D) Arbitrary unit vector"
-                ],
-                "ans": f"(A) Standard NCERT unit for {subj}",
-                "exp": f"Standard SI units are prescribed in NCERT {subj} textbook for all calculations in {chap}."
-            },
-            {
-                "q": f"In a laboratory experiment on '{chap}', what key variable is kept constant under standard conditions?",
-                "opts": [
-                    f"(A) Temperature and system pressure",
-                    f"(B) Molecular mass of products",
-                    f"(C) External gravitational flux",
-                    f"(D) Catalyst activation enthalpy"
-                ],
-                "ans": f"(A) Temperature and system pressure",
-                "exp": f"Controlled experimental parameters ensure accurate measurement of {chap} phenomena."
-            },
-            {
-                "q": f"Which practical application best demonstrates the principles of '{chap}' in daily life?",
-                "opts": [
-                    f"(A) Industrial and technological systems utilizing {chap}",
-                    f"(B) Zero-gravity space crystallization",
-                    f"(C) Deep mantle geothermal cooling",
-                    f"(D) Atmospheric ozone neutralization"
-                ],
-                "ans": f"(A) Industrial and technological systems utilizing {chap}",
-                "exp": f"Real-world applications of {chap} are highlighted in NCERT textbook examples."
-            }
-        ]
-
-        for i in range(req.num_mcqs):
-            tmpl = mcq_templates[i % len(mcq_templates)]
-            questions.append(QuestionItem(
-                id=q_counter,
-                question_number=q_counter,
-                question_type="mcq",
-                question_text=f"Q{q_counter}. {tmpl['q']}",
-                marks=1,
-                options=tmpl["opts"],
-                answer=tmpl["ans"],
-                explanation=tmpl["exp"]
-            ))
-            q_counter += 1
-
-        # 2. Short Answer Questions (Real answers)
-        for i in range(req.num_short):
-            questions.append(QuestionItem(
-                id=q_counter,
-                question_number=q_counter,
-                question_type="short",
-                question_text=f"Q{q_counter}. Define '{chap}' in {subj} ({cls}). List two key characteristics or formulas associated with it.",
-                marks=3,
-                answer=f"Solution:\n1. Definition: {chap} refers to the core concept studied in {cls} {subj}.\n2. Characteristics: (i) Governed by standard NCERT principles, (ii) Mathematically or conceptually expressed using fundamental equations.",
-                explanation=f"State clear definitions and provide 2 distinct points as per NCERT marking scheme for 3 marks."
-            ))
-            q_counter += 1
-
-        # 3. Long Answer Questions (Detailed solutions)
-        for i in range(req.num_long):
-            questions.append(QuestionItem(
-                id=q_counter,
-                question_number=q_counter,
-                question_type="long",
-                question_text=f"Q{q_counter}. Explain the working principle and step-by-step derivation/mechanism of '{chap}' ({subj}). Draw a neat labeled diagram where applicable.",
-                marks=5,
-                answer=f"Detailed Solution:\n- Step 1: State the fundamental law governing {chap}.\n- Step 2: Draw and label the schematic diagram showing key components.\n- Step 3: Write the step-by-step mathematical derivation / chemical reaction steps.\n- Step 4: Highlight key precautions and experimental observations.",
-                explanation=f"Complete 5-mark answer structure: 1 mark for statement, 1.5 marks for diagram, 2.5 marks for derivation/explanation."
-            ))
-            q_counter += 1
-
-            q_counter += 1
-
-        return GeneratedPaperResponse(
-            title=req.title or f"{subj} Examination",
-            class_name=req.class_name or "Class 10",
-            subject=req.subject or "Science",
-            chapter=req.chapter or "NCERT Syllabus",
-            difficulty=req.difficulty or "medium",
-            total_marks=req.total_marks or 40,
-            time_allowed_mins=req.time_allowed_mins or 90,
-            instructions=[
-                "All questions are compulsory.",
-                "Read all questions carefully before attempting.",
-                "Marks for each question are indicated against it."
-            ],
-            questions=questions,
-            school_name=req.school_name or "DEVGYA GLOBAL ACADEMY"
-        )
 
     async def socratic_chat(self, question: str, subject: str = "Science", grade: str = "Class 10", action: str = "normal") -> dict:
         """Socratic AI Tutor method: Guides students with hints and guiding questions without giving direct answers."""

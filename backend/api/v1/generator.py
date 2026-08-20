@@ -11,11 +11,10 @@ router = APIRouter(prefix="/generator", tags=["Question Generator"])
 
 @router.post("/generate", response_model=GeneratedPaperResponse)
 async def generate_paper(request: GeneratePaperRequest):
-    try:
-        response = await groq_service.generate_question_paper(request)
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(
+        status_code=400,
+        detail="Reference document (PDF or Image) is compulsory. Please attach a reference file to generate a question paper."
+    )
 
 @router.post("/generate-from-file", response_model=GeneratedPaperResponse)
 async def generate_paper_from_file(
@@ -33,30 +32,48 @@ async def generate_paper_from_file(
     school_name: str = Form("DEVGYA GLOBAL ACADEMY"),
     custom_instructions: str = Form("")
 ):
-    """Generate Question Paper from Form Data and optional PDF/Word/Photo file upload."""
+    """Generate Question Paper strictly requiring reference PDF/Photo file attachment."""
+    if not file or not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Reference document (PDF or Image) is compulsory. Please attach a reference file to generate a question paper."
+        )
+
     extracted_text = ""
     image_data_url = None
 
-    if file:
-        file_bytes = await file.read()
-        filename = file.filename or "attachment"
-        content_type = (file.content_type or "").lower()
+    file_bytes = await file.read()
+    filename = file.filename or "attachment"
+    content_type = (file.content_type or "").lower()
 
-        if "image" in content_type or filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
-            try:
-                img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
-                if img.width > 1280:
-                    h = int(img.height * 1280 / img.width)
-                    img = img.resize((1280, h))
-                buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=80)
-                enc = base64.b64encode(buf.getvalue()).decode("ascii")
-                image_data_url = f"data:image/jpeg;base64,{enc}"
-            except Exception:
-                enc = base64.b64encode(file_bytes).decode("ascii")
-                image_data_url = f"data:{content_type or 'image/jpeg'};base64,{enc}"
-        else:
+    if "image" in content_type or filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+        try:
+            img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+            if img.width > 1280:
+                h = int(img.height * 1280 / img.width)
+                img = img.resize((1280, h))
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=80)
+            enc = base64.b64encode(buf.getvalue()).decode("ascii")
+            image_data_url = f"data:image/jpeg;base64,{enc}"
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to read or parse the attached image file. Please upload a valid, clear image (JPG, PNG, WebP)."
+            )
+    else:
+        try:
             extracted_text = extract_document_text(file_bytes, filename, content_type)
+        except Exception as ocr_err:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unable to read text from the attached PDF/document: {ocr_err}"
+            )
+        if not extracted_text or not extracted_text.strip() or len(extracted_text.strip()) < 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to read text from the attached PDF or document. Please ensure the document is clear and readable, or upload an image file."
+            )
 
     req = GeneratePaperRequest(
         title=title,
@@ -79,7 +96,9 @@ async def generate_paper_from_file(
         )
         return response
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/teaching-assistant")
 async def generate_teaching_material(payload: dict):

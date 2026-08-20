@@ -60,7 +60,7 @@ Each card must have:
 - "hint": memory clue
 - "difficulty": "easy", "medium", or "hard"
 """
-        subj_str = subject or "General Studies"
+        subj_str = subject or "General"
         top_str = topic or "Chapter Concepts"
 
         if image_data_url:

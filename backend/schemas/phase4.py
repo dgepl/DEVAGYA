@@ -58,7 +58,7 @@ class MemoryItemPayload(BaseModel):
 # 6. Model Manager & Cost Analytics Schemas
 class ModelConfigPayload(BaseModel):
     provider: str = "groq"
-    model_name: str = "llama-3.3-70b-versatile"
+    model_name: str = "openai/gpt-oss-120b"
     temperature: float = 0.5
     top_p: float = 0.9
     max_tokens: int = 2500
