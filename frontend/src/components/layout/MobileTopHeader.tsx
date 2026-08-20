@@ -55,6 +55,8 @@ export function MobileTopHeader() {
   // Build full role-spec nav items matching desktop sidebar exactly
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { label: "Teachers Skill Olympiad", href: "/dashboard/teacher-olympiad", icon: Trophy },
+    { label: "Olympiad Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },

@@ -110,7 +110,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   // Role-based Nav Specifications — each agent is a direct sidebar link
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    // Teacher Core Studios
+    // Olympiad & Core Studios
+    { label: "Teachers Skill Olympiad", href: "/dashboard/teacher-olympiad", icon: Trophy },
+    { label: "Olympiad Practice Zone", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
     // Teacher AI Agents

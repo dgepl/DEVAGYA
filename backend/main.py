@@ -36,6 +36,7 @@ from api.v1.ai_models import router as ai_models_router
 
 # Phase 5 Routers
 from api.v1.xp import router as xp_router
+from api.v1.olympiad import router as olympiad_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -90,6 +91,7 @@ app.include_router(ai_models_router, prefix=settings.API_V1_STR)
 
 # Mount Phase 5 Routers
 app.include_router(xp_router, prefix=settings.API_V1_STR)
+app.include_router(olympiad_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():
