@@ -23,25 +23,43 @@ class PracticeEvaluatePayload(BaseModel):
     question_id: str
     selected_option: int
 
-def parse_dt(dt_str: Optional[str]) -> Optional[datetime]:
+def parse_to_ts(dt_str: Optional[str]) -> Optional[float]:
     if not dt_str:
         return None
     cleaned = str(dt_str).strip().replace("T", " ")
     if len(cleaned) == 16:
         cleaned += ":00"
     try:
-        return datetime.strptime(cleaned[:19], "%Y-%m-%d %H:%M:%S")
+        dt = datetime.strptime(cleaned[:19], "%Y-%m-%d %H:%M:%S")
+        return dt.timestamp()
     except Exception:
         return None
 
 @router.get("/questions")
 async def get_olympiad_questions():
-    """Fetch proctored Olympiad exam question bank with tags & scenario difficulty."""
-    questions = olympiad_service.get_exam_questions()
+    """Fetch active published Admin Olympiad paper questions directly for the exam hall."""
+    papers = paper_service.get_all_papers()
+    if papers and papers[0].get("questions"):
+        active_paper = papers[0]
+        # Return sanitized questions (without exposing answer scheme prematurely if needed)
+        questions = []
+        for q in active_paper["questions"]:
+            item = dict(q)
+            questions.append(item)
+        return {
+            "status": "success",
+            "paper_id": active_paper.get("id"),
+            "paper_title": active_paper.get("title"),
+            "total": len(questions),
+            "questions": questions
+        }
+
+    # Fallback to standard question bank
+    fallback_qs = olympiad_service.get_exam_questions()
     return {
         "status": "success",
-        "total": len(questions),
-        "questions": questions
+        "total": len(fallback_qs),
+        "questions": fallback_qs
     }
 
 @router.post("/submit")
@@ -85,13 +103,14 @@ async def get_active_olympiad_paper():
         return {"status": "none", "paper": None}
 
     now_dt = datetime.now()
+    now_ts = now_dt.timestamp()
     active_paper = papers[0]
     
-    start_dt = parse_dt(active_paper.get("start_time")) or datetime(2000, 1, 1)
-    end_dt = parse_dt(active_paper.get("end_time")) or datetime(2099, 12, 31, 23, 59, 59)
+    start_ts = parse_to_ts(active_paper.get("start_time")) or 0
+    end_ts = parse_to_ts(active_paper.get("end_time")) or 9999999999
 
-    is_before = now_dt < start_dt
-    is_after = now_dt > end_dt
+    is_before = now_ts < start_ts
+    is_after = now_ts > end_ts
     is_live = not is_before and not is_after
 
     return {
@@ -107,11 +126,11 @@ async def get_active_olympiad_paper():
 async def get_previous_olympiad_papers():
     """Fetch archived/ended Olympiad papers from previous assessments."""
     all_papers = paper_service.get_all_papers()
-    now_dt = datetime.now()
+    now_ts = datetime.now().timestamp()
     previous = []
     for p in all_papers:
-        end_dt = parse_dt(p.get("end_time"))
-        if end_dt and end_dt < now_dt:
+        end_ts = parse_to_ts(p.get("end_time"))
+        if end_ts and end_ts < now_ts:
             previous.append(p)
     
     if not previous and len(all_papers) > 1:

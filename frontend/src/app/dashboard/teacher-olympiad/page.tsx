@@ -25,7 +25,8 @@ import {
   ListOrdered,
   Calendar,
   History,
-  Check
+  Check,
+  EyeOff
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -46,8 +47,10 @@ export default function TeacherOlympiadPage() {
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [fullscreenExits, setFullscreenExits] = useState(0);
   const [faceMissingCount, setFaceMissingCount] = useState(0);
+  const [gazeDeflectionCount, setGazeDeflectionCount] = useState(0);
   const [proctorLogs, setProctorLogs] = useState<string[]>([]);
   const [faceDetected, setFaceDetected] = useState(true);
+  const [gazeDeflected, setGazeDeflected] = useState(false);
 
   const [warningModalOpen, setWarningModalOpen] = useState(false);
   const [warningMessage, setWarningMessage] = useState("");
@@ -59,6 +62,7 @@ export default function TeacherOlympiadPage() {
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number | null>(null);
   const boxPosRef = useRef({ x: 40, y: 30, w: 80, h: 80 });
+  const deflectionTimerRef = useRef(0);
 
   // Active Scheduled Paper Access Info
   const [activePaperInfo, setActivePaperInfo] = useState<any>(null);
@@ -181,7 +185,7 @@ export default function TeacherOlympiadPage() {
     }
   };
 
-  // 60 FPS Real-time Live Face Bounding Box & HUD Canvas Tracker
+  // 60 FPS Real-time Live Face & Eye Gaze Deflection Tracker Canvas
   const runProctorFrameAnalysis = () => {
     if (videoRef.current && canvasRef.current && overlayCanvasRef.current) {
       const video = videoRef.current;
@@ -226,7 +230,6 @@ export default function TeacherOlympiadPage() {
         const isFacePresent = avgBrightness > 15 && skinPixels > 5;
         setFaceDetected(isFacePresent);
 
-        // Resize transparent overlay canvas to match container size
         const dw = overlayCanvas.clientWidth || 320;
         const dh = overlayCanvas.clientHeight || 240;
         overlayCanvas.width = dw;
@@ -234,13 +237,11 @@ export default function TeacherOlympiadPage() {
         oCtx.clearRect(0, 0, dw, dh);
 
         if (isFacePresent && maxX > minX && maxY > minY) {
-          // Scale camera frame coordinates to overlay display coordinates
           const rawX = (minX / sw) * dw;
           const rawY = (minY / sh) * dh;
           const rawW = Math.max(60, ((maxX - minX) / sw) * dw);
           const rawH = Math.max(60, ((maxY - minY) / sh) * dh);
 
-          // Smooth lerp movement so bounding box moves continuously with head
           const curr = boxPosRef.current;
           curr.x += (rawX - curr.x) * 0.25;
           curr.y += (rawY - curr.y) * 0.25;
@@ -248,45 +249,66 @@ export default function TeacherOlympiadPage() {
           curr.h += (rawH - curr.h) * 0.25;
 
           const { x, y, w, h } = curr;
-          const cornerLen = 14;
-
-          // Draw Glowing Green AI Target Corner Brackets
-          oCtx.strokeStyle = "#10b981"; // emerald-500
-          oCtx.lineWidth = 3;
-          oCtx.shadowColor = "#10b981";
-          oCtx.shadowBlur = 8;
-
-          // Top-Left Corner
-          oCtx.beginPath(); oCtx.moveTo(x, y + cornerLen); oCtx.lineTo(x, y); oCtx.lineTo(x + cornerLen, y); oCtx.stroke();
-          // Top-Right Corner
-          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y); oCtx.lineTo(x + w, y); oCtx.lineTo(x + w, y + cornerLen); oCtx.stroke();
-          // Bottom-Left Corner
-          oCtx.beginPath(); oCtx.moveTo(x, y + h - cornerLen); oCtx.lineTo(x, y + h); oCtx.lineTo(x + cornerLen, y + h); oCtx.stroke();
-          // Bottom-Right Corner
-          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y + h); oCtx.lineTo(x + w, y + h); oCtx.lineTo(x + w, y + h - cornerLen); oCtx.stroke();
-
-          // Target Locked Badge Above Box
-          oCtx.fillStyle = "#10b981";
-          oCtx.font = "bold 9px monospace";
-          oCtx.fillText("AI TARGET LOCKED: CANDIDATE #1", x, Math.max(12, y - 6));
-
-          // Centroid Target Crosshair Reticle
           const cx = x + w / 2;
           const cy = y + h / 2;
-          oCtx.strokeStyle = "rgba(99, 102, 241, 0.8)"; // indigo
+
+          // Calculate normalized centroid offsets to detect head/eye deflection
+          const dx = Math.abs(cx - dw / 2) / dw;
+          const dy = Math.abs(cy - dh / 2) / dh;
+
+          const isDeflected = dx > 0.12 || dy > 0.15;
+          setGazeDeflected(isDeflected);
+
+          if (isDeflected) {
+            deflectionTimerRef.current += 1;
+            if (deflectionTimerRef.current === 35) { // ~1.5s persistent deflection
+              const timestamp = new Date().toLocaleTimeString();
+              setGazeDeflectionCount(prev => prev + 1);
+              setProctorLogs(logs => [`${timestamp} - Security Alert: Head/Eye Deflection Detected (Looking away from exam screen)`, ...logs]);
+              setWarningMessage("SECURITY ALERT: Head/Eye Deflection Detected! You are looking away from the proctored exam screen. Please face forward towards your assessment.");
+              setWarningModalOpen(true);
+            }
+          } else {
+            deflectionTimerRef.current = 0;
+          }
+
+          const cornerLen = 14;
+          const boxColor = isDeflected ? "#f59e0b" : "#10b981"; // amber vs emerald
+
+          oCtx.strokeStyle = boxColor;
+          oCtx.lineWidth = 3;
+          oCtx.shadowColor = boxColor;
+          oCtx.shadowBlur = 8;
+
+          // Corner Brackets
+          oCtx.beginPath(); oCtx.moveTo(x, y + cornerLen); oCtx.lineTo(x, y); oCtx.lineTo(x + cornerLen, y); oCtx.stroke();
+          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y); oCtx.lineTo(x + w, y); oCtx.lineTo(x + w, y + cornerLen); oCtx.stroke();
+          oCtx.beginPath(); oCtx.moveTo(x, y + h - cornerLen); oCtx.lineTo(x, y + h); oCtx.lineTo(x + cornerLen, y + h); oCtx.stroke();
+          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y + h); oCtx.lineTo(x + w, y + h); oCtx.lineTo(x + w, y + h - cornerLen); oCtx.stroke();
+
+          // Target Locked / Warning Badge
+          oCtx.fillStyle = boxColor;
+          oCtx.font = "bold 9px monospace";
+          if (isDeflected) {
+            oCtx.fillText("GAZE WARNING: LOOKING AWAY!", x, Math.max(12, y - 6));
+          } else {
+            oCtx.fillText("AI TARGET LOCKED: CANDIDATE #1", x, Math.max(12, y - 6));
+          }
+
+          // Centroid Target Crosshair
+          oCtx.strokeStyle = isDeflected ? "rgba(245, 158, 11, 0.9)" : "rgba(99, 102, 241, 0.8)";
           oCtx.lineWidth = 1;
           oCtx.beginPath(); oCtx.arc(cx, cy, 10, 0, Math.PI * 2); oCtx.stroke();
-          oCtx.fillStyle = "#6366f1";
+          oCtx.fillStyle = isDeflected ? "#f59e0b" : "#6366f1";
           oCtx.beginPath(); oCtx.arc(cx, cy, 3, 0, Math.PI * 2); oCtx.fill();
 
-          // Eye & Mouth Tracking Dots
-          oCtx.fillStyle = "#f59e0b"; // amber
+          // Eye Tracking Indicators
+          oCtx.fillStyle = isDeflected ? "#ef4444" : "#f59e0b";
           oCtx.beginPath(); oCtx.arc(cx - w * 0.18, cy - h * 0.15, 2.5, 0, Math.PI * 2); oCtx.fill();
           oCtx.beginPath(); oCtx.arc(cx + w * 0.18, cy - h * 0.15, 2.5, 0, Math.PI * 2); oCtx.fill();
-          oCtx.beginPath(); oCtx.arc(cx, cy + h * 0.2, 2.5, 0, Math.PI * 2); oCtx.fill();
 
         } else {
-          // Face Missing Red HUD Alert Overlay
+          // Face Missing Red HUD Overlay
           oCtx.strokeStyle = "#ef4444";
           oCtx.lineWidth = 3;
           oCtx.shadowColor = "#ef4444";
@@ -399,6 +421,7 @@ export default function TeacherOlympiadPage() {
     setTabSwitchCount(0);
     setFullscreenExits(0);
     setFaceMissingCount(0);
+    setGazeDeflectionCount(0);
     setProctorLogs([]);
     setTimeLeft(20 * 60);
     startWebcam();
@@ -668,6 +691,13 @@ export default function TeacherOlympiadPage() {
                   </div>
 
                   <div className="flex items-center gap-3 text-xs font-extrabold flex-wrap">
+                    {gazeDeflected && (
+                      <div className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1 rounded-xl shadow-xs animate-pulse">
+                        <EyeOff className="w-3.5 h-3.5" />
+                        <span>Gaze Warning: Looking Away!</span>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-1.5 bg-red-50 text-red-700 px-3 py-1 rounded-xl border border-red-200">
                       <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
                       <span>Tab Warnings: {tabSwitchCount}/3</span>
@@ -690,7 +720,7 @@ export default function TeacherOlympiadPage() {
                           MCQ Question {currentIdx + 1} of {questions.length}
                         </span>
                         <span className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-100 text-purple-700 font-bold text-[11px]">
-                          {questions[currentIdx]?.subject}
+                          {questions[currentIdx]?.subject || "Science"}
                         </span>
                       </div>
 
@@ -788,21 +818,15 @@ export default function TeacherOlympiadPage() {
                     <canvas ref={overlayCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10" />
 
                     {webcamActive && (
-                      <>
-                        <div className="absolute inset-3 border-2 border-indigo-400/60 border-dashed rounded-xl pointer-events-none animate-pulse flex items-center justify-center">
-                          <div className="w-12 h-12 border border-emerald-400/50 rounded-full flex items-center justify-center">
-                            <div className="w-2 h-2 bg-emerald-400 rounded-full" />
-                          </div>
+                      <div className="absolute bottom-2 left-2 right-2 bg-slate-900/90 backdrop-blur-md p-2 rounded-xl text-[10px] font-mono text-slate-200 border border-white/10 flex items-center justify-between z-20">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <span className={`w-2 h-2 rounded-full ${faceDetected ? (gazeDeflected ? "bg-amber-500 animate-ping" : "bg-emerald-500 animate-pulse") : "bg-red-500 animate-ping"}`} />
+                          <span>{faceDetected ? (gazeDeflected ? "GAZE: LOOKING AWAY!" : "FACE: OK (1)") : "FACE: MISSING!"}</span>
                         </div>
-
-                        <div className="absolute bottom-2 left-2 right-2 bg-slate-900/90 backdrop-blur-md p-2 rounded-xl text-[10px] font-mono text-slate-200 border border-white/10 flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 font-bold">
-                            <span className={`w-2 h-2 rounded-full ${faceDetected ? "bg-emerald-500 animate-pulse" : "bg-red-500 animate-ping"}`} />
-                            <span>{faceDetected ? "FACE: OK (1)" : "FACE: MISSING!"}</span>
-                          </div>
-                          <div className="text-indigo-300 font-extrabold">GAZE: CENTER</div>
+                        <div className={`font-extrabold ${gazeDeflected ? "text-amber-400" : "text-indigo-300"}`}>
+                          {gazeDeflected ? "DEFLECTION DETECTED" : "GAZE: CENTER"}
                         </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
