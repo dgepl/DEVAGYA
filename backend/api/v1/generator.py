@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from PIL import Image
 from schemas.question import GeneratePaperRequest, GeneratedPaperResponse
 from services.groq_service import groq_service
-from services.pdf_service import extract_document_text
+from services.pdf_service import extract_document_text, extract_pdf_content
 
 router = APIRouter(prefix="/generator", tags=["Question Generator"])
 
@@ -45,8 +45,9 @@ async def generate_paper_from_file(
     file_bytes = await file.read()
     filename = file.filename or "attachment"
     content_type = (file.content_type or "").lower()
+    ext = os.path.splitext(filename)[1].lower()
 
-    if "image" in content_type or filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+    if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp"):
         try:
             img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
             if img.width > 1280:
@@ -61,19 +62,33 @@ async def generate_paper_from_file(
                 status_code=400,
                 detail="Unable to read or parse the attached image file. Please upload a valid, clear image (JPG, PNG, WebP)."
             )
+    elif ext == ".pdf" or "pdf" in content_type:
+        try:
+            extracted_text, pdf_img_url = extract_pdf_content(file_bytes)
+            if pdf_img_url:
+                image_data_url = pdf_img_url
+        except Exception as ocr_err:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unable to read text or render pages from the attached PDF: {ocr_err}"
+            )
     else:
         try:
             extracted_text = extract_document_text(file_bytes, filename, content_type)
         except Exception as ocr_err:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unable to read text from the attached PDF/document: {ocr_err}"
+                detail=f"Unable to read text from the attached document: {ocr_err}"
             )
-        if not extracted_text or not extracted_text.strip() or len(extracted_text.strip()) < 10:
-            raise HTTPException(
-                status_code=400,
-                detail="Unable to read text from the attached PDF or document. Please ensure the document is clear and readable, or upload an image file."
-            )
+
+    has_text = bool(extracted_text and len(extracted_text.strip()) >= 10)
+    has_image = bool(image_data_url and len(image_data_url) > 100)
+
+    if not has_text and not has_image:
+        raise HTTPException(
+            status_code=400,
+            detail="Unable to read text or images from the attached PDF or document. Please ensure the file is clear and readable."
+        )
 
     req = GeneratePaperRequest(
         title=title,

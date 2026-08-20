@@ -11,21 +11,59 @@ from reportlab.pdfgen import canvas
 from schemas.question import GeneratedPaperResponse
 
 
-def extract_text_from_pdf(file_bytes: bytes, max_pages: int = 30) -> str:
-    """Extract text from a PDF file using pypdf."""
+def extract_pdf_content(file_bytes: bytes, max_pages: int = 30):
+    """Extract text from a PDF file using PyMuPDF (pymupdf), falling back to rendering page images if scanned."""
+    extracted_text = ""
+    image_data_url = None
+    
     try:
-        import pypdf
-        reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+        import pymupdf
+        from PIL import Image
+        import base64
+        
+        doc = pymupdf.open(stream=file_bytes, filetype="pdf")
         pages_text = []
-        for idx, page in enumerate(reader.pages[:max_pages]):
-            text = page.extract_text() or ""
+        for idx, page in enumerate(doc[:max_pages]):
+            text = page.get_text() or ""
             if text.strip():
                 pages_text.append(f"--- Page {idx + 1} ---\n{text.strip()}")
-        if not pages_text:
-            return "[Attached PDF Document: Contains scanned images or visual worksheet pages]"
-        return "\n\n".join(pages_text)
-    except Exception as e:
-        return f"[Error parsing PDF document: {e}]"
+        
+        extracted_text = "\n\n".join(pages_text)
+        
+        # If PDF is scanned / has no readable digital text stream (< 50 chars), render page 1 as JPEG image for Vision AI
+        if len(extracted_text.strip()) < 50 and len(doc) > 0:
+            page = doc[0]
+            pix = page.get_pixmap(dpi=150)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            if img.width > 1280:
+                h = int(img.height * 1280 / img.width)
+                img = img.resize((1280, h))
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=80)
+            enc = base64.b64encode(buf.getvalue()).decode("ascii")
+            image_data_url = f"data:image/jpeg;base64,{enc}"
+        doc.close()
+    except Exception:
+        # Fallback to pypdf if pymupdf fails
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+            pages_text = []
+            for idx, page in enumerate(reader.pages[:max_pages]):
+                text = page.extract_text() or ""
+                if text.strip():
+                    pages_text.append(f"--- Page {idx + 1} ---\n{text.strip()}")
+            extracted_text = "\n\n".join(pages_text)
+        except Exception as e:
+            extracted_text = f"[Error parsing PDF document: {e}]"
+            
+    return extracted_text, image_data_url
+
+
+def extract_text_from_pdf(file_bytes: bytes, max_pages: int = 30) -> str:
+    """Extract text from a PDF file."""
+    text, _ = extract_pdf_content(file_bytes, max_pages)
+    return text
 
 
 def extract_docx_text(file_bytes: bytes) -> str:
