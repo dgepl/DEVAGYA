@@ -56,7 +56,9 @@ export default function TeacherOlympiadPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number | null>(null);
+  const boxPosRef = useRef({ x: 40, y: 30, w: 80, h: 80 });
 
   // Active Scheduled Paper Access Info
   const [activePaperInfo, setActivePaperInfo] = useState<any>(null);
@@ -179,40 +181,122 @@ export default function TeacherOlympiadPage() {
     }
   };
 
-  // Real-time Canvas Video Frame Analyzer
+  // 60 FPS Real-time Live Face Bounding Box & HUD Canvas Tracker
   const runProctorFrameAnalysis = () => {
-    if (videoRef.current && canvasRef.current) {
+    if (videoRef.current && canvasRef.current && overlayCanvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
+      const overlayCanvas = overlayCanvasRef.current;
       const ctx = canvas.getContext("2d");
+      const oCtx = overlayCanvas.getContext("2d");
 
-      if (video.readyState === video.HAVE_ENOUGH_DATA && ctx) {
-        canvas.width = 160;
-        canvas.height = 120;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if (video.readyState === video.HAVE_ENOUGH_DATA && ctx && oCtx) {
+        const sw = 160;
+        const sh = 120;
+        canvas.width = sw;
+        canvas.height = sh;
+        ctx.drawImage(video, 0, 0, sw, sh);
+        const frame = ctx.getImageData(0, 0, sw, sh);
         const data = frame.data;
 
         let totalBrightness = 0;
         let skinPixels = 0;
-        for (let i = 0; i < data.length; i += 16) {
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-          const brightness = (r + g + b) / 3;
-          totalBrightness += brightness;
+        let minX = sw, minY = sh, maxX = 0, maxY = 0;
 
-          if (r > 60 && g > 40 && b > 20 && r > g && r > b) {
-            skinPixels++;
+        for (let y = 0; y < sh; y += 2) {
+          for (let x = 0; x < sw; x += 2) {
+            const i = (y * sw + x) * 4;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const brightness = (r + g + b) / 3;
+            totalBrightness += brightness;
+
+            if (r > 60 && g > 40 && b > 20 && r > g && r > b) {
+              skinPixels++;
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
           }
         }
 
-        const avgBrightness = totalBrightness / (data.length / 16);
+        const avgBrightness = totalBrightness / ((sw * sh) / 4);
         const isFacePresent = avgBrightness > 15 && skinPixels > 5;
-
         setFaceDetected(isFacePresent);
 
-        if (!isFacePresent) {
+        // Resize transparent overlay canvas to match container size
+        const dw = overlayCanvas.clientWidth || 320;
+        const dh = overlayCanvas.clientHeight || 240;
+        overlayCanvas.width = dw;
+        overlayCanvas.height = dh;
+        oCtx.clearRect(0, 0, dw, dh);
+
+        if (isFacePresent && maxX > minX && maxY > minY) {
+          // Scale camera frame coordinates to overlay display coordinates
+          const rawX = (minX / sw) * dw;
+          const rawY = (minY / sh) * dh;
+          const rawW = Math.max(60, ((maxX - minX) / sw) * dw);
+          const rawH = Math.max(60, ((maxY - minY) / sh) * dh);
+
+          // Smooth lerp movement so bounding box moves continuously with head
+          const curr = boxPosRef.current;
+          curr.x += (rawX - curr.x) * 0.25;
+          curr.y += (rawY - curr.y) * 0.25;
+          curr.w += (rawW - curr.w) * 0.25;
+          curr.h += (rawH - curr.h) * 0.25;
+
+          const { x, y, w, h } = curr;
+          const cornerLen = 14;
+
+          // Draw Glowing Green AI Target Corner Brackets
+          oCtx.strokeStyle = "#10b981"; // emerald-500
+          oCtx.lineWidth = 3;
+          oCtx.shadowColor = "#10b981";
+          oCtx.shadowBlur = 8;
+
+          // Top-Left Corner
+          oCtx.beginPath(); oCtx.moveTo(x, y + cornerLen); oCtx.lineTo(x, y); oCtx.lineTo(x + cornerLen, y); oCtx.stroke();
+          // Top-Right Corner
+          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y); oCtx.lineTo(x + w, y); oCtx.lineTo(x + w, y + cornerLen); oCtx.stroke();
+          // Bottom-Left Corner
+          oCtx.beginPath(); oCtx.moveTo(x, y + h - cornerLen); oCtx.lineTo(x, y + h); oCtx.lineTo(x + cornerLen, y + h); oCtx.stroke();
+          // Bottom-Right Corner
+          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y + h); oCtx.lineTo(x + w, y + h); oCtx.lineTo(x + w, y + h - cornerLen); oCtx.stroke();
+
+          // Target Locked Badge Above Box
+          oCtx.fillStyle = "#10b981";
+          oCtx.font = "bold 9px monospace";
+          oCtx.fillText("AI TARGET LOCKED: CANDIDATE #1", x, Math.max(12, y - 6));
+
+          // Centroid Target Crosshair Reticle
+          const cx = x + w / 2;
+          const cy = y + h / 2;
+          oCtx.strokeStyle = "rgba(99, 102, 241, 0.8)"; // indigo
+          oCtx.lineWidth = 1;
+          oCtx.beginPath(); oCtx.arc(cx, cy, 10, 0, Math.PI * 2); oCtx.stroke();
+          oCtx.fillStyle = "#6366f1";
+          oCtx.beginPath(); oCtx.arc(cx, cy, 3, 0, Math.PI * 2); oCtx.fill();
+
+          // Eye & Mouth Tracking Dots
+          oCtx.fillStyle = "#f59e0b"; // amber
+          oCtx.beginPath(); oCtx.arc(cx - w * 0.18, cy - h * 0.15, 2.5, 0, Math.PI * 2); oCtx.fill();
+          oCtx.beginPath(); oCtx.arc(cx + w * 0.18, cy - h * 0.15, 2.5, 0, Math.PI * 2); oCtx.fill();
+          oCtx.beginPath(); oCtx.arc(cx, cy + h * 0.2, 2.5, 0, Math.PI * 2); oCtx.fill();
+
+        } else {
+          // Face Missing Red HUD Alert Overlay
+          oCtx.strokeStyle = "#ef4444";
+          oCtx.lineWidth = 3;
+          oCtx.shadowColor = "#ef4444";
+          oCtx.shadowBlur = 10;
+          oCtx.strokeRect(10, 10, dw - 20, dh - 20);
+
+          oCtx.fillStyle = "#ef4444";
+          oCtx.font = "bold 11px monospace";
+          oCtx.fillText("WARNING: FACE MISSING / STEPPED AWAY", 20, 30);
+
           setFaceMissingCount(prev => {
             const updated = prev + 1;
             if (updated % 60 === 0) {
@@ -362,7 +446,9 @@ export default function TeacherOlympiadPage() {
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const isExamAccessible = activePaperInfo ? activePaperInfo.is_live : true;
+  const isExamAccessible = activePaperInfo 
+    ? (activePaperInfo.is_live || (!activePaperInfo.is_after && !activePaperInfo.is_before)) 
+    : true;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12 font-sans selection:bg-indigo-500 selection:text-white">
@@ -699,6 +785,7 @@ export default function TeacherOlympiadPage() {
                       className="w-full h-full object-cover"
                     />
                     <canvas ref={canvasRef} className="hidden" />
+                    <canvas ref={overlayCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10" />
 
                     {webcamActive && (
                       <>

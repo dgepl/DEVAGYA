@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import time
+from datetime import datetime
 from services.olympiad_service import olympiad_service
 from services.paper_service import paper_service
 
@@ -21,6 +22,17 @@ class ExamSubmissionPayload(BaseModel):
 class PracticeEvaluatePayload(BaseModel):
     question_id: str
     selected_option: int
+
+def parse_dt(dt_str: Optional[str]) -> Optional[datetime]:
+    if not dt_str:
+        return None
+    cleaned = str(dt_str).strip().replace("T", " ")
+    if len(cleaned) == 16:
+        cleaned += ":00"
+    try:
+        return datetime.strptime(cleaned[:19], "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
 
 @router.get("/questions")
 async def get_olympiad_questions():
@@ -72,13 +84,14 @@ async def get_active_olympiad_paper():
     if not papers:
         return {"status": "none", "paper": None}
 
-    now_str = time.strftime("%Y-%m-%d %H:%M:%S")
+    now_dt = datetime.now()
     active_paper = papers[0]
-    start_t = active_paper.get("start_time", "2000-01-01 00:00:00")
-    end_t = active_paper.get("end_time", "2099-12-31 23:59:59")
+    
+    start_dt = parse_dt(active_paper.get("start_time")) or datetime(2000, 1, 1)
+    end_dt = parse_dt(active_paper.get("end_time")) or datetime(2099, 12, 31, 23, 59, 59)
 
-    is_before = now_str < start_t
-    is_after = now_str > end_t
+    is_before = now_dt < start_dt
+    is_after = now_dt > end_dt
     is_live = not is_before and not is_after
 
     return {
@@ -86,7 +99,7 @@ async def get_active_olympiad_paper():
         "is_live": is_live,
         "is_before": is_before,
         "is_after": is_after,
-        "current_time": now_str,
+        "current_time": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "paper": active_paper
     }
 
@@ -94,10 +107,13 @@ async def get_active_olympiad_paper():
 async def get_previous_olympiad_papers():
     """Fetch archived/ended Olympiad papers from previous assessments."""
     all_papers = paper_service.get_all_papers()
-    now_str = time.strftime("%Y-%m-%d %H:%M:%S")
-    previous = [p for p in all_papers if p.get("end_time") and p.get("end_time") < now_str]
+    now_dt = datetime.now()
+    previous = []
+    for p in all_papers:
+        end_dt = parse_dt(p.get("end_time"))
+        if end_dt and end_dt < now_dt:
+            previous.append(p)
     
-    # If no paper has passed its end_time yet, return all older papers except current one for archive history
     if not previous and len(all_papers) > 1:
         previous = all_papers[1:]
 
