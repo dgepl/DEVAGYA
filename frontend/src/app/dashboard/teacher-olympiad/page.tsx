@@ -225,7 +225,15 @@ export default function TeacherOlympiadPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0 relative z-10">
+        <div className="flex flex-wrap items-center gap-3 shrink-0 relative z-10">
+          <Link
+            href="/dashboard/teacher-olympiad/leaderboard"
+            className="px-4 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-extrabold text-xs rounded-2xl flex items-center gap-2 transition-all shadow-md active:scale-95"
+          >
+            <Trophy className="w-4 h-4 text-amber-200" />
+            <span>Live Leaderboard</span>
+          </Link>
+
           <Link
             href="/dashboard/teacher-olympiad/practice"
             className="px-4 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 transition-all shadow-md active:scale-95"
