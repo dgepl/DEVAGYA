@@ -333,7 +333,7 @@ Respond strictly with a valid JSON object matching this structure:
             return GeneratedPaperResponse(**data)
         except Exception as e:
             logger.error(f"Error generating paper from attachment: {e}")
-            raise ValueError(f"Unable to read or extract questions from the attached document. Please ensure the attached PDF or image is clear and readable.")
+            raise ValueError(f"Unable to extract questions from attached document: {e}")
 
     def _enforce_exact_question_counts(self, clean_qs: List[Dict[str, Any]], req: GeneratePaperRequest) -> List[Dict[str, Any]]:
         """Guarantees the question array contains EXACTLY the counts specified in GeneratePaperRequest."""

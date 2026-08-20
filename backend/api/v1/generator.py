@@ -1,3 +1,4 @@
+import os
 import io
 import base64
 from typing import Optional

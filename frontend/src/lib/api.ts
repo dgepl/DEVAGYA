@@ -46,29 +46,55 @@ export interface GeneratedPaperResponse {
   school_name: string;
 }
 
-export async function generateQuestionPaper(payload: GeneratePaperPayload): Promise<GeneratedPaperResponse> {
-  const res = await fetch(`${getApiBase()}/generator/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.detail || "Failed to generate question paper");
+function parseErrorMessage(errData: any, fallback: string): string {
+  if (!errData) return fallback;
+  if (typeof errData.detail === "string" && errData.detail.trim()) return errData.detail;
+  if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+    const first = errData.detail[0];
+    if (typeof first === "string") return first;
+    if (first && first.msg) return first.msg;
   }
-  return res.json();
+  if (typeof errData.message === "string" && errData.message.trim()) return errData.message;
+  return fallback;
+}
+
+export async function generateQuestionPaper(payload: GeneratePaperPayload): Promise<GeneratedPaperResponse> {
+  try {
+    const res = await fetch(`${getApiBase()}/generator/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(parseErrorMessage(errData, "Failed to generate question paper"));
+    }
+    return res.json();
+  } catch (e: any) {
+    if (e.name === "TypeError" && e.message.includes("fetch")) {
+      throw new Error("Unable to connect to backend server. Please verify the backend service is active.");
+    }
+    throw e;
+  }
 }
 
 export async function generateQuestionPaperFromFile(formData: FormData): Promise<GeneratedPaperResponse> {
-  const res = await fetch(`${getApiBase()}/generator/generate-from-file`, {
-    method: "POST",
-    body: formData
-  });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.detail || "Unable to read attached file or generate question paper");
+  try {
+    const res = await fetch(`${getApiBase()}/generator/generate-from-file`, {
+      method: "POST",
+      body: formData
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(parseErrorMessage(errData, "Unable to read attached file or generate question paper"));
+    }
+    return res.json();
+  } catch (e: any) {
+    if (e.name === "TypeError" && (e.message.includes("fetch") || e.message.includes("Failed to fetch"))) {
+      throw new Error("Unable to connect to backend server. Please verify the backend service is active.");
+    }
+    throw e;
   }
-  return res.json();
 }
 
 export async function getNCERTChapters(className: string = "Class 10", subject: string = "Science") {
