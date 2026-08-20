@@ -51,7 +51,6 @@ export function MobileTopHeader() {
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
-    { label: "AI Lesson Planner", href: "/dashboard/lesson-planner", icon: BookOpen },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
     { label: "Analytics AI", href: "/dashboard/agents?agent=analytics_assistant", icon: Activity },

@@ -112,7 +112,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
     // Teacher Core Studios
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
-    { label: "AI Lesson Planner", href: "/dashboard/lesson-planner", icon: BookOpen },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
     // Teacher AI Agents
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },

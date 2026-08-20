@@ -79,19 +79,6 @@ export function MobileTeacherDashboard() {
           </Link>
 
           <Link
-            href="/dashboard/lesson-planner"
-            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all space-y-2"
-          >
-            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-xs font-extrabold text-slate-900">5E Lesson Planner</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">NCERT Daily Blueprints</p>
-            </div>
-          </Link>
-
-          <Link
             href="/dashboard/ocr"
             className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all space-y-2"
           >

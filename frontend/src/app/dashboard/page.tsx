@@ -98,15 +98,6 @@ export default function TeacherDashboardOverviewPage() {
       badge: "Core Studio"
     },
     {
-      code: "lesson_planner",
-      href: "/dashboard/lesson-planner",
-      name: "AI Lesson Planner",
-      desc: "Build 5E framework lesson plans, learning outcomes & activity ideas.",
-      icon: BookOpen,
-      color: "from-emerald-500 to-teal-600",
-      badge: "NCERT 5E"
-    },
-    {
       code: "ocr",
       href: "/dashboard/ocr",
       name: "OCR Scanner",
