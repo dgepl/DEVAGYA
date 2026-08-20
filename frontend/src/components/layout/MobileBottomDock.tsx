@@ -5,7 +5,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { 
   Home, 
   Sparkles, 
-  BookOpen, 
   Video, 
   User, 
   Zap, 
@@ -13,7 +12,7 @@ import {
   Brain,
   Layers,
   GraduationCap,
-  LayoutDashboard
+  ScanText
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -30,7 +29,7 @@ export function MobileBottomDock() {
       return [
         { label: "Home", href: "/dashboard/student", icon: Home },
         { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain, agentCode: "student_tutor" },
-        { label: "Ask Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Sparkles, central: true, agentCode: "student_tutor" },
+        { label: "Ask AI", href: "/dashboard/agents?agent=student_tutor", icon: Sparkles, central: true, agentCode: "student_tutor" },
         { label: "Flashcards", href: "/dashboard/student/flashcards", icon: Layers },
         { label: "Video Call", href: "/dashboard/video-consultation", icon: Video },
       ];
@@ -51,7 +50,7 @@ export function MobileBottomDock() {
       { label: "Home", href: "/dashboard", icon: Home },
       { label: "Generator", href: "/dashboard/generator", icon: Zap },
       { label: "Teacher AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap, central: true, agentCode: "teacher_mentor" },
-      { label: "Lessons", href: "/dashboard/lesson-planner", icon: BookOpen },
+      { label: "OCR Scan", href: "/dashboard/ocr", icon: ScanText },
       { label: "Profile", href: "/dashboard/profile", icon: User },
     ];
   };
@@ -59,7 +58,7 @@ export function MobileBottomDock() {
   const tabs = getTabs();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-3 py-1.5 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] md:hidden">
+    <nav className="fixed bottom-2 left-2 right-2 z-50 bg-white/90 backdrop-blur-2xl border border-slate-200/90 px-3 py-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-full md:hidden">
       <div className="flex items-center justify-around max-w-md mx-auto relative">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
@@ -78,7 +77,7 @@ export function MobileBottomDock() {
                 href={tab.href}
                 className="relative -top-5 flex flex-col items-center group shrink-0"
               >
-                <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/35 border-2 border-white group-active:scale-90 transition-transform">
+                <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-rose-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/35 border-2 border-white group-active:scale-90 transition-transform">
                   <Icon className="w-6 h-6 animate-pulse" />
                 </div>
                 <span className="text-[10px] font-black text-indigo-700 tracking-tight mt-0.5 uppercase">
@@ -97,7 +96,7 @@ export function MobileBottomDock() {
               }`}
             >
               <Icon className={`w-5 h-5 ${isActive ? "text-indigo-600 scale-110" : ""}`} />
-              <span className="text-[10px] tracking-tight mt-0.5">
+              <span className="text-[10px] tracking-tight mt-0.5 font-bold">
                 {tab.label}
               </span>
               {isActive && (

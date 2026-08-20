@@ -652,6 +652,28 @@ export function AgentMarketplace() {
 
       {/* FULL-WIDTH AGENT WORKSPACE */}
       <div className="flex flex-col h-[calc(100vh-8rem)] min-h-[500px]">
+          {/* MOBILE HORIZONTAL AGENT SWITCHER PILLS */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 scrollbar-none md:hidden shrink-0">
+            {agents.map((a) => {
+              const IconComp = iconMap[a.icon] || Bot;
+              const isSel = a.agent_code === selectedAgentCode;
+              return (
+                <button
+                  key={a.agent_code}
+                  onClick={() => switchAgent(a.agent_code)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all active:scale-95 ${
+                    isSel
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20 border border-indigo-600"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <IconComp className="w-3.5 h-3.5" />
+                  <span>{a.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* AGENT DETAIL BANNER + LANGUAGE + HISTORY */}
           {selectedAgent && (
             <div className="bg-white p-4 rounded-t-3xl border border-slate-200 border-b-0 shadow-sm">
