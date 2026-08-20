@@ -29,7 +29,8 @@ import {
   Wand2,
   BookOpen,
   Printer,
-  FileCheck
+  FileCheck,
+  Clock
 } from "lucide-react";
 
 export default function SuperAdminPage() {
@@ -62,14 +63,16 @@ export default function SuperAdminPage() {
   const [publishing, setPublishing] = useState<boolean>(false);
 
   // AI Prompt Generator Form State
-  const [aiPromptText, setAiPromptText] = useState("Create an official Class 10 CBSE Science Examination Paper focusing on Light Reflection, Refraction, and Electricity with HOTS questions.");
-  const [aiTitle, setAiTitle] = useState("Class 10 CBSE Science Mid-Term Exam");
+  const [aiPromptText, setAiPromptText] = useState("Generate an official Class 10 CBSE Science Olympiad Assessment focusing on Light, Electricity, and Chemical Reactions. ALL QUESTIONS MUST BE MCQs ONLY.");
+  const [aiTitle, setAiTitle] = useState("Class 10 CBSE Science Olympiad Assessment");
   const [aiClass, setAiClass] = useState("Class 10");
   const [aiSubject, setAiSubject] = useState("Science");
   const [aiBoard, setAiBoard] = useState("CBSE");
   const [aiDifficulty, setAiDifficulty] = useState("medium");
-  const [aiTotalMarks, setAiTotalMarks] = useState(40);
-  const [aiTimeMins, setAiTimeMins] = useState(90);
+  const [aiTotalMarks, setAiTotalMarks] = useState(20);
+  const [aiTimeMins, setAiTimeMins] = useState(30);
+  const [aiStartTime, setAiStartTime] = useState(new Date().toISOString().slice(0, 16));
+  const [aiEndTime, setAiEndTime] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16));
   const [generatingAiPaper, setGeneratingAiPaper] = useState(false);
 
   // Manual Paper Builder State
@@ -78,8 +81,10 @@ export default function SuperAdminPage() {
   const [manualSubject, setManualSubject] = useState("Science");
   const [manualBoard, setManualBoard] = useState("CBSE");
   const [manualSchool, setManualSchool] = useState("DEVGYA GLOBAL ACADEMY");
-  const [manualMarks, setManualMarks] = useState(40);
-  const [manualTime, setManualTime] = useState(90);
+  const [manualMarks, setManualMarks] = useState(20);
+  const [manualTime, setManualTime] = useState(30);
+  const [manualStartTime, setManualStartTime] = useState(new Date().toISOString().slice(0, 16));
+  const [manualEndTime, setManualEndTime] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16));
   const [manualQuestions, setManualQuestions] = useState<any[]>([
     {
       id: 1,
@@ -149,7 +154,7 @@ export default function SuperAdminPage() {
     }
   };
 
-  // Generate Paper with AI via Prompt
+  // Generate Paper with AI via Prompt (100% MCQ Constraint + Time Scheduling)
   const handleGenerateAiPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneratingAiPaper(true);
@@ -164,6 +169,8 @@ export default function SuperAdminPage() {
         difficulty: aiDifficulty,
         total_marks: aiTotalMarks,
         time_allowed_mins: aiTimeMins,
+        start_time: aiStartTime.replace("T", " ") + ":00",
+        end_time: aiEndTime.replace("T", " ") + ":00",
         school_name: "DEVGYA GLOBAL EDUTECH"
       };
 
@@ -174,7 +181,7 @@ export default function SuperAdminPage() {
       });
       const data = await res.json();
       if (res.ok && data.paper) {
-        setActionMsg(`AI Paper "${data.paper.title}" generated and published to repository!`);
+        setActionMsg(`AI MCQ Paper "${data.paper.title}" generated and published with scheduled access window!`);
         fetchAdminData();
         setPreviewPaper(data.paper);
         setPaperStudioSubTab("repository");
@@ -189,7 +196,7 @@ export default function SuperAdminPage() {
     }
   };
 
-  // Save Manual Paper
+  // Save Manual Paper (100% MCQ Enforcement + Time Scheduling)
   const handleSaveManualPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualTitle.trim()) {
@@ -199,6 +206,14 @@ export default function SuperAdminPage() {
     setSavingManualPaper(true);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+
+      const formattedQuestions = manualQuestions.map((q, idx) => ({
+        ...q,
+        id: idx + 1,
+        question_number: idx + 1,
+        question_type: "mcq"
+      }));
+
       const payload = {
         title: manualTitle.trim(),
         class_name: manualClass,
@@ -207,11 +222,13 @@ export default function SuperAdminPage() {
         school_name: manualSchool,
         total_marks: manualMarks,
         time_allowed_mins: manualTime,
+        start_time: manualStartTime.replace("T", " ") + ":00",
+        end_time: manualEndTime.replace("T", " ") + ":00",
         instructions: [
-          "All questions are compulsory.",
-          "Write neat and clean diagrams wherever required."
+          "All questions are compulsory Multiple Choice Questions (MCQs).",
+          "Select the single correct option for each question."
         ],
-        questions: manualQuestions
+        questions: formattedQuestions
       };
 
       const res = await fetch(`${baseUrl}/admin/papers/manual`, {
@@ -221,7 +238,7 @@ export default function SuperAdminPage() {
       });
       const data = await res.json();
       if (res.ok && data.paper) {
-        setActionMsg(`Manual Paper "${data.paper.title}" constructed and saved successfully!`);
+        setActionMsg(`Manual MCQ Paper "${data.paper.title}" constructed & scheduled!`);
         fetchAdminData();
         setPaperStudioSubTab("repository");
         setTimeout(() => setActionMsg(null), 5000);
@@ -633,6 +650,36 @@ export default function SuperAdminPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase mb-1 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                      Paper Access Start Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={aiStartTime}
+                      onChange={(e) => setAiStartTime(e.target.value)}
+                      className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase mb-1 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-rose-600" />
+                      Paper Access End Time (Closing Time)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={aiEndTime}
+                      onChange={(e) => setAiEndTime(e.target.value)}
+                      className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
+                    />
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   disabled={generatingAiPaper}
@@ -727,6 +774,36 @@ export default function SuperAdminPage() {
                       value={manualTime}
                       onChange={(e) => setManualTime(parseInt(e.target.value))}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase mb-1 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                      Paper Access Start Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={manualStartTime}
+                      onChange={(e) => setManualStartTime(e.target.value)}
+                      className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase mb-1 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-rose-600" />
+                      Paper Access End Time (Closing Time)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={manualEndTime}
+                      onChange={(e) => setManualEndTime(e.target.value)}
+                      className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
                     />
                   </div>
                 </div>

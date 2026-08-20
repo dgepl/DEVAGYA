@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
+import time
 from services.olympiad_service import olympiad_service
+from services.paper_service import paper_service
 
 router = APIRouter(prefix="/olympiad", tags=["Teachers Skill Olympiad"])
 
@@ -61,4 +63,46 @@ async def get_published_results(email: Optional[str] = Query(None)):
         "status": "success",
         "count": len(results),
         "results": results
+    }
+
+@router.get("/active-paper")
+async def get_active_olympiad_paper():
+    """Fetch the current published Olympiad paper and its scheduled access window status."""
+    papers = paper_service.get_all_papers()
+    if not papers:
+        return {"status": "none", "paper": None}
+
+    now_str = time.strftime("%Y-%m-%d %H:%M:%S")
+    active_paper = papers[0]
+    start_t = active_paper.get("start_time", "2000-01-01 00:00:00")
+    end_t = active_paper.get("end_time", "2099-12-31 23:59:59")
+
+    is_before = now_str < start_t
+    is_after = now_str > end_t
+    is_live = not is_before and not is_after
+
+    return {
+        "status": "success",
+        "is_live": is_live,
+        "is_before": is_before,
+        "is_after": is_after,
+        "current_time": now_str,
+        "paper": active_paper
+    }
+
+@router.get("/previous-papers")
+async def get_previous_olympiad_papers():
+    """Fetch archived/ended Olympiad papers from previous assessments."""
+    all_papers = paper_service.get_all_papers()
+    now_str = time.strftime("%Y-%m-%d %H:%M:%S")
+    previous = [p for p in all_papers if p.get("end_time") and p.get("end_time") < now_str]
+    
+    # If no paper has passed its end_time yet, return all older papers except current one for archive history
+    if not previous and len(all_papers) > 1:
+        previous = all_papers[1:]
+
+    return {
+        "status": "success",
+        "count": len(previous),
+        "papers": previous
     }

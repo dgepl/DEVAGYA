@@ -30,13 +30,15 @@ class AddQuestionPayload(BaseModel):
 
 class AIPaperPromptPayload(BaseModel):
     prompt_text: str
-    title: Optional[str] = "AI Generated Question Paper"
+    title: Optional[str] = "AI Generated MCQ Question Paper"
     class_name: Optional[str] = "Class 10"
     subject: Optional[str] = "Science"
     board: Optional[str] = "CBSE"
     difficulty: Optional[str] = "medium"
-    total_marks: Optional[int] = 40
-    time_allowed_mins: Optional[int] = 90
+    total_marks: Optional[int] = 20
+    time_allowed_mins: Optional[int] = 30
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
     school_name: Optional[str] = "DEVGYA GLOBAL EDUTECH"
 
 class ManualPaperPayload(BaseModel):
@@ -46,8 +48,10 @@ class ManualPaperPayload(BaseModel):
     board: str
     chapter: Optional[str] = "Full Syllabus"
     difficulty: Optional[str] = "medium"
-    total_marks: int = 40
-    time_allowed_mins: int = 90
+    total_marks: int = 20
+    time_allowed_mins: int = 30
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
     school_name: Optional[str] = "DEVGYA GLOBAL ACADEMY"
     instructions: List[str] = []
     questions: List[Dict[str, Any]] = []
@@ -170,13 +174,15 @@ async def generate_paper_from_prompt(payload: AIPaperPromptPayload):
     """Generate full structured question paper from AI text prompt."""
     result = await paper_service.generate_paper_from_prompt(
         prompt_text=payload.prompt_text,
-        title=payload.title or "AI Generated Question Paper",
+        title=payload.title or "AI Generated MCQ Question Paper",
         class_name=payload.class_name or "Class 10",
         subject=payload.subject or "Science",
         board=payload.board or "CBSE",
         difficulty=payload.difficulty or "medium",
-        total_marks=payload.total_marks or 40,
-        time_allowed_mins=payload.time_allowed_mins or 90,
+        total_marks=payload.total_marks or 20,
+        time_allowed_mins=payload.time_allowed_mins or 30,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
         school_name=payload.school_name or "DEVGYA GLOBAL EDUTECH"
     )
     if result.get("status") == "success":

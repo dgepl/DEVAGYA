@@ -4,6 +4,7 @@ import time
 import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 from services.ai_provider import ai_provider
 
 logger = logging.getLogger("paper_service")
@@ -13,27 +14,28 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 PAPERS_FILE = DATA_DIR / "admin_papers.json"
 
-# Seed default papers if missing
+# Seed default papers with 100% MCQ questions & schedule window
 DEFAULT_PAPERS = [
     {
         "id": "paper-101",
-        "title": "Class 10 CBSE Science Mid-Term Examination 2026",
+        "title": "Class 10 CBSE Science Olympiad & Assessment 2026",
         "class_name": "Class 10",
         "subject": "Science",
         "board": "CBSE",
         "chapter": "Light, Electricity, Acids & Bases",
         "difficulty": "medium",
-        "total_marks": 40,
-        "time_allowed_mins": 90,
-        "school_name": "DEVGYA GLOBAL ACADEMY",
+        "total_marks": 10,
+        "time_allowed_mins": 20,
+        "school_name": "DEVGYA GLOBAL EDUTECH",
         "source": "manual",
         "created_at": "2026-08-20 10:00:00",
+        "start_time": "2026-08-01 00:00:00",
+        "end_time": "2026-12-31 23:59:59",
         "published": True,
         "instructions": [
-            "All questions are compulsory.",
-            "Section A contains MCQs (1 mark each).",
-            "Section B contains Short Answer Questions (3 marks each).",
-            "Section C contains Long Answer Questions (5 marks each)."
+            "All questions are compulsory Multiple Choice Questions (MCQs).",
+            "Select the single correct option for each question.",
+            "Results will be evaluated by the Official Admin Board."
         ],
         "questions": [
             {
@@ -49,20 +51,22 @@ DEFAULT_PAPERS = [
             {
                 "id": 2,
                 "question_number": 2,
-                "question_type": "short",
-                "question_text": "State Ohm's Law. Draw a circuit diagram to verify Ohm's law in a physics laboratory.",
-                "marks": 3,
-                "answer": "Ohm's Law states that electric current flowing through a metallic conductor is directly proportional to potential difference across its ends, provided temperature remains constant (V = IR).",
-                "explanation": "Circuit diagram must include battery, ammeter in series, voltmeter in parallel across resistor, rheostat, and key."
+                "question_type": "mcq",
+                "question_text": "Which of the following circuit components is connected in parallel across a resistor to measure potential difference?",
+                "marks": 1,
+                "options": ["(A) Voltmeter", "(B) Ammeter", "(C) Galvanometer", "(D) Rheostat"],
+                "answer": "(A) Voltmeter",
+                "explanation": "Voltmeters have high resistance and must be connected in parallel to measure potential difference across components."
             },
             {
                 "id": 3,
                 "question_number": 3,
-                "question_type": "long",
-                "question_text": "Describe the chlor-alkali process with balanced chemical equations. List three industrial uses of sodium hydroxide and chlorine gas.",
-                "marks": 5,
-                "answer": "When electricity is passed through an aqueous solution of sodium chloride (brine), it decomposes to form sodium hydroxide: 2NaCl(aq) + 2H2O(l) -> 2NaOH(aq) + Cl2(g) + H2(g). Chlorine gas is given off at anode, hydrogen gas at cathode.",
-                "explanation": "Uses of NaOH: soap manufacturing, paper making, petroleum refining. Uses of Cl2: water disinfection, PVC, bleaching powder."
+                "question_type": "mcq",
+                "question_text": "During the chlor-alkali process, which gas is released at the anode during electrolysis of brine?",
+                "marks": 1,
+                "options": ["(A) Chlorine Gas (Cl2)", "(B) Hydrogen Gas (H2)", "(C) Oxygen Gas (O2)", "(D) Nitrogen Gas (N2)"],
+                "answer": "(A) Chlorine Gas (Cl2)",
+                "explanation": "Electrolysis of aqueous NaCl produces chlorine gas at anode, hydrogen gas at cathode, and sodium hydroxide in solution."
             }
         ]
     }
@@ -98,6 +102,11 @@ class PaperService:
             paper_data["source"] = "manual"
             paper_data["created_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
             paper_data["published"] = paper_data.get("published", True)
+            
+            # Ensure all questions are forced to MCQ type
+            for idx, q in enumerate(paper_data.get("questions", [])):
+                q["question_type"] = "mcq"
+                q["question_number"] = idx + 1
 
             papers.insert(0, paper_data)
             with open(PAPERS_FILE, "w", encoding="utf-8") as f:
@@ -111,23 +120,25 @@ class PaperService:
     async def generate_paper_from_prompt(
         self,
         prompt_text: str,
-        title: str = "AI Generated Question Paper",
+        title: str = "AI Generated MCQ Question Paper",
         class_name: str = "Class 10",
         subject: str = "Science",
         board: str = "CBSE",
         difficulty: str = "medium",
-        total_marks: int = 40,
-        time_allowed_mins: int = 90,
+        total_marks: int = 20,
+        time_allowed_mins: int = 30,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
         school_name: str = "DEVGYA GLOBAL EDUTECH"
     ) -> Dict[str, Any]:
-        """Generate full question paper JSON from Admin text prompt using Groq AI provider."""
+        """Generate STRICT 100% MCQ question paper JSON from Admin text prompt using Groq AI provider."""
         prompt = f"""
 You are DEVGYA's Master Assessment Synthesizer for {board} {class_name} {subject}.
-Generate an official Examination Question Paper based on this prompt instructions:
+Generate an official Examination Question Paper strictly containing ONLY Multiple Choice Questions (MCQs) based on this prompt:
 
 Admin Custom Prompt: "{prompt_text}"
 
-Paper Metadata Required:
+Paper Details:
 - Title: {title}
 - Target Grade: {class_name}
 - Subject: {subject}
@@ -137,10 +148,9 @@ Paper Metadata Required:
 - Time Allowed: {time_allowed_mins} minutes
 - School Name: {school_name}
 
-Generate a complete question paper containing:
-- 4 Multiple Choice Questions (1 mark each) with 4 options and answer explanations.
-- 2 Short Answer Questions (3 marks each) with clear step-by-step model answers.
-- 1 Long Answer Question (5 marks each) with complete solution.
+MANDATORY CONSTRAINT:
+- ALL QUESTIONS MUST BE 100% MULTIPLE CHOICE QUESTIONS (MCQs). DO NOT INCLUDE ANY SHORT OR LONG ANSWER QUESTIONS.
+- Every question MUST have exactly 4 options: (A), (B), (C), (D).
 
 You MUST respond strictly with a valid JSON object matching this exact structure:
 {{
@@ -153,43 +163,35 @@ You MUST respond strictly with a valid JSON object matching this exact structure
   "time_allowed_mins": {time_allowed_mins},
   "school_name": "{school_name}",
   "instructions": [
-    "All questions are compulsory.",
-    "Section A contains MCQs, Section B Short Answers, Section C Long Answer."
+    "All questions are compulsory Multiple Choice Questions (MCQs).",
+    "Select the single correct option for each question."
   ],
   "questions": [
     {{
       "id": 1,
       "question_number": 1,
       "question_type": "mcq",
-      "question_text": "Sample MCQ Question?",
+      "question_text": "Sample MCQ Question Text?",
       "marks": 1,
       "options": ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"],
       "answer": "(A) Option 1",
-      "explanation": "NCERT conceptual reason."
+      "explanation": "NCERT conceptual reason explanation."
     }},
     {{
       "id": 2,
       "question_number": 2,
-      "question_type": "short",
-      "question_text": "Sample Short Answer Question?",
-      "marks": 3,
-      "answer": "Detailed model answer points.",
-      "explanation": "Step by step marking scheme."
-    }},
-    {{
-      "id": 3,
-      "question_number": 3,
-      "question_type": "long",
-      "question_text": "Sample Long Answer Question?",
-      "marks": 5,
-      "answer": "Complete long model answer breakdown.",
-      "explanation": "Comprehensive explanation."
+      "question_type": "mcq",
+      "question_text": "Second Sample MCQ Question Text?",
+      "marks": 1,
+      "options": ["(A) Choice 1", "(B) Choice 2", "(C) Choice 3", "(D) Choice 4"],
+      "answer": "(B) Choice 2",
+      "explanation": "Detailed explanation."
     }}
   ]
 }}
 """
         messages = [
-            {"role": "system", "content": "You are a specialized AI question paper synthesizer. Return strictly JSON."},
+            {"role": "system", "content": "You are a specialized AI question paper synthesizer. Return strictly JSON containing ONLY MCQ questions."},
             {"role": "user", "content": prompt}
         ]
 
@@ -210,6 +212,13 @@ You MUST respond strictly with a valid JSON object matching this exact structure
             paper_json["source"] = "ai_prompt"
             paper_json["created_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
             paper_json["published"] = True
+            paper_json["start_time"] = start_time or time.strftime("%Y-%m-%d %H:%M:%S")
+            paper_json["end_time"] = end_time or "2026-12-31 23:59:59"
+
+            # Enforce 100% MCQ type
+            for idx, q in enumerate(paper_json.get("questions", [])):
+                q["question_type"] = "mcq"
+                q["question_number"] = idx + 1
 
             # Save to repository
             papers = self.get_all_papers()
@@ -221,6 +230,21 @@ You MUST respond strictly with a valid JSON object matching this exact structure
         except Exception as e:
             logger.error(f"Error generating AI paper from prompt: {e}")
             return {"status": "error", "message": f"AI generation error: {str(e)}"}
+
+    def get_previous_papers(self) -> List[Dict[str, Any]]:
+        """Fetch past/archived Olympiad papers whose end_time has passed or marked archived."""
+        try:
+            papers = self.get_all_papers()
+            now_str = time.strftime("%Y-%m-%d %H:%M:%S")
+            archived = []
+            for p in papers:
+                end_t = p.get("end_time")
+                if end_t and end_t < now_str:
+                    archived.append(p)
+            return archived
+        except Exception as e:
+            logger.error(f"Error fetching previous papers: {e}")
+            return []
 
     def update_paper(self, paper_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
         try:
