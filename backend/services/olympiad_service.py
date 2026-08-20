@@ -223,18 +223,74 @@ class OlympiadService:
             teacher_email = submission_data.get("teacher_email", "teacher@devgya.edu")
             teacher_name = submission_data.get("teacher_name", "Teacher Candidate")
 
-            # Calculate actual score server side
-            with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
-                questions = json.load(f)
+            # Calculate actual score server side & construct detailed answer breakdown
+            questions = []
+            try:
+                from services.paper_service import paper_service
+                papers = paper_service.get_all_papers()
+                if papers and papers[0].get("questions"):
+                    questions = papers[0]["questions"]
+            except Exception as pe:
+                logger.warn(f"Could not load paper_service questions: {pe}")
+
+            if not questions and QUESTIONS_FILE.exists():
+                with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
+                    questions = json.load(f)
 
             total_questions = len(questions)
             correct_count = 0
+            detailed_breakdown = []
 
             for q in questions:
-                qid = q["id"]
-                user_ans = user_answers.get(qid)
-                if user_ans is not None and int(user_ans) == q["correct_answer"]:
+                qid = str(q.get("id"))
+                user_ans_idx = user_answers.get(qid)
+                if user_ans_idx is None:
+                    user_ans_idx = user_answers.get(q.get("id"))
+
+                correct_idx = q.get("correct_answer", 0)
+                options = q.get("options", [])
+
+                is_correct = False
+                if user_ans_idx is not None:
+                    try:
+                        is_correct = (int(user_ans_idx) == int(correct_idx))
+                    except Exception:
+                        is_correct = False
+
+                if is_correct:
                     correct_count += 1
+
+                user_selected_str = "Not Answered"
+                if user_ans_idx is not None:
+                    try:
+                        idx_int = int(user_ans_idx)
+                        if 0 <= idx_int < len(options):
+                            user_selected_str = options[idx_int]
+                    except Exception:
+                        pass
+
+                correct_str = ""
+                try:
+                    c_int = int(correct_idx)
+                    if 0 <= c_int < len(options):
+                        correct_str = options[c_int]
+                    else:
+                        correct_str = q.get("answer", "")
+                except Exception:
+                    correct_str = q.get("answer", "")
+
+                detailed_breakdown.append({
+                    "question_id": qid,
+                    "question_text": q.get("question_text", ""),
+                    "subject": q.get("subject", "Science"),
+                    "options": options,
+                    "user_selected_idx": user_ans_idx,
+                    "user_selected_str": user_selected_str,
+                    "correct_answer_idx": correct_idx,
+                    "correct_answer_str": correct_str,
+                    "is_correct": is_correct,
+                    "explanation": q.get("explanation", "")
+                })
 
             score_percentage = round((correct_count / total_questions) * 100, 1) if total_questions > 0 else 0
             sub_id = f"sub-{int(time.time() * 1000) % 1000000:06d}"
@@ -252,6 +308,7 @@ class OlympiadService:
                 "teacher_name": teacher_name,
                 "submitted_at": submission_data.get("submitted_at", time.strftime("%Y-%m-%d %H:%M:%S")),
                 "answers": user_answers,
+                "detailed_breakdown": detailed_breakdown,
                 "total_questions": total_questions,
                 "correct_count": correct_count,
                 "score_percentage": score_percentage,
@@ -261,7 +318,7 @@ class OlympiadService:
                 "webcam_active": webcam_active,
                 "proctor_logs": proctor_logs,
                 "proctor_status": proctor_status,
-                "review_status": "pending_review",  # pending_review, evaluated, published
+                "review_status": "pending_review",
                 "official_feedback": "",
                 "published": False
             }

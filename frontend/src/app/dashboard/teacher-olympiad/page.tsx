@@ -26,7 +26,10 @@ import {
   Calendar,
   History,
   Check,
-  EyeOff
+  EyeOff,
+  XCircle,
+  CheckCircle,
+  FileText
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -73,6 +76,10 @@ export default function TeacherOlympiadPage() {
   const [previousPapers, setPreviousPapers] = useState<any[]>([]);
   const [loadingPreviousPapers, setLoadingPreviousPapers] = useState(false);
   const [previewArchivePaper, setPreviewArchivePaper] = useState<any | null>(null);
+
+  // Answer Breakdown Modal State
+  const [selectedBreakdownResult, setSelectedBreakdownResult] = useState<any | null>(null);
+  const [breakdownFilter, setBreakdownFilter] = useState<"all" | "correct" | "wrong">("all");
 
   // 1. Fetch Questions & Active Paper Access Info
   const loadExamQuestions = async () => {
@@ -252,7 +259,6 @@ export default function TeacherOlympiadPage() {
           const cx = x + w / 2;
           const cy = y + h / 2;
 
-          // Calculate normalized centroid offsets to detect head/eye deflection
           const dx = Math.abs(cx - dw / 2) / dw;
           const dy = Math.abs(cy - dh / 2) / dh;
 
@@ -261,7 +267,7 @@ export default function TeacherOlympiadPage() {
 
           if (isDeflected) {
             deflectionTimerRef.current += 1;
-            if (deflectionTimerRef.current === 35) { // ~1.5s persistent deflection
+            if (deflectionTimerRef.current === 35) {
               const timestamp = new Date().toLocaleTimeString();
               setGazeDeflectionCount(prev => prev + 1);
               setProctorLogs(logs => [`${timestamp} - Security Alert: Head/Eye Deflection Detected (Looking away from exam screen)`, ...logs]);
@@ -273,20 +279,18 @@ export default function TeacherOlympiadPage() {
           }
 
           const cornerLen = 14;
-          const boxColor = isDeflected ? "#f59e0b" : "#10b981"; // amber vs emerald
+          const boxColor = isDeflected ? "#f59e0b" : "#10b981";
 
           oCtx.strokeStyle = boxColor;
           oCtx.lineWidth = 3;
           oCtx.shadowColor = boxColor;
           oCtx.shadowBlur = 8;
 
-          // Corner Brackets
           oCtx.beginPath(); oCtx.moveTo(x, y + cornerLen); oCtx.lineTo(x, y); oCtx.lineTo(x + cornerLen, y); oCtx.stroke();
           oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y); oCtx.lineTo(x + w, y); oCtx.lineTo(x + w, y + cornerLen); oCtx.stroke();
           oCtx.beginPath(); oCtx.moveTo(x, y + h - cornerLen); oCtx.lineTo(x, y + h); oCtx.lineTo(x + cornerLen, y + h); oCtx.stroke();
           oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y + h); oCtx.lineTo(x + w, y + h); oCtx.lineTo(x + w, y + h - cornerLen); oCtx.stroke();
 
-          // Target Locked / Warning Badge
           oCtx.fillStyle = boxColor;
           oCtx.font = "bold 9px monospace";
           if (isDeflected) {
@@ -295,20 +299,17 @@ export default function TeacherOlympiadPage() {
             oCtx.fillText("AI TARGET LOCKED: CANDIDATE #1", x, Math.max(12, y - 6));
           }
 
-          // Centroid Target Crosshair
           oCtx.strokeStyle = isDeflected ? "rgba(245, 158, 11, 0.9)" : "rgba(99, 102, 241, 0.8)";
           oCtx.lineWidth = 1;
           oCtx.beginPath(); oCtx.arc(cx, cy, 10, 0, Math.PI * 2); oCtx.stroke();
           oCtx.fillStyle = isDeflected ? "#f59e0b" : "#6366f1";
           oCtx.beginPath(); oCtx.arc(cx, cy, 3, 0, Math.PI * 2); oCtx.fill();
 
-          // Eye Tracking Indicators
           oCtx.fillStyle = isDeflected ? "#ef4444" : "#f59e0b";
           oCtx.beginPath(); oCtx.arc(cx - w * 0.18, cy - h * 0.15, 2.5, 0, Math.PI * 2); oCtx.fill();
           oCtx.beginPath(); oCtx.arc(cx + w * 0.18, cy - h * 0.15, 2.5, 0, Math.PI * 2); oCtx.fill();
 
         } else {
-          // Face Missing Red HUD Overlay
           oCtx.strokeStyle = "#ef4444";
           oCtx.lineWidth = 3;
           oCtx.shadowColor = "#ef4444";
@@ -472,6 +473,15 @@ export default function TeacherOlympiadPage() {
   const isExamAccessible = activePaperInfo 
     ? (activePaperInfo.is_live || (!activePaperInfo.is_after && !activePaperInfo.is_before)) 
     : true;
+
+  // Filter breakdown items
+  const getFilteredBreakdown = () => {
+    if (!selectedBreakdownResult || !selectedBreakdownResult.detailed_breakdown) return [];
+    const list = selectedBreakdownResult.detailed_breakdown;
+    if (breakdownFilter === "correct") return list.filter((i: any) => i.is_correct);
+    if (breakdownFilter === "wrong") return list.filter((i: any) => !i.is_correct);
+    return list;
+  };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12 font-sans selection:bg-indigo-500 selection:text-white">
@@ -1098,14 +1108,151 @@ export default function TeacherOlympiadPage() {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium pt-1">
-                    <span>Submitted: {res.submitted_at}</span>
-                    <span className="font-bold text-emerald-600">Verification Certificate Granted</span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium pt-1 flex-wrap gap-2">
+                    <span className="text-slate-500">Submitted: {res.submitted_at}</span>
+
+                    <button
+                      onClick={() => { setSelectedBreakdownResult(res); setBreakdownFilter("all"); }}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>View Question & Answer Breakdown</span>
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* DETAILED QUESTION & ANSWER BREAKDOWN MODAL */}
+      {selectedBreakdownResult && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-3xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 text-slate-900 max-h-[90vh] overflow-y-auto font-sans">
+            
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <span className="text-xs font-black uppercase tracking-wider text-indigo-600">Candidate Evaluation Report</span>
+                <h3 className="text-base font-black text-slate-900">{selectedBreakdownResult.teacher_name} ({selectedBreakdownResult.score_percentage}%)</h3>
+              </div>
+              <button onClick={() => setSelectedBreakdownResult(null)} className="text-slate-400 hover:text-slate-700 font-black text-base">✕</button>
+            </div>
+
+            {/* SCORE SUMMARY BANNER */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-center space-y-1">
+                <span className="text-[10px] font-extrabold uppercase text-indigo-700">Total Score</span>
+                <p className="text-2xl font-black text-indigo-900">{selectedBreakdownResult.score_percentage}%</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-center space-y-1">
+                <span className="text-[10px] font-extrabold uppercase text-emerald-700">Correct Answers</span>
+                <p className="text-2xl font-black text-emerald-900">{selectedBreakdownResult.correct_count} / {selectedBreakdownResult.total_questions}</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-center space-y-1">
+                <span className="text-[10px] font-extrabold uppercase text-rose-700">Incorrect Answers</span>
+                <p className="text-2xl font-black text-rose-900">{selectedBreakdownResult.total_questions - selectedBreakdownResult.correct_count} / {selectedBreakdownResult.total_questions}</p>
+              </div>
+            </div>
+
+            {/* FILTER TABS */}
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <button
+                onClick={() => setBreakdownFilter("all")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  breakdownFilter === "all" ? "bg-indigo-600 text-white shadow-xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                All Questions ({selectedBreakdownResult.detailed_breakdown?.length || 0})
+              </button>
+
+              <button
+                onClick={() => setBreakdownFilter("correct")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  breakdownFilter === "correct" ? "bg-emerald-600 text-white shadow-xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                Correct Answers Only ({selectedBreakdownResult.correct_count})
+              </button>
+
+              <button
+                onClick={() => setBreakdownFilter("wrong")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  breakdownFilter === "wrong" ? "bg-rose-600 text-white shadow-xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                Incorrect Answers ({selectedBreakdownResult.total_questions - selectedBreakdownResult.correct_count})
+              </button>
+            </div>
+
+            {/* DETAILED QUESTION ITEMS LIST */}
+            <div className="space-y-6 pt-1">
+              {getFilteredBreakdown().length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-semibold text-xs">
+                  No questions match selected filter.
+                </div>
+              ) : (
+                getFilteredBreakdown().map((item: any, idx: number) => (
+                  <div key={idx} className={`p-5 rounded-2xl border space-y-3 ${
+                    item.is_correct ? "bg-emerald-50/40 border-emerald-200" : "bg-rose-50/40 border-rose-200"
+                  }`}>
+                    
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="font-extrabold text-xs text-slate-900">
+                        Q{idx + 1}. {item.question_text}
+                      </span>
+
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1 ${
+                        item.is_correct ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-rose-100 text-rose-800 border border-rose-300"
+                      }`}>
+                        {item.is_correct ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                        {item.is_correct ? "Correct (+1 Mark)" : "Incorrect (0 Marks)"}
+                      </span>
+                    </div>
+
+                    {/* OPTIONS & USER CHOICE */}
+                    <div className="space-y-1.5 pl-2">
+                      <div className="text-[11px] font-bold text-slate-600">Your Selection:</div>
+                      <div className={`p-2.5 rounded-xl border text-xs font-bold ${
+                        item.is_correct ? "bg-emerald-100/70 border-emerald-300 text-emerald-950" : "bg-rose-100/70 border-rose-300 text-rose-950"
+                      }`}>
+                        {item.user_selected_str}
+                      </div>
+                    </div>
+
+                    {!item.is_correct && (
+                      <div className="space-y-1.5 pl-2">
+                        <div className="text-[11px] font-bold text-emerald-800">Official Correct Solution:</div>
+                        <div className="p-2.5 rounded-xl bg-emerald-100/90 border border-emerald-300 text-xs font-extrabold text-emerald-950">
+                          {item.correct_answer_str}
+                        </div>
+                      </div>
+                    )}
+
+                    {item.explanation && (
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1 shadow-2xs">
+                        <div className="font-extrabold text-indigo-900 text-[10px] uppercase tracking-wider">Pedagogical Solution & Marking Scheme:</div>
+                        <p className="leading-relaxed">{item.explanation}</p>
+                      </div>
+                    )}
+
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedBreakdownResult(null)}
+                className="px-6 py-2 bg-slate-900 text-white font-extrabold text-xs rounded-xl shadow-md"
+              >
+                Close Report
+              </button>
+            </div>
+
+          </div>
         </div>
       )}
 
