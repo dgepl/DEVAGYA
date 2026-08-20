@@ -43,18 +43,18 @@ export function Navbar() {
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       scrolled 
-        ? "bg-white/95 backdrop-blur-xl border-b border-indigo-100/90 shadow-md py-2 sm:py-2.5" 
-        : "bg-white/85 backdrop-blur-md border-b border-slate-200/80 py-3 sm:py-3.5"
+        ? "bg-white/95 backdrop-blur-xl border-b border-indigo-100/90 shadow-md py-1 sm:py-1.5" 
+        : "bg-white/85 backdrop-blur-md border-b border-slate-200/80 py-1.5 sm:py-2"
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-20">
+        <div className="flex items-center justify-between h-12 sm:h-16">
           
-          {/* ELEGANT BRAND LOGO */}
-          <Link href="/" className="flex items-center ml-2 sm:ml-6 group">
+          {/* ELEGANT BRAND LOGO - INCREASED SIZE */}
+          <Link href="/" className="flex items-center ml-1 sm:ml-4 group">
             <img 
               src="/logo.png" 
               alt="DEVGYA GLOBAL EDUTECH" 
-              className="h-10 sm:h-16 w-auto max-h-16 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+              className="h-12 sm:h-20 w-auto max-h-24 object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300 origin-left" 
             />
           </Link>
 

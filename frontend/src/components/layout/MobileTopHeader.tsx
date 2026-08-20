@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { 
   Menu, 
   X, 
-  User, 
   LogOut, 
   ChevronRight, 
   LayoutDashboard, 
@@ -35,13 +34,19 @@ import { useAppStore } from "@/store/useAppStore";
 export function MobileTopHeader() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { user, logout } = useAppStore();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const handleSignOut = () => {
+  const handleSignOut = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setDrawerOpen(false);
     logout();
     if (typeof window !== "undefined") {
-      window.location.href = "/";
+      window.location.replace("/");
     }
   };
 
@@ -96,33 +101,40 @@ export function MobileTopHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs md:hidden">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-xs md:hidden">
         {/* LOGO BRANDING */}
         <Link href="/dashboard" className="flex items-center gap-2">
           <img 
             src="/logo.png" 
             alt="DEVGYA GLOBAL" 
-            className="h-10 w-auto object-contain mix-blend-multiply" 
+            className="h-11 w-auto max-h-12 object-contain mix-blend-multiply" 
           />
         </Link>
 
-        {/* RIGHT CONTROLS */}
+        {/* RIGHT CONTROLS: QUICK SIGN OUT & MENU TOGGLE */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-50 border border-indigo-200 text-indigo-700 px-2.5 py-1 rounded-full">
-            {role.replace('_', ' ')}
-          </span>
+          <button
+            type="button"
+            onClick={(e) => handleSignOut(e)}
+            className="px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 text-[11px] font-extrabold flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+            title="Sign Out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Exit</span>
+          </button>
 
           <button
+            type="button"
             onClick={() => setDrawerOpen(true)}
-            className="p-2.5 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors relative"
+            className="p-2 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors relative cursor-pointer"
             aria-label="Open Navigation Menu"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-5 h-5" />
           </button>
         </div>
       </header>
 
-      {/* SLIDE-OVER PROFILE & ALL SIDEBAR OPTIONS DRAWER */}
+      {/* SLIDE-OVER NAVIGATION DRAWER */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-end md:hidden">
           <div className="w-5/6 max-w-sm bg-white h-full p-6 space-y-6 shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-300">
@@ -143,8 +155,9 @@ export function MobileTopHeader() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => setDrawerOpen(false)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -182,33 +195,17 @@ export function MobileTopHeader() {
                     </Link>
                   );
                 })}
-
-                {/* PROFILE SETTINGS */}
-                <Link
-                  href="/dashboard/profile"
-                  onClick={() => setDrawerOpen(false)}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                    pathname === "/dashboard/profile"
-                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <User className="w-4 h-4 text-slate-500" />
-                    <span>My Profile</span>
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-300" />
-                </Link>
               </div>
             </div>
 
-            {/* SIGN OUT */}
+            {/* DIRECT HIGH-TOUCH SIGN OUT BUTTON */}
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <button
-                onClick={handleSignOut}
-                className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-95"
+                type="button"
+                onClick={(e) => handleSignOut(e)}
+                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer uppercase tracking-wider"
               >
-                <LogOut className="w-4 h-4 text-red-500" />
+                <LogOut className="w-4 h-4 text-white" />
                 <span>Sign Out Account</span>
               </button>
             </div>
@@ -219,3 +216,4 @@ export function MobileTopHeader() {
     </>
   );
 }
+

@@ -40,8 +40,7 @@ export function MobileBottomDock() {
         { label: "Home", href: "/dashboard/parent", icon: Home },
         { label: "Coach AI", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake, agentCode: "parent_coach" },
         { label: "Ask Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake, central: true, agentCode: "parent_coach" },
-        { label: "Consult", href: "/dashboard/video-consultation", icon: Video },
-        { label: "Profile", href: "/dashboard/profile", icon: User },
+        { label: "Consult", href: "/dashboard/video-consultation", icon: Video }
       ];
     }
 
@@ -50,8 +49,7 @@ export function MobileBottomDock() {
       { label: "Home", href: "/dashboard", icon: Home },
       { label: "Generator", href: "/dashboard/generator", icon: Zap },
       { label: "Teacher AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap, central: true, agentCode: "teacher_mentor" },
-      { label: "OCR Scan", href: "/dashboard/ocr", icon: ScanText },
-      { label: "Profile", href: "/dashboard/profile", icon: User },
+      { label: "OCR Scan", href: "/dashboard/ocr", icon: ScanText }
     ];
   };
 

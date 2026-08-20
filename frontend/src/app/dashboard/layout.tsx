@@ -176,7 +176,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           <img
             src="/logo.png"
             alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED"
-            className="h-16 w-auto max-h-20 max-w-[210px] object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
+            className="h-20 w-auto max-h-24 max-w-[240px] object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
           />
         </Link>
 
