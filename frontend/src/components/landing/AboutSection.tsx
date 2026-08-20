@@ -21,40 +21,31 @@ export function AboutSection() {
 
   const stakeholders = [
     {
-      title: "Teachers & Educators",
-      subtitle: "Save 98% Prep Time with AI Studios",
-      icon: GraduationCap,
+      title: "For Schools",
+      subtitle: "Comprehensive Institutional Support",
+      icon: Building2,
       color: "from-indigo-600 to-purple-600",
       accent: "border-indigo-200 bg-indigo-50/60 text-indigo-900",
-      desc: "Instantly create 1M, 3M, 5M NCERT periodic assessment papers, 5E framework lesson plans, and scan textbook photos with OCR Vision AI.",
-      highlights: ["5-Second Question Paper Generator", "NCERT 5E Lesson Planner", "OCR Book Scanner", "Step-by-Step Answer Keys"]
+      desc: "We facilitate seamless book supply, academic publishing, professional CBSE teacher training workshops, and reliable job placement support.",
+      highlights: ["Seamless Book Supply", "Academic Publishing", "CBSE Teacher Training Workshops", "Reliable Job Placement Support"]
     },
     {
-      title: "School Management & Study Centers",
-      subtitle: "Academic Quality & Infrastructure Partner",
-      icon: Building2,
+      title: "For Teachers",
+      subtitle: "Empowering Educators Nationwide",
+      icon: GraduationCap,
       color: "from-purple-600 to-pink-600",
       accent: "border-purple-200 bg-purple-50/60 text-purple-900",
-      desc: "Comprehensive school solutions combining physical science laboratories, smart hardware, curriculum textbooks, and digital AI tracking.",
-      highlights: ["Certified Science Lab Hardware", "Academic Progress Analytics", "Multi-Tenant Supabase Isolation", "CBSE / ICSE Compliance"]
+      desc: "We equip educators with cutting-edge digital tools like OCR worksheet and assignment generators, the Teachers Skill Olympiad, and modern pedagogy books to enhance classroom efficiency.",
+      highlights: ["OCR Worksheet & Assignment Generators", "Teachers Skill Olympiad", "Modern Pedagogy Books", "Enhanced Classroom Efficiency"]
     },
     {
-      title: "Students & Self-Study Corner",
-      subtitle: "Socratic AI Tutor & Gamified XP",
-      icon: Sparkles,
-      color: "from-amber-500 to-orange-600",
-      accent: "border-amber-200 bg-amber-50/60 text-amber-900",
-      desc: "Duolingo-style XP streaks, active recall flashcards, practice quizzes, and Socratic AI hints that guide without spoiling answers.",
-      highlights: ["Socratic AI Problem Solver", "Duolingo-style XP Streaks", "Active Recall Flashcards", "Board Mark Weightage Strategy"]
-    },
-    {
-      title: "Parents & Families",
-      subtitle: "Parenting Guidance & Balanced Screen Time",
-      icon: HeartHandshake,
-      color: "from-rose-500 to-pink-600",
-      accent: "border-rose-200 bg-rose-50/60 text-rose-900",
-      desc: "Practical parenting coach guidance, real-time subject progress alerts, and screen-time management connecting home learning with school.",
-      highlights: ["AI Parenting Coach Assistant", "Real-Time Subject Mastery Charts", "Balanced Screen-Time Controls", "Holistic Child Development"]
+      title: "For Parents & Students",
+      subtitle: "Interactive & Holistic Learning",
+      icon: Users,
+      color: "from-emerald-600 to-teal-600",
+      accent: "border-emerald-200 bg-emerald-50/60 text-emerald-900",
+      desc: "We foster engaging learning through interactive homework and AI-powered query assistance, fun educational quizzes, and specialised parenting guides to ensure holistic child development.",
+      highlights: ["Interactive Homework Support", "AI-Powered Query Assistance", "Fun Educational Quizzes", "Specialised Parenting Guides"]
     }
   ];
 
@@ -71,18 +62,18 @@ export function AboutSection() {
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-extrabold shadow-xs">
             <Award className="w-3.5 h-3.5 text-amber-500" />
-            <span className="uppercase tracking-widest">About DEVGYA GLOBAL</span>
+            <span className="uppercase tracking-widest">Bridging Education Gaps</span>
           </div>
           
           <h2 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
-            Bridging Physical Schooling with <br />
+            Empowering the Entire <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">
-              Cutting-Edge AI Technology
+              Academic Ecosystem
             </span>
           </h2>
 
           <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-medium">
-            DEVGYA GLOBAL EDUTECH PRIVATE LIMITED is an all-in-one education partner for K-12 CBSE & NCERT schools. We combine physical textbooks, lab hardware, and digital AI Operating Systems.
+            At Devgya Global Edutech, we are dedicated to transforming the educational landscape by bridging the gap between schools, teachers, and parents. Headquartered in Jhajjar, Haryana, our mission is to empower the entire academic ecosystem through innovative digital solutions and quality academic resources.
           </p>
         </div>
 
@@ -92,7 +83,7 @@ export function AboutSection() {
           {/* LEFT SELECTOR LIST */}
           <div className="lg:col-span-5 space-y-3">
             <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500 px-1">
-              Select Stakeholder Role
+              Stakeholder Solutions
             </p>
             {stakeholders.map((sh, idx) => {
               const Icon = sh.icon;
@@ -153,7 +144,7 @@ export function AboutSection() {
                     </div>
 
                     <span className="text-[10px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-full">
-                      Role Solutions
+                      Dedicated Solutions
                     </span>
                   </div>
 
@@ -162,7 +153,7 @@ export function AboutSection() {
                   </p>
 
                   <div className="space-y-3 pt-2">
-                    <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Key Platform Highlights</h5>
+                    <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Key Offerings</h5>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {sh.highlights.map((h, hIdx) => (
                         <div key={hIdx} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800">
@@ -184,3 +175,4 @@ export function AboutSection() {
     </section>
   );
 }
+

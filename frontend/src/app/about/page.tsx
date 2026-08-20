@@ -9,40 +9,39 @@ import {
   Building2, 
   GraduationCap, 
   BookOpen, 
-  ShieldCheck, 
-  Sparkles, 
-  Award, 
   Users, 
+  MapPin, 
+  Sparkles, 
   CheckCircle2, 
   ArrowRight, 
   Globe2, 
-  Cpu, 
-  TrendingUp, 
-  Layers 
+  Award,
+  HeartHandshake,
+  Lightbulb
 } from "lucide-react";
 
 export default function AboutPage() {
-  const companyPillars = [
+  const stakeholderSupport = [
     {
-      title: "Physical School Infrastructure",
-      desc: "Supplying certified science laboratory equipment, smart classroom hardware, and NCERT-aligned printed textbooks directly to schools.",
+      title: "For Schools",
+      badge: "Institutional Support",
       icon: Building2,
-      badge: "Infrastructure",
-      color: "from-blue-600 to-indigo-600"
+      color: "from-blue-600 to-indigo-600",
+      description: "We facilitate seamless book supply, academic publishing, professional CBSE teacher training workshops, and reliable job placement support."
     },
     {
-      title: "Digital AI Operating System",
-      desc: "Proprietary AI engine enabling 5-second NCERT question paper generation, 5E lesson planning, OCR vision scanning, and 15 AI Assistants.",
-      icon: Cpu,
-      badge: "AI Software",
-      color: "from-purple-600 to-pink-600"
+      title: "For Teachers",
+      badge: "Educator Empowerment",
+      icon: GraduationCap,
+      color: "from-purple-600 to-pink-600",
+      description: "We equip educators with cutting-edge digital tools like OCR worksheet and assignment generators, the Teachers Skill Olympiad, and modern pedagogy books to enhance classroom efficiency."
     },
     {
-      title: "End-to-End Educational Partner",
-      desc: "Strategic partner serving Teachers, Students, Parents, and School Management with unified analytics, screen-time balance, and study tools.",
+      title: "For Parents & Students",
+      badge: "Holistic Development",
       icon: Users,
-      badge: "Stakeholders",
-      color: "from-emerald-600 to-teal-600"
+      color: "from-emerald-600 to-teal-600",
+      description: "We foster engaging learning through interactive homework and AI-powered query assistance, fun educational quizzes, and specialised parenting guides to ensure holistic child development."
     }
   ];
 
@@ -53,62 +52,79 @@ export default function AboutPage() {
       <PageTransition>
         <main className="flex-1 space-y-20 pb-20">
           
-          {/* DEDICATED ABOUT HERO BANNER */}
-          <section className="relative py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-indigo-50/80 via-white to-slate-50 border-b border-indigo-100 overflow-hidden">
+          {/* HERO BANNER */}
+          <section className="relative py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-indigo-50/80 via-white to-slate-50 border-b border-indigo-100 overflow-hidden">
             <div className="absolute top-0 right-1/4 w-96 h-96 bg-indigo-200/40 blur-[130px] rounded-full pointer-events-none" />
             
-            <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-800 text-xs font-extrabold shadow-xs">
+            <div className="max-w-4xl mx-auto text-center space-y-6 relative z-10">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-800 text-xs font-extrabold shadow-xs">
                 <Globe2 className="w-4 h-4 text-indigo-600" />
-                <span className="uppercase tracking-widest">DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</span>
+                <span className="uppercase tracking-widest">About Us</span>
               </div>
 
-              <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight text-slate-900">
-                Transforming K-12 Schooling with <br />
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight text-slate-900">
+                Welcome to <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">
-                  Integrated Physical & AI Solutions
+                  Devgya Global Edutech Private Limited
                 </span>
               </h1>
 
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-3xl mx-auto font-medium">
-                At DEVGYA GLOBAL, we believe great education requires harmonizing physical school infrastructure, science laboratories, and curriculum textbooks with state-of-the-art AI technology.
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold">
+                <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                <span>Headquartered in Jhajjar, Haryana</span>
+              </div>
+
+              <p className="text-slate-700 text-base sm:text-lg leading-relaxed max-w-3xl mx-auto font-medium">
+                At Devgya Global Edutech, we are dedicated to transforming the educational landscape by bridging the gap between schools, teachers, and parents. Headquartered in Jhajjar, Haryana, our mission is to empower the entire academic ecosystem through innovative digital solutions and quality academic resources.
               </p>
             </div>
           </section>
 
-          {/* 3 CORE COMPANY PILLARS */}
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-            <div className="text-center max-w-2xl mx-auto space-y-2">
-              <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900">Our 3 Core Pillars</h2>
-              <p className="text-xs sm:text-sm text-slate-600 font-medium">How DEVGYA GLOBAL serves the entire K-12 educational ecosystem.</p>
+          {/* STAKEHOLDER SUPPORT SECTION */}
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+            <div className="text-center max-w-3xl mx-auto space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-extrabold uppercase tracking-wider">
+                <Lightbulb className="w-3.5 h-3.5 text-purple-600" />
+                <span>End-to-End Support</span>
+              </div>
+              <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
+                Tailored Support for Every Stakeholder
+              </h2>
+              <p className="text-slate-600 text-sm sm:text-base font-medium">
+                We provide comprehensive, end-to-end support tailored to every stakeholder in education:
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {companyPillars.map((p, idx) => {
-                const Icon = p.icon;
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {stakeholderSupport.map((item, idx) => {
+                const Icon = item.icon;
                 return (
-                  <div key={idx} className="p-8 rounded-3xl bg-white border border-indigo-200 hover:border-indigo-400 transition-all space-y-4 shadow-md hover:shadow-xl flex flex-col justify-between group">
+                  <div 
+                    key={idx} 
+                    className="p-8 rounded-3xl bg-white border border-indigo-100 hover:border-indigo-300 transition-all space-y-6 shadow-md hover:shadow-xl flex flex-col justify-between group"
+                  >
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${p.color} text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
-                          <Icon className="w-6 h-6" />
+                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${item.color} text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform`}>
+                          <Icon className="w-7 h-7" />
                         </div>
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full">
-                          {p.badge}
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-full">
+                          {item.badge}
                         </span>
                       </div>
 
-                      <h3 className="text-lg font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                        {p.title}
+                      <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                        {item.title}
                       </h3>
-                      <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                        {p.desc}
+
+                      <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                        {item.description}
                       </p>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 text-xs font-bold text-indigo-600">
+                    <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-bold text-indigo-600">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Certified School Partner</span>
+                      <span>Empowering Education</span>
                     </div>
                   </div>
                 );
@@ -116,7 +132,27 @@ export default function AboutPage() {
             </div>
           </section>
 
-          {/* STAKEHOLDER SHOWCASE */}
+          {/* MISSION STATEMENT CARD */}
+          <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-950 text-white shadow-2xl relative overflow-hidden text-center space-y-4">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/20 blur-[100px] rounded-full pointer-events-none" />
+              
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-cyan-300 text-xs font-extrabold uppercase tracking-wider">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>Our Commitment</span>
+              </div>
+
+              <h3 className="text-xl sm:text-3xl font-black leading-tight text-white max-w-3xl mx-auto">
+                Shaping a Smarter, Brighter Future for the Next Generation
+              </h3>
+
+              <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl mx-auto font-medium">
+                Driven by innovation and a commitment to excellence, Devgya Global Edutech is your trusted partner in shaping a smarter, brighter future for the next generation.
+              </p>
+            </div>
+          </section>
+
+          {/* STAKEHOLDER INTERACTIVE SHOWCASE */}
           <AboutSection />
 
         </main>
@@ -126,3 +162,4 @@ export default function AboutPage() {
     </div>
   );
 }
+

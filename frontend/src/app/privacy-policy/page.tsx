@@ -1,94 +1,114 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PageTransition } from "@/components/ui/PageTransition";
-import { ShieldCheck, Lock, EyeOff, Database, FileCheck } from "lucide-react";
+import { ShieldCheck, Lock, EyeOff, Database, UserCheck, ShieldAlert, CheckCircle2 } from "lucide-react";
 
 export default function PrivacyPolicyPage() {
+  const privacyPoints = [
+    {
+      title: "Information We Collect",
+      description: "We only collect necessary information to provide you with our educational services, such as your name, contact details, and school-related data.",
+      icon: Database,
+      badge: "Necessary Data Only",
+      color: "from-blue-600 to-indigo-600"
+    },
+    {
+      title: "Data Security",
+      description: "We use secure encryption and standard safety protocols to keep your data safe from unauthorized access.",
+      icon: Lock,
+      badge: "Encrypted Security",
+      color: "from-purple-600 to-pink-600"
+    },
+    {
+      title: "No Data Sharing",
+      description: "We do not sell or rent your personal information to third parties. Your data is used strictly for improving your learning and teaching experience with us.",
+      icon: EyeOff,
+      badge: "Zero Third-Party Selling",
+      color: "from-rose-600 to-red-600"
+    },
+    {
+      title: "User Control",
+      description: "You have full control over your information and can request updates or deletion of your account data at any time.",
+      icon: UserCheck,
+      badge: "Complete Ownership",
+      color: "from-emerald-600 to-teal-600"
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col pt-24 md:pt-28">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col pt-24 md:pt-28 selection:bg-indigo-500 selection:text-white">
       <Navbar />
       <PageTransition>
-        <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
+        <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
           
           {/* HEADER */}
-          <div className="text-center space-y-3 border-b border-slate-200 pb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-extrabold uppercase tracking-wider">
+          <div className="text-center space-y-4 border-b border-slate-200 pb-10">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-extrabold uppercase tracking-wider">
               <ShieldCheck className="w-4 h-4 text-indigo-600" />
-              <span>DEVGYA GLOBAL Privacy Policy</span>
+              <span>Data Protection & Privacy</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-              Privacy Policy & Data Security
+            <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight">
+              Privacy Policy
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-semibold max-w-2xl mx-auto">
-              Effective Date: July 2026 • DEVGYA GLOBAL EDUTECH PRIVATE LIMITED
+            <p className="text-slate-600 text-base sm:text-lg font-medium max-w-3xl mx-auto leading-relaxed">
+              At Devgya Global Edutech Private Limited, your privacy is our priority. We are committed to protecting the information you share with us.
             </p>
           </div>
 
-          {/* HIGHLIGHT BOXES */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white border border-slate-200 p-5 rounded-2xl space-y-2 shadow-xs">
-              <Lock className="w-6 h-6 text-indigo-600" />
-              <h4 className="text-sm font-bold text-slate-900">Zero Data Selling</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                We never monetize, sell, or advertise against student or school data.
-              </p>
-            </div>
+          {/* 4 CORE PRIVACY PRINCIPLES */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {privacyPoints.map((point, idx) => {
+              const Icon = point.icon;
+              return (
+                <div 
+                  key={idx}
+                  className="bg-white border border-slate-200 hover:border-indigo-300 p-8 rounded-3xl space-y-4 shadow-md hover:shadow-xl transition-all group flex flex-col justify-between"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${point.color} text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform`}>
+                        <Icon className="w-7 h-7" />
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 px-3 py-1 rounded-full">
+                        {point.badge}
+                      </span>
+                    </div>
 
-            <div className="bg-white border border-slate-200 p-5 rounded-2xl space-y-2 shadow-xs">
-              <Database className="w-6 h-6 text-purple-600" />
-              <h4 className="text-sm font-bold text-slate-900">Isolated Vector RAG</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Textbooks & school documents are encrypted in multi-tenant isolated vector stores.
-              </p>
-            </div>
+                    <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                      {point.title}
+                    </h3>
 
-            <div className="bg-white border border-slate-200 p-5 rounded-2xl space-y-2 shadow-xs">
-              <EyeOff className="w-6 h-6 text-pink-600" />
-              <h4 className="text-sm font-bold text-slate-900">Encrypted AI Pipeline</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                FastAPI & Supabase TLS 1.3 encryption for all question paper and quiz generations.
-              </p>
-            </div>
+                    <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                      {point.description}
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-bold text-indigo-600">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Protected Principle</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* DETAILED CONTENT SECTIONS */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-8 text-sm text-slate-700 leading-relaxed">
-            
-            <section className="space-y-3">
-              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                <FileCheck className="w-5 h-5 text-indigo-600" />
-                1. Overview & Commitment
-              </h3>
-              <p>
-                At <strong>DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</strong>, we prioritize the protection of educational data. 
-                Whether you are a teacher creating CBSE NCERT question papers, a student using the Socratic AI Tutor, or a parent monitoring academic progress, your information is handled under strict security standards.
-              </p>
-            </section>
+          {/* TRUST STATEMENT BANNER */}
+          <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-950 text-white shadow-xl relative overflow-hidden text-center space-y-4">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/20 blur-[100px] rounded-full pointer-events-none" />
 
-            <section className="space-y-3 border-t border-slate-100 pt-6">
-              <h3 className="text-lg font-black text-slate-900">2. Data We Collect & How It Is Used</h3>
-              <ul className="list-disc pl-5 space-y-2 text-xs sm:text-sm text-slate-600">
-                <li><strong>Account Credentials:</strong> Full name, institutional email address, school affiliation, and education board (CBSE, ICSE, State Board, IB).</li>
-                <li><strong>Academic Content:</strong> NCERT textbook chapters, scanned worksheets, generated quizzes, active recall flashcards, and student XP progress.</li>
-                <li><strong>RAG Knowledge Documents:</strong> Uploaded school PDFs, DOCX, and PPTX files processed via embedding algorithms solely to power internal school search.</li>
-              </ul>
-            </section>
+            <h3 className="text-xl sm:text-2xl font-black text-white">
+              Your Trust is Our Highest Priority
+            </h3>
 
-            <section className="space-y-3 border-t border-slate-100 pt-6">
-              <h3 className="text-lg font-black text-slate-900">3. AI Model & Data Privacy Integrity</h3>
-              <p>
-                Prompts sent to our AI Operating System tools (such as Question Generator, Socratic Tutor, and Worksheet Creator) are executed through secure, enterprise OpenAI-compatible API pipelines. <strong>Your inputs are never used to train public LLM models.</strong>
-              </p>
-            </section>
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl mx-auto font-medium">
+              By using our platform, you trust us with your information, and we work hard to keep that trust secure.
+            </p>
 
-            <section className="space-y-3 border-t border-slate-100 pt-6">
-              <h3 className="text-lg font-black text-slate-900">4. Contact Data Protection Officer</h3>
-              <p className="text-xs text-slate-600">
-                For privacy inquiries or data removal requests, contact DEVGYA GLOBAL EDUTECH PRIVATE LIMITED at:<br />
-                <strong className="text-slate-900">Email:</strong> dgepl.info@gmail.com | <strong className="text-slate-900">Phone:</strong> +91 9466966350
-              </p>
-            </section>
-
+            <div className="pt-4 flex items-center justify-center gap-6 text-xs text-slate-400 font-semibold border-t border-white/10 max-w-xl mx-auto">
+              <span><strong>Entity:</strong> Devgya Global Edutech Pvt. Ltd.</span>
+              <span>•</span>
+              <span><strong>Location:</strong> Jhajjar, Haryana</span>
+            </div>
           </div>
 
         </main>
@@ -97,3 +117,4 @@ export default function PrivacyPolicyPage() {
     </div>
   );
 }
+
