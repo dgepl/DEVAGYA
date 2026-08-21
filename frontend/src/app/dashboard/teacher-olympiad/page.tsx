@@ -67,9 +67,11 @@ export default function TeacherOlympiadPage() {
   const boxPosRef = useRef({ x: 40, y: 30, w: 80, h: 80 });
   const deflectionTimerRef = useRef(0);
   const faceMissingStreakRef = useRef(0);
+  const baseCenterXRef = useRef<number | null>(null);
 
   // Active Scheduled Paper Access Info
   const [activePaperInfo, setActivePaperInfo] = useState<any>(null);
+  const [hasAlreadyAttempted, setHasAlreadyAttempted] = useState(false);
 
   // Published & Previous Papers State
   const [publishedResults, setPublishedResults] = useState<any[]>([]);
@@ -109,9 +111,27 @@ export default function TeacherOlympiadPage() {
       const data = await res.json();
       if (data.status === "success") {
         setActivePaperInfo(data);
+        if (data.paper?.id) {
+          loadAttemptStatus(data.paper.id);
+        }
       }
     } catch (e) {
       console.error("Error loading active paper info", e);
+    }
+  };
+
+  const loadAttemptStatus = async (paperId?: string) => {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const email = user?.email || "teacher@devgya.edu";
+      const targetId = paperId || activePaperInfo?.paper?.id || "paper-101";
+      const res = await fetch(`${baseUrl}/olympiad/attempt-status?email=${encodeURIComponent(email)}&paper_id=${encodeURIComponent(targetId)}`);
+      const data = await res.json();
+      if (data.has_attempted) {
+        setHasAlreadyAttempted(true);
+      }
+    } catch (e) {
+      console.error("Error loading attempt status", e);
     }
   };
 
@@ -239,12 +259,13 @@ export default function TeacherOlympiadPage() {
             const g = data[i + 1];
             const b = data[i + 2];
 
-            // YCbCr Chrominance Space Conversion
+            // Hybrid YCbCr Chrominance + RGB Skin Detection (Zero false-positive face missing)
             const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
             const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+            const isChrominance = (cb >= 77 && cb <= 128 && cr >= 130 && cr <= 175);
+            const isRgbSkin = (r > 45 && g > 30 && b > 15 && r > g && r > b && (r - g) > 6);
 
-            // Strict Human Skin Chrominance Bounds (filters out warm wall/ceiling paint & incandescent lights)
-            if (cb >= 80 && cb <= 126 && cr >= 133 && cr <= 173) {
+            if (isChrominance || isRgbSkin) {
               skinPixels++;
               if (x < minX) minX = x;
               if (x > maxX) maxX = x;
@@ -259,12 +280,12 @@ export default function TeacherOlympiadPage() {
         const boxRatio = boxH > 0 ? boxW / boxH : 0;
         const frameWidthCoverage = boxW / sw;
 
-        // A true face must satisfy skin density, aspect ratio (0.5 to 1.4), and not cover > 60% of background wall
+        // A true face must satisfy skin density, aspect ratio (0.45 to 1.5), and not cover > 65% of background wall
         const isFacePresent = 
-          skinPixels > 25 && 
-          boxW >= 15 && boxH >= 15 && 
-          boxRatio >= 0.5 && boxRatio <= 1.4 && 
-          frameWidthCoverage < 0.62;
+          skinPixels > 18 && 
+          boxW >= 12 && boxH >= 12 && 
+          boxRatio >= 0.45 && boxRatio <= 1.5 && 
+          frameWidthCoverage < 0.65;
 
         setFaceDetected(isFacePresent);
 
@@ -292,10 +313,16 @@ export default function TeacherOlympiadPage() {
           const cx = x + w / 2;
           const cy = y + h / 2;
 
-          const dx = Math.abs(cx - dw / 2) / dw;
+          // Calibrated baseline face center tracking
+          if (baseCenterXRef.current === null) {
+            baseCenterXRef.current = cx;
+          }
+
+          const dx = Math.abs(cx - baseCenterXRef.current) / dw;
           const dy = Math.abs(cy - dh / 2) / dh;
 
-          const isDeflected = dx > 0.12 || dy > 0.15;
+          // Trigger deflection if head/eyes turn left, right, up, or down > 9%
+          const isDeflected = dx > 0.09 || dy > 0.12;
           setGazeDeflected(isDeflected);
 
           if (isDeflected) {
@@ -475,6 +502,7 @@ export default function TeacherOlympiadPage() {
       const payload = {
         teacher_email: user?.email || "teacher@devgya.edu",
         teacher_name: user?.name || "Educator Candidate",
+        paper_id: activePaperInfo?.paper?.id || "paper-101",
         answers: answers,
         tab_switch_count: switches,
         fullscreen_exits: fullscreenExits,
@@ -490,8 +518,14 @@ export default function TeacherOlympiadPage() {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
+      if (data.status === "already_submitted") {
+        setHasAlreadyAttempted(true);
+        setExamSubmitted(true);
+        return;
+      }
       if (data.submission_id) {
         setSubmissionId(data.submission_id);
+        setHasAlreadyAttempted(true);
       }
     } catch (e) {
       console.error("Error submitting exam", e);
@@ -725,25 +759,32 @@ export default function TeacherOlympiadPage() {
                   <span>Results will be submitted directly to the Official Evaluation Board on the Admin Panel.</span>
                 </div>
 
-                <button
-                  onClick={handleStartExam}
-                  disabled={loadingQuestions || questions.length === 0 || !isExamAccessible}
-                  className={`w-full sm:w-auto px-8 py-3.5 text-white font-extrabold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer ${
-                    isExamAccessible
-                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95"
-                      : "bg-slate-400 opacity-60 cursor-not-allowed"
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>
-                    {isExamAccessible 
-                      ? "Begin Proctored Exam" 
-                      : secondsUntilUnlock > 0 
-                      ? `Unlocks in ${formatTime(secondsUntilUnlock)}` 
-                      : "Exam Window Closed"}
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                {hasAlreadyAttempted ? (
+                  <div className="w-full sm:w-auto px-8 py-3.5 text-white font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider bg-emerald-600 opacity-90 cursor-not-allowed">
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span>Assessment Completed - 1 Attempt Used</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleStartExam}
+                    disabled={loadingQuestions || questions.length === 0 || !isExamAccessible}
+                    className={`w-full sm:w-auto px-8 py-3.5 text-white font-extrabold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer ${
+                      isExamAccessible
+                        ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95"
+                        : "bg-slate-400 opacity-60 cursor-not-allowed"
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>
+                      {isExamAccessible 
+                        ? "Begin Proctored Exam" 
+                        : secondsUntilUnlock > 0 
+                        ? `Unlocks in ${formatTime(secondsUntilUnlock)}` 
+                        : "Exam Window Closed"}
+                    </span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
             </div>

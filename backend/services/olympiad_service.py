@@ -220,8 +220,22 @@ class OlympiadService:
             user_answers = submission_data.get("answers", {})
             tab_switches = submission_data.get("tab_switch_count", 0)
             webcam_active = submission_data.get("webcam_active", True)
-            teacher_email = submission_data.get("teacher_email", "teacher@devgya.edu")
-            teacher_name = submission_data.get("teacher_name", "Teacher Candidate")
+            teacher_email = submission_data.get("teacher_email", "teacher@devgya.edu").strip()
+            teacher_name = submission_data.get("teacher_name", "Teacher Candidate").strip()
+            paper_id = submission_data.get("paper_id", "paper-101")
+
+            # Single Attempt Guard
+            submissions = self.get_all_submissions()
+            for s in submissions:
+                if s.get("teacher_email", "").strip().lower() == teacher_email.lower():
+                    s_pid = s.get("paper_id", "paper-101")
+                    if s_pid == paper_id or s_pid == "default":
+                        return {
+                            "status": "already_submitted",
+                            "message": "You have already completed and submitted this Olympiad paper. Multiple attempts are not permitted.",
+                            "submission_id": s.get("id"),
+                            "review_status": s.get("review_status", "pending_review")
+                        }
 
             # Calculate actual score server side & construct detailed answer breakdown
             questions = []
@@ -230,6 +244,7 @@ class OlympiadService:
                 papers = paper_service.get_all_papers()
                 if papers and papers[0].get("questions"):
                     questions = papers[0]["questions"]
+                    paper_id = papers[0].get("id", paper_id)
             except Exception as pe:
                 logger.warn(f"Could not load paper_service questions: {pe}")
 
@@ -304,6 +319,7 @@ class OlympiadService:
 
             submission_record = {
                 "id": sub_id,
+                "paper_id": paper_id,
                 "teacher_email": teacher_email,
                 "teacher_name": teacher_name,
                 "submitted_at": submission_data.get("submitted_at", time.strftime("%Y-%m-%d %H:%M:%S")),

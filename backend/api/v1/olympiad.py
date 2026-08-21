@@ -11,6 +11,7 @@ router = APIRouter(prefix="/olympiad", tags=["Teachers Skill Olympiad"])
 class ExamSubmissionPayload(BaseModel):
     teacher_email: str
     teacher_name: str
+    paper_id: Optional[str] = "paper-101"
     answers: Dict[str, int]
     tab_switch_count: int = 0
     fullscreen_exits: int = 0
@@ -41,7 +42,6 @@ async def get_olympiad_questions():
     papers = paper_service.get_all_papers()
     if papers and papers[0].get("questions"):
         active_paper = papers[0]
-        # Return sanitized questions (without exposing answer scheme prematurely if needed)
         questions = []
         for q in active_paper["questions"]:
             item = dict(q)
@@ -66,9 +66,29 @@ async def get_olympiad_questions():
 async def submit_olympiad_exam(payload: ExamSubmissionPayload):
     """Submit proctored Olympiad exam with anti-cheating log. Results are hidden & held for Admin review."""
     result = olympiad_service.submit_exam(payload.dict())
-    if result.get("status") == "success":
+    if result.get("status") in ["success", "already_submitted"]:
         return result
     raise HTTPException(status_code=400, detail=result.get("message", "Exam submission failed"))
+
+@router.get("/attempt-status")
+async def get_user_attempt_status(email: str = Query(...), paper_id: Optional[str] = Query(None)):
+    """Check if candidate has already submitted the target Olympiad paper."""
+    submissions = olympiad_service.get_all_submissions()
+    has_attempted = False
+    submission_details = None
+
+    for s in submissions:
+        if s.get("teacher_email", "").strip().lower() == email.strip().lower():
+            if not paper_id or s.get("paper_id") == paper_id or s.get("paper_id") == "default":
+                has_attempted = True
+                submission_details = s
+                break
+
+    return {
+        "status": "success",
+        "has_attempted": has_attempted,
+        "submission": submission_details
+    }
 
 @router.get("/practice")
 async def get_practice_questions(subject: Optional[str] = Query(None)):
