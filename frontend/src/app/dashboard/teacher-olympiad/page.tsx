@@ -29,13 +29,25 @@ import {
   EyeOff,
   XCircle,
   CheckCircle,
-  FileText
+  FileText,
+  Smile
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import * as faceapi from "@vladmandic/face-api";
 
 export default function TeacherOlympiadPage() {
   const { user } = useAppStore();
   const [activeTab, setActiveTab] = useState<"instructions" | "previous_papers" | "published">("instructions");
+  
+  // Real AI Face & Mood Detection State (face-api.js Neural Network)
+  const [faceApiLoaded, setFaceApiLoaded] = useState(false);
+  const [currentMood, setCurrentMood] = useState<string>("Focused 🎯");
+  const isDetectingRef = useRef(false);
+  const lastNeuralFaceRef = useRef<{
+    box: { x: number; y: number; width: number; height: number };
+    mood: string;
+    timestamp: number;
+  } | null>(null);
   
   // Exam Engine State
   const [questions, setQuestions] = useState<any[]>([]);
@@ -191,6 +203,88 @@ export default function TeacherOlympiadPage() {
     };
   }, [examStarted, examSubmitted]);
 
+  // Load Real AI Face & Emotion/Mood Neural Models
+  useEffect(() => {
+    let isMounted = true;
+    const loadFaceApiModels = async () => {
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
+          faceapi.nets.faceExpressionNet.loadFromUri("/models")
+        ]);
+        if (isMounted) {
+          setFaceApiLoaded(true);
+        }
+      } catch (e) {
+        console.warn("Face-API models loading notice:", e);
+      }
+    };
+    loadFaceApiModels();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Neural Face Detection & Real-Time Mood Analyzer Loop
+  useEffect(() => {
+    if (!examStarted || examSubmitted || !webcamActive) return;
+
+    const MOOD_EMOJIS: Record<string, string> = {
+      happy: "Happy 😊",
+      neutral: "Focused 🎯",
+      surprised: "Attentive 😮",
+      sad: "Thinking 💭",
+      angry: "Intense 🧐",
+      fearful: "Alert ⚡",
+      disgusted: "Concerned 🤨"
+    };
+
+    const interval = setInterval(async () => {
+      if (!videoRef.current || isDetectingRef.current || videoRef.current.readyState < 2) return;
+      try {
+        isDetectingRef.current = true;
+        if (faceApiLoaded) {
+          const detection: any = await faceapi
+            .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.2 }))
+            .withFaceExpressions();
+
+          const box = detection?.detection?.box || detection?.box;
+
+          if (detection && box) {
+            let dominantMood = "neutral";
+            let maxScore = 0;
+            if (detection.expressions) {
+              for (const [expr, score] of Object.entries(detection.expressions as any)) {
+                if (typeof score === "number" && score > maxScore) {
+                  maxScore = score;
+                  dominantMood = expr;
+                }
+              }
+            }
+
+            const moodLabel = MOOD_EMOJIS[dominantMood] || "Focused 🎯";
+            setCurrentMood(moodLabel);
+
+            const { x, y, width, height } = box;
+            lastNeuralFaceRef.current = {
+              box: { x, y, width, height },
+              mood: moodLabel,
+              timestamp: Date.now()
+            };
+          } else {
+            if (Date.now() - (lastNeuralFaceRef.current?.timestamp || 0) > 1200) {
+              lastNeuralFaceRef.current = null;
+            }
+          }
+        }
+      } catch (err) {
+        // Fallback handles gracefully
+      } finally {
+        isDetectingRef.current = false;
+      }
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, [examStarted, examSubmitted, webcamActive, faceApiLoaded]);
+
   // 3. Setup Webcam Proctoring & Real-Time Canvas Analysis Loop
   const startWebcam = async () => {
     try {
@@ -241,6 +335,12 @@ export default function TeacherOlympiadPage() {
       const oCtx = overlayCanvas.getContext("2d");
 
       if (video.readyState === video.HAVE_ENOUGH_DATA && ctx && oCtx) {
+        const dw = overlayCanvas.clientWidth || 320;
+        const dh = overlayCanvas.clientHeight || 240;
+        overlayCanvas.width = dw;
+        overlayCanvas.height = dh;
+        oCtx.clearRect(0, 0, dw, dh);
+
         const sw = 160;
         const sh = 120;
         canvas.width = sw;
@@ -275,39 +375,51 @@ export default function TeacherOlympiadPage() {
           }
         }
 
-        const boxW = Math.max(0, maxX - minX);
-        const boxH = Math.max(0, maxY - minY);
-        const boxRatio = boxH > 0 ? boxW / boxH : 0;
-        const frameWidthCoverage = boxW / sw;
+        // 1. Check Neural Detection First (Real AI CNN Model)
+        const neuralDetection = lastNeuralFaceRef.current;
+        const isNeuralFresh = neuralDetection && (Date.now() - neuralDetection.timestamp < 1200);
 
-        // A true face must satisfy skin density, aspect ratio (0.45 to 1.5), and not cover > 65% of background wall
-        const isFacePresent = 
-          skinPixels > 18 && 
-          boxW >= 12 && boxH >= 12 && 
-          boxRatio >= 0.45 && boxRatio <= 1.5 && 
-          frameWidthCoverage < 0.65;
+        let isFacePresent = false;
+        let finalRawX = 0, finalRawY = 0, finalRawW = 0, finalRawH = 0;
+
+        if (isNeuralFresh && neuralDetection && video.videoWidth > 0 && video.videoHeight > 0) {
+          isFacePresent = true;
+          const { x, y, width, height } = neuralDetection.box;
+          finalRawX = (x / video.videoWidth) * dw;
+          finalRawY = (y / video.videoHeight) * dh;
+          finalRawW = Math.max(55, (width / video.videoWidth) * dw);
+          finalRawH = Math.max(55, (height / video.videoHeight) * dh);
+        } else {
+          // 2. Pixel Fallback Detector
+          const boxW = Math.max(0, maxX - minX);
+          const boxH = Math.max(0, maxY - minY);
+          const boxRatio = boxH > 0 ? boxW / boxH : 0;
+          const frameWidthCoverage = boxW / sw;
+
+          isFacePresent = 
+            skinPixels > 18 && 
+            boxW >= 12 && boxH >= 12 && 
+            boxRatio >= 0.45 && boxRatio <= 1.5 && 
+            frameWidthCoverage < 0.65;
+
+          if (isFacePresent && maxX > minX && maxY > minY) {
+            finalRawX = (minX / sw) * dw;
+            finalRawY = (minY / sh) * dh;
+            finalRawW = Math.max(50, (boxW / sw) * dw);
+            finalRawH = Math.max(50, (boxH / sh) * dh);
+          }
+        }
 
         setFaceDetected(isFacePresent);
 
-        const dw = overlayCanvas.clientWidth || 320;
-        const dh = overlayCanvas.clientHeight || 240;
-        overlayCanvas.width = dw;
-        overlayCanvas.height = dh;
-        oCtx.clearRect(0, 0, dw, dh);
-
-        if (isFacePresent && maxX > minX && maxY > minY) {
+        if (isFacePresent) {
           faceMissingStreakRef.current = 0;
 
-          const rawX = (minX / sw) * dw;
-          const rawY = (minY / sh) * dh;
-          const rawW = Math.max(50, (boxW / sw) * dw);
-          const rawH = Math.max(50, (boxH / sh) * dh);
-
           const curr = boxPosRef.current;
-          curr.x += (rawX - curr.x) * 0.25;
-          curr.y += (rawY - curr.y) * 0.25;
-          curr.w += (rawW - curr.w) * 0.25;
-          curr.h += (rawH - curr.h) * 0.25;
+          curr.x += (finalRawX - curr.x) * 0.3;
+          curr.y += (finalRawY - curr.y) * 0.3;
+          curr.w += (finalRawW - curr.w) * 0.3;
+          curr.h += (finalRawH - curr.h) * 0.3;
 
           const { x, y, w, h } = curr;
           const cx = x + w / 2;
@@ -321,8 +433,8 @@ export default function TeacherOlympiadPage() {
           const dx = Math.abs(cx - baseCenterXRef.current) / dw;
           const dy = Math.abs(cy - dh / 2) / dh;
 
-          // Trigger deflection if head/eyes turn left, right, up, or down > 9%
-          const isDeflected = dx > 0.09 || dy > 0.12;
+          // Trigger deflection if head/eyes turn left, right, up, or down > 12%
+          const isDeflected = dx > 0.12 || dy > 0.14;
           setGazeDeflected(isDeflected);
 
           if (isDeflected) {
@@ -358,7 +470,7 @@ export default function TeacherOlympiadPage() {
           if (isDeflected) {
             oCtx.fillText("GAZE WARNING: LOOKING AWAY!", x, textY);
           } else {
-            oCtx.fillText("AI TARGET LOCKED: CANDIDATE #1", x, textY);
+            oCtx.fillText(`AI TARGET LOCKED: CANDIDATE #1 • ${currentMood}`, x, textY);
           }
 
           oCtx.strokeStyle = isDeflected ? "rgba(245, 158, 11, 0.9)" : "rgba(99, 102, 241, 0.8)";
@@ -989,10 +1101,15 @@ export default function TeacherOlympiadPage() {
                       <div className="absolute bottom-2 left-2 right-2 bg-slate-900/90 backdrop-blur-md p-2 rounded-xl text-[10px] font-mono text-slate-200 border border-white/10 flex items-center justify-between z-20">
                         <div className="flex items-center gap-1.5 font-bold">
                           <span className={`w-2 h-2 rounded-full ${faceDetected ? (gazeDeflected ? "bg-amber-500 animate-ping" : "bg-emerald-500 animate-pulse") : "bg-red-500 animate-ping"}`} />
-                          <span>{faceDetected ? (gazeDeflected ? "GAZE: LOOKING AWAY!" : "FACE: OK (1)") : "FACE: MISSING!"}</span>
+                          <span>{faceDetected ? "FACE: OK (1)" : "FACE: MISSING!"}</span>
+                          {faceDetected && (
+                            <span className="text-emerald-400 font-bold ml-1">
+                              &bull; {currentMood}
+                            </span>
+                          )}
                         </div>
                         <div className={`font-extrabold ${gazeDeflected ? "text-amber-400" : "text-indigo-300"}`}>
-                          {gazeDeflected ? "DEFLECTION DETECTED" : "GAZE: CENTER"}
+                          {gazeDeflected ? "GAZE: LOOKING AWAY" : "GAZE: CENTER"}
                         </div>
                       </div>
                     )}

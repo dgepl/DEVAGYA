@@ -399,6 +399,31 @@ class OlympiadService:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    def bulk_publish_submissions(self, paper_id: Optional[str] = None) -> Dict[str, Any]:
+        """Admin 1-click bulk publish results for all participants (optionally filtered by paper_id)."""
+        try:
+            if not SUBMISSIONS_FILE.exists():
+                return {"status": "error", "message": "No submissions found"}
+
+            with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
+                submissions = json.load(f)
+
+            count = 0
+            for s in submissions:
+                # Match paper_id or if no paper_id specified / default fallback
+                s_pid = s.get("paper_id", "paper-101")
+                if not paper_id or s_pid == paper_id or (paper_id == "paper-101" and s_pid in ["paper-101", "default", ""]):
+                    s["published"] = True
+                    s["review_status"] = "published"
+                    count += 1
+
+            with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
+                json.dump(submissions, f, indent=2)
+
+            return {"status": "success", "published_count": count, "submissions": submissions}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
     def get_published_results(self, teacher_email: Optional[str] = None) -> List[Dict[str, Any]]:
         """Fetch published results for public leaderboard or teacher result view."""
         try:

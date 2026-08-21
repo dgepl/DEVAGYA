@@ -133,6 +133,14 @@ async def update_olympiad_submission(sub_id: str, payload: UpdateSubmissionPaylo
         return result
     raise HTTPException(status_code=400, detail=result.get("message", "Failed to update submission"))
 
+@router.post("/olympiad/publish-all")
+async def bulk_publish_olympiad_results(paper_id: Optional[str] = Query(None)):
+    """1-Click publish all teacher results for an Olympiad paper."""
+    result = olympiad_service.bulk_publish_submissions(paper_id=paper_id)
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(status_code=400, detail=result.get("message", "Failed to bulk publish submissions"))
+
 @router.post("/olympiad/questions")
 async def add_olympiad_question(payload: AddQuestionPayload):
     """Add a new question to the Olympiad Question Bank."""

@@ -61,6 +61,8 @@ export default function SuperAdminPage() {
   const [editScore, setEditScore] = useState<number>(0);
   const [editFeedback, setEditFeedback] = useState<string>("");
   const [publishing, setPublishing] = useState<boolean>(false);
+  const [selectedPaperForSubmissions, setSelectedPaperForSubmissions] = useState<string | "all">("all");
+  const [bulkPublishing, setBulkPublishing] = useState<boolean>(false);
 
   // AI Prompt Generator Form State
   const [aiPromptText, setAiPromptText] = useState("Generate an official Class 10 CBSE Science Olympiad Assessment focusing on Light, Electricity, and Chemical Reactions. ALL QUESTIONS MUST BE MCQs ONLY.");
@@ -330,6 +332,34 @@ export default function SuperAdminPage() {
       }
     } catch (e) {
       alert("Failed to update Olympiad submission.");
+    }
+  };
+
+  // 1-Click Bulk Publish Olympiad Results for All Participants
+  const handleBulkPublishSubmissions = async (paperId?: string) => {
+    const targetId = paperId || (selectedPaperForSubmissions !== "all" ? selectedPaperForSubmissions : "");
+    if (!confirm(`Are you sure you want to publish results for all participants ${targetId ? `for paper (${targetId})` : "across all papers"} to the live public leaderboard?`)) {
+      return;
+    }
+    setBulkPublishing(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const query = targetId ? `?paper_id=${encodeURIComponent(targetId)}` : "";
+      const res = await fetch(`${baseUrl}/admin/olympiad/publish-all${query}`, {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg(`1-Click Publish Success! Published results for ${data.published_count || "all"} candidate(s) to Live Leaderboard! 🚀`);
+        fetchAdminData();
+        setTimeout(() => setActionMsg(null), 5000);
+      } else {
+        alert(data.detail || "Failed to bulk publish results.");
+      }
+    } catch (e) {
+      alert("Error executing bulk publish.");
+    } finally {
+      setBulkPublishing(false);
     }
   };
 
@@ -1102,15 +1132,107 @@ export default function SuperAdminPage() {
       {/* TAB 2: OLYMPIAD EVALUATION BOARD */}
       {adminTab === "olympiad" && (
         <div className="space-y-6">
+          {/* PAPER-WISE SELECTION STRIP */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-indigo-600" />
+                  Select Assessment Paper ({papersList.length})
+                </h4>
+                <p className="text-xs text-slate-500 font-medium">Click on a paper to view its candidate submissions &amp; 1-click publish results</p>
+              </div>
+
+              <button
+                onClick={() => handleBulkPublishSubmissions(selectedPaperForSubmissions)}
+                disabled={bulkPublishing || submissions.length === 0}
+                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>{bulkPublishing ? "Publishing..." : "Publish All Results (1-Click)"}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* ALL PAPERS OPTION */}
+              <div 
+                onClick={() => setSelectedPaperForSubmissions("all")}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                  selectedPaperForSubmissions === "all"
+                    ? "bg-indigo-50/80 border-indigo-500 shadow-md ring-2 ring-indigo-500/20"
+                    : "bg-white border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-900">All Papers Combined</span>
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-extrabold">
+                    {submissions.length} Total
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] text-slate-500 font-medium">
+                  {submissions.filter(s => s.published).length} Published &bull; {submissions.filter(s => !s.published).length} Pending Review
+                </div>
+              </div>
+
+              {/* INDIVIDUAL PAPERS */}
+              {papersList.map((paper) => {
+                const paperSubmissions = submissions.filter(s => (s.paper_id || "paper-101") === paper.id || (paper.id === "paper-101" && !s.paper_id));
+                const publishedCount = paperSubmissions.filter(s => s.published).length;
+                const isSelected = selectedPaperForSubmissions === paper.id;
+
+                return (
+                  <div
+                    key={paper.id}
+                    onClick={() => setSelectedPaperForSubmissions(paper.id)}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-indigo-50/80 border-indigo-500 shadow-md ring-2 ring-indigo-500/20"
+                        : "bg-white border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-black text-slate-900 truncate">{paper.title}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-extrabold shrink-0">
+                        {paperSubmissions.length} Subs
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-500 font-medium">
+                      {paper.class_name} &bull; {paper.subject}
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-[10px] font-bold">
+                      <span className="text-emerald-700 font-extrabold">{publishedCount} Published</span>
+                      <span className="text-amber-700">{paperSubmissions.length - publishedCount} Pending</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-500" />
-                  Teachers Skill Olympiad Submissions ({submissions.length})
+                  {selectedPaperForSubmissions === "all" ? "All Candidate Submissions" : `Submissions for: ${papersList.find(p => p.id === selectedPaperForSubmissions)?.title || selectedPaperForSubmissions}`}
+                  {" "}({
+                    (selectedPaperForSubmissions === "all"
+                      ? submissions
+                      : submissions.filter(s => (s.paper_id || "paper-101") === selectedPaperForSubmissions || (selectedPaperForSubmissions === "paper-101" && !s.paper_id))
+                    ).length
+                  })
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">Review proctored test scripts, anti-cheating warning logs, evaluate scores, and publish official results to leaderboard.</p>
               </div>
+
+              <button
+                onClick={() => handleBulkPublishSubmissions(selectedPaperForSubmissions)}
+                disabled={bulkPublishing}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer uppercase tracking-wider shrink-0"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>{bulkPublishing ? "Publishing..." : "Publish All For This Paper (1-Click)"}</span>
+              </button>
             </div>
 
             <div className="overflow-x-auto">
@@ -1118,6 +1240,7 @@ export default function SuperAdminPage() {
                 <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-200">
                   <tr>
                     <th className="p-3.5">Candidate Teacher</th>
+                    <th className="p-3.5">Paper / Subject</th>
                     <th className="p-3.5">Submitted At</th>
                     <th className="p-3.5">Proctoring Log</th>
                     <th className="p-3.5">Score</th>
@@ -1126,55 +1249,71 @@ export default function SuperAdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {submissions.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400 font-semibold">
-                        No teacher Olympiad submissions logged yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    submissions.map((sub) => (
-                      <tr key={sub.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-3.5 font-bold text-slate-900">
-                          <div className="font-extrabold text-slate-900">{sub.teacher_name}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">{sub.teacher_email}</div>
-                        </td>
-                        <td className="p-3.5 text-slate-600 font-mono text-[11px]">{sub.submitted_at}</td>
-                        <td className="p-3.5">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            sub.tab_switch_count === 0 
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : "bg-rose-50 text-rose-700 border border-rose-200"
-                          }`}>
-                            {sub.tab_switch_count === 0 ? "Clean Proctor" : `${sub.tab_switch_count} Tab Warnings`}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-black text-slate-900 text-sm">
-                          {sub.score_percentage}%
-                        </td>
-                        <td className="p-3.5">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                            sub.published ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                          }`}>
-                            {sub.published ? "Published" : "Pending Review"}
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-right">
-                          <button
-                            onClick={() => {
-                              setSelectedSub(sub);
-                              setEditScore(sub.score_percentage);
-                              setEditFeedback(sub.official_feedback || "");
-                              setPublishing(sub.published || false);
-                            }}
-                            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-black text-[11px] rounded-xl transition-all cursor-pointer"
-                          >
-                            Evaluate / Publish
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  {(() => {
+                    const currentSubs = selectedPaperForSubmissions === "all"
+                      ? submissions
+                      : submissions.filter(s => (s.paper_id || "paper-101") === selectedPaperForSubmissions || (selectedPaperForSubmissions === "paper-101" && !s.paper_id));
+
+                    if (currentSubs.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-slate-400 font-semibold">
+                            No teacher Olympiad submissions found for the selected paper.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return currentSubs.map((sub) => {
+                      const matchedPaper = papersList.find(p => p.id === (sub.paper_id || "paper-101"));
+
+                      return (
+                        <tr key={sub.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="font-extrabold text-slate-900">{sub.teacher_name}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">{sub.teacher_email}</div>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="font-bold text-slate-800 text-xs">{matchedPaper?.title || sub.paper_id || "Science Olympiad"}</span>
+                            <div className="text-[10px] text-slate-500 font-semibold">{matchedPaper?.class_name || "Class 10"} &bull; {matchedPaper?.subject || "Science"}</div>
+                          </td>
+                          <td className="p-3.5 text-slate-600 font-mono text-[11px]">{sub.submitted_at}</td>
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              sub.tab_switch_count === 0 
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                            }`}>
+                              {sub.tab_switch_count === 0 ? "Clean Proctor" : `${sub.tab_switch_count} Tab Warnings`}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-black text-slate-900 text-sm">
+                            {sub.score_percentage}%
+                          </td>
+                          <td className="p-3.5">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                              sub.published ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                            }`}>
+                              {sub.published ? "Published" : "Pending Review"}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right">
+                            <button
+                              onClick={() => {
+                                setSelectedSub(sub);
+                                setEditScore(sub.score_percentage);
+                                setEditFeedback(sub.official_feedback || "");
+                                setPublishing(sub.published || false);
+                              }}
+                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-black text-[11px] rounded-xl transition-all cursor-pointer"
+                            >
+                              Evaluate / Publish
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>
