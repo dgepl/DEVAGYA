@@ -133,8 +133,13 @@ export default function SuperAdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: adminUser.trim(), password: adminPass.trim() })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Authentication failed.");
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Fallback for non-JSON response
+      }
+      if (!res.ok) throw new Error(data.detail || `Server error (${res.status}). Please check backend status.`);
 
       setIsAuthenticated(true);
       fetchAdminData();
