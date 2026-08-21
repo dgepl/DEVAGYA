@@ -210,7 +210,6 @@ export default function TeacherOlympiadPage() {
         const frame = ctx.getImageData(0, 0, sw, sh);
         const data = frame.data;
 
-        let totalBrightness = 0;
         let skinPixels = 0;
         let minX = sw, minY = sh, maxX = 0, maxY = 0;
 
@@ -220,10 +219,13 @@ export default function TeacherOlympiadPage() {
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
-            const brightness = (r + g + b) / 3;
-            totalBrightness += brightness;
 
-            if (r > 60 && g > 40 && b > 20 && r > g && r > b) {
+            // YCbCr Chrominance Space Conversion
+            const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+            const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+
+            // Strict Human Skin Chrominance Bounds (filters out warm wall/ceiling paint & incandescent lights)
+            if (cb >= 80 && cb <= 126 && cr >= 133 && cr <= 173) {
               skinPixels++;
               if (x < minX) minX = x;
               if (x > maxX) maxX = x;
@@ -233,8 +235,18 @@ export default function TeacherOlympiadPage() {
           }
         }
 
-        const avgBrightness = totalBrightness / ((sw * sh) / 4);
-        const isFacePresent = avgBrightness > 15 && skinPixels > 5;
+        const boxW = Math.max(0, maxX - minX);
+        const boxH = Math.max(0, maxY - minY);
+        const boxRatio = boxH > 0 ? boxW / boxH : 0;
+        const frameWidthCoverage = boxW / sw;
+
+        // A true face must satisfy skin density, aspect ratio (0.5 to 1.4), and not cover > 60% of background wall
+        const isFacePresent = 
+          skinPixels > 25 && 
+          boxW >= 15 && boxH >= 15 && 
+          boxRatio >= 0.5 && boxRatio <= 1.4 && 
+          frameWidthCoverage < 0.62;
+
         setFaceDetected(isFacePresent);
 
         const dw = overlayCanvas.clientWidth || 320;
@@ -246,8 +258,8 @@ export default function TeacherOlympiadPage() {
         if (isFacePresent && maxX > minX && maxY > minY) {
           const rawX = (minX / sw) * dw;
           const rawY = (minY / sh) * dh;
-          const rawW = Math.max(60, ((maxX - minX) / sw) * dw);
-          const rawH = Math.max(60, ((maxY - minY) / sh) * dh);
+          const rawW = Math.max(50, (boxW / sw) * dw);
+          const rawH = Math.max(50, (boxH / sh) * dh);
 
           const curr = boxPosRef.current;
           curr.x += (rawX - curr.x) * 0.25;
