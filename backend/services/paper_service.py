@@ -103,10 +103,26 @@ class PaperService:
             paper_data["created_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
             paper_data["published"] = paper_data.get("published", True)
             
-            # Ensure all questions are forced to MCQ type
+            # Ensure all questions are forced to MCQ type and normalize correct_answer
             for idx, q in enumerate(paper_data.get("questions", [])):
                 q["question_type"] = "mcq"
                 q["question_number"] = idx + 1
+                
+                # Normalize correct_answer index
+                raw_corr = q.get("correct_answer")
+                corr_idx = 0
+                if isinstance(raw_corr, int):
+                    corr_idx = raw_corr
+                elif isinstance(raw_corr, str):
+                    if raw_corr.isdigit():
+                        corr_idx = int(raw_corr)
+                    elif raw_corr.strip().upper() in ["A", "B", "C", "D"]:
+                        corr_idx = ord(raw_corr.strip().upper()) - 65
+                q["correct_answer"] = corr_idx
+                
+                options = q.get("options", [])
+                if 0 <= corr_idx < len(options):
+                    q["answer"] = options[corr_idx]
 
             papers.insert(0, paper_data)
             with open(PAPERS_FILE, "w", encoding="utf-8") as f:

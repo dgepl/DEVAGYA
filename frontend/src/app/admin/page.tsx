@@ -222,12 +222,18 @@ export default function SuperAdminPage() {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
-      const formattedQuestions = manualQuestions.map((q, idx) => ({
-        ...q,
-        id: idx + 1,
-        question_number: idx + 1,
-        question_type: "mcq"
-      }));
+      const formattedQuestions = manualQuestions.map((q, idx) => {
+        const corrIdx = typeof q.correct_answer === "number" ? q.correct_answer : 0;
+        const corrText = q.options[corrIdx] || q.answer || `Option ${String.fromCharCode(65 + corrIdx)}`;
+        return {
+          ...q,
+          id: idx + 1,
+          question_number: idx + 1,
+          question_type: "mcq",
+          correct_answer: corrIdx,
+          answer: corrText
+        };
+      });
 
       const payload = {
         title: manualTitle.trim(),
@@ -291,8 +297,9 @@ export default function SuperAdminPage() {
         question_type: "mcq",
         question_text: "",
         marks: 1,
-        options: ["(A) ", "(B) ", "(C) ", "(D) "],
-        answer: "(A) ",
+        options: ["", "", "", ""],
+        correct_answer: 0,
+        answer: "",
         explanation: ""
       }
     ]);
@@ -987,35 +994,108 @@ export default function SuperAdminPage() {
                       </div>
 
                       {q.question_type === "mcq" && (
-                        <div className="space-y-1.5">
-                          <label className="block text-[10px] font-extrabold text-slate-600 uppercase">MCQ Options & Answer</label>
-                          {q.options.map((opt: string, optIdx: number) => (
-                            <input
-                              key={optIdx}
-                              type="text"
-                              value={opt}
-                              onChange={(e) => {
-                                const updated = [...manualQuestions];
-                                updated[qIdx].options[optIdx] = e.target.value;
-                                setManualQuestions(updated);
-                              }}
-                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1 text-xs font-semibold"
-                            />
-                          ))}
+                        <div className="space-y-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                            <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wider">
+                              MCQ Options &amp; Correct Answer Selection
+                            </label>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase">Correct Answer:</span>
+                              <select
+                                value={q.correct_answer ?? 0}
+                                onChange={(e) => {
+                                  const updated = [...manualQuestions];
+                                  const selectedIdx = parseInt(e.target.value);
+                                  updated[qIdx].correct_answer = selectedIdx;
+                                  updated[qIdx].answer = updated[qIdx].options[selectedIdx] || `Option ${String.fromCharCode(65 + selectedIdx)}`;
+                                  setManualQuestions(updated);
+                                }}
+                                className="bg-emerald-50 border border-emerald-300 text-emerald-800 font-extrabold text-xs rounded-xl px-3 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                              >
+                                <option value={0}>Option A (1st Option)</option>
+                                <option value={1}>Option B (2nd Option)</option>
+                                <option value={2}>Option C (3rd Option)</option>
+                                <option value={3}>Option D (4th Option)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {q.options.map((opt: string, optIdx: number) => {
+                              const isCorrect = (q.correct_answer ?? 0) === optIdx;
+                              const optLetter = String.fromCharCode(65 + optIdx);
+
+                              return (
+                                <div
+                                  key={optIdx}
+                                  className={`p-2.5 rounded-xl border transition-all flex items-center gap-3 ${
+                                    isCorrect 
+                                      ? "bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20" 
+                                      : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                                  }`}
+                                >
+                                  <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                                    <input
+                                      type="radio"
+                                      name={`correct_opt_${qIdx}`}
+                                      checked={isCorrect}
+                                      onChange={() => {
+                                        const updated = [...manualQuestions];
+                                        updated[qIdx].correct_answer = optIdx;
+                                        updated[qIdx].answer = opt || `Option ${optLetter}`;
+                                        setManualQuestions(updated);
+                                      }}
+                                      className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    />
+                                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${
+                                      isCorrect ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
+                                    }`}>
+                                      {optLetter}
+                                    </span>
+                                  </label>
+
+                                  <input
+                                    type="text"
+                                    required
+                                    value={opt}
+                                    placeholder={`Enter option ${optLetter} text...`}
+                                    onChange={(e) => {
+                                      const updated = [...manualQuestions];
+                                      updated[qIdx].options[optIdx] = e.target.value;
+                                      if ((updated[qIdx].correct_answer ?? 0) === optIdx) {
+                                        updated[qIdx].answer = e.target.value;
+                                      }
+                                      setManualQuestions(updated);
+                                    }}
+                                    className="flex-1 bg-transparent border-0 text-xs font-bold text-slate-900 focus:outline-none placeholder:text-slate-400"
+                                  />
+
+                                  {isCorrect && (
+                                    <span className="px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shrink-0">
+                                      ✅ Correct Option
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
 
                       <div>
-                        <label className="block text-[10px] font-extrabold text-slate-600 uppercase mb-1">Answer / Marking Scheme Solution</label>
+                        <label className="block text-[10px] font-extrabold text-slate-600 uppercase mb-1">
+                          Pedagogical Solution &amp; Explanation (Optional)
+                        </label>
                         <textarea
-                          value={q.answer}
+                          value={q.explanation || ""}
                           onChange={(e) => {
                             const updated = [...manualQuestions];
-                            updated[qIdx].answer = e.target.value;
+                            updated[qIdx].explanation = e.target.value;
                             setManualQuestions(updated);
                           }}
                           rows={2}
-                          placeholder="Model solution text..."
+                          placeholder="Provide pedagogical rationale or step-by-step marking key..."
                           className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
                         />
                       </div>

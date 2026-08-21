@@ -239,14 +239,20 @@ class OlympiadService:
 
             # Calculate actual score server side & construct detailed answer breakdown
             questions = []
+            target_paper = None
             try:
                 from services.paper_service import paper_service
-                papers = paper_service.get_all_papers()
-                if papers and papers[0].get("questions"):
-                    questions = papers[0]["questions"]
-                    paper_id = papers[0].get("id", paper_id)
+                if paper_id and paper_id != "paper-101":
+                    target_paper = paper_service.get_paper_by_id(paper_id)
+                if not target_paper:
+                    papers = paper_service.get_all_papers()
+                    if papers:
+                        target_paper = next((p for p in papers if p.get("id") == paper_id), papers[0])
+                if target_paper and target_paper.get("questions"):
+                    questions = target_paper["questions"]
+                    paper_id = target_paper.get("id", paper_id)
             except Exception as pe:
-                logger.warn(f"Could not load paper_service questions: {pe}")
+                logger.warning(f"Could not load paper_service questions: {pe}")
 
             if not questions and QUESTIONS_FILE.exists():
                 with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
@@ -262,8 +268,35 @@ class OlympiadService:
                 if user_ans_idx is None:
                     user_ans_idx = user_answers.get(q.get("id"))
 
-                correct_idx = q.get("correct_answer", 0)
                 options = q.get("options", [])
+
+                # Resolve correct_idx properly from correct_answer or answer text
+                raw_corr = q.get("correct_answer")
+                correct_idx = None
+
+                if raw_corr is not None:
+                    if isinstance(raw_corr, int):
+                        correct_idx = raw_corr
+                    elif isinstance(raw_corr, str):
+                        if raw_corr.isdigit():
+                            correct_idx = int(raw_corr)
+                        elif raw_corr.strip().upper() in ["A", "B", "C", "D"]:
+                            correct_idx = ord(raw_corr.strip().upper()) - 65
+
+                # Fallback: match answer string against options
+                if (correct_idx is None or correct_idx >= len(options)) and q.get("answer"):
+                    ans_text = str(q.get("answer")).strip().lower()
+                    for o_idx, opt in enumerate(options):
+                        opt_str = str(opt).strip().lower()
+                        if opt_str == ans_text or opt_str.replace("(a)", "").replace("(b)", "").replace("(c)", "").replace("(d)", "").strip() == ans_text:
+                            correct_idx = o_idx
+                            break
+                        if ans_text in [f"({chr(97+o_idx)})", chr(97+o_idx), f"option {chr(97+o_idx)}"]:
+                            correct_idx = o_idx
+                            break
+
+                if correct_idx is None:
+                    correct_idx = 0
 
                 is_correct = False
                 if user_ans_idx is not None:
