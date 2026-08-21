@@ -81,6 +81,9 @@ export default function TeacherOlympiadPage() {
   const [selectedBreakdownResult, setSelectedBreakdownResult] = useState<any | null>(null);
   const [breakdownFilter, setBreakdownFilter] = useState<"all" | "correct" | "wrong">("all");
 
+  // Live Ticker State for Real-Time Unlocking
+  const [nowTime, setNowTime] = useState<number>(Date.now());
+
   // 1. Fetch Questions & Active Paper Access Info
   const loadExamQuestions = async () => {
     setLoadingQuestions(true);
@@ -150,7 +153,22 @@ export default function TeacherOlympiadPage() {
     loadActivePaperInfo();
     loadPublishedResults();
     loadPreviousPapers();
-  }, []);
+
+    // Live 1-second ticker for real-time countdown & auto-unlocking
+    const ticker = setInterval(() => setNowTime(Date.now()), 1000);
+
+    // 3-second polling to fetch scheduled access window status changes
+    const statusPoll = setInterval(() => {
+      if (!examStarted && !examSubmitted) {
+        loadActivePaperInfo();
+      }
+    }, 3000);
+
+    return () => {
+      clearInterval(ticker);
+      clearInterval(statusPoll);
+    };
+  }, [examStarted, examSubmitted]);
 
   // 3. Setup Webcam Proctoring & Real-Time Canvas Analysis Loop
   const startWebcam = async () => {
@@ -482,9 +500,24 @@ export default function TeacherOlympiadPage() {
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const isExamAccessible = activePaperInfo 
-    ? (activePaperInfo.is_live || (!activePaperInfo.is_after && !activePaperInfo.is_before)) 
-    : true;
+  const secondsUntilUnlock = (() => {
+    if (!activePaperInfo || !activePaperInfo.paper || !activePaperInfo.paper.start_time) return 0;
+    const startMs = new Date(activePaperInfo.paper.start_time.replace(" ", "T")).getTime();
+    if (isNaN(startMs)) return 0;
+    const diff = Math.ceil((startMs - nowTime) / 1000);
+    return diff > 0 ? diff : 0;
+  })();
+
+  const isExamAccessible = (() => {
+    if (!activePaperInfo || !activePaperInfo.paper) return true;
+    if (secondsUntilUnlock > 0) return false;
+    const p = activePaperInfo.paper;
+    if (activePaperInfo.is_live) return true;
+    if (!p.end_time) return true;
+    const endMs = new Date(p.end_time.replace(" ", "T")).getTime();
+    if (isNaN(endMs)) return true;
+    return nowTime <= endMs;
+  })();
 
   // Filter breakdown items
   const getFilteredBreakdown = () => {
@@ -606,19 +639,23 @@ export default function TeacherOlympiadPage() {
               {/* SCHEDULED TIME-WINDOW ACCESS STATUS BANNER */}
               {activePaperInfo && (
                 <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                  activePaperInfo.is_live 
+                  isExamAccessible
                     ? "bg-emerald-50 border-emerald-300 text-emerald-900" 
-                    : activePaperInfo.is_before 
+                    : secondsUntilUnlock > 0 
                     ? "bg-amber-50 border-amber-300 text-amber-900" 
                     : "bg-rose-50 border-rose-300 text-rose-900"
                 }`}>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className={`w-2.5 h-2.5 rounded-full ${
-                        activePaperInfo.is_live ? "bg-emerald-600 animate-pulse" : activePaperInfo.is_before ? "bg-amber-600" : "bg-rose-600"
+                        isExamAccessible ? "bg-emerald-600 animate-pulse" : secondsUntilUnlock > 0 ? "bg-amber-600 animate-ping" : "bg-rose-600"
                       }`} />
                       <span className="text-xs font-black uppercase tracking-wider">
-                        {activePaperInfo.is_live ? "Assessment Access Status: LIVE NOW" : activePaperInfo.is_before ? "Assessment Status: SCHEDULED UPCOMING" : "Assessment Status: WINDOW CLOSED"}
+                        {isExamAccessible 
+                          ? "Assessment Access Status: LIVE NOW" 
+                          : secondsUntilUnlock > 0 
+                          ? `UPCOMING - Unlocks in ${formatTime(secondsUntilUnlock)}` 
+                          : "Assessment Status: WINDOW CLOSED"}
                       </span>
                     </div>
 
@@ -687,10 +724,20 @@ export default function TeacherOlympiadPage() {
                 <button
                   onClick={handleStartExam}
                   disabled={loadingQuestions || questions.length === 0 || !isExamAccessible}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 disabled:opacity-50 text-white font-extrabold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer"
+                  className={`w-full sm:w-auto px-8 py-3.5 text-white font-extrabold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer ${
+                    isExamAccessible
+                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95"
+                      : "bg-slate-400 opacity-60 cursor-not-allowed"
+                  }`}
                 >
                   <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>{isExamAccessible ? "Begin Proctored Exam" : "Exam Window Locked"}</span>
+                  <span>
+                    {isExamAccessible 
+                      ? "Begin Proctored Exam" 
+                      : secondsUntilUnlock > 0 
+                      ? `Unlocks in ${formatTime(secondsUntilUnlock)}` 
+                      : "Exam Window Closed"}
+                  </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

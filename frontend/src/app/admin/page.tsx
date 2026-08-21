@@ -67,12 +67,18 @@ export default function SuperAdminPage() {
   const [aiTitle, setAiTitle] = useState("Class 10 CBSE Science Olympiad Assessment");
   const [aiClass, setAiClass] = useState("Class 10");
   const [aiSubject, setAiSubject] = useState("Science");
+  const getLocalISOString = (offsetMs = 0) => {
+    const d = new Date(Date.now() + offsetMs);
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
   const [aiBoard, setAiBoard] = useState("CBSE");
   const [aiDifficulty, setAiDifficulty] = useState("medium");
   const [aiTotalMarks, setAiTotalMarks] = useState(20);
   const [aiTimeMins, setAiTimeMins] = useState(30);
-  const [aiStartTime, setAiStartTime] = useState(new Date().toISOString().slice(0, 16));
-  const [aiEndTime, setAiEndTime] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16));
+  const [aiStartTime, setAiStartTime] = useState(getLocalISOString(0));
+  const [aiEndTime, setAiEndTime] = useState(getLocalISOString(7 * 24 * 60 * 60 * 1000));
   const [generatingAiPaper, setGeneratingAiPaper] = useState(false);
 
   // Manual Paper Builder State
@@ -83,8 +89,8 @@ export default function SuperAdminPage() {
   const [manualSchool, setManualSchool] = useState("DEVGYA GLOBAL ACADEMY");
   const [manualMarks, setManualMarks] = useState(20);
   const [manualTime, setManualTime] = useState(30);
-  const [manualStartTime, setManualStartTime] = useState(new Date().toISOString().slice(0, 16));
-  const [manualEndTime, setManualEndTime] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16));
+  const [manualStartTime, setManualStartTime] = useState(getLocalISOString(0));
+  const [manualEndTime, setManualEndTime] = useState(getLocalISOString(7 * 24 * 60 * 60 * 1000));
   const [manualQuestions, setManualQuestions] = useState<any[]>([
     {
       id: 1,
