@@ -66,6 +66,7 @@ export default function TeacherOlympiadPage() {
   const animFrameRef = useRef<number | null>(null);
   const boxPosRef = useRef({ x: 40, y: 30, w: 80, h: 80 });
   const deflectionTimerRef = useRef(0);
+  const faceMissingStreakRef = useRef(0);
 
   // Active Scheduled Paper Access Info
   const [activePaperInfo, setActivePaperInfo] = useState<any>(null);
@@ -274,6 +275,8 @@ export default function TeacherOlympiadPage() {
         oCtx.clearRect(0, 0, dw, dh);
 
         if (isFacePresent && maxX > minX && maxY > minY) {
+          faceMissingStreakRef.current = 0;
+
           const rawX = (minX / sw) * dw;
           const rawY = (minY / sh) * dh;
           const rawW = Math.max(50, (boxW / sw) * dw);
@@ -310,23 +313,25 @@ export default function TeacherOlympiadPage() {
 
           const cornerLen = 14;
           const boxColor = isDeflected ? "#f59e0b" : "#10b981";
+          const textY = Math.max(18, y - 6);
+          const clampedY = Math.max(12, y);
 
           oCtx.strokeStyle = boxColor;
           oCtx.lineWidth = 3;
           oCtx.shadowColor = boxColor;
           oCtx.shadowBlur = 8;
 
-          oCtx.beginPath(); oCtx.moveTo(x, y + cornerLen); oCtx.lineTo(x, y); oCtx.lineTo(x + cornerLen, y); oCtx.stroke();
-          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y); oCtx.lineTo(x + w, y); oCtx.lineTo(x + w, y + cornerLen); oCtx.stroke();
-          oCtx.beginPath(); oCtx.moveTo(x, y + h - cornerLen); oCtx.lineTo(x, y + h); oCtx.lineTo(x + cornerLen, y + h); oCtx.stroke();
-          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, y + h); oCtx.lineTo(x + w, y + h); oCtx.lineTo(x + w, y + h - cornerLen); oCtx.stroke();
+          oCtx.beginPath(); oCtx.moveTo(x, clampedY + cornerLen); oCtx.lineTo(x, clampedY); oCtx.lineTo(x + cornerLen, clampedY); oCtx.stroke();
+          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, clampedY); oCtx.lineTo(x + w, clampedY); oCtx.lineTo(x + w, clampedY + cornerLen); oCtx.stroke();
+          oCtx.beginPath(); oCtx.moveTo(x, clampedY + h - cornerLen); oCtx.lineTo(x, clampedY + h); oCtx.lineTo(x + cornerLen, clampedY + h); oCtx.stroke();
+          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, clampedY + h); oCtx.lineTo(x + w, clampedY + h); oCtx.lineTo(x + w, clampedY + h - cornerLen); oCtx.stroke();
 
           oCtx.fillStyle = boxColor;
           oCtx.font = "bold 9px monospace";
           if (isDeflected) {
-            oCtx.fillText("GAZE WARNING: LOOKING AWAY!", x, Math.max(12, y - 6));
+            oCtx.fillText("GAZE WARNING: LOOKING AWAY!", x, textY);
           } else {
-            oCtx.fillText("AI TARGET LOCKED: CANDIDATE #1", x, Math.max(12, y - 6));
+            oCtx.fillText("AI TARGET LOCKED: CANDIDATE #1", x, textY);
           }
 
           oCtx.strokeStyle = isDeflected ? "rgba(245, 158, 11, 0.9)" : "rgba(99, 102, 241, 0.8)";
@@ -340,6 +345,8 @@ export default function TeacherOlympiadPage() {
           oCtx.beginPath(); oCtx.arc(cx + w * 0.18, cy - h * 0.15, 2.5, 0, Math.PI * 2); oCtx.fill();
 
         } else {
+          faceMissingStreakRef.current += 1;
+
           oCtx.strokeStyle = "#ef4444";
           oCtx.lineWidth = 3;
           oCtx.shadowColor = "#ef4444";
@@ -350,14 +357,11 @@ export default function TeacherOlympiadPage() {
           oCtx.font = "bold 11px monospace";
           oCtx.fillText("WARNING: FACE MISSING / STEPPED AWAY", 20, 30);
 
-          setFaceMissingCount(prev => {
-            const updated = prev + 1;
-            if (updated % 60 === 0) {
-              const timestamp = new Date().toLocaleTimeString();
-              setProctorLogs(logs => [`${timestamp} - AI Incident: Face Missing / Camera Covered`, ...logs]);
-            }
-            return updated;
-          });
+          if (faceMissingStreakRef.current === 45) { // ~0.75s continuous absence
+            setFaceMissingCount(prev => prev + 1);
+            const timestamp = new Date().toLocaleTimeString();
+            setProctorLogs(logs => [`${timestamp} - AI Incident: Face Missing / Camera Covered`, ...logs]);
+          }
         }
       }
     }
