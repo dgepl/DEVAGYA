@@ -424,6 +424,58 @@ class OlympiadService:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    def delete_submission(self, sub_id: str) -> Dict[str, Any]:
+        """Admin delete an Olympiad candidate submission/result."""
+        try:
+            if not SUBMISSIONS_FILE.exists():
+                return {"status": "error", "message": "No submissions found"}
+
+            with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
+                submissions = json.load(f)
+
+            initial_len = len(submissions)
+            submissions = [s for s in submissions if s.get("id") != sub_id]
+
+            if len(submissions) == initial_len:
+                return {"status": "error", "message": "Submission ID not found"}
+
+            with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
+                json.dump(submissions, f, indent=2)
+
+            return {"status": "success", "message": f"Submission {sub_id} successfully deleted"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def bulk_delete_submissions(self, paper_id: Optional[str] = None) -> Dict[str, Any]:
+        """Admin bulk delete submissions (optionally filtered by paper_id)."""
+        try:
+            if not SUBMISSIONS_FILE.exists():
+                return {"status": "error", "message": "No submissions found"}
+
+            with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
+                submissions = json.load(f)
+
+            initial_len = len(submissions)
+            if not paper_id or paper_id == "all":
+                deleted_count = initial_len
+                submissions = []
+            else:
+                remaining = []
+                for s in submissions:
+                    s_pid = s.get("paper_id", "paper-101")
+                    if s_pid == paper_id or (paper_id == "paper-101" and s_pid in ["paper-101", "default", ""]):
+                        continue
+                    remaining.append(s)
+                deleted_count = initial_len - len(remaining)
+                submissions = remaining
+
+            with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
+                json.dump(submissions, f, indent=2)
+
+            return {"status": "success", "deleted_count": deleted_count, "submissions": submissions}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
     def get_published_results(self, teacher_email: Optional[str] = None) -> List[Dict[str, Any]]:
         """Fetch published results for public leaderboard or teacher result view."""
         try:

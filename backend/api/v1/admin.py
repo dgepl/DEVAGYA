@@ -141,6 +141,22 @@ async def bulk_publish_olympiad_results(paper_id: Optional[str] = Query(None)):
         return result
     raise HTTPException(status_code=400, detail=result.get("message", "Failed to bulk publish submissions"))
 
+@router.delete("/olympiad/submissions/{sub_id}")
+async def delete_olympiad_submission(sub_id: str):
+    """Admin delete a candidate submission/result."""
+    result = olympiad_service.delete_submission(sub_id)
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(status_code=400, detail=result.get("message", "Failed to delete submission"))
+
+@router.delete("/olympiad/submissions")
+async def bulk_delete_olympiad_submissions(paper_id: Optional[str] = Query(None)):
+    """Admin bulk delete Olympiad candidate submissions/results."""
+    result = olympiad_service.bulk_delete_submissions(paper_id=paper_id)
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(status_code=400, detail=result.get("message", "Failed to delete submissions"))
+
 @router.post("/olympiad/questions")
 async def add_olympiad_question(payload: AddQuestionPayload):
     """Add a new question to the Olympiad Question Bank."""

@@ -63,12 +63,16 @@ export default function TeacherOlympiadPage() {
   const [fullscreenExits, setFullscreenExits] = useState(0);
   const [faceMissingCount, setFaceMissingCount] = useState(0);
   const [gazeDeflectionCount, setGazeDeflectionCount] = useState(0);
+  const [totalWarnings, setTotalWarnings] = useState(0);
+  const totalWarningsRef = useRef(0);
+  const lastWarningTimeRef = useRef(0);
   const [proctorLogs, setProctorLogs] = useState<string[]>([]);
   const [faceDetected, setFaceDetected] = useState(true);
   const [gazeDeflected, setGazeDeflected] = useState(false);
 
   const [warningModalOpen, setWarningModalOpen] = useState(false);
   const [warningMessage, setWarningMessage] = useState("");
+  const [currentWarningNum, setCurrentWarningNum] = useState(0);
   const [timeLeft, setTimeLeft] = useState(20 * 60); // 20 mins in seconds
   const [webcamActive, setWebcamActive] = useState(false);
 
@@ -325,6 +329,36 @@ export default function TeacherOlympiadPage() {
     }
   };
 
+  // Unified Anti-Cheating Violation Dispatcher (Counts all proctoring violations towards 3 max warnings)
+  const triggerProctorWarning = (reason: string, violationType: "gaze" | "face" | "tab" | "fullscreen") => {
+    const now = Date.now();
+    if (now - lastWarningTimeRef.current < 3500) {
+      return; // Cooldown to avoid multi-trigger from single event
+    }
+    lastWarningTimeRef.current = now;
+
+    const nextWarning = totalWarningsRef.current + 1;
+    totalWarningsRef.current = nextWarning;
+    setTotalWarnings(nextWarning);
+    setCurrentWarningNum(nextWarning);
+
+    if (violationType === "gaze") setGazeDeflectionCount(c => c + 1);
+    if (violationType === "face") setFaceMissingCount(c => c + 1);
+    if (violationType === "tab") setTabSwitchCount(c => c + 1);
+    if (violationType === "fullscreen") setFullscreenExits(c => c + 1);
+
+    const timestamp = new Date().toLocaleTimeString();
+    setProctorLogs(logs => [`${timestamp} - Security Warning (${nextWarning}/3): ${reason}`, ...logs]);
+    setWarningMessage(reason);
+    setWarningModalOpen(true);
+
+    if (nextWarning >= 3) {
+      setTimeout(() => {
+        handleFinalExamSubmission(nextWarning, `Auto-submitted due to 3 Proctored Security Violations: ${reason}`);
+      }, 1500);
+    }
+  };
+
   // 60 FPS Real-time Live Face & Eye Gaze Deflection Tracker Canvas
   const runProctorFrameAnalysis = () => {
     if (videoRef.current && canvasRef.current && overlayCanvasRef.current) {
@@ -389,25 +423,12 @@ export default function TeacherOlympiadPage() {
           finalRawY = (y / video.videoHeight) * dh;
           finalRawW = Math.max(55, (width / video.videoWidth) * dw);
           finalRawH = Math.max(55, (height / video.videoHeight) * dh);
-        } else {
-          // 2. Pixel Fallback Detector
-          const boxW = Math.max(0, maxX - minX);
-          const boxH = Math.max(0, maxY - minY);
-          const boxRatio = boxH > 0 ? boxW / boxH : 0;
-          const frameWidthCoverage = boxW / sw;
-
-          isFacePresent = 
-            skinPixels > 18 && 
-            boxW >= 12 && boxH >= 12 && 
-            boxRatio >= 0.45 && boxRatio <= 1.5 && 
-            frameWidthCoverage < 0.65;
-
-          if (isFacePresent && maxX > minX && maxY > minY) {
-            finalRawX = (minX / sw) * dw;
-            finalRawY = (minY / sh) * dh;
-            finalRawW = Math.max(50, (boxW / sw) * dw);
-            finalRawH = Math.max(50, (boxH / sh) * dh);
-          }
+        } else if (skinPixels > 10) {
+          isFacePresent = true;
+          finalRawX = (minX / sw) * dw;
+          finalRawY = (minY / sh) * dh;
+          finalRawW = Math.max(55, ((maxX - minX) / sw) * dw);
+          finalRawH = Math.max(55, ((maxY - minY) / sh) * dh);
         }
 
         setFaceDetected(isFacePresent);
@@ -415,13 +436,14 @@ export default function TeacherOlympiadPage() {
         if (isFacePresent) {
           faceMissingStreakRef.current = 0;
 
-          const curr = boxPosRef.current;
-          curr.x += (finalRawX - curr.x) * 0.3;
-          curr.y += (finalRawY - curr.y) * 0.3;
-          curr.w += (finalRawW - curr.w) * 0.3;
-          curr.h += (finalRawH - curr.h) * 0.3;
+          const smooth = 0.35;
+          const prevBox = boxPosRef.current;
+          const x = prevBox.x + (finalRawX - prevBox.x) * smooth;
+          const y = prevBox.y + (finalRawY - prevBox.y) * smooth;
+          const w = prevBox.w + (finalRawW - prevBox.w) * smooth;
+          const h = prevBox.h + (finalRawH - prevBox.h) * smooth;
+          boxPosRef.current = { x, y, w, h };
 
-          const { x, y, w, h } = curr;
           const cx = x + w / 2;
           const cy = y + h / 2;
 
@@ -439,12 +461,9 @@ export default function TeacherOlympiadPage() {
 
           if (isDeflected) {
             deflectionTimerRef.current += 1;
-            if (deflectionTimerRef.current === 35) {
-              const timestamp = new Date().toLocaleTimeString();
-              setGazeDeflectionCount(prev => prev + 1);
-              setProctorLogs(logs => [`${timestamp} - Security Alert: Head/Eye Deflection Detected (Looking away from exam screen)`, ...logs]);
-              setWarningMessage("SECURITY ALERT: Head/Eye Deflection Detected! You are looking away from the proctored exam screen. Please face forward towards your assessment.");
-              setWarningModalOpen(true);
+            if (deflectionTimerRef.current >= 30) {
+              deflectionTimerRef.current = 0;
+              triggerProctorWarning("Head/Eye Deflection Detected! You are looking away from the proctored exam screen. Please face forward towards your assessment.", "gaze");
             }
           } else {
             deflectionTimerRef.current = 0;
@@ -496,10 +515,9 @@ export default function TeacherOlympiadPage() {
           oCtx.font = "bold 11px monospace";
           oCtx.fillText("WARNING: FACE MISSING / STEPPED AWAY", 20, 30);
 
-          if (faceMissingStreakRef.current === 45) { // ~0.75s continuous absence
-            setFaceMissingCount(prev => prev + 1);
-            const timestamp = new Date().toLocaleTimeString();
-            setProctorLogs(logs => [`${timestamp} - AI Incident: Face Missing / Camera Covered`, ...logs]);
+          if (faceMissingStreakRef.current >= 40) { // ~0.7s continuous absence
+            faceMissingStreakRef.current = 0;
+            triggerProctorWarning("Face Missing / Camera Obstructed! Candidate must remain clearly visible in camera at all times.", "face");
           }
         }
       }
@@ -514,29 +532,13 @@ export default function TeacherOlympiadPage() {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        const timestamp = new Date().toLocaleTimeString();
-        setTabSwitchCount((prev) => {
-          const updated = prev + 1;
-          setProctorLogs(logs => [`${timestamp} - Security Incident: Tab Switched / Window Blurred (Warning ${updated}/3)`, ...logs]);
-          
-          if (updated >= 3) {
-            handleFinalExamSubmission(updated, "Auto-submitted due to 3 Tab-Switch Security Violations.");
-          } else {
-            setWarningMessage(`SECURITY ALERT (Warning ${updated}/3): You have navigated away from the proctored exam window! 3 violations will auto-terminate your test.`);
-            setWarningModalOpen(true);
-          }
-          return updated;
-        });
+        triggerProctorWarning("Tab Switched / Navigated away from the proctored exam window! Staying on exam screen is mandatory.", "tab");
       }
     };
 
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
-        const timestamp = new Date().toLocaleTimeString();
-        setFullscreenExits(prev => prev + 1);
-        setProctorLogs(logs => [`${timestamp} - Security Incident: Candidate Exited Fullscreen Mode`, ...logs]);
-        setWarningMessage("SECURITY ALERT: Fullscreen mode exited! Staying in full screen is mandatory for assessment integrity.");
-        setWarningModalOpen(true);
+        triggerProctorWarning("Candidate Exited Fullscreen Mode! Full screen mode is mandatory for assessment integrity.", "fullscreen");
       }
     };
 
@@ -596,6 +598,9 @@ export default function TeacherOlympiadPage() {
     setFullscreenExits(0);
     setFaceMissingCount(0);
     setGazeDeflectionCount(0);
+    setTotalWarnings(0);
+    totalWarningsRef.current = 0;
+    lastWarningTimeRef.current = 0;
     setProctorLogs([]);
     setTimeLeft(20 * 60);
     startWebcam();
@@ -619,6 +624,8 @@ export default function TeacherOlympiadPage() {
         tab_switch_count: switches,
         fullscreen_exits: fullscreenExits,
         face_missing_count: faceMissingCount,
+        gaze_deflection_count: gazeDeflectionCount,
+        total_warnings: totalWarningsRef.current || totalWarnings,
         webcam_active: webcamActive,
         proctor_logs: proctorLogs,
         submitted_at: new Date().toLocaleString()
@@ -978,9 +985,17 @@ export default function TeacherOlympiadPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-1.5 bg-red-50 text-red-700 px-3 py-1 rounded-xl border border-red-200">
-                      <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                      <span>Tab Warnings: {tabSwitchCount}/3</span>
+                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border font-black transition-all ${
+                      totalWarnings === 0 
+                        ? "bg-slate-50 text-slate-700 border-slate-200" 
+                        : totalWarnings === 1 
+                        ? "bg-amber-50 text-amber-800 border-amber-300 animate-pulse" 
+                        : totalWarnings === 2
+                        ? "bg-orange-50 text-orange-800 border-orange-400 animate-pulse"
+                        : "bg-rose-50 text-rose-800 border-rose-500 animate-bounce"
+                    }`}>
+                      <AlertTriangle className={`w-3.5 h-3.5 ${totalWarnings === 0 ? "text-slate-500" : "text-rose-600"}`} />
+                      <span>Security Warnings: {totalWarnings}/3</span>
                     </div>
 
                     <div className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200">
@@ -1527,6 +1542,48 @@ export default function TeacherOlympiadPage() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* REAL-TIME PROCTORING VIOLATION WARNING MODAL */}
+      {warningModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white border-2 border-rose-500 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 text-slate-900 font-sans relative overflow-hidden">
+            
+            <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 rounded-2xl bg-rose-100 border border-rose-300 text-rose-600 flex items-center justify-center mx-auto shadow-inner animate-bounce">
+                <AlertTriangle className="w-9 h-9" />
+              </div>
+
+              <div>
+                <span className="px-3 py-1 rounded-full bg-rose-600 text-white font-black text-xs uppercase tracking-wider">
+                  SECURITY WARNING {currentWarningNum} / 3
+                </span>
+                <h3 className="text-lg font-black text-slate-900 mt-2">Proctoring Violation Detected</h3>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200 text-xs font-semibold text-rose-900 leading-relaxed text-left">
+                {warningMessage}
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 font-medium">
+                {3 - currentWarningNum > 0 ? (
+                  <span>⚠️ You have <strong className="text-rose-700 font-extrabold">{3 - currentWarningNum} warning{3 - currentWarningNum > 1 ? "s" : ""}</strong> remaining before automatic test termination.</span>
+                ) : (
+                  <span className="text-rose-700 font-black">Maximum violations reached. Your test is being auto-submitted.</span>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setWarningModalOpen(false)}
+              className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all cursor-pointer uppercase tracking-wider"
+            >
+              I Understand &amp; Return to Assessment
+            </button>
           </div>
         </div>
       )}

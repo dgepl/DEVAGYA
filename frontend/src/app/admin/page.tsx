@@ -63,6 +63,8 @@ export default function SuperAdminPage() {
   const [publishing, setPublishing] = useState<boolean>(false);
   const [selectedPaperForSubmissions, setSelectedPaperForSubmissions] = useState<string | "all">("all");
   const [bulkPublishing, setBulkPublishing] = useState<boolean>(false);
+  const [deletingSubId, setDeletingSubId] = useState<string | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState<boolean>(false);
 
   // AI Prompt Generator Form State
   const [aiPromptText, setAiPromptText] = useState("Generate an official Class 10 CBSE Science Olympiad Assessment focusing on Light, Electricity, and Chemical Reactions. ALL QUESTIONS MUST BE MCQs ONLY.");
@@ -365,6 +367,62 @@ export default function SuperAdminPage() {
       alert("Error executing bulk publish.");
     } finally {
       setBulkPublishing(false);
+    }
+  };
+
+  // Delete single Olympiad Result/Submission
+  const handleDeleteSubmission = async (subId: string) => {
+    if (!confirm(`Are you sure you want to permanently delete submission #${subId}? This candidate's test attempt and record will be erased.`)) {
+      return;
+    }
+    setDeletingSubId(subId);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const res = await fetch(`${baseUrl}/admin/olympiad/submissions/${subId}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg(`Submission #${subId} successfully deleted.`);
+        if (selectedSub?.id === subId) setSelectedSub(null);
+        fetchAdminData();
+        setTimeout(() => setActionMsg(null), 4000);
+      } else {
+        alert(data.detail || "Failed to delete submission.");
+      }
+    } catch (e) {
+      alert("Error deleting submission.");
+    } finally {
+      setDeletingSubId(null);
+    }
+  };
+
+  // Bulk Delete Olympiad Submissions for Paper or All
+  const handleBulkDeleteSubmissions = async (paperId?: string) => {
+    const targetId = paperId || (selectedPaperForSubmissions !== "all" ? selectedPaperForSubmissions : "all");
+    const paperName = targetId === "all" ? "ALL papers" : `paper (${targetId})`;
+    if (!confirm(`⚠️ DANGER: Are you sure you want to PERMANENTLY DELETE ALL results for ${paperName}? This will reset previous candidate submissions.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const query = targetId !== "all" ? `?paper_id=${encodeURIComponent(targetId)}` : "?paper_id=all";
+      const res = await fetch(`${baseUrl}/admin/olympiad/submissions${query}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg(`Successfully deleted ${data.deleted_count ?? "all"} submission(s) for ${paperName}.`);
+        fetchAdminData();
+        setTimeout(() => setActionMsg(null), 5000);
+      } else {
+        alert(data.detail || "Failed to delete submissions.");
+      }
+    } catch (e) {
+      alert("Error deleting submissions.");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -1230,14 +1288,26 @@ export default function SuperAdminPage() {
                 <p className="text-xs text-slate-500 font-medium">Review proctored test scripts, anti-cheating warning logs, evaluate scores, and publish official results to leaderboard.</p>
               </div>
 
-              <button
-                onClick={() => handleBulkPublishSubmissions(selectedPaperForSubmissions)}
-                disabled={bulkPublishing}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer uppercase tracking-wider shrink-0"
-              >
-                <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>{bulkPublishing ? "Publishing..." : "Publish All For This Paper (1-Click)"}</span>
-              </button>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  onClick={() => handleBulkDeleteSubmissions(selectedPaperForSubmissions)}
+                  disabled={bulkDeleting || (selectedPaperForSubmissions === "all" ? submissions.length === 0 : submissions.filter(s => (s.paper_id || "paper-101") === selectedPaperForSubmissions || (selectedPaperForSubmissions === "paper-101" && !s.paper_id)).length === 0)}
+                  className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  title="Delete all candidate test submissions for this paper"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>{bulkDeleting ? "Deleting..." : "Delete All Results"}</span>
+                </button>
+
+                <button
+                  onClick={() => handleBulkPublishSubmissions(selectedPaperForSubmissions)}
+                  disabled={bulkPublishing}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer uppercase tracking-wider shrink-0"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>{bulkPublishing ? "Publishing..." : "Publish All For This Paper (1-Click)"}</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1303,17 +1373,28 @@ export default function SuperAdminPage() {
                             </span>
                           </td>
                           <td className="p-3.5 text-right">
-                            <button
-                              onClick={() => {
-                                setSelectedSub(sub);
-                                setEditScore(sub.score_percentage);
-                                setEditFeedback(sub.official_feedback || "");
-                                setPublishing(sub.published || false);
-                              }}
-                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-black text-[11px] rounded-xl transition-all cursor-pointer"
-                            >
-                              Evaluate / Publish
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedSub(sub);
+                                  setEditScore(sub.score_percentage);
+                                  setEditFeedback(sub.official_feedback || "");
+                                  setPublishing(sub.published || false);
+                                }}
+                                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-black text-[11px] rounded-xl transition-all cursor-pointer"
+                              >
+                                Evaluate / Publish
+                              </button>
+
+                              <button
+                                onClick={() => handleDeleteSubmission(sub.id)}
+                                disabled={deletingSubId === sub.id}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 hover:text-rose-700 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                                title={`Delete submission #${sub.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1390,9 +1471,20 @@ export default function SuperAdminPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-              <button onClick={() => setSelectedSub(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl">Cancel</button>
-              <button onClick={handleSaveSubmissionEvaluation} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider">Save & Update Result</button>
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              <button
+                onClick={() => handleDeleteSubmission(selectedSub.id)}
+                disabled={deletingSubId === selectedSub.id}
+                className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>Delete Result</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSelectedSub(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl">Cancel</button>
+                <button onClick={handleSaveSubmissionEvaluation} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider">Save & Update Result</button>
+              </div>
             </div>
           </div>
         </div>
