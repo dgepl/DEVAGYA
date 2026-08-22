@@ -1,10 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { WhySchoolsSection } from "@/components/landing/WhySchoolsSection";
 import { PageTransition } from "@/components/ui/PageTransition";
-import { Award, Layers, Cpu, GraduationCap, Building2, HeartHandshake, CheckCircle2 } from "lucide-react";
+import { 
+  Award, 
+  Layers, 
+  Cpu, 
+  GraduationCap, 
+  Building2, 
+  HeartHandshake, 
+  CheckCircle2, 
+  Sparkles, 
+  ArrowRight, 
+  Zap, 
+  ShieldCheck, 
+  Bot, 
+  Video 
+} from "lucide-react";
 
 export default function WhyChooseUsPage() {
   const whyUsPillars = [
@@ -52,14 +66,16 @@ export default function WhyChooseUsPage() {
       <PageTransition>
         <main className="flex-1 space-y-16 pb-20">
           
-          {/* HERO BANNER */}
-          <section className="relative py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-indigo-50/80 via-white to-slate-50 border-b border-indigo-100 overflow-hidden">
-            <div className="absolute top-0 left-1/3 w-96 h-96 bg-indigo-200/40 blur-[130px] rounded-full pointer-events-none" />
-            
+          {/* PROFESSIONALLY ENGAGING HERO BANNER */}
+          <section className="relative py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-indigo-50/80 via-white to-slate-50 border-b border-indigo-100/80 overflow-hidden">
+            {/* AMBIENT GLOW ORBS */}
+            <div className="absolute top-0 left-1/3 w-96 h-96 bg-indigo-200/30 blur-[130px] rounded-full pointer-events-none" />
+            <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-purple-200/30 blur-[120px] rounded-full pointer-events-none" />
+
             <div className="max-w-4xl mx-auto text-center space-y-6 relative z-10">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-800 text-xs font-extrabold shadow-xs">
-                <Award className="w-4 h-4 text-amber-500" />
-                <span className="uppercase tracking-widest">Why Choose Us</span>
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-100/90 border border-indigo-200 text-indigo-800 text-xs font-extrabold shadow-xs">
+                <Award className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="uppercase tracking-wider">Why Choose DEVGYA GLOBAL</span>
               </div>
 
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight text-slate-900">
@@ -70,8 +86,27 @@ export default function WhyChooseUsPage() {
               </h1>
 
               <p className="text-slate-700 text-base sm:text-lg leading-relaxed max-w-3xl mx-auto font-medium">
-                Choosing Devgya Global Edutech Private Limited means partnering with a trusted team dedicated to modernizing the educational experience. Here is why schools, teachers, and parents choose us:
+                Choosing Devgya Global Edutech Private Limited means partnering with a dedicated team committed to upgrading educational quality, empowering educators, and supporting student development under one unified platform. Here is why schools, teachers, and parents choose us:
               </p>
+
+              {/* AUTHENTIC CORE ADVANTAGE PILLS */}
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                {[
+                  { text: "360° Educational Ecosystem", icon: Layers },
+                  { text: "Smart OCR & AI Tools", icon: Cpu },
+                  { text: "Educator Empowerment", icon: GraduationCap },
+                  { text: "Reliable School Support", icon: Building2 },
+                  { text: "Holistic Student Growth", icon: HeartHandshake },
+                ].map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={idx} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200/80 shadow-xs text-xs font-bold text-slate-700">
+                      <Icon className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>{item.text}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </section>
 
@@ -82,7 +117,7 @@ export default function WhyChooseUsPage() {
                 const Icon = item.icon;
                 return (
                   <div 
-                    key={idx}
+                    key={idx} 
                     className="p-8 rounded-3xl bg-white border border-indigo-100 hover:border-indigo-300 transition-all space-y-4 shadow-md hover:shadow-xl flex flex-col justify-between group"
                   >
                     <div className="space-y-4">
@@ -113,9 +148,6 @@ export default function WhyChooseUsPage() {
               })}
             </div>
           </section>
-
-          {/* ADDITIONAL COMPARISON SECTION */}
-          <WhySchoolsSection />
 
         </main>
       </PageTransition>
