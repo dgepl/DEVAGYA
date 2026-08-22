@@ -84,6 +84,8 @@ export default function SuperAdminPage() {
   const [aiStartTime, setAiStartTime] = useState(getLocalISOString(0));
   const [aiEndTime, setAiEndTime] = useState(getLocalISOString(7 * 24 * 60 * 60 * 1000));
   const [generatingAiPaper, setGeneratingAiPaper] = useState(false);
+  const [aiDraftPaper, setAiDraftPaper] = useState<any | null>(null);
+  const [publishingAiPaper, setPublishingAiPaper] = useState(false);
 
   // Manual Paper Builder State
   const [manualTitle, setManualTitle] = useState("");
@@ -91,10 +93,11 @@ export default function SuperAdminPage() {
   const [manualSubject, setManualSubject] = useState("Science");
   const [manualBoard, setManualBoard] = useState("CBSE");
   const [manualSchool, setManualSchool] = useState("DEVGYA GLOBAL ACADEMY");
-  const [manualMarks, setManualMarks] = useState(20);
+  const [manualMarks, setManualMarks] = useState(1);
   const [manualTime, setManualTime] = useState(30);
   const [manualStartTime, setManualStartTime] = useState(getLocalISOString(0));
   const [manualEndTime, setManualEndTime] = useState(getLocalISOString(7 * 24 * 60 * 60 * 1000));
+  const [bulkAddCount, setBulkAddCount] = useState<number>(1);
   const [manualQuestions, setManualQuestions] = useState<any[]>([
     {
       id: 1,
@@ -103,6 +106,7 @@ export default function SuperAdminPage() {
       question_text: "What is the SI unit of electric current?",
       marks: 1,
       options: ["(A) Ampere", "(B) Volt", "(C) Ohm", "(D) Joule"],
+      correct_answer: 0,
       answer: "(A) Ampere",
       explanation: "Electric current is measured in Amperes (A)."
     }
@@ -169,7 +173,7 @@ export default function SuperAdminPage() {
     }
   };
 
-  // Generate Paper with AI via Prompt (100% MCQ Constraint + Time Scheduling)
+  // Generate Paper with AI via Prompt (Total Marks = Question Count, returns draft for review)
   const handleGenerateAiPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneratingAiPaper(true);
@@ -196,10 +200,8 @@ export default function SuperAdminPage() {
       });
       const data = await res.json();
       if (res.ok && data.paper) {
-        setActionMsg(`AI MCQ Paper "${data.paper.title}" generated and published with scheduled access window!`);
-        fetchAdminData();
-        setPreviewPaper(data.paper);
-        setPaperStudioSubTab("repository");
+        setAiDraftPaper(data.paper);
+        setActionMsg(`AI Paper "${data.paper.title}" generated with ${data.paper.questions?.length || aiTotalMarks} questions! You can now edit questions and click Publish.`);
         setTimeout(() => setActionMsg(null), 5000);
       } else {
         alert(data.detail || "Failed to generate paper with AI.");
@@ -208,6 +210,55 @@ export default function SuperAdminPage() {
       alert("Error calling AI Paper Generator.");
     } finally {
       setGeneratingAiPaper(false);
+    }
+  };
+
+  // Publish AI Draft Paper after Admin Review / Edits
+  const handlePublishAiDraftPaper = async () => {
+    if (!aiDraftPaper) return;
+    setPublishingAiPaper(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const formattedQuestions = (aiDraftPaper.questions || []).map((q: any, idx: number) => {
+        const corrIdx = typeof q.correct_answer === "number" ? q.correct_answer : 0;
+        const corrText = q.options[corrIdx] || q.answer || `Option ${String.fromCharCode(65 + corrIdx)}`;
+        return {
+          ...q,
+          id: idx + 1,
+          question_number: idx + 1,
+          question_type: "mcq",
+          marks: 1,
+          correct_answer: corrIdx,
+          answer: corrText
+        };
+      });
+
+      const payload = {
+        ...aiDraftPaper,
+        total_marks: formattedQuestions.length,
+        published: true,
+        questions: formattedQuestions
+      };
+
+      const res = await fetch(`${baseUrl}/admin/papers/manual`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.paper) {
+        setActionMsg(`AI Question Paper "${data.paper.title}" successfully published to Olympiad repository!`);
+        fetchAdminData();
+        setAiDraftPaper(null);
+        setPaperStudioSubTab("repository");
+        setTimeout(() => setActionMsg(null), 5000);
+      } else {
+        alert(data.detail || "Failed to publish paper.");
+      }
+    } catch (err) {
+      alert("Error publishing AI question paper.");
+    } finally {
+      setPublishingAiPaper(false);
     }
   };
 
@@ -230,6 +281,7 @@ export default function SuperAdminPage() {
           id: idx + 1,
           question_number: idx + 1,
           question_type: "mcq",
+          marks: 1,
           correct_answer: corrIdx,
           answer: corrText
         };
@@ -241,7 +293,7 @@ export default function SuperAdminPage() {
         subject: manualSubject,
         board: manualBoard,
         school_name: manualSchool,
-        total_marks: manualMarks,
+        total_marks: formattedQuestions.length,
         time_allowed_mins: manualTime,
         start_time: manualStartTime.replace("T", " ") + ":00",
         end_time: manualEndTime.replace("T", " ") + ":00",
@@ -259,7 +311,7 @@ export default function SuperAdminPage() {
       });
       const data = await res.json();
       if (res.ok && data.paper) {
-        setActionMsg(`Manual MCQ Paper "${data.paper.title}" constructed & scheduled!`);
+        setActionMsg(`Manual MCQ Paper "${data.paper.title}" constructed & published!`);
         fetchAdminData();
         setPaperStudioSubTab("repository");
         setTimeout(() => setActionMsg(null), 5000);
@@ -287,23 +339,32 @@ export default function SuperAdminPage() {
     }
   };
 
-  // Add Question to Manual Builder
-  const handleAddManualQuestion = () => {
-    setManualQuestions(prev => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        question_number: prev.length + 1,
-        question_type: "mcq",
-        question_text: "",
-        marks: 1,
-        options: ["", "", "", ""],
-        correct_answer: 0,
-        answer: "",
-        explanation: ""
+  // Add Multiple Questions to Manual Builder
+  const handleAddManualQuestions = (count = 1) => {
+    const numToAdd = Math.max(1, Math.min(50, count));
+    setManualQuestions(prev => {
+      const newQuestions = [...prev];
+      for (let i = 0; i < numToAdd; i++) {
+        const newNum = newQuestions.length + 1;
+        newQuestions.push({
+          id: newNum,
+          question_number: newNum,
+          question_type: "mcq",
+          question_text: "",
+          marks: 1,
+          options: ["", "", "", ""],
+          correct_answer: 0,
+          answer: "",
+          explanation: ""
+        });
       }
-    ]);
+      setManualMarks(newQuestions.length);
+      return newQuestions;
+    });
   };
+
+  // Add Single Question alias
+  const handleAddManualQuestion = () => handleAddManualQuestions(1);
 
   const handleDeleteUser = async (userId: string, userEmail: string) => {
     if (!confirm(`Are you sure you want to delete user ${userEmail}?`)) return;
@@ -736,11 +797,16 @@ export default function SuperAdminPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Total Marks</label>
+                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                      <span>Total Marks (Question Count)</span>
+                      <span className="text-[9px] text-indigo-600 font-black lowercase">1 mark = 1 question</span>
+                    </label>
                     <input
                       type="number"
+                      min={1}
+                      max={100}
                       value={aiTotalMarks}
-                      onChange={(e) => setAiTotalMarks(parseInt(e.target.value))}
+                      onChange={(e) => setAiTotalMarks(Math.max(1, parseInt(e.target.value) || 1))}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
                     />
                   </div>
@@ -749,8 +815,9 @@ export default function SuperAdminPage() {
                     <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Time Allowed (Mins)</label>
                     <input
                       type="number"
+                      min={5}
                       value={aiTimeMins}
-                      onChange={(e) => setAiTimeMins(parseInt(e.target.value))}
+                      onChange={(e) => setAiTimeMins(parseInt(e.target.value) || 30)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
                     />
                   </div>
@@ -792,9 +859,234 @@ export default function SuperAdminPage() {
                   className="w-full py-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-black text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer disabled:opacity-50 transition-all"
                 >
                   {generatingAiPaper ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 text-amber-300" />}
-                  <span>{generatingAiPaper ? "Generating Paper with AI..." : "Generate Question Paper with AI"}</span>
+                  <span>{generatingAiPaper ? `Synthesizing ${aiTotalMarks} MCQ Questions with AI...` : `Generate ${aiTotalMarks} Questions Paper with AI`}</span>
                 </button>
               </form>
+
+              {/* AI DRAFT REVIEW & LIVE QUESTION EDITOR */}
+              {aiDraftPaper && (
+                <div className="p-6 rounded-3xl border-2 border-indigo-300 bg-gradient-to-b from-indigo-50/50 via-white to-white shadow-xl space-y-6 animate-in fade-in duration-300">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-100 pb-4">
+                    <div>
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase tracking-wider mb-2">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        AI Paper Draft Ready — Review, Edit &amp; Publish
+                      </div>
+                      <h3 className="text-xl font-black text-slate-900">{aiDraftPaper.title}</h3>
+                      <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                        {aiDraftPaper.class_name} • {aiDraftPaper.subject} • {aiDraftPaper.board} • {aiDraftPaper.questions?.length || 0} Questions ({aiDraftPaper.questions?.length || 0} Marks)
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setAiDraftPaper(null)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-extrabold text-xs transition-all cursor-pointer"
+                      >
+                        Discard Draft
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={publishingAiPaper}
+                        onClick={handlePublishAiDraftPaper}
+                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-2 uppercase tracking-wider transition-all cursor-pointer active:scale-95"
+                      >
+                        {publishingAiPaper ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                        <span>Publish Paper to Olympiad</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* EDITABLE QUESTIONS LIST */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                        Generated Questions ({aiDraftPaper.questions?.length || 0})
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updatedQ = [...(aiDraftPaper.questions || [])];
+                          const newNum = updatedQ.length + 1;
+                          updatedQ.push({
+                            id: newNum,
+                            question_number: newNum,
+                            question_type: "mcq",
+                            question_text: "",
+                            marks: 1,
+                            options: ["", "", "", ""],
+                            correct_answer: 0,
+                            answer: "",
+                            explanation: ""
+                          });
+                          setAiDraftPaper({ ...aiDraftPaper, questions: updatedQ, total_marks: updatedQ.length });
+                        }}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Question</span>
+                      </button>
+                    </div>
+
+                    {aiDraftPaper.questions?.map((q: any, qIdx: number) => (
+                      <div key={qIdx} className="p-5 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">
+                            Question #{qIdx + 1} (1 Mark)
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedQ = aiDraftPaper.questions.filter((_: any, idx: number) => idx !== qIdx);
+                              setAiDraftPaper({ ...aiDraftPaper, questions: updatedQ, total_marks: updatedQ.length });
+                            }}
+                            className="text-slate-400 hover:text-red-600 text-xs font-bold cursor-pointer"
+                          >
+                            Remove Question
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-extrabold text-slate-600 uppercase mb-1">Question Prompt Text</label>
+                          <textarea
+                            required
+                            value={q.question_text}
+                            onChange={(e) => {
+                              const updated = [...aiDraftPaper.questions];
+                              updated[qIdx].question_text = e.target.value;
+                              setAiDraftPaper({ ...aiDraftPaper, questions: updated });
+                            }}
+                            rows={2}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900"
+                          />
+                        </div>
+
+                        {/* MCQ OPTIONS & RADIO BUTTONS */}
+                        <div className="space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-200">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                            <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wider">
+                              MCQ Options &amp; Correct Answer Key
+                            </label>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase">Correct Answer:</span>
+                              <select
+                                value={q.correct_answer ?? 0}
+                                onChange={(e) => {
+                                  const updated = [...aiDraftPaper.questions];
+                                  const selectedIdx = parseInt(e.target.value);
+                                  updated[qIdx].correct_answer = selectedIdx;
+                                  updated[qIdx].answer = updated[qIdx].options[selectedIdx] || `Option ${String.fromCharCode(65 + selectedIdx)}`;
+                                  setAiDraftPaper({ ...aiDraftPaper, questions: updated });
+                                }}
+                                className="bg-emerald-50 border border-emerald-300 text-emerald-800 font-extrabold text-xs rounded-xl px-3 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                              >
+                                <option value={0}>Option A (1st Option)</option>
+                                <option value={1}>Option B (2nd Option)</option>
+                                <option value={2}>Option C (3rd Option)</option>
+                                <option value={3}>Option D (4th Option)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {(q.options || ["", "", "", ""]).map((opt: string, optIdx: number) => {
+                              const isCorrect = (q.correct_answer ?? 0) === optIdx;
+                              const optLetter = String.fromCharCode(65 + optIdx);
+
+                              return (
+                                <div
+                                  key={optIdx}
+                                  className={`p-2.5 rounded-xl border transition-all flex items-center gap-3 ${
+                                    isCorrect 
+                                      ? "bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20" 
+                                      : "bg-white border-slate-200 hover:border-slate-300"
+                                  }`}
+                                >
+                                  <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                                    <input
+                                      type="radio"
+                                      name={`ai_draft_correct_opt_${qIdx}`}
+                                      checked={isCorrect}
+                                      onChange={() => {
+                                        const updated = [...aiDraftPaper.questions];
+                                        updated[qIdx].correct_answer = optIdx;
+                                        updated[qIdx].answer = opt || `Option ${optLetter}`;
+                                        setAiDraftPaper({ ...aiDraftPaper, questions: updated });
+                                      }}
+                                      className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    />
+                                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${
+                                      isCorrect ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
+                                    }`}>
+                                      {optLetter}
+                                    </span>
+                                  </label>
+
+                                  <input
+                                    type="text"
+                                    required
+                                    value={opt}
+                                    placeholder={`Enter option ${optLetter} text...`}
+                                    onChange={(e) => {
+                                      const updated = [...aiDraftPaper.questions];
+                                      updated[qIdx].options[optIdx] = e.target.value;
+                                      if ((updated[qIdx].correct_answer ?? 0) === optIdx) {
+                                        updated[qIdx].answer = e.target.value;
+                                      }
+                                      setAiDraftPaper({ ...aiDraftPaper, questions: updated });
+                                    }}
+                                    className="flex-1 bg-transparent border-0 text-xs font-bold text-slate-900 focus:outline-none placeholder:text-slate-400"
+                                  />
+
+                                  {isCorrect && (
+                                    <span className="px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shrink-0">
+                                      ✅ Correct Option
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-extrabold text-slate-600 uppercase mb-1">
+                            Pedagogical Solution &amp; Explanation
+                          </label>
+                          <textarea
+                            value={q.explanation || ""}
+                            onChange={(e) => {
+                              const updated = [...aiDraftPaper.questions];
+                              updated[qIdx].explanation = e.target.value;
+                              setAiDraftPaper({ ...aiDraftPaper, questions: updated });
+                            }}
+                            rows={2}
+                            placeholder="Reasoning explanation..."
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* BOTTOM PUBLISH ACTION */}
+                  <div className="pt-4 border-t border-indigo-100 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      disabled={publishingAiPaper}
+                      onClick={handlePublishAiDraftPaper}
+                      className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-2xl shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      {publishingAiPaper ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                      <span>Publish Paper to Olympiad</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -864,12 +1156,15 @@ export default function SuperAdminPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Total Marks</label>
+                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                      <span>Total Marks</span>
+                      <span className="text-[9px] text-indigo-600 font-black lowercase">{manualQuestions.length} questions = {manualQuestions.length} marks</span>
+                    </label>
                     <input
                       type="number"
-                      value={manualMarks}
-                      onChange={(e) => setManualMarks(parseInt(e.target.value))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                      readOnly
+                      value={manualQuestions.length}
+                      className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 cursor-not-allowed"
                     />
                   </div>
 
@@ -916,29 +1211,77 @@ export default function SuperAdminPage() {
 
                 {/* QUESTIONS BUILDER LIST */}
                 <div className="space-y-4 pt-2">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Construct Questions ({manualQuestions.length})</h4>
-                    <button
-                      type="button"
-                      onClick={handleAddManualQuestion}
-                      className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Question</span>
-                    </button>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                        Construct Questions ({manualQuestions.length}) • Total Marks: {manualQuestions.length}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-medium">1 Mark allocated per MCQ question</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-xl border border-slate-200">
+                        <span className="text-[10px] font-extrabold text-slate-600 uppercase">Quantity:</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          value={bulkAddCount}
+                          onChange={(e) => setBulkAddCount(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-12 bg-white border border-slate-300 rounded-lg px-2 py-0.5 text-xs font-black text-slate-900 text-center"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleAddManualQuestions(bulkAddCount)}
+                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add {bulkAddCount > 1 ? `${bulkAddCount} Questions` : "Question"}</span>
+                      </button>
+
+                      <div className="hidden sm:flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleAddManualQuestions(1)}
+                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                        >
+                          +1
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddManualQuestions(5)}
+                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                        >
+                          +5
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddManualQuestions(10)}
+                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                        >
+                          +10
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {manualQuestions.map((q, qIdx) => (
                     <div key={qIdx} className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="font-extrabold text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">
-                          Question #{qIdx + 1}
+                          Question #{qIdx + 1} (1 Mark)
                         </span>
 
                         <button
                           type="button"
-                          onClick={() => setManualQuestions(manualQuestions.filter((_, idx) => idx !== qIdx))}
-                          className="text-slate-400 hover:text-red-600 text-xs font-bold"
+                          onClick={() => {
+                            const updated = manualQuestions.filter((_, idx) => idx !== qIdx);
+                            setManualQuestions(updated);
+                            setManualMarks(updated.length);
+                          }}
+                          className="text-slate-400 hover:text-red-600 text-xs font-bold cursor-pointer"
                         >
                           Remove Question
                         </button>

@@ -147,26 +147,31 @@ class PaperService:
         end_time: Optional[str] = None,
         school_name: str = "DEVGYA GLOBAL EDUTECH"
     ) -> Dict[str, Any]:
-        """Generate STRICT 100% MCQ question paper JSON from Admin text prompt using Groq AI provider."""
+        """Generate STRICT 100% MCQ question paper JSON from Admin text prompt with exact Question Count = Total Marks."""
         prompt = f"""
 You are DEVGYA's Master Assessment Synthesizer for {board} {class_name} {subject}.
-Generate an official Examination Question Paper strictly containing ONLY Multiple Choice Questions (MCQs) based on this prompt:
+Generate an official Examination Question Paper strictly containing ONLY Multiple Choice Questions (MCQs) based on this topic specification:
 
-Admin Custom Prompt: "{prompt_text}"
+Admin Custom Prompt / Focus: "{prompt_text}"
 
-Paper Details:
+Paper Specifications:
 - Title: {title}
 - Target Grade: {class_name}
 - Subject: {subject}
 - Board: {board}
 - Difficulty: {difficulty}
 - Total Marks: {total_marks}
+- Exact Question Count: {total_marks} questions (1 mark each, so total number of questions MUST EQUAL {total_marks})
 - Time Allowed: {time_allowed_mins} minutes
 - School Name: {school_name}
 
-MANDATORY CONSTRAINT:
-- ALL QUESTIONS MUST BE 100% MULTIPLE CHOICE QUESTIONS (MCQs). DO NOT INCLUDE ANY SHORT OR LONG ANSWER QUESTIONS.
-- Every question MUST have exactly 4 options: (A), (B), (C), (D).
+MANDATORY RULES:
+1. You MUST generate EXACTLY {total_marks} MCQ questions in the "questions" array.
+2. Every question carries exactly 1 mark (Total Marks = {total_marks}).
+3. Every question MUST have 4 distinct options: ["(A) ...", "(B) ...", "(C) ...", "(D) ..."]
+4. "correct_answer" must be the 0-based integer index of the correct option (0 for A, 1 for B, 2 for C, 3 for D).
+5. "answer" must contain the text of the correct option.
+6. Provide a concise conceptual "explanation" for each question.
 
 You MUST respond strictly with a valid JSON object matching this exact structure:
 {{
@@ -179,35 +184,26 @@ You MUST respond strictly with a valid JSON object matching this exact structure
   "time_allowed_mins": {time_allowed_mins},
   "school_name": "{school_name}",
   "instructions": [
-    "All questions are compulsory Multiple Choice Questions (MCQs).",
-    "Select the single correct option for each question."
+    "All {total_marks} questions are compulsory Multiple Choice Questions (MCQs).",
+    "Each question carries 1 mark. Select the single correct option for each question."
   ],
   "questions": [
     {{
       "id": 1,
       "question_number": 1,
       "question_type": "mcq",
-      "question_text": "Sample MCQ Question Text?",
+      "question_text": "Question text here?",
       "marks": 1,
-      "options": ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"],
-      "answer": "(A) Option 1",
-      "explanation": "NCERT conceptual reason explanation."
-    }},
-    {{
-      "id": 2,
-      "question_number": 2,
-      "question_type": "mcq",
-      "question_text": "Second Sample MCQ Question Text?",
-      "marks": 1,
-      "options": ["(A) Choice 1", "(B) Choice 2", "(C) Choice 3", "(D) Choice 4"],
-      "answer": "(B) Choice 2",
-      "explanation": "Detailed explanation."
+      "options": ["(A) Option A text", "(B) Option B text", "(C) Option C text", "(D) Option D text"],
+      "correct_answer": 0,
+      "answer": "(A) Option A text",
+      "explanation": "Conceptual explanation why this option is correct."
     }}
   ]
 }}
 """
         messages = [
-            {"role": "system", "content": "You are a specialized AI question paper synthesizer. Return strictly JSON containing ONLY MCQ questions."},
+            {"role": "system", "content": f"You are a specialized AI question paper synthesizer. Generate exactly {total_marks} MCQ questions matching the requested total marks (1 mark each). Return strictly valid JSON."},
             {"role": "user", "content": prompt}
         ]
 
@@ -227,20 +223,32 @@ You MUST respond strictly with a valid JSON object matching this exact structure
             paper_json["id"] = new_id
             paper_json["source"] = "ai_prompt"
             paper_json["created_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-            paper_json["published"] = True
+            paper_json["published"] = False  # Draft state until admin reviews and publishes
             paper_json["start_time"] = start_time or time.strftime("%Y-%m-%d %H:%M:%S")
             paper_json["end_time"] = end_time or "2026-12-31 23:59:59"
+            paper_json["total_marks"] = len(paper_json.get("questions", [])) or total_marks
 
-            # Enforce 100% MCQ type
+            # Enforce 100% MCQ type, 1 mark per question, and normalized correct_answer
             for idx, q in enumerate(paper_json.get("questions", [])):
+                q["id"] = idx + 1
                 q["question_type"] = "mcq"
                 q["question_number"] = idx + 1
+                q["marks"] = 1
 
-            # Save to repository
-            papers = self.get_all_papers()
-            papers.insert(0, paper_json)
-            with open(PAPERS_FILE, "w", encoding="utf-8") as f:
-                json.dump(papers, f, indent=2)
+                raw_corr = q.get("correct_answer")
+                corr_idx = 0
+                if isinstance(raw_corr, int):
+                    corr_idx = raw_corr
+                elif isinstance(raw_corr, str):
+                    if raw_corr.isdigit():
+                        corr_idx = int(raw_corr)
+                    elif raw_corr.strip().upper() in ["A", "B", "C", "D"]:
+                        corr_idx = ord(raw_corr.strip().upper()) - 65
+                q["correct_answer"] = corr_idx
+
+                options = q.get("options", [])
+                if 0 <= corr_idx < len(options):
+                    q["answer"] = options[corr_idx]
 
             return {"status": "success", "paper": paper_json}
         except Exception as e:

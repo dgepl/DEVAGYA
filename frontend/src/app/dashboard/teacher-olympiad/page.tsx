@@ -411,7 +411,7 @@ export default function TeacherOlympiadPage() {
 
         // 1. Check Neural Detection First (Real AI CNN Model)
         const neuralDetection = lastNeuralFaceRef.current;
-        const isNeuralFresh = neuralDetection && (Date.now() - neuralDetection.timestamp < 1200);
+        const isNeuralFresh = neuralDetection && (Date.now() - neuralDetection.timestamp < 2000);
 
         let isFacePresent = false;
         let finalRawX = 0, finalRawY = 0, finalRawW = 0, finalRawH = 0;
@@ -423,7 +423,7 @@ export default function TeacherOlympiadPage() {
           finalRawY = (y / video.videoHeight) * dh;
           finalRawW = Math.max(55, (width / video.videoWidth) * dw);
           finalRawH = Math.max(55, (height / video.videoHeight) * dh);
-        } else if (skinPixels > 10) {
+        } else if (skinPixels > 6) {
           isFacePresent = true;
           finalRawX = (minX / sw) * dw;
           finalRawY = (minY / sh) * dh;
@@ -447,23 +447,27 @@ export default function TeacherOlympiadPage() {
           const cx = x + w / 2;
           const cy = y + h / 2;
 
-          // Calibrated baseline face center tracking
+          // Adaptive baseline center tracking (adapts to natural sitting posture adjustments)
           if (baseCenterXRef.current === null) {
             baseCenterXRef.current = cx;
+          } else {
+            // Smoothly update baseline when candidate is in normal central area
+            baseCenterXRef.current = baseCenterXRef.current * 0.96 + cx * 0.04;
           }
 
           const dx = Math.abs(cx - baseCenterXRef.current) / dw;
           const dy = Math.abs(cy - dh / 2) / dh;
 
-          // Trigger deflection if head/eyes turn left, right, up, or down > 12%
-          const isDeflected = dx > 0.12 || dy > 0.14;
+          // Real head turn deflection: candidate turns head > 30% away from monitor or leaves screen bounds
+          const isDeflected = dx > 0.30 || dy > 0.32 || cx < dw * 0.10 || cx > dw * 0.90;
           setGazeDeflected(isDeflected);
 
           if (isDeflected) {
             deflectionTimerRef.current += 1;
-            if (deflectionTimerRef.current >= 30) {
+            // Only trigger warning if candidate turns away continuously for ~3.5 seconds (200 frames @ 60 FPS)
+            if (deflectionTimerRef.current >= 200) {
               deflectionTimerRef.current = 0;
-              triggerProctorWarning("Head/Eye Deflection Detected! You are looking away from the proctored exam screen. Please face forward towards your assessment.", "gaze");
+              triggerProctorWarning("Head/Eye Deflection Detected! You are turned away from the proctored exam screen. Please face forward towards your assessment.", "gaze");
             }
           } else {
             deflectionTimerRef.current = 0;
@@ -487,7 +491,7 @@ export default function TeacherOlympiadPage() {
           oCtx.fillStyle = boxColor;
           oCtx.font = "bold 9px monospace";
           if (isDeflected) {
-            oCtx.fillText("GAZE WARNING: LOOKING AWAY!", x, textY);
+            oCtx.fillText("GAZE WARNING: TURNED AWAY!", x, textY);
           } else {
             oCtx.fillText(`AI TARGET LOCKED: CANDIDATE #1 • ${currentMood}`, x, textY);
           }
@@ -515,7 +519,8 @@ export default function TeacherOlympiadPage() {
           oCtx.font = "bold 11px monospace";
           oCtx.fillText("WARNING: FACE MISSING / STEPPED AWAY", 20, 30);
 
-          if (faceMissingStreakRef.current >= 40) { // ~0.7s continuous absence
+          // Only trigger if candidate is completely absent for ~3.5 seconds (200 frames @ 60 FPS)
+          if (faceMissingStreakRef.current >= 200) {
             faceMissingStreakRef.current = 0;
             triggerProctorWarning("Face Missing / Camera Obstructed! Candidate must remain clearly visible in camera at all times.", "face");
           }
