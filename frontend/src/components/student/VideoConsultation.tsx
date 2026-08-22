@@ -43,6 +43,74 @@ const EXPR_EMOJI: Record<string, string> = {
   neutral: "😐", angry: "😠", fearful: "😨",
 };
 
+// Helper: Clean markdown, bullets, code, and emojis so speech sounds 100% natural without reciting symbols
+function cleanTextForSpeech(rawText: string): string {
+  if (!rawText) return "";
+  let clean = rawText;
+
+  // Remove code blocks and inline code
+  clean = clean.replace(/```[\s\S]*?```/g, "");
+  clean = clean.replace(/`([^`]+)`/g, "$1");
+  // Remove markdown links [text](url) -> text
+  clean = clean.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  // Remove bold/italic markdown asterisks & underscores
+  clean = clean.replace(/(\*\*|__)(.*?)\1/g, "$2");
+  clean = clean.replace(/(\*|_)(.*?)\1/g, "$2");
+  // Remove markdown headers (# Title -> Title)
+  clean = clean.replace(/^#+\s+/gm, "");
+  // Remove list bullets (- item, * item, 1. item -> item)
+  clean = clean.replace(/^[-*•]\s+/gm, "");
+  clean = clean.replace(/^[0-9]+\.\s+/gm, "");
+  clean = clean.replace(/>\s+/gm, "");
+  clean = clean.replace(/[#_~*`]/g, "");
+
+  // Remove emojis & decorative icons
+  clean = clean.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, "");
+
+  // Normalize whitespace & linebreaks into natural sentence pauses
+  clean = clean.replace(/\n+/g, ". ").replace(/\s{2,}/g, " ").trim();
+  return clean;
+}
+
+// Helper: Pick high-quality Natural/Neural AI voices from browser speechSynthesis
+function getBestNaturalVoice(ttsLang: string, langCode: string): SpeechSynthesisVoice | null {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  const isHindiOrHinglish = langCode === "hindi" || langCode === "hinglish" || ttsLang.startsWith("hi");
+
+  if (isHindiOrHinglish) {
+    // Top priority: Indian Hindi natural/neural voices (Microsoft Swara/Madhur/Kalpana, Google हिन्दी)
+    const hindiNeural = voices.find(v => v.lang.startsWith("hi") && (v.name.includes("Natural") || v.name.includes("Online")));
+    if (hindiNeural) return hindiNeural;
+    const googleHindi = voices.find(v => v.lang.startsWith("hi") && v.name.includes("Google"));
+    if (googleHindi) return googleHindi;
+    const namedHindi = voices.find(v => v.name.includes("Swara") || v.name.includes("Madhur") || v.name.includes("Kalpana") || v.name.includes("Hemant"));
+    if (namedHindi) return namedHindi;
+    const anyHindi = voices.find(v => v.lang.startsWith("hi"));
+    if (anyHindi) return anyHindi;
+    const indianEngNeural = voices.find(v => (v.lang.includes("en-IN") || v.lang.includes("en_IN")) && (v.name.includes("Natural") || v.name.includes("Online")));
+    if (indianEngNeural) return indianEngNeural;
+  } else {
+    // English priority: Indian English / Natural neural voices
+    const inEngNeural = voices.find(v => (v.lang.includes("en-IN") || v.lang.includes("en_IN")) && (v.name.includes("Natural") || v.name.includes("Online")));
+    if (inEngNeural) return inEngNeural;
+    const inEngGoogle = voices.find(v => (v.lang.includes("en-IN") || v.lang.includes("en_IN")) && v.name.includes("Google"));
+    if (inEngGoogle) return inEngGoogle;
+    const inEngNamed = voices.find(v => v.name.includes("Neerja") || v.name.includes("Prabhat") || v.name.includes("Swara"));
+    if (inEngNamed) return inEngNamed;
+    const anyInEng = voices.find(v => v.lang.includes("en-IN") || v.lang.includes("en_IN"));
+    if (anyInEng) return anyInEng;
+    const gbNatural = voices.find(v => v.lang.startsWith("en-GB") && (v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Google")));
+    if (gbNatural) return gbNatural;
+    const anyEngNatural = voices.find(v => v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Google")));
+    if (anyEngNatural) return anyEngNatural;
+  }
+
+  return voices.find(v => v.lang.startsWith(ttsLang.slice(0, 2))) || voices[0] || null;
+}
+
 export function VideoConsultation() {
   const user = useAppStore((s) => s.user);
 
@@ -72,7 +140,7 @@ export function VideoConsultation() {
   // Speech API status
   const [speechOk, setSpeechOk] = useState(true);
 
-  // Media Refs
+  // Media & Anti-Echo Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -80,6 +148,10 @@ export function VideoConsultation() {
   const faceTimerRef = useRef<any>(null);
   const inCallRef = useRef(false);
   const micOnRef = useRef(true);
+  const isAiSpeakingRef = useRef(false);
+  const isAiThinkingRef = useRef(false);
+  const aiSpeakingCooldownRef = useRef(0);
+  const lastAiSpokenCleanRef = useRef("");
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   const lang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
@@ -87,6 +159,16 @@ export function VideoConsultation() {
   useEffect(() => { inCallRef.current = inCall; }, [inCall]);
   useEffect(() => { micOnRef.current = micOn; }, [micOn]);
   useEffect(() => { transcriptRef.current?.scrollTo(0, 99999); }, [transcript]);
+
+  // Pre-load available synthesis voices on component mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+  }, []);
 
   // Call duration counter
   useEffect(() => {
@@ -139,14 +221,35 @@ export function VideoConsultation() {
     const vt = streamRef.current?.getVideoTracks()[0];
     if (vt) { vt.enabled = !vt.enabled; setCameraOn(vt.enabled); }
   };
+
   const toggleMic = () => {
     const at = streamRef.current?.getAudioTracks()[0];
-    if (at) { at.enabled = !at.enabled; setMicOn(at.enabled); }
+    if (at) { 
+      at.enabled = !at.enabled; 
+      setMicOn(at.enabled);
+      if (!at.enabled) {
+        stopListening();
+      } else {
+        if (!isAiSpeakingRef.current && !isAiThinkingRef.current) {
+          startListening();
+        }
+      }
+    }
   };
 
-  // Speech Recognition
+  // Anti-Echo Protected Speech Recognition
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
+    }
+  }, []);
+
   const startListening = useCallback(() => {
     if (recognitionRef.current) return;
+    // CRITICAL: Never start listening if AI is currently speaking or thinking
+    if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
+
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setSpeechOk(false); return; }
 
@@ -156,16 +259,33 @@ export function VideoConsultation() {
     rec.lang = lang.speechLang;
 
     rec.onresult = (e: any) => {
+      // 1. HARD ECHO GATE: Discard if AI is speaking, AI is thinking, or within audio decay cooldown (800ms)
+      if (isAiSpeakingRef.current || isAiThinkingRef.current || Date.now() < aiSpeakingCooldownRef.current) {
+        return;
+      }
+
       let interim = "";
       let final = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
         if (e.results[i].isFinal) { final += t; } else { interim += t; }
       }
+
+      const candidate = (final || interim).trim().toLowerCase();
+      if (!candidate) return;
+
+      // 2. SECONDARY ECHO FILTER: If transcript matches AI's own recent words (speaker leakage), ignore it
+      const recentAiText = lastAiSpokenCleanRef.current;
+      if (recentAiText && candidate.length > 4) {
+        if (recentAiText.includes(candidate) || (candidate.length > 15 && recentAiText.slice(0, 40).includes(candidate.slice(0, 20)))) {
+          return;
+        }
+      }
+
       if (interim) setUserSub(interim);
-      if (final) {
+      if (final && final.trim()) {
         setUserSub(final);
-        sendMessage(final);
+        sendMessage(final.trim());
       }
     };
 
@@ -178,9 +298,12 @@ export function VideoConsultation() {
 
     rec.onend = () => {
       recognitionRef.current = null;
-      if (inCallRef.current && micOnRef.current) {
+      // Only automatically restart if in call, mic is on, and AI is NOT speaking
+      if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
         setTimeout(() => {
-          if (inCallRef.current && micOnRef.current) startListening();
+          if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+            startListening();
+          }
         }, 300);
       }
     };
@@ -189,32 +312,84 @@ export function VideoConsultation() {
     try { rec.start(); } catch { setSpeechOk(false); }
   }, [lang.speechLang]);
 
-  const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
-    recognitionRef.current = null;
-  }, []);
-
-  // Text-To-Speech Synthesis
+  // High-Quality Natural Text-To-Speech Synthesis with Clean Preprocessing
   const speak = useCallback((text: string) => {
-    if (!ttsEnabled || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.rate = 1.05; utt.pitch = 1; utt.lang = lang.ttsLang;
-    utt.onstart = () => setAiSpeaking(true);
-    utt.onend = () => { setAiSpeaking(false); setTimeout(() => setAiSub(""), 3000); };
-    window.speechSynthesis.speak(utt);
-  }, [ttsEnabled, lang.ttsLang]);
+    if (!ttsEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
-  // AI Response Stream
+    // 1. Immediately pause/abort mic input to prevent AI from hearing itself
+    stopListening();
+    isAiSpeakingRef.current = true;
+    setAiSpeaking(true);
+
+    window.speechSynthesis.cancel();
+
+    const cleanText = cleanTextForSpeech(text);
+    if (!cleanText) {
+      isAiSpeakingRef.current = false;
+      setAiSpeaking(false);
+      if (inCallRef.current && micOnRef.current) startListening();
+      return;
+    }
+
+    lastAiSpokenCleanRef.current = cleanText.toLowerCase();
+
+    const utt = new SpeechSynthesisUtterance(cleanText);
+    utt.rate = 0.98; // Natural, human conversational pace
+    utt.pitch = 1.0;
+    utt.lang = lang.ttsLang;
+
+    // Select the most natural / neural voice available
+    const bestVoice = getBestNaturalVoice(lang.ttsLang, language);
+    if (bestVoice) {
+      utt.voice = bestVoice;
+    }
+
+    utt.onstart = () => {
+      isAiSpeakingRef.current = true;
+      setAiSpeaking(true);
+    };
+
+    utt.onend = () => {
+      isAiSpeakingRef.current = false;
+      setAiSpeaking(false);
+      // Echo suppression cooldown (800ms) to allow speaker sound to decay
+      aiSpeakingCooldownRef.current = Date.now() + 800;
+      setTimeout(() => {
+        if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+          startListening();
+        }
+      }, 800);
+      setTimeout(() => setAiSub(""), 3500);
+    };
+
+    utt.onerror = () => {
+      isAiSpeakingRef.current = false;
+      setAiSpeaking(false);
+      aiSpeakingCooldownRef.current = Date.now() + 500;
+      setTimeout(() => {
+        if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+          startListening();
+        }
+      }, 500);
+    };
+
+    window.speechSynthesis.speak(utt);
+  }, [ttsEnabled, lang.ttsLang, language, stopListening, startListening]);
+
+  // AI Response Stream & Conversational Video Mentor Dialogue
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || aiThinking) return;
+    if (!text.trim() || isAiThinkingRef.current) return;
+    
+    // Stop listening while AI thinks and prepares response
+    stopListening();
+    isAiThinkingRef.current = true;
+    setAiThinking(true);
     setUserSub("");
     setTranscript((p) => [...p, { who: "you", text }]);
-    setAiThinking(true);
 
     try {
       const fd = new FormData();
-      const ctx = expression !== "neutral" ? `[Student looks ${expression}] ${text}` : text;
+      const ctx = `[LIVE VIDEO CONSULTATION MODE - DIRECT SPOKEN DIALOGUE]: You are in a face-to-face video consultation call with the student on topic "${selectedTopic}". Student expression: ${expression}. Respond directly in 2 to 3 friendly, natural, conversational spoken sentences in ${language} (NO markdown asterisks/bullets/emojis/headers). Speak warmly and concisely like a live human tutor. Student said: "${text}"`;
       fd.append("message", ctx);
       fd.append("agent_code", "student_tutor");
       fd.append("user_id", user?.id || "anonymous");
@@ -235,20 +410,25 @@ export function VideoConsultation() {
         try { const j = JSON.parse(full); full = j.response || full; } catch {}
         setAiSub(full.length > 250 ? full.slice(0, 250) + "..." : full);
         setTranscript((p) => [...p, { who: "ai", text: full }]);
+        isAiThinkingRef.current = false;
+        setAiThinking(false);
         speak(full);
       } else {
         const d = await res.json();
         const t = d.response || "I am here to guide you through your studies!";
         setAiSub(t.length > 250 ? t.slice(0, 250) + "..." : t);
         setTranscript((p) => [...p, { who: "ai", text: t }]);
+        isAiThinkingRef.current = false;
+        setAiThinking(false);
         speak(t);
       }
     } catch {
       setAiSub("Connection issue. Please check network.");
-    } finally {
+      isAiThinkingRef.current = false;
       setAiThinking(false);
+      if (inCallRef.current && micOnRef.current) startListening();
     }
-  }, [user?.id, expression, speak, language, aiThinking]);
+  }, [user?.id, expression, speak, language, selectedTopic, stopListening, startListening]);
 
   // Face Expression API Detector
   useEffect(() => {
@@ -290,11 +470,10 @@ export function VideoConsultation() {
     setInCall(true);
     setTranscript([]);
     const msg = language === "hindi"
-      ? `नमस्ते! मैं आपका DEVGYA AI परामर्शदाता हूँ। विषय: ${selectedTopic}। बोलिए, मैं सुन रहा हूँ! 🎓`
-      : `Hello! I'm your DEVGYA AI Mentor. Topic: ${selectedTopic}. Speak naturally — I'm listening! 🎓`;
+      ? `नमस्ते! मैं आपका DEVGYA AI परामर्शदाता हूँ। विषय है ${selectedTopic}। बोलिए, मैं सुन रहा हूँ!`
+      : `Hello! I'm your DEVGYA AI Mentor for ${selectedTopic}. Please speak naturally, I'm listening!`;
     setAiSub(msg);
     setTranscript([{ who: "ai", text: msg }]);
-    setTimeout(() => startListening(), 500);
     speak(msg);
   };
 
