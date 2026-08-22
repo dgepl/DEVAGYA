@@ -446,28 +446,27 @@ export default function TeacherOlympiadPage() {
 
           const cx = x + w / 2;
           const cy = y + h / 2;
+          const aspect = w / Math.max(1, h);
 
-          // Adaptive baseline center tracking (adapts to natural sitting posture adjustments)
-          if (baseCenterXRef.current === null) {
-            baseCenterXRef.current = cx;
-          } else {
-            // Smoothly update baseline when candidate is in normal central area
-            baseCenterXRef.current = baseCenterXRef.current * 0.96 + cx * 0.04;
-          }
+          // Optical Camera Center (webcam top-center reference)
+          const camCenterX = dw / 2;
+          const camCenterY = dh / 2;
 
-          const dx = Math.abs(cx - baseCenterXRef.current) / dw;
-          const dy = Math.abs(cy - dh / 2) / dh;
+          const dx = Math.abs(cx - camCenterX) / dw;
+          const dy = Math.abs(cy - camCenterY) / dh;
 
-          // Real head turn deflection: candidate turns head > 30% away from monitor or leaves screen bounds
-          const isDeflected = dx > 0.30 || dy > 0.32 || cx < dw * 0.10 || cx > dw * 0.90;
+          // Head turn / looking away detection:
+          // Triggers if head turns left/right/up/down (> 18% horizontal or > 20% vertical deviation,
+          // or face shifts near frame edges, or face aspect ratio narrows due to turning sideways)
+          const isDeflected = dx > 0.18 || dy > 0.20 || cx < dw * 0.22 || cx > dw * 0.78 || cy < dh * 0.20 || cy > dh * 0.80 || (aspect < 0.60);
           setGazeDeflected(isDeflected);
 
           if (isDeflected) {
             deflectionTimerRef.current += 1;
-            // Only trigger warning if candidate turns away continuously for ~3.5 seconds (200 frames @ 60 FPS)
-            if (deflectionTimerRef.current >= 200) {
+            // Trigger proctor warning if turned away continuously for ~1.25s (75 frames @ 60 FPS)
+            if (deflectionTimerRef.current >= 75) {
               deflectionTimerRef.current = 0;
-              triggerProctorWarning("Head/Eye Deflection Detected! You are turned away from the proctored exam screen. Please face forward towards your assessment.", "gaze");
+              triggerProctorWarning("Head/Eye Deflection Detected! You are looking away from the proctored exam screen. Please face forward towards your assessment.", "gaze");
             }
           } else {
             deflectionTimerRef.current = 0;
@@ -491,7 +490,7 @@ export default function TeacherOlympiadPage() {
           oCtx.fillStyle = boxColor;
           oCtx.font = "bold 9px monospace";
           if (isDeflected) {
-            oCtx.fillText("GAZE WARNING: TURNED AWAY!", x, textY);
+            oCtx.fillText("GAZE WARNING: LOOKING AWAY!", x, textY);
           } else {
             oCtx.fillText(`AI TARGET LOCKED: CANDIDATE #1 • ${currentMood}`, x, textY);
           }
@@ -519,8 +518,8 @@ export default function TeacherOlympiadPage() {
           oCtx.font = "bold 11px monospace";
           oCtx.fillText("WARNING: FACE MISSING / STEPPED AWAY", 20, 30);
 
-          // Only trigger if candidate is completely absent for ~3.5 seconds (200 frames @ 60 FPS)
-          if (faceMissingStreakRef.current >= 200) {
+          // Trigger warning if candidate is completely absent for ~1.2s (70 frames @ 60 FPS)
+          if (faceMissingStreakRef.current >= 70) {
             faceMissingStreakRef.current = 0;
             triggerProctorWarning("Face Missing / Camera Obstructed! Candidate must remain clearly visible in camera at all times.", "face");
           }
