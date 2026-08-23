@@ -128,7 +128,7 @@ async def get_all_users():
         "users": profiles
     }
 
-# --- SUPER ADMIN OLYMPIAD SUBMISSION MANAGEMENT ---
+# --- SUPER ADMIN OLYMPIAD SUBMISSION & RESULT DECLARATION ENDPOINTS ---
 
 @router.get("/olympiad/submissions")
 async def get_all_olympiad_submissions():
@@ -139,6 +139,38 @@ async def get_all_olympiad_submissions():
         "count": len(submissions),
         "submissions": submissions
     }
+
+@router.put("/olympiad/submissions/{submission_id}")
+async def update_olympiad_submission(submission_id: str, updates: Dict[str, Any]):
+    """Declare result / update evaluation score and published status for a single candidate."""
+    res = olympiad_service.update_submission_evaluation(submission_id, updates)
+    if res.get("status") == "success":
+        return res
+    raise HTTPException(status_code=400, detail=res.get("message", "Failed to update submission."))
+
+@router.post("/olympiad/publish-all")
+async def bulk_publish_olympiad_results(paper_id: Optional[str] = None):
+    """1-Click Declare & Publish results for all candidates to the live public leaderboard."""
+    res = olympiad_service.bulk_publish_submissions(paper_id=paper_id)
+    if res.get("status") == "success":
+        return res
+    raise HTTPException(status_code=400, detail=res.get("message", "Failed to bulk publish results."))
+
+@router.delete("/olympiad/submissions/{submission_id}")
+async def delete_single_olympiad_submission(submission_id: str):
+    """Permanently delete a single candidate submission record."""
+    res = olympiad_service.delete_submission(submission_id)
+    if res.get("status") == "success":
+        return res
+    raise HTTPException(status_code=400, detail=res.get("message", "Failed to delete submission."))
+
+@router.delete("/olympiad/submissions")
+async def bulk_delete_olympiad_submissions(paper_id: Optional[str] = None):
+    """Permanently delete all candidate submissions or for a specific paper."""
+    res = olympiad_service.bulk_delete_submissions(paper_id=paper_id)
+    if res.get("status") == "success":
+        return res
+    raise HTTPException(status_code=400, detail=res.get("message", "Failed to bulk delete submissions."))
 
 # --- TSO 100-MCQ AI GENERATOR & MANAGEMENT ENDPOINTS ---
 
