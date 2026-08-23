@@ -113,9 +113,9 @@ export default function RegisterPage() {
       };
       setUser(registeredUser);
 
-      // Redirect to profile completion for teachers, or role dashboard for others
+      // Redirect to master TSO onboarding for teachers, or role dashboard for others
       if (role === "teacher") {
-        router.push("/dashboard/profile?onboarding=true");
+        router.push("/onboarding");
       } else if (role === "student") {
         router.push("/dashboard/student");
       } else if (role === "parent") {

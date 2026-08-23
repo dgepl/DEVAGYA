@@ -4,160 +4,92 @@ from typing import Optional, Dict, Any, List
 import time
 from datetime import datetime
 from services.olympiad_service import olympiad_service
-from services.paper_service import paper_service
 
-router = APIRouter(prefix="/olympiad", tags=["Teachers Skill Olympiad"])
+router = APIRouter(prefix="/olympiad", tags=["Teacher Skills Olympiad (TSO)"])
 
-class ExamSubmissionPayload(BaseModel):
+class TSORegistrationPayload(BaseModel):
+    email: str
+    name: str
+    phone: Optional[str] = ""
+    state: Optional[str] = ""
+    district: Optional[str] = ""
+    tso_subject: Optional[str] = "Science"
+    category_level: Optional[str] = "Secondary"
+    medium: Optional[str] = "English"
+
+class Submit100Payload(BaseModel):
     teacher_email: str
     teacher_name: str
-    paper_id: Optional[str] = "paper-101"
-    answers: Dict[str, int]
-    tab_switch_count: int = 0
-    fullscreen_exits: int = 0
-    face_missing_count: int = 0
-    webcam_active: bool = True
-    proctor_logs: List[str] = []
-    submitted_at: Optional[str] = None
+    subject: str = "Science"
+    state: Optional[str] = ""
+    district: Optional[str] = ""
+    paper_id: Optional[str] = "tso-national-2026"
+    answers: Dict[str, int] = {}
+    time_taken_seconds: int = 3600
+    proctor_incidents: int = 0
 
-class PracticeEvaluatePayload(BaseModel):
-    question_id: str
-    selected_option: int
-
-def parse_to_ts(dt_str: Optional[str]) -> Optional[float]:
-    if not dt_str:
-        return None
-    cleaned = str(dt_str).strip().replace("T", " ")
-    if len(cleaned) == 16:
-        cleaned += ":00"
-    try:
-        dt = datetime.strptime(cleaned[:19], "%Y-%m-%d %H:%M:%S")
-        return dt.timestamp()
-    except Exception:
-        return None
-
-@router.get("/questions")
-async def get_olympiad_questions():
-    """Fetch active published Admin Olympiad paper questions directly for the exam hall."""
-    papers = paper_service.get_all_papers()
-    if papers and papers[0].get("questions"):
-        active_paper = papers[0]
-        questions = []
-        for q in active_paper["questions"]:
-            item = dict(q)
-            questions.append(item)
-        return {
-            "status": "success",
-            "paper_id": active_paper.get("id"),
-            "paper_title": active_paper.get("title"),
-            "total": len(questions),
-            "questions": questions
-        }
-
-    # Fallback to standard question bank
-    fallback_qs = olympiad_service.get_exam_questions()
+@router.get("/exam-paper")
+async def get_100_exam_paper(
+    subject: str = Query("Science"),
+    level: str = Query("Secondary")
+):
+    """
+    Generate complete 100-MCQ 60-Minute 60/40 assessment paper:
+    - Part A: 60 MCQs (Universal CBSE CPD, Scenarios, Modern Pedagogy)
+    - Part B: 40 MCQs (Subject Core Knowledge, Pedagogy, Misconceptions/HOTS)
+    """
+    paper = olympiad_service.generate_full_100_exam_paper(subject=subject, level=level)
     return {
         "status": "success",
-        "total": len(fallback_qs),
-        "questions": fallback_qs
+        "paper": paper
     }
 
-@router.post("/submit")
-async def submit_olympiad_exam(payload: ExamSubmissionPayload):
-    """Submit proctored Olympiad exam with anti-cheating log. Results are hidden & held for Admin review."""
-    result = olympiad_service.submit_exam(payload.dict())
-    if result.get("status") in ["success", "already_submitted"]:
-        return result
-    raise HTTPException(status_code=400, detail=result.get("message", "Exam submission failed"))
+@router.post("/register-tso")
+async def register_for_tso(payload: TSORegistrationPayload):
+    """Register teacher for Free TSO with subject, level, medium, state, and district."""
+    res = olympiad_service.register_tso_candidate(payload.email, payload.dict())
+    return res
+
+@router.get("/tso-registration")
+async def get_tso_registration_status(email: str = Query(...)):
+    """Fetch user's TSO registration details & 15-day trial status."""
+    reg = olympiad_service.get_tso_registration(email)
+    return {
+        "status": "success",
+        "registered": bool(reg),
+        "details": reg
+    }
+
+@router.post("/submit-100")
+async def submit_100_exam_paper(payload: Submit100Payload):
+    """
+    Submit candidate's 100-MCQ assessment responses.
+    Responses are safely archived in database for administration evaluation.
+    No instant score is returned to candidate.
+    """
+    res = olympiad_service.submit_100_exam(payload.dict())
+    if res.get("status") == "success":
+        return res
+    raise HTTPException(status_code=400, detail=res.get("message", "Submission failed"))
 
 @router.get("/attempt-status")
-async def get_user_attempt_status(email: str = Query(...), paper_id: Optional[str] = Query(None)):
-    """Check if candidate has already submitted the target Olympiad paper."""
+async def get_user_attempt_status(email: str = Query(...)):
+    """Check if candidate has already submitted the 100-MCQ Olympiad assessment."""
     submissions = olympiad_service.get_all_submissions()
-    has_attempted = False
-    submission_details = None
-
-    for s in submissions:
-        if s.get("teacher_email", "").strip().lower() == email.strip().lower():
-            if not paper_id or s.get("paper_id") == paper_id or s.get("paper_id") == "default":
-                has_attempted = True
-                submission_details = s
-                break
-
+    clean = email.strip().lower()
+    user_sub = next((s for s in submissions if s.get("teacher_email") == clean), None)
     return {
         "status": "success",
-        "has_attempted": has_attempted,
-        "submission": submission_details
+        "has_attempted": bool(user_sub),
+        "submission": user_sub
     }
 
-@router.get("/practice")
-async def get_practice_questions(subject: Optional[str] = Query(None)):
-    """Fetch practice questions for Olympiad preparation zone."""
-    questions = olympiad_service.get_practice_questions(subject=subject)
-    return {
-        "status": "success",
-        "total": len(questions),
-        "questions": questions
-    }
-
-@router.post("/practice/evaluate")
-async def evaluate_practice(payload: PracticeEvaluatePayload):
-    """Evaluate a single practice question with instant feedback & pedagogical explanation."""
-    return olympiad_service.evaluate_practice_answer(payload.question_id, payload.selected_option)
-
-@router.get("/results/published")
+@router.get("/results")
 async def get_published_results(email: Optional[str] = Query(None)):
-    """Fetch officially published Olympiad evaluation results."""
+    """Fetch officially published results and merit rankings (Admin declared)."""
     results = olympiad_service.get_published_results(teacher_email=email)
     return {
         "status": "success",
         "count": len(results),
         "results": results
-    }
-
-@router.get("/active-paper")
-async def get_active_olympiad_paper():
-    """Fetch the current published Olympiad paper and its scheduled access window status."""
-    papers = paper_service.get_all_papers()
-    if not papers:
-        return {"status": "none", "paper": None}
-
-    now_dt = datetime.now()
-    now_ts = now_dt.timestamp()
-    active_paper = papers[0]
-    
-    start_ts = parse_to_ts(active_paper.get("start_time")) or 0
-    end_ts = parse_to_ts(active_paper.get("end_time")) or 9999999999
-
-    is_before = now_ts < start_ts
-    is_after = now_ts > end_ts
-    is_live = not is_before and not is_after
-
-    return {
-        "status": "success",
-        "is_live": is_live,
-        "is_before": is_before,
-        "is_after": is_after,
-        "current_time": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
-        "paper": active_paper
-    }
-
-@router.get("/previous-papers")
-async def get_previous_olympiad_papers():
-    """Fetch archived/ended Olympiad papers from previous assessments."""
-    all_papers = paper_service.get_all_papers()
-    now_ts = datetime.now().timestamp()
-    previous = []
-    for p in all_papers:
-        end_ts = parse_to_ts(p.get("end_time"))
-        if end_ts and end_ts < now_ts:
-            previous.append(p)
-    
-    if not previous and len(all_papers) > 1:
-        previous = all_papers[1:]
-
-    return {
-        "status": "success",
-        "count": len(previous),
-        "papers": previous
     }

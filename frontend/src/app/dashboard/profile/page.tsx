@@ -721,6 +721,52 @@ function ProfileContent() {
                 </select>
               </div>
             </div>
+
+            {/* DEFERRED JOB PROFILE (PHASE 2 ROLLOUT) */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-slate-900">Priority Talent & School Placement Profile</span>
+                  <span className="text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full">
+                    Phase 2 Rollout
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-bold">TSO Benchmarked Teachers</span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium">
+                To guarantee top placement outcomes, direct recruitment unlocks in Phase 2 once national TSO scorecards are benchmarked.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 opacity-75">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-600">Job Availability</label>
+                  <select disabled className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold cursor-not-allowed">
+                    <option>Open to Offers</option>
+                    <option>Actively Looking</option>
+                    <option>Not Looking</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-600">Preferred Location</label>
+                  <select disabled className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold cursor-not-allowed">
+                    <option>Home District</option>
+                    <option>Nearby Districts</option>
+                    <option>Remote / Pan-India</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-600">Expected Salary Range</label>
+                  <select disabled className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold cursor-not-allowed">
+                    <option>₹4.0L – ₹6.5L P.A.</option>
+                    <option>₹6.5L – ₹10.0L P.A.</option>
+                    <option>₹10.0L+ P.A.</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 

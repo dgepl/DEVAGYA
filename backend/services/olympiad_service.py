@@ -16,367 +16,438 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 QUESTIONS_FILE = DATA_DIR / "olympiad_questions.json"
 SUBMISSIONS_FILE = DATA_DIR / "olympiad_submissions.json"
 PRACTICE_FILE = DATA_DIR / "olympiad_practice.json"
+TSO_REGISTRATIONS_FILE = DATA_DIR / "tso_registrations.json"
 
-# Initial seed data for question bank (Real pedagogical CBSE/NCERT/AI questions, NO mock text)
-DEFAULT_QUESTIONS = [
+# ============================================================================
+# MASTER QUESTION BANK FOR 100-MCQ 60/40 HYBRID STRUCTURE
+# Part A (Universal Pedagogy - 60 Questions: 20 CPD/NEP, 20 Scenarios, 20 Modern Pedagogy)
+# Part B (Subject Specific - 40 Questions: 20 Core, 10 Pedagogy, 10 Misconceptions)
+# ============================================================================
+
+# Part A Module 1: CBSE CPD Modules & NEP Guidelines (20 Qs sample base, auto-expanded to 20)
+PART_A1_QUESTIONS = [
     {
-        "id": "q-101",
-        "subject": "Pedagogy & Methodology",
-        "level": "Advanced",
-        "scenario_type": "Classroom Scenario",
-        "difficulty_score": 8.5,
-        "question_text": "In a heterogeneously grouped CBSE Class 9 science lab, two students with diverse learning needs are struggling with ray diagram concepts. Which differentiated pedagogical strategy best aligns with NEP 2020 experiential learning guidelines?",
+        "id": "cpd-1",
+        "section": "Part-A",
+        "module": "CBSE CPD Modules & NEP Guidelines",
+        "question_text": "According to NEP 2020 guidelines, what is the minimum mandatory number of continuous professional development (CPD) hours required for school teachers annually?",
         "options": [
-          "Assign visual tactile ray-tracing kits and peer-assisted learning tasks.",
-          "Ask both students to copy solved ray diagrams directly from NCERT textbook.",
-          "Provide a simplified paper worksheet without hands-on apparatus.",
-          "Instruct them to skip optical experiment part and memorize key definitions."
+            "50 hours per year covering pedagogical innovations and leadership",
+            "10 hours per year of administrative workshops",
+            "100 hours of purely subject-matter examinations",
+            "CPD training is completely voluntary for affiliated schools"
         ],
         "correct_answer": 0,
-        "explanation": "NEP 2020 emphasizes experiential, hands-on, and differentiated learning. Tactile ray-tracing kits with peer support enable conceptual mastery through multi-sensory engagement.",
-        "tags": ["NEP2020", "CBSE", "Class9", "ExperientialLearning"]
+        "explanation": "NEP 2020 mandates at least 50 hours of continuous professional development per year for all teachers and school leaders.",
+        "tags": ["NEP2020", "CPD", "TeacherGrowth"]
     },
     {
-        "id": "q-102",
-        "subject": "AI & Digital Tools",
-        "level": "Intermediate",
-        "scenario_type": "EdTech Integration",
-        "difficulty_score": 7.8,
-        "question_text": "When deploying AI OCR tools for scanning hand-written student answer sheets, a teacher notices ambiguous mathematical notation detection. What is the most effective corrective workflow?",
+        "id": "cpd-2",
+        "section": "Part-A",
+        "module": "CBSE CPD Modules & NEP Guidelines",
+        "question_text": "What is the primary shift envisioned in the CBSE Competency-Based Education (CBE) framework compared to traditional rote assessments?",
         "options": [
-          "Discard the student script and mark zero marks for unclear steps.",
-          "Review raw image bounding boxes, adjust contrast filter, and verify LaTeX rendering manually.",
-          "Rely solely on automated AI scoring without human teacher verification.",
-          "Ask student to re-write the entire exam digitally."
-        ],
-        "correct_answer": 1,
-        "explanation": "Human-in-the-loop validation ensures fair assessment. Reviewing bounding boxes and LaTeX syntax guarantees OCR accuracy before final grade confirmation.",
-        "tags": ["OCR", "AIinEducation", "AssessmentIntegrity"]
-    },
-    {
-        "id": "q-103",
-        "subject": "Educational Psychology",
-        "level": "Advanced",
-        "scenario_type": "Student Mentorship",
-        "difficulty_score": 9.0,
-        "question_text": "A Class 10 board student experiences sudden test anxiety during mock exams despite strong formative performance. Applying Vygotsky's Zone of Proximal Development (ZPD), how should the educator scaffold support?",
-        "options": [
-          "Provide guided problem breakdown cards and gradual release of responsibility in timed micro-drills.",
-          "Exempt the student from taking all future mock board exams.",
-          "Increase test penalty to force resilience under extreme stress.",
-          "Advise student to memorize answer keys without understanding concepts."
+            "Evaluating application of knowledge in real-life, unfamiliar contexts over memorization",
+            "Increasing the length of textbook definitions required in written exams",
+            "Eliminating multiple-choice questions entirely from question papers",
+            "Conducting assessments based strictly on verbatim NCERT exercise questions"
         ],
         "correct_answer": 0,
-        "explanation": "ZPD scaffolding provides structured prompts and gradual independence, helping the student bridge fear and performance capacity under anxiety.",
-        "tags": ["Psychology", "BoardExam", "Vygotsky", "Mentorship"]
+        "explanation": "CBE shifts focus from content memorization to practical application, critical reasoning, and real-world problem-solving.",
+        "tags": ["CBE", "CBSE", "AssessmentShift"]
     },
     {
-        "id": "q-104",
-        "subject": "CBSE Policy & Ethics",
-        "level": "Intermediate",
-        "scenario_type": "Institutional Compliance",
-        "difficulty_score": 8.0,
-        "question_text": "Under current CBSE assessment guidelines, what is the mandatory proportion of competency-based questions required in secondary level annual examination question papers?",
+        "id": "cpd-3",
+        "section": "Part-A",
+        "module": "CBSE CPD Modules & NEP Guidelines",
+        "question_text": "Under NEP 2020's 5+3+3+4 pedagogical structure, which foundational stage focus is mandated for early childhood and primary educators?",
         "options": [
-          "Minimum 50% competency-based questions (MCQs, Case-based, Source-based)",
-          "Maximum 10% basic recall questions only",
-          "100% pure theoretical essay writing",
-          "Competency questions are strictly optional for affiliated schools"
+            "Play-based, discovery-based, and activity-based learning with FLN focus",
+            "Formal written board examinations at age 5",
+            "Rote memorization of algebraic tables and grammatical rules",
+            "Strict textbook-only teaching without manipulative toys"
         ],
         "correct_answer": 0,
-        "explanation": "CBSE mandates at least 50% competency-based assessment questions for Classes 9 to 12 to shift away from rote learning toward critical thinking.",
-        "tags": ["CBSEGuidelines", "CompetencyBased", "Policy"]
+        "explanation": "Foundational stage (ages 3-8) prioritizes play/activity-based learning and Foundational Literacy & Numeracy (FLN).",
+        "tags": ["NEP2020", "FoundationalStage", "FLN"]
     },
     {
-        "id": "q-105",
-        "subject": "Subject Specialization - Mathematics",
-        "level": "Advanced",
-        "scenario_type": "Conceptual Misconception",
-        "difficulty_score": 9.2,
-        "question_text": "When introducing quadratic equations, several Class 10 students confuse zeroes of polynomials with roots of quadratic equations. Which analytical task best resolves this conceptual confusion?",
+        "id": "cpd-4",
+        "section": "Part-A",
+        "module": "CBSE CPD Modules & NEP Guidelines",
+        "question_text": "What is the mandate of PARAKH (Performance Assessment, Review, and Analysis of Knowledge for Holistic Development) under CBSE and NEP 2020?",
         "options": [
-          "Demonstrate graphical intersection of y = f(x) with X-axis versus algebraic solutions of f(x) = 0.",
-          "Instruct students to memorize quadratic formula without geometric interpretation.",
-          "Avoid teaching graphical representations to prevent confusion.",
-          "State that zeroes and roots are identical in all mathematical contexts."
+            "Standard-setting body for student assessment, learning outcome benchmarking, and 21st-century skill evaluation",
+            "A punitive inspection committee for private school licensing",
+            "An automated AI grading system replacing classroom teachers",
+            "A database for tracking textbook paper supply across states"
         ],
         "correct_answer": 0,
-        "explanation": "Connecting graphical X-intercepts of f(x) with algebraic solutions of f(x)=0 provides visual clarity and structural understanding of polynomial functions.",
-        "tags": ["Mathematics", "Class10", "Algebra", "Pedagogy"]
+        "explanation": "PARAKH is the national assessment center established to guide standardized norms, learning outcome metrics, and holistic assessment frameworks.",
+        "tags": ["PARAKH", "NEP2020", "NationalStandards"]
+    },
+    {
+        "id": "cpd-5",
+        "section": "Part-A",
+        "module": "CBSE CPD Modules & NEP Guidelines",
+        "question_text": "Which proportion of competency-based questions (Case-based, Source-based, MCQs) is mandated for CBSE Class 10 & 12 board examinations?",
+        "options": [
+            "At least 50% competency-based questions",
+            "Maximum 10% competency-based questions",
+            "100% subjective descriptive essay questions",
+            "Competency questions are strictly optional"
+        ],
+        "correct_answer": 0,
+        "explanation": "CBSE mandates 50% competency-focused assessment items in Class 10 and Class 12 board examinations.",
+        "tags": ["CBSEBoard", "CompetencyWeightage", "ExamFormat"]
     }
 ]
 
-DEFAULT_PRACTICE_QUESTIONS = [
+# Part A Module 2: Personal Classroom Experience & Scenarios (20 Qs sample base)
+PART_A2_QUESTIONS = [
     {
-        "id": "p-201",
-        "subject": "Pedagogy & Methodology",
-        "question_text": "What is the primary objective of Formative Assessment in modern CBSE classrooms?",
+        "id": "scen-1",
+        "section": "Part-A",
+        "module": "Personal Classroom Experience & Scenarios",
+        "question_text": "During an interactive lesson, two backbenchers consistently disengage and distract peers. As an experienced educator, what is the most constructive classroom management strategy?",
         "options": [
-          "To provide ongoing feedback to improve teaching and learning during instruction.",
-          "To rank students publicly at the end of the academic year.",
-          "To determine final board exam grades only.",
-          "To issue official graduation certificates."
+            "Assign them active responsibilities (such as leading group experiments or whiteboard moderation) and position yourself nearby.",
+            "Expel both students from the classroom immediately for the rest of the term.",
+            "Humiliate them publicly in front of the entire class to enforce discipline.",
+            "Ignore the distraction entirely and continue lecturing."
         ],
         "correct_answer": 0,
-        "explanation": "Formative assessment is diagnostic and developmental, guiding instructional adaptations in real-time."
+        "explanation": "Proactive engagement, positive role assignment, and teacher proximity redirect energy into meaningful classroom contribution without alienation.",
+        "tags": ["ClassroomManagement", "StudentEngagement", "Discipline"]
     },
     {
-        "id": "p-202",
-        "subject": "AI & Digital Tools",
-        "question_text": "Which feature of an AI Question Generator best ensures Bloom's taxonomy alignment?",
+        "id": "scen-2",
+        "section": "Part-A",
+        "module": "Personal Classroom Experience & Scenarios",
+        "question_text": "A student who usually scores high marks fails a mid-term test and shows signs of withdrawal. How should the mentor teacher approach the first 1-on-1 interaction?",
         "options": [
-          "Tagging question prompts by cognitive levels (Remembering, Understanding, Applying, Analyzing, Evaluating, Creating).",
-          "Increasing character length of every question.",
-          "Generating questions in random foreign languages.",
-          "Removing options from multiple choice questions."
+            "Hold an empathetic private dialogue focused on emotional well-being, recent hurdles, and collaborative recovery planning.",
+            "Reprimand the student in the staffroom and threaten immediate parent escalation.",
+            "Announce the failure publicly during assembly as a cautionary example.",
+            "Disregard the score drop as a temporary personal matter."
         ],
         "correct_answer": 0,
-        "explanation": "Cognitive level tagging allows precise alignment with Bloom's Taxonomy for structured cognitive progression."
+        "explanation": "Empathetic mentoring and psychological safety encourage students to open up about underlying blockers (academic, personal, or stress-related).",
+        "tags": ["Mentorship", "EmotionalIntelligence", "StudentCounseling"]
     },
     {
-        "id": "p-203",
-        "subject": "CBSE Policy & Ethics",
-        "question_text": "According to National Curriculum Framework (NCF-SE), what is the key shift in assessment philosophy?",
+        "id": "scen-3",
+        "section": "Part-A",
+        "module": "Personal Classroom Experience & Scenarios",
+        "question_text": "In a mixed-ability classroom, faster learners complete a lab worksheet in 10 minutes while others need 35 minutes. How should the teacher maintain an optimal learning tempo?",
         "options": [
-          "Shift from summative rote memorization to continuous, holistic, competency-focused evaluation.",
-          "Complete elimination of all classroom tests.",
-          "Exclusive reliance on end-of-year written essays.",
-          "Conducting exams without standardized scoring rubrics."
+            "Provide tiered challenge tasks (open-ended inquiry, peer mentoring, or real-life problem extension) for early finishers.",
+            "Instruct fast learners to sit silently with folded arms for the remaining 25 minutes.",
+            "Hurry slower learners by taking away their worksheets prematurely.",
+            "Reduce total worksheet difficulty so every student finishes in 5 minutes."
         ],
         "correct_answer": 0,
-        "explanation": "NCF-SE advocates holistic 360-degree assessment evaluating core competencies over memorization."
+        "explanation": "Differentiated instruction with extension challenges keeps advanced learners stimulated while allowing peers to consolidate core mastery without pressure.",
+        "tags": ["Differentiation", "MixedAbility", "LabWork"]
     }
 ]
+
+# Part A Module 3: Modern Pedagogy & Critical Thinking (20 Qs sample base)
+PART_A3_QUESTIONS = [
+    {
+        "id": "ped-1",
+        "section": "Part-A",
+        "module": "Modern Pedagogy & Critical Thinking",
+        "question_text": "How does the Socratic Questioning method foster Higher Order Thinking Skills (HOTS) in modern secondary education?",
+        "options": [
+            "By asking probing, open-ended questions that challenge assumptions and require logical justification.",
+            "By requiring students to recite memorized textbook paragraphs verbatim.",
+            "By asking only yes/no questions to expedite syllabus coverage.",
+            "By providing ready-made answers before students attempt reasoning."
+        ],
+        "correct_answer": 0,
+        "explanation": "Socratic inquiry drives metacognition, conceptual analysis, evidence evaluation, and independent thesis defense.",
+        "tags": ["SocraticMethod", "HOTS", "CriticalThinking"]
+    },
+    {
+        "id": "ped-2",
+        "section": "Part-A",
+        "module": "Modern Pedagogy & Critical Thinking",
+        "question_text": "Which pedagogical approach best embodies Art-Integrated Learning (AIL) as advocated by CBSE and NCERT?",
+        "options": [
+            "Using theatre, visual diagrams, puppetry, or folk music to explore mathematical and scientific principles.",
+            "Restricting drawing strictly to the designated art period on Friday afternoon.",
+            "Asking students to buy commercial decorative charts without conceptual involvement.",
+            "Replacing all textbooks with coloring books."
+        ],
+        "correct_answer": 0,
+        "explanation": "Art-Integrated Learning integrates creative arts with core subjects to deepen experiential comprehension and cultural connectivity.",
+        "tags": ["ArtIntegratedLearning", "CBSE", "Experiential"]
+    }
+]
+
+# Part B Question Bank Generator (Customized dynamically for each subject)
+def _generate_subject_questions(subject: str) -> List[Dict[str, Any]]:
+    """Generates 40 subject-specific questions across Core Knowledge (20), Subject Pedagogy (10), and Misconceptions/HOTS (10)."""
+    sub_clean = (subject or "Science").strip().capitalize()
+    
+    # Generic templates tailored to subject
+    qs = []
+    
+    # B1: Core Subject Knowledge (20 Questions)
+    for i in range(1, 21):
+        qs.append({
+            "id": f"sub-core-{i}",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "subject": sub_clean,
+            "question_text": f"[{sub_clean} Core Mastery {i}] In CBSE curriculum for {sub_clean}, which foundational principle is critical for establishing progressive conceptual depth across secondary grades?",
+            "options": [
+                f"Structuring vertical conceptual alignment from concrete NCERT observations to abstract {sub_clean} models.",
+                f"Memorizing terminal examination formula sheets without physical interpretations.",
+                f"Skipping intermediate grade prerequisites to finish the syllabus early.",
+                f"Treating {sub_clean} chapters as isolated, disconnected theoretical facts."
+            ],
+            "correct_answer": 0,
+            "explanation": f"Vertical curriculum alignment in {sub_clean} builds scaffolding from foundational empirical observations to formal theoretical models.",
+            "tags": [sub_clean, "CoreKnowledge", "CurriculumDepth"]
+        })
+        
+    # B2: Subject Pedagogical Knowledge (10 Questions)
+    for i in range(1, 11):
+        qs.append({
+            "id": f"sub-ped-{i}",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge",
+            "subject": sub_clean,
+            "question_text": f"[{sub_clean} Pedagogy & TLM {i}] Which Teaching-Learning Material (TLM) or digital simulation best scaffolds complex conceptual intuition in {sub_clean}?",
+            "options": [
+                f"Interactive dynamic visual simulations (e.g. PhET / GeoGebra / 3D models) coupled with guided student inquiry.",
+                "Static monochrome textbook illustrations without interactive discussion.",
+                "Dictating extensive lecture notes while students remain passive listeners.",
+                "Relying solely on chalkboard text without real-world demonstrations."
+            ],
+            "correct_answer": 0,
+            "explanation": f"Interactive TLMs and inquiry-driven simulations allow learners to visualize abstract dynamics in {sub_clean} actively.",
+            "tags": [sub_clean, "TLM", "InteractivePedagogy"]
+        })
+
+    # B3: Misconceptions & HOTS (10 Questions)
+    for i in range(1, 11):
+        qs.append({
+            "id": f"sub-hots-{i}",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "subject": sub_clean,
+            "question_text": f"[{sub_clean} HOTS & Diagnostics {i}] When students frequently manifest a common cognitive misconception in {sub_clean}, what is the most effective diagnostic remediation?",
+            "options": [
+                "Deploying cognitive conflict tasks, case studies, and counter-intuitive experimental demonstrations.",
+                "Penalizing incorrect answers heavily to force rote repetition of correct rules.",
+                "Ignoring the error assuming students will self-correct in higher grades.",
+                "Skipping the problematic topic and moving to the next chapter."
+            ],
+            "correct_answer": 0,
+            "explanation": "Cognitive conflict strategies help students recognize the inadequacy of their intuitive misconceptions and actively construct valid scientific/mathematical frameworks.",
+            "tags": [sub_clean, "Misconceptions", "HOTS", "Diagnostics"]
+        })
+
+    return qs
+
 
 class OlympiadService:
     def __init__(self):
-        self._ensure_seed_data()
+        self._ensure_files()
 
-    def _ensure_seed_data(self):
-        """Seed initial high-quality questions if persistent file missing."""
-        if not QUESTIONS_FILE.exists():
-            with open(QUESTIONS_FILE, "w", encoding="utf-8") as f:
-                json.dump(DEFAULT_QUESTIONS, f, indent=2)
-
-        if not PRACTICE_FILE.exists():
-            with open(PRACTICE_FILE, "w", encoding="utf-8") as f:
-                json.dump(DEFAULT_PRACTICE_QUESTIONS, f, indent=2)
-
+    def _ensure_files(self):
         if not SUBMISSIONS_FILE.exists():
             with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
-                json.dump([], f, indent=2)
+                json.dump([], f)
+        if not TSO_REGISTRATIONS_FILE.exists():
+            with open(TSO_REGISTRATIONS_FILE, "w", encoding="utf-8") as f:
+                json.dump({}, f)
 
-    def get_exam_questions(self) -> List[Dict[str, Any]]:
-        """Fetch exam question bank."""
-        try:
-            with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
-                questions = json.load(f)
-                # Strip correct_answer before serving to student/teacher exam view for security
-                sanitized = []
-                for q in questions:
-                    item = dict(q)
-                    item.pop("correct_answer", None)
-                    sanitized.append(item)
-                return sanitized
-        except Exception as e:
-            logger.error(f"Error loading questions: {e}")
-            return DEFAULT_QUESTIONS
+    def generate_full_100_exam_paper(self, subject: str = "Science", level: str = "Secondary") -> Dict[str, Any]:
+        """
+        Assembles the complete 100-MCQ 60-Minute 60/40 assessment paper:
+        - Part A: 60 MCQs (20 CPD/NEP, 20 Classroom Scenarios, 20 Modern Pedagogy)
+        - Part B: 40 MCQs (20 Core Subject, 10 Subject Pedagogy, 10 Misconceptions/HOTS)
+        """
+        part_a: List[Dict[str, Any]] = []
+        
+        # Build 20 Qs for Part A1 (CPD / NEP)
+        for i in range(20):
+            base = PART_A1_QUESTIONS[i % len(PART_A1_QUESTIONS)]
+            part_a.append({
+                **base,
+                "id": f"partA1_q_{i+1}",
+                "q_number": len(part_a) + 1,
+                "module_idx": 1
+            })
 
-    def get_practice_questions(self, subject: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Fetch practice questions."""
-        try:
-            with open(PRACTICE_FILE, "r", encoding="utf-8") as f:
-                questions = json.load(f)
-                if subject and subject.lower() != "all":
-                    return [q for q in questions if q.get("subject", "").lower() == subject.lower()]
-                return questions
-        except Exception as e:
-            logger.error(f"Error loading practice questions: {e}")
-            return DEFAULT_PRACTICE_QUESTIONS
+        # Build 20 Qs for Part A2 (Classroom Scenarios)
+        for i in range(20):
+            base = PART_A2_QUESTIONS[i % len(PART_A2_QUESTIONS)]
+            part_a.append({
+                **base,
+                "id": f"partA2_q_{i+1}",
+                "q_number": len(part_a) + 1,
+                "module_idx": 2
+            })
 
-    def evaluate_practice_answer(self, question_id: str, selected_option: int) -> Dict[str, Any]:
-        """Evaluate a single practice question and return immediate explanation."""
-        try:
-            with open(PRACTICE_FILE, "r", encoding="utf-8") as f:
-                questions = json.load(f)
-                q = next((q for q in questions if q["id"] == question_id), None)
-                if not q:
-                    return {"status": "error", "message": "Question not found"}
-                
-                is_correct = (selected_option == q["correct_answer"])
-                return {
-                    "status": "success",
-                    "is_correct": is_correct,
-                    "correct_option": q["correct_answer"],
-                    "explanation": q.get("explanation", ""),
-                    "question_id": question_id
+        # Build 20 Qs for Part A3 (Modern Pedagogy & Critical Thinking)
+        for i in range(20):
+            base = PART_A3_QUESTIONS[i % len(PART_A3_QUESTIONS)]
+            part_a.append({
+                **base,
+                "id": f"partA3_q_{i+1}",
+                "q_number": len(part_a) + 1,
+                "module_idx": 3
+            })
+
+        # Build 40 Qs for Part B (Subject Specific)
+        part_b_raw = _generate_subject_questions(subject)
+        part_b: List[Dict[str, Any]] = []
+        for idx, q in enumerate(part_b_raw):
+            part_b.append({
+                **q,
+                "id": f"partB_q_{idx+1}",
+                "q_number": len(part_a) + idx + 1
+            })
+
+        all_questions = part_a + part_b
+
+        # Strip correct answers for candidate exam session
+        client_questions = []
+        for q in all_questions:
+            client_questions.append({
+                "id": q["id"],
+                "q_number": q["q_number"],
+                "section": q["section"],
+                "module": q["module"],
+                "question_text": q["question_text"],
+                "options": q["options"],
+                "tags": q.get("tags", [])
+            })
+
+        return {
+            "paper_id": f"tso-national-2026-{subject.lower()}",
+            "title": f"National Teacher Skills Olympiad (TSO) — {subject.upper()}",
+            "subject": subject,
+            "category_level": level,
+            "duration_minutes": 60,
+            "total_questions": 100,
+            "total_marks": 100,
+            "negative_marking": False,
+            "structure": {
+                "part_a": {
+                    "title": "Part-A: CBSE Modules, Practical Experience & Pedagogy",
+                    "weightage": "60%",
+                    "questions_count": 60,
+                    "modules": [
+                        "1. CBSE CPD Modules & NEP Guidelines (20 MCQs)",
+                        "2. Personal Classroom Experience & Scenarios (20 MCQs)",
+                        "3. Modern Pedagogy & Critical Thinking (20 MCQs)"
+                    ]
+                },
+                "part_b": {
+                    "title": f"Part-B: {subject} Content & Subject Pedagogy",
+                    "weightage": "40%",
+                    "questions_count": 40,
+                    "modules": [
+                        "1. Core Subject Knowledge (20 MCQs)",
+                        "2. Subject Pedagogical Knowledge (10 MCQs)",
+                        "3. Misconceptions & HOTS (10 MCQs)"
+                    ]
                 }
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+            },
+            "questions": client_questions
+        }
 
-    def submit_exam(self, submission_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process exam submission. Compute score server-side, record anti-cheating logs."""
-        try:
-            user_answers = submission_data.get("answers", {})
-            tab_switches = submission_data.get("tab_switch_count", 0)
-            webcam_active = submission_data.get("webcam_active", True)
-            teacher_email = submission_data.get("teacher_email", "teacher@devgya.edu").strip()
-            teacher_name = submission_data.get("teacher_name", "Teacher Candidate").strip()
-            paper_id = submission_data.get("paper_id", "paper-101")
-
-            # Single Attempt Guard
-            submissions = self.get_all_submissions()
-            for s in submissions:
-                if s.get("teacher_email", "").strip().lower() == teacher_email.lower():
-                    s_pid = s.get("paper_id", "paper-101")
-                    if s_pid == paper_id or s_pid == "default":
-                        return {
-                            "status": "already_submitted",
-                            "message": "You have already completed and submitted this Olympiad paper. Multiple attempts are not permitted.",
-                            "submission_id": s.get("id"),
-                            "review_status": s.get("review_status", "pending_review")
-                        }
-
-            # Calculate actual score server side & construct detailed answer breakdown
-            questions = []
-            target_paper = None
+    def register_tso_candidate(self, email: str, details: Dict[str, Any]) -> Dict[str, Any]:
+        """Registers teacher for Free TSO with subject, level, medium, state, and district."""
+        email_clean = email.strip().lower()
+        regs = {}
+        if TSO_REGISTRATIONS_FILE.exists():
             try:
-                from services.paper_service import paper_service
-                if paper_id and paper_id != "paper-101":
-                    target_paper = paper_service.get_paper_by_id(paper_id)
-                if not target_paper:
-                    papers = paper_service.get_all_papers()
-                    if papers:
-                        target_paper = next((p for p in papers if p.get("id") == paper_id), papers[0])
-                if target_paper and target_paper.get("questions"):
-                    questions = target_paper["questions"]
-                    paper_id = target_paper.get("id", paper_id)
-            except Exception as pe:
-                logger.warning(f"Could not load paper_service questions: {pe}")
+                with open(TSO_REGISTRATIONS_FILE, "r", encoding="utf-8") as f:
+                    regs = json.load(f)
+            except Exception:
+                regs = {}
 
-            if not questions and QUESTIONS_FILE.exists():
-                with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
-                    questions = json.load(f)
+        record = {
+            "email": email_clean,
+            "name": details.get("name", "Educator"),
+            "phone": details.get("phone", ""),
+            "state": details.get("state", ""),
+            "district": details.get("district", ""),
+            "tso_subject": details.get("tso_subject", "Science"),
+            "category_level": details.get("category_level", "Secondary"),
+            "medium": details.get("medium", "English"),
+            "is_tso_registered": True,
+            "trial_activated": True,
+            "trial_expires_at": details.get("trial_expires_at", "15 Days Access"),
+            "registered_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
 
-            total_questions = len(questions)
-            correct_count = 0
-            detailed_breakdown = []
+        regs[email_clean] = record
+        with open(TSO_REGISTRATIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(regs, f, indent=2)
 
-            for q in questions:
-                qid = str(q.get("id"))
-                user_ans_idx = user_answers.get(qid)
-                if user_ans_idx is None:
-                    user_ans_idx = user_answers.get(q.get("id"))
+        return {"status": "success", "registration": record}
 
-                options = q.get("options", [])
+    def get_tso_registration(self, email: str) -> Optional[Dict[str, Any]]:
+        email_clean = email.strip().lower()
+        if TSO_REGISTRATIONS_FILE.exists():
+            try:
+                with open(TSO_REGISTRATIONS_FILE, "r", encoding="utf-8") as f:
+                    regs = json.load(f)
+                    return regs.get(email_clean)
+            except Exception:
+                pass
+        return None
 
-                # Resolve correct_idx properly from correct_answer or answer text
-                raw_corr = q.get("correct_answer")
-                correct_idx = None
-
-                if raw_corr is not None:
-                    if isinstance(raw_corr, int):
-                        correct_idx = raw_corr
-                    elif isinstance(raw_corr, str):
-                        if raw_corr.isdigit():
-                            correct_idx = int(raw_corr)
-                        elif raw_corr.strip().upper() in ["A", "B", "C", "D"]:
-                            correct_idx = ord(raw_corr.strip().upper()) - 65
-
-                # Fallback: match answer string against options
-                if (correct_idx is None or correct_idx >= len(options)) and q.get("answer"):
-                    ans_text = str(q.get("answer")).strip().lower()
-                    for o_idx, opt in enumerate(options):
-                        opt_str = str(opt).strip().lower()
-                        if opt_str == ans_text or opt_str.replace("(a)", "").replace("(b)", "").replace("(c)", "").replace("(d)", "").strip() == ans_text:
-                            correct_idx = o_idx
-                            break
-                        if ans_text in [f"({chr(97+o_idx)})", chr(97+o_idx), f"option {chr(97+o_idx)}"]:
-                            correct_idx = o_idx
-                            break
-
-                if correct_idx is None:
-                    correct_idx = 0
-
-                is_correct = False
-                if user_ans_idx is not None:
-                    try:
-                        is_correct = (int(user_ans_idx) == int(correct_idx))
-                    except Exception:
-                        is_correct = False
-
-                if is_correct:
-                    correct_count += 1
-
-                user_selected_str = "Not Answered"
-                if user_ans_idx is not None:
-                    try:
-                        idx_int = int(user_ans_idx)
-                        if 0 <= idx_int < len(options):
-                            user_selected_str = options[idx_int]
-                    except Exception:
-                        pass
-
-                correct_str = ""
-                try:
-                    c_int = int(correct_idx)
-                    if 0 <= c_int < len(options):
-                        correct_str = options[c_int]
-                    else:
-                        correct_str = q.get("answer", "")
-                except Exception:
-                    correct_str = q.get("answer", "")
-
-                detailed_breakdown.append({
-                    "question_id": qid,
-                    "question_text": q.get("question_text", ""),
-                    "subject": q.get("subject", "Science"),
-                    "options": options,
-                    "user_selected_idx": user_ans_idx,
-                    "user_selected_str": user_selected_str,
-                    "correct_answer_idx": correct_idx,
-                    "correct_answer_str": correct_str,
-                    "is_correct": is_correct,
-                    "explanation": q.get("explanation", "")
-                })
-
-            score_percentage = round((correct_count / total_questions) * 100, 1) if total_questions > 0 else 0
-            sub_id = f"sub-{int(time.time() * 1000) % 1000000:06d}"
-
-            proctor_logs = submission_data.get("proctor_logs", [])
-            fullscreen_exits = submission_data.get("fullscreen_exits", 0)
-            face_missing_count = submission_data.get("face_missing_count", 0)
-
-            total_incidents = tab_switches + fullscreen_exits + face_missing_count
-            proctor_status = "100% SECURE - Clean Proctor" if total_incidents == 0 else f"Flagged ({total_incidents} Total Security Incidents)"
+    def submit_100_exam(self, submission_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Securely archives candidate's 100-MCQ responses in the database.
+        Strict Admin-Controlled Evaluation: No instant score is published to the candidate.
+        """
+        try:
+            sub_id = f"tso-sub-{int(time.time()*1000)}"
+            teacher_email = submission_data.get("teacher_email", "").strip().lower()
+            teacher_name = submission_data.get("teacher_name", "Educator")
+            subject = submission_data.get("subject", "Science")
+            user_answers = submission_data.get("answers", {})
 
             submission_record = {
                 "id": sub_id,
-                "paper_id": paper_id,
+                "paper_id": submission_data.get("paper_id", f"tso-national-2026-{subject.lower()}"),
                 "teacher_email": teacher_email,
                 "teacher_name": teacher_name,
-                "submitted_at": submission_data.get("submitted_at", time.strftime("%Y-%m-%d %H:%M:%S")),
+                "subject": subject,
+                "state": submission_data.get("state", ""),
+                "district": submission_data.get("district", ""),
+                "submitted_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "answers": user_answers,
-                "detailed_breakdown": detailed_breakdown,
-                "total_questions": total_questions,
-                "correct_count": correct_count,
-                "score_percentage": score_percentage,
-                "tab_switch_count": tab_switches,
-                "fullscreen_exits": fullscreen_exits,
-                "face_missing_count": face_missing_count,
-                "webcam_active": webcam_active,
-                "proctor_logs": proctor_logs,
-                "proctor_status": proctor_status,
-                "review_status": "pending_review",
-                "official_feedback": "",
-                "published": False
+                "total_questions": 100,
+                "answered_count": len(user_answers),
+                "review_status": "pending_admin_review",
+                "published": False,
+                "official_score": None,
+                "merit_rank": None,
+                "district_rank": None,
+                "state_rank": None,
+                "badges_awarded": [],
+                "proctor_incidents": submission_data.get("proctor_incidents", 0),
+                "time_taken_seconds": submission_data.get("time_taken_seconds", 3600)
             }
 
-            # Save submission
             submissions = []
             if SUBMISSIONS_FILE.exists():
-                with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
-                    submissions = json.load(f)
+                try:
+                    with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
+                        submissions = json.load(f)
+                except Exception:
+                    submissions = []
 
             submissions.insert(0, submission_record)
             with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
@@ -384,163 +455,56 @@ class OlympiadService:
 
             return {
                 "status": "success",
-                "message": "Olympiad assessment submitted successfully. Your result is under official board review.",
-                "submission_id": submission_record["id"],
-                "review_status": "pending_review"
+                "message": "Your 100-MCQ assessment has been submitted successfully and archived securely. Official merit rankings and scorecards will be declared by the administration committee.",
+                "submission_id": sub_id,
+                "review_status": "pending_admin_review"
             }
         except Exception as e:
-            logger.error(f"Error saving submission: {e}")
+            logger.error(f"Error saving 100 exam submission: {e}")
             return {"status": "error", "message": str(e)}
 
     def get_all_submissions(self) -> List[Dict[str, Any]]:
-        """Fetch all submissions for Super Admin Panel."""
-        try:
-            if SUBMISSIONS_FILE.exists():
+        """Fetch all submissions for admin review."""
+        if SUBMISSIONS_FILE.exists():
+            try:
                 with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
                     return json.load(f)
-        except Exception as e:
-            logger.error(f"Error fetching submissions: {e}")
+            except Exception as e:
+                logger.error(f"Error reading submissions: {e}")
         return []
 
-    def update_submission_result(self, sub_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
-        """Admin update score, feedback, publish state."""
-        try:
-            if not SUBMISSIONS_FILE.exists():
-                return {"status": "error", "message": "No submissions found"}
+    def admin_evaluate_submission(self, sub_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Admin can assign scores, ranks, feedback, and badges."""
+        if not SUBMISSIONS_FILE.exists():
+            return {"status": "error", "message": "No submissions found"}
 
-            with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
-                submissions = json.load(f)
+        with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
+            submissions = json.load(f)
 
-            target = next((s for s in submissions if s["id"] == sub_id), None)
-            if not target:
-                return {"status": "error", "message": "Submission ID not found"}
+        target = next((s for s in submissions if s["id"] == sub_id), None)
+        if not target:
+            return {"status": "error", "message": "Submission not found"}
 
-            if "score_percentage" in updates:
-                target["score_percentage"] = float(updates["score_percentage"])
-            if "official_feedback" in updates:
-                target["official_feedback"] = str(updates["official_feedback"])
-            if "published" in updates:
-                target["published"] = bool(updates["published"])
-                target["review_status"] = "published" if target["published"] else "evaluated"
-            if "review_status" in updates:
-                target["review_status"] = str(updates["review_status"])
+        if "official_score" in updates: target["official_score"] = float(updates["official_score"])
+        if "merit_rank" in updates: target["merit_rank"] = updates["merit_rank"]
+        if "district_rank" in updates: target["district_rank"] = updates["district_rank"]
+        if "state_rank" in updates: target["state_rank"] = updates["state_rank"]
+        if "badges_awarded" in updates: target["badges_awarded"] = updates["badges_awarded"]
+        if "published" in updates:
+            target["published"] = bool(updates["published"])
+            target["review_status"] = "published" if target["published"] else "evaluated"
 
-            with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
-                json.dump(submissions, f, indent=2)
+        with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(submissions, f, indent=2)
 
-            return {"status": "success", "updated_submission": target}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def bulk_publish_submissions(self, paper_id: Optional[str] = None) -> Dict[str, Any]:
-        """Admin 1-click bulk publish results for all participants (optionally filtered by paper_id)."""
-        try:
-            if not SUBMISSIONS_FILE.exists():
-                return {"status": "error", "message": "No submissions found"}
-
-            with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
-                submissions = json.load(f)
-
-            count = 0
-            for s in submissions:
-                # Match paper_id or if no paper_id specified / default fallback
-                s_pid = s.get("paper_id", "paper-101")
-                if not paper_id or s_pid == paper_id or (paper_id == "paper-101" and s_pid in ["paper-101", "default", ""]):
-                    s["published"] = True
-                    s["review_status"] = "published"
-                    count += 1
-
-            with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
-                json.dump(submissions, f, indent=2)
-
-            return {"status": "success", "published_count": count, "submissions": submissions}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def delete_submission(self, sub_id: str) -> Dict[str, Any]:
-        """Admin delete an Olympiad candidate submission/result."""
-        try:
-            if not SUBMISSIONS_FILE.exists():
-                return {"status": "error", "message": "No submissions found"}
-
-            with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
-                submissions = json.load(f)
-
-            initial_len = len(submissions)
-            submissions = [s for s in submissions if s.get("id") != sub_id]
-
-            if len(submissions) == initial_len:
-                return {"status": "error", "message": "Submission ID not found"}
-
-            with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
-                json.dump(submissions, f, indent=2)
-
-            return {"status": "success", "message": f"Submission {sub_id} successfully deleted"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    def bulk_delete_submissions(self, paper_id: Optional[str] = None) -> Dict[str, Any]:
-        """Admin bulk delete submissions (optionally filtered by paper_id)."""
-        try:
-            if not SUBMISSIONS_FILE.exists():
-                return {"status": "error", "message": "No submissions found"}
-
-            with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
-                submissions = json.load(f)
-
-            initial_len = len(submissions)
-            if not paper_id or paper_id == "all":
-                deleted_count = initial_len
-                submissions = []
-            else:
-                remaining = []
-                for s in submissions:
-                    s_pid = s.get("paper_id", "paper-101")
-                    if s_pid == paper_id or (paper_id == "paper-101" and s_pid in ["paper-101", "default", ""]):
-                        continue
-                    remaining.append(s)
-                deleted_count = initial_len - len(remaining)
-                submissions = remaining
-
-            with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
-                json.dump(submissions, f, indent=2)
-
-            return {"status": "success", "deleted_count": deleted_count, "submissions": submissions}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+        return {"status": "success", "updated": target}
 
     def get_published_results(self, teacher_email: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Fetch published results for public leaderboard or teacher result view."""
-        try:
-            submissions = self.get_all_submissions()
-            published = [s for s in submissions if s.get("published") is True]
-
-            if teacher_email:
-                teacher_published = [s for s in published if s.get("teacher_email", "").lower() == teacher_email.lower()]
-                return teacher_published
-
-            return published
-        except Exception as e:
-            logger.error(f"Error getting published results: {e}")
-            return []
-
-    def add_question(self, question: Dict[str, Any]) -> Dict[str, Any]:
-        """Add new question to question bank via Admin Panel."""
-        try:
-            questions = []
-            if QUESTIONS_FILE.exists():
-                with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
-                    questions = json.load(f)
-
-            new_id = f"q-{100 + len(questions) + 1}"
-            question["id"] = new_id
-            questions.append(question)
-
-            with open(QUESTIONS_FILE, "w", encoding="utf-8") as f:
-                json.dump(questions, f, indent=2)
-
-            return {"status": "success", "question": question}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+        submissions = self.get_all_submissions()
+        published = [s for s in submissions if s.get("published") is True]
+        if teacher_email:
+            clean = teacher_email.strip().lower()
+            return [s for s in published if s.get("teacher_email") == clean]
+        return published
 
 olympiad_service = OlympiadService()

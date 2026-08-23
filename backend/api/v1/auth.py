@@ -28,6 +28,17 @@ class RegisterPayload(BaseModel):
     classes: Optional[str] = "Class 10"
     school_logo: Optional[str] = ""
     otp_code: str
+    phone: Optional[str] = ""
+    state: Optional[str] = ""
+    district: Optional[str] = ""
+    highest_qualification: Optional[str] = "B.Ed"
+    total_experience: Optional[str] = "3–5 Years"
+    teaching_grade_level: Optional[str] = "High School 9-12"
+    tso_joined: Optional[bool] = False
+    tso_subject: Optional[str] = "Science"
+    tso_category_level: Optional[str] = "Secondary"
+    tso_medium: Optional[str] = "English"
+    trial_activated: Optional[bool] = True
 
 class LoginPayload(BaseModel):
     email: str
@@ -44,6 +55,22 @@ class UpdateProfilePayload(BaseModel):
     school_logo: Optional[str] = None
     avatar_url: Optional[str] = None
     role: Optional[str] = None
+    # Teacher & TSO Master Blueprint
+    phone: Optional[str] = None
+    state: Optional[str] = None
+    district: Optional[str] = None
+    highest_qualification: Optional[str] = None
+    total_experience: Optional[str] = None
+    teaching_grade_level: Optional[str] = None
+    tso_joined: Optional[bool] = None
+    tso_subject: Optional[str] = None
+    tso_category_level: Optional[str] = None
+    tso_medium: Optional[str] = None
+    trial_activated: Optional[bool] = None
+    # Phase 2 Job Profile
+    job_availability: Optional[str] = None
+    job_preferred_location: Optional[str] = None
+    job_expected_salary: Optional[str] = None
     # Student specific
     target_exam: Optional[str] = None
     strong_subject: Optional[str] = None
@@ -57,7 +84,6 @@ class UpdateProfilePayload(BaseModel):
     child_class: Optional[str] = None
     child_board: Optional[str] = None
     parent_relation: Optional[str] = None
-    phone: Optional[str] = None
     parenting_focus: Optional[str] = None
     weekly_report_alerts: Optional[bool] = None
 

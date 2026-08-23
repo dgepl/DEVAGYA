@@ -26,13 +26,24 @@ export interface UserProfile {
   studyMotto?: string;
   preferredLanguage?: string;
 
+  phone?: string;
+  state?: string;
+  district?: string;
+  highestQualification?: string;
+  totalExperience?: string;
+  teachingGradeLevel?: string;
+  tsoJoined?: boolean;
+  tsoSubject?: string;
+  tsoCategoryLevel?: string;
+  tsoMedium?: string;
+  trialActivated?: boolean;
+
   // Parent Specific
   childName?: string;
   childSchool?: string;
   childClass?: string;
   childBoard?: string;
   parentRelation?: string;
-  phone?: string;
   parentingFocus?: string;
   weeklyReportAlerts?: boolean;
 }

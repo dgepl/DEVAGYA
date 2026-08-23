@@ -1,1594 +1,855 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { 
   Trophy, 
-  ShieldAlert, 
-  Camera, 
   Clock, 
   CheckCircle2, 
   AlertTriangle, 
   Sparkles, 
   ArrowRight, 
+  ArrowLeft,
   Award, 
   Lock, 
   RefreshCw, 
   BookOpen, 
-  HelpCircle,
-  Eye,
-  FileCheck,
+  ShieldCheck,
   ChevronRight,
-  School,
-  Maximize,
-  Activity,
-  ListOrdered,
-  Calendar,
-  History,
+  Bookmark,
+  Send,
+  Eye,
   Check,
-  EyeOff,
-  XCircle,
-  CheckCircle,
-  FileText,
-  Smile
+  Building2,
+  MapPin,
+  Camera,
+  Activity,
+  Layers,
+  HelpCircle
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import * as faceapi from "@vladmandic/face-api";
 
 export default function TeacherOlympiadPage() {
   const { user } = useAppStore();
-  const [activeTab, setActiveTab] = useState<"instructions" | "previous_papers" | "published">("instructions");
-  
-  // Real AI Face & Mood Detection State (face-api.js Neural Network)
-  const [faceApiLoaded, setFaceApiLoaded] = useState(false);
-  const [currentMood, setCurrentMood] = useState<string>("Focused 🎯");
-  const isDetectingRef = useRef(false);
-  const lastNeuralFaceRef = useRef<{
-    box: { x: number; y: number; width: number; height: number };
-    mood: string;
-    timestamp: number;
-  } | null>(null);
-  
-  // Exam Engine State
+
+  const [activeTab, setActiveTab] = useState<"overview" | "exam" | "results">("overview");
+
+  // Candidate Assessment Preferences
+  const userSubject = user?.subject || "Science";
+  const [selectedSubject, setSelectedSubject] = useState<string>(userSubject);
+  const [selectedLevel, setSelectedLevel] = useState<string>("Secondary");
+
+  // Exam Paper & Questions State (100-MCQ structure)
+  const [paperData, setPaperData] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
+  const [currentIdx, setCurrentIdx] = useState<number>(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [examStarted, setExamStarted] = useState(false);
-  const [examSubmitted, setExamSubmitted] = useState(false);
+  const [markedForReview, setMarkedForReview] = useState<Record<string, boolean>>({});
+  const [activeSection, setActiveSection] = useState<"Part-A" | "Part-B">("Part-A");
+
+  // Exam Progress State
+  const [examStarted, setExamStarted] = useState<boolean>(false);
+  const [examSubmitted, setExamSubmitted] = useState<boolean>(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // Practical Anti-Cheating & Security State
-  const [tabSwitchCount, setTabSwitchCount] = useState(0);
-  const [fullscreenExits, setFullscreenExits] = useState(0);
-  const [faceMissingCount, setFaceMissingCount] = useState(0);
-  const [gazeDeflectionCount, setGazeDeflectionCount] = useState(0);
-  const [totalWarnings, setTotalWarnings] = useState(0);
-  const totalWarningsRef = useRef(0);
-  const lastWarningTimeRef = useRef(0);
-  const [proctorLogs, setProctorLogs] = useState<string[]>([]);
-  const [faceDetected, setFaceDetected] = useState(true);
-  const [gazeDeflected, setGazeDeflected] = useState(false);
+  // 60-Minute Live Countdown Timer
+  const [timeLeft, setTimeLeft] = useState<number>(60 * 60); // 3600 seconds
+  const [timerActive, setTimerActive] = useState<boolean>(false);
 
-  const [warningModalOpen, setWarningModalOpen] = useState(false);
-  const [warningMessage, setWarningMessage] = useState("");
-  const [currentWarningNum, setCurrentWarningNum] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(20 * 60); // 20 mins in seconds
-  const [webcamActive, setWebcamActive] = useState(false);
-
+  // Proctoring & Integrity Checks
+  const [tabSwitches, setTabSwitches] = useState<number>(0);
+  const [fullscreenExits, setFullscreenExits] = useState<number>(0);
+  const [webcamEnabled, setWebcamEnabled] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const animFrameRef = useRef<number | null>(null);
-  const boxPosRef = useRef({ x: 40, y: 30, w: 80, h: 80 });
-  const deflectionTimerRef = useRef(0);
-  const faceMissingStreakRef = useRef(0);
-  const baseCenterXRef = useRef<number | null>(null);
 
-  // Active Scheduled Paper Access Info
-  const [activePaperInfo, setActivePaperInfo] = useState<any>(null);
-  const [hasAlreadyAttempted, setHasAlreadyAttempted] = useState(false);
-
-  // Published & Previous Papers State
+  // Admin Declared Results State
   const [publishedResults, setPublishedResults] = useState<any[]>([]);
-  const [loadingResults, setLoadingResults] = useState(false);
-  const [previousPapers, setPreviousPapers] = useState<any[]>([]);
-  const [loadingPreviousPapers, setLoadingPreviousPapers] = useState(false);
-  const [previewArchivePaper, setPreviewArchivePaper] = useState<any | null>(null);
+  const [hasAttempted, setHasAttempted] = useState<boolean>(false);
 
-  // Answer Breakdown Modal State
-  const [selectedBreakdownResult, setSelectedBreakdownResult] = useState<any | null>(null);
-  const [breakdownFilter, setBreakdownFilter] = useState<"all" | "correct" | "wrong">("all");
-
-  // Live Ticker State for Real-Time Unlocking
-  const [nowTime, setNowTime] = useState<number>(Date.now());
-
-  // 1. Fetch Questions & Active Paper Access Info
-  const loadExamQuestions = async () => {
-    setLoadingQuestions(true);
+  // 1. Fetch 100-MCQ Assessment Paper from Backend
+  const loadExamPaper = async () => {
+    setLoading(true);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const res = await fetch(`${baseUrl}/olympiad/questions`);
+      const res = await fetch(`${baseUrl}/olympiad/exam-paper?subject=${encodeURIComponent(selectedSubject)}&level=${encodeURIComponent(selectedLevel)}`);
       const data = await res.json();
-      if (data.questions) {
-        setQuestions(data.questions);
+      if (data.status === "success" && data.paper) {
+        setPaperData(data.paper);
+        setQuestions(data.paper.questions || []);
       }
     } catch (e) {
-      console.error("Error loading questions", e);
+      console.error("Error loading Olympiad 100 paper:", e);
     } finally {
-      setLoadingQuestions(false);
+      setLoading(false);
     }
   };
 
-  const loadActivePaperInfo = async () => {
+  // 2. Check Candidate's Attempt Status
+  const checkAttemptStatus = async () => {
+    if (!user?.email) return;
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const res = await fetch(`${baseUrl}/olympiad/active-paper`);
+      const res = await fetch(`${baseUrl}/olympiad/attempt-status?email=${encodeURIComponent(user.email.trim().toLowerCase())}`);
       const data = await res.json();
       if (data.status === "success") {
-        setActivePaperInfo(data);
-        if (data.paper?.id) {
-          loadAttemptStatus(data.paper.id);
-        }
+        setHasAttempted(data.has_attempted);
       }
     } catch (e) {
-      console.error("Error loading active paper info", e);
+      console.warn("Attempt status check notice:", e);
     }
   };
 
-  const loadAttemptStatus = async (paperId?: string) => {
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const email = user?.email || "teacher@devgya.edu";
-      const targetId = paperId || activePaperInfo?.paper?.id || "paper-101";
-      const res = await fetch(`${baseUrl}/olympiad/attempt-status?email=${encodeURIComponent(email)}&paper_id=${encodeURIComponent(targetId)}`);
-      const data = await res.json();
-      if (data.has_attempted) {
-        setHasAlreadyAttempted(true);
-      }
-    } catch (e) {
-      console.error("Error loading attempt status", e);
-    }
-  };
-
-  // 2. Fetch Published Results & Previous Papers Archive
+  // 3. Fetch Admin Published Results
   const loadPublishedResults = async () => {
-    setLoadingResults(true);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const userEmail = user?.email || "";
-      const res = await fetch(`${baseUrl}/olympiad/results/published?email=${encodeURIComponent(userEmail)}`);
+      const userEmail = user?.email ? `?email=${encodeURIComponent(user.email.trim().toLowerCase())}` : "";
+      const res = await fetch(`${baseUrl}/olympiad/results${userEmail}`);
       const data = await res.json();
-      if (data.results) {
-        setPublishedResults(data.results);
+      if (data.status === "success") {
+        setPublishedResults(data.results || []);
       }
-    } catch (e) {
-      console.error("Error loading published results", e);
-    } finally {
-      setLoadingResults(false);
-    }
-  };
-
-  const loadPreviousPapers = async () => {
-    setLoadingPreviousPapers(true);
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const res = await fetch(`${baseUrl}/olympiad/previous-papers`);
-      const data = await res.json();
-      if (data.papers) {
-        setPreviousPapers(data.papers);
-      }
-    } catch (e) {
-      console.error("Error loading previous papers", e);
-    } finally {
-      setLoadingPreviousPapers(false);
-    }
+    } catch (e) {}
   };
 
   useEffect(() => {
-    loadExamQuestions();
-    loadActivePaperInfo();
+    loadExamPaper();
+    checkAttemptStatus();
     loadPublishedResults();
-    loadPreviousPapers();
+  }, [user?.email, selectedSubject, selectedLevel]);
 
-    // Live 1-second ticker for real-time countdown & auto-unlocking
-    const ticker = setInterval(() => setNowTime(Date.now()), 1000);
-
-    // 3-second polling to fetch scheduled access window status changes
-    const statusPoll = setInterval(() => {
-      if (!examStarted && !examSubmitted) {
-        loadActivePaperInfo();
-      }
-    }, 3000);
-
-    return () => {
-      clearInterval(ticker);
-      clearInterval(statusPoll);
-    };
-  }, [examStarted, examSubmitted]);
-
-  // Load Real AI Face & Emotion/Mood Neural Models
+  // 60-Minute Countdown Timer Hook
   useEffect(() => {
-    let isMounted = true;
-    const loadFaceApiModels = async () => {
-      try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
-          faceapi.nets.faceExpressionNet.loadFromUri("/models")
-        ]);
-        if (isMounted) {
-          setFaceApiLoaded(true);
-        }
-      } catch (e) {
-        console.warn("Face-API models loading notice:", e);
-      }
-    };
-    loadFaceApiModels();
-    return () => { isMounted = false; };
-  }, []);
-
-  // Neural Face Detection & Real-Time Mood Analyzer Loop
-  useEffect(() => {
-    if (!examStarted || examSubmitted || !webcamActive) return;
-
-    const MOOD_EMOJIS: Record<string, string> = {
-      happy: "Happy 😊",
-      neutral: "Focused 🎯",
-      surprised: "Attentive 😮",
-      sad: "Thinking 💭",
-      angry: "Intense 🧐",
-      fearful: "Alert ⚡",
-      disgusted: "Concerned 🤨"
-    };
-
-    const interval = setInterval(async () => {
-      if (!videoRef.current || isDetectingRef.current || videoRef.current.readyState < 2) return;
-      try {
-        isDetectingRef.current = true;
-        if (faceApiLoaded) {
-          const detection: any = await faceapi
-            .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.2 }))
-            .withFaceExpressions();
-
-          const box = detection?.detection?.box || detection?.box;
-
-          if (detection && box) {
-            let dominantMood = "neutral";
-            let maxScore = 0;
-            if (detection.expressions) {
-              for (const [expr, score] of Object.entries(detection.expressions as any)) {
-                if (typeof score === "number" && score > maxScore) {
-                  maxScore = score;
-                  dominantMood = expr;
-                }
-              }
-            }
-
-            const moodLabel = MOOD_EMOJIS[dominantMood] || "Focused 🎯";
-            setCurrentMood(moodLabel);
-
-            const { x, y, width, height } = box;
-            lastNeuralFaceRef.current = {
-              box: { x, y, width, height },
-              mood: moodLabel,
-              timestamp: Date.now()
-            };
-          } else {
-            if (Date.now() - (lastNeuralFaceRef.current?.timestamp || 0) > 1200) {
-              lastNeuralFaceRef.current = null;
-            }
+    let interval: any = null;
+    if (examStarted && !examSubmitted && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            handleAutoSubmit();
+            return 0;
           }
-        }
-      } catch (err) {
-        // Fallback handles gracefully
-      } finally {
-        isDetectingRef.current = false;
-      }
-    }, 150);
-
+          return prev - 1;
+        });
+      }, 1000);
+    }
     return () => clearInterval(interval);
-  }, [examStarted, examSubmitted, webcamActive, faceApiLoaded]);
+  }, [examStarted, examSubmitted, timeLeft]);
 
-  // 3. Setup Webcam Proctoring & Real-Time Canvas Analysis Loop
-  const startWebcam = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: 640, height: 480, facingMode: "user" }, 
-        audio: false 
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setWebcamActive(true);
-      const timestamp = new Date().toLocaleTimeString();
-      setProctorLogs(prev => [`${timestamp} - Live AI Proctor Feed Initialized`, ...prev]);
-
-      if (document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      }
-
-      animFrameRef.current = requestAnimationFrame(runProctorFrameAnalysis);
-    } catch (err) {
-      console.warn("Webcam access declined or unavailable", err);
-      setWebcamActive(false);
-      const timestamp = new Date().toLocaleTimeString();
-      setProctorLogs(prev => [`${timestamp} - Warning: Camera feed unavailable`, ...prev]);
-    }
-  };
-
-  const stopWebcam = () => {
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-    }
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-    }
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {});
-    }
-  };
-
-  // Unified Anti-Cheating Violation Dispatcher (Counts all proctoring violations towards 3 max warnings)
-  const triggerProctorWarning = (reason: string, violationType: "gaze" | "face" | "tab" | "fullscreen") => {
-    const now = Date.now();
-    if (now - lastWarningTimeRef.current < 3500) {
-      return; // Cooldown to avoid multi-trigger from single event
-    }
-    lastWarningTimeRef.current = now;
-
-    const nextWarning = totalWarningsRef.current + 1;
-    totalWarningsRef.current = nextWarning;
-    setTotalWarnings(nextWarning);
-    setCurrentWarningNum(nextWarning);
-
-    if (violationType === "gaze") setGazeDeflectionCount(c => c + 1);
-    if (violationType === "face") setFaceMissingCount(c => c + 1);
-    if (violationType === "tab") setTabSwitchCount(c => c + 1);
-    if (violationType === "fullscreen") setFullscreenExits(c => c + 1);
-
-    const timestamp = new Date().toLocaleTimeString();
-    setProctorLogs(logs => [`${timestamp} - Security Warning (${nextWarning}/3): ${reason}`, ...logs]);
-    setWarningMessage(reason);
-    setWarningModalOpen(true);
-
-    if (nextWarning >= 3) {
-      setTimeout(() => {
-        handleFinalExamSubmission(nextWarning, `Auto-submitted due to 3 Proctored Security Violations: ${reason}`);
-      }, 1500);
-    }
-  };
-
-  // 60 FPS Real-time Live Face & Eye Gaze Deflection Tracker Canvas
-  const runProctorFrameAnalysis = () => {
-    if (videoRef.current && canvasRef.current && overlayCanvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const overlayCanvas = overlayCanvasRef.current;
-      const ctx = canvas.getContext("2d");
-      const oCtx = overlayCanvas.getContext("2d");
-
-      if (video.readyState === video.HAVE_ENOUGH_DATA && ctx && oCtx) {
-        const dw = overlayCanvas.clientWidth || 320;
-        const dh = overlayCanvas.clientHeight || 240;
-        overlayCanvas.width = dw;
-        overlayCanvas.height = dh;
-        oCtx.clearRect(0, 0, dw, dh);
-
-        const sw = 160;
-        const sh = 120;
-        canvas.width = sw;
-        canvas.height = sh;
-        ctx.drawImage(video, 0, 0, sw, sh);
-        const frame = ctx.getImageData(0, 0, sw, sh);
-        const data = frame.data;
-
-        let skinPixels = 0;
-        let minX = sw, minY = sh, maxX = 0, maxY = 0;
-
-        for (let y = 0; y < sh; y += 2) {
-          for (let x = 0; x < sw; x += 2) {
-            const i = (y * sw + x) * 4;
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-
-            // Hybrid YCbCr Chrominance + RGB Skin Detection (Zero false-positive face missing)
-            const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
-            const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
-            const isChrominance = (cb >= 77 && cb <= 128 && cr >= 130 && cr <= 175);
-            const isRgbSkin = (r > 45 && g > 30 && b > 15 && r > g && r > b && (r - g) > 6);
-
-            if (isChrominance || isRgbSkin) {
-              skinPixels++;
-              if (x < minX) minX = x;
-              if (x > maxX) maxX = x;
-              if (y < minY) minY = y;
-              if (y > maxY) maxY = y;
-            }
-          }
-        }
-
-        // 1. Check Neural Detection First (Real AI CNN Model)
-        const neuralDetection = lastNeuralFaceRef.current;
-        const isNeuralFresh = neuralDetection && (Date.now() - neuralDetection.timestamp < 2000);
-
-        let isFacePresent = false;
-        let finalRawX = 0, finalRawY = 0, finalRawW = 0, finalRawH = 0;
-
-        if (isNeuralFresh && neuralDetection && video.videoWidth > 0 && video.videoHeight > 0) {
-          isFacePresent = true;
-          const { x, y, width, height } = neuralDetection.box;
-          finalRawX = (x / video.videoWidth) * dw;
-          finalRawY = (y / video.videoHeight) * dh;
-          finalRawW = Math.max(55, (width / video.videoWidth) * dw);
-          finalRawH = Math.max(55, (height / video.videoHeight) * dh);
-        } else if (skinPixels > 6) {
-          isFacePresent = true;
-          finalRawX = (minX / sw) * dw;
-          finalRawY = (minY / sh) * dh;
-          finalRawW = Math.max(55, ((maxX - minX) / sw) * dw);
-          finalRawH = Math.max(55, ((maxY - minY) / sh) * dh);
-        }
-
-        setFaceDetected(isFacePresent);
-
-        if (isFacePresent) {
-          faceMissingStreakRef.current = 0;
-
-          const smooth = 0.35;
-          const prevBox = boxPosRef.current;
-          const x = prevBox.x + (finalRawX - prevBox.x) * smooth;
-          const y = prevBox.y + (finalRawY - prevBox.y) * smooth;
-          const w = prevBox.w + (finalRawW - prevBox.w) * smooth;
-          const h = prevBox.h + (finalRawH - prevBox.h) * smooth;
-          boxPosRef.current = { x, y, w, h };
-
-          const cx = x + w / 2;
-          const cy = y + h / 2;
-          const aspect = w / Math.max(1, h);
-
-          // Optical Camera Center (webcam top-center reference)
-          const camCenterX = dw / 2;
-          const camCenterY = dh / 2;
-
-          const dx = Math.abs(cx - camCenterX) / dw;
-          const dy = Math.abs(cy - camCenterY) / dh;
-
-          // Head turn / looking away detection:
-          // Triggers if head turns left/right/up/down (> 18% horizontal or > 20% vertical deviation,
-          // or face shifts near frame edges, or face aspect ratio narrows due to turning sideways)
-          const isDeflected = dx > 0.18 || dy > 0.20 || cx < dw * 0.22 || cx > dw * 0.78 || cy < dh * 0.20 || cy > dh * 0.80 || (aspect < 0.60);
-          setGazeDeflected(isDeflected);
-
-          if (isDeflected) {
-            deflectionTimerRef.current += 1;
-            // Trigger proctor warning if turned away continuously for ~1.25s (75 frames @ 60 FPS)
-            if (deflectionTimerRef.current >= 75) {
-              deflectionTimerRef.current = 0;
-              triggerProctorWarning("Head/Eye Deflection Detected! You are looking away from the proctored exam screen. Please face forward towards your assessment.", "gaze");
-            }
-          } else {
-            deflectionTimerRef.current = 0;
-          }
-
-          const cornerLen = 14;
-          const boxColor = isDeflected ? "#f59e0b" : "#10b981";
-          const textY = Math.max(18, y - 6);
-          const clampedY = Math.max(12, y);
-
-          oCtx.strokeStyle = boxColor;
-          oCtx.lineWidth = 3;
-          oCtx.shadowColor = boxColor;
-          oCtx.shadowBlur = 8;
-
-          oCtx.beginPath(); oCtx.moveTo(x, clampedY + cornerLen); oCtx.lineTo(x, clampedY); oCtx.lineTo(x + cornerLen, clampedY); oCtx.stroke();
-          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, clampedY); oCtx.lineTo(x + w, clampedY); oCtx.lineTo(x + w, clampedY + cornerLen); oCtx.stroke();
-          oCtx.beginPath(); oCtx.moveTo(x, clampedY + h - cornerLen); oCtx.lineTo(x, clampedY + h); oCtx.lineTo(x + cornerLen, clampedY + h); oCtx.stroke();
-          oCtx.beginPath(); oCtx.moveTo(x + w - cornerLen, clampedY + h); oCtx.lineTo(x + w, clampedY + h); oCtx.lineTo(x + w, clampedY + h - cornerLen); oCtx.stroke();
-
-          oCtx.fillStyle = boxColor;
-          oCtx.font = "bold 9px monospace";
-          if (isDeflected) {
-            oCtx.fillText("GAZE WARNING: LOOKING AWAY!", x, textY);
-          } else {
-            oCtx.fillText(`AI TARGET LOCKED: CANDIDATE #1 • ${currentMood}`, x, textY);
-          }
-
-          oCtx.strokeStyle = isDeflected ? "rgba(245, 158, 11, 0.9)" : "rgba(99, 102, 241, 0.8)";
-          oCtx.lineWidth = 1;
-          oCtx.beginPath(); oCtx.arc(cx, cy, 10, 0, Math.PI * 2); oCtx.stroke();
-          oCtx.fillStyle = isDeflected ? "#f59e0b" : "#6366f1";
-          oCtx.beginPath(); oCtx.arc(cx, cy, 3, 0, Math.PI * 2); oCtx.fill();
-
-          oCtx.fillStyle = isDeflected ? "#ef4444" : "#f59e0b";
-          oCtx.beginPath(); oCtx.arc(cx - w * 0.18, cy - h * 0.15, 2.5, 0, Math.PI * 2); oCtx.fill();
-          oCtx.beginPath(); oCtx.arc(cx + w * 0.18, cy - h * 0.15, 2.5, 0, Math.PI * 2); oCtx.fill();
-
-        } else {
-          faceMissingStreakRef.current += 1;
-
-          oCtx.strokeStyle = "#ef4444";
-          oCtx.lineWidth = 3;
-          oCtx.shadowColor = "#ef4444";
-          oCtx.shadowBlur = 10;
-          oCtx.strokeRect(10, 10, dw - 20, dh - 20);
-
-          oCtx.fillStyle = "#ef4444";
-          oCtx.font = "bold 11px monospace";
-          oCtx.fillText("WARNING: FACE MISSING / STEPPED AWAY", 20, 30);
-
-          // Trigger warning if candidate is completely absent for ~1.2s (70 frames @ 60 FPS)
-          if (faceMissingStreakRef.current >= 70) {
-            faceMissingStreakRef.current = 0;
-            triggerProctorWarning("Face Missing / Camera Obstructed! Candidate must remain clearly visible in camera at all times.", "face");
-          }
-        }
-      }
-    }
-
-    animFrameRef.current = requestAnimationFrame(runProctorFrameAnalysis);
-  };
-
-  // 4. Practical Anti-Cheating Event Listeners
+  // Anti-Cheating: Tab Switch & Visibility Detection
   useEffect(() => {
     if (!examStarted || examSubmitted) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        triggerProctorWarning("Tab Switched / Navigated away from the proctored exam window! Staying on exam screen is mandatory.", "tab");
-      }
-    };
-
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        triggerProctorWarning("Candidate Exited Fullscreen Mode! Full screen mode is mandatory for assessment integrity.", "fullscreen");
-      }
-    };
-
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-      const timestamp = new Date().toLocaleTimeString();
-      setProctorLogs(logs => [`${timestamp} - Security Incident: Right-Click Context Menu Blocked`, ...logs]);
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'u' || e.key === 'a')) ||
-        e.key === 'F12'
-      ) {
-        e.preventDefault();
-        const timestamp = new Date().toLocaleTimeString();
-        setProctorLogs(logs => [`${timestamp} - Security Incident: Restricted Key Combo Blocked (${e.key})`, ...logs]);
+        setTabSwitches((prev) => prev + 1);
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("contextmenu", handleContextMenu);
-    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [examStarted, examSubmitted]);
 
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("contextmenu", handleContextMenu);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [examStarted, examSubmitted, answers]);
+  // Format MM:SS
+  const formattedTime = useMemo(() => {
+    const mins = Math.floor(timeLeft / 60);
+    const secs = timeLeft % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }, [timeLeft]);
 
-  // 5. Exam Countdown Timer
-  useEffect(() => {
-    if (!examStarted || examSubmitted) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleFinalExamSubmission(tabSwitchCount, "Time expired.");
-          return 0;
+  // Start Real 60-Minute Exam
+  const handleStartExam = async () => {
+    // Request webcam if available
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
         }
-        return prev - 1;
-      });
-    }, 1000);
+        setWebcamEnabled(true);
+      }
+    } catch (e) {
+      console.warn("Webcam optional notice:", e);
+    }
 
-    return () => clearInterval(timer);
-  }, [examStarted, examSubmitted, tabSwitchCount, answers]);
+    // Try requesting fullscreen
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen().catch(() => {});
+      }
+    } catch (e) {}
 
-  // Start Proctored Exam
-  const handleStartExam = () => {
+    setTimeLeft(60 * 60);
     setExamStarted(true);
-    setExamSubmitted(false);
-    setTabSwitchCount(0);
-    setFullscreenExits(0);
-    setFaceMissingCount(0);
-    setGazeDeflectionCount(0);
-    setTotalWarnings(0);
-    totalWarningsRef.current = 0;
-    lastWarningTimeRef.current = 0;
-    setProctorLogs([]);
-    setTimeLeft(20 * 60);
-    startWebcam();
+    setActiveTab("exam");
+    setCurrentIdx(0);
   };
 
-  const handleSelectOption = (qId: string, optionIdx: number) => {
-    setAnswers(prev => ({ ...prev, [qId]: optionIdx }));
+  // Select Option for Current Question
+  const handleSelectOption = (optIdx: number) => {
+    if (!questions[currentIdx]) return;
+    const qId = questions[currentIdx].id;
+    setAnswers((prev) => ({
+      ...prev,
+      [qId]: optIdx
+    }));
   };
 
-  const handleFinalExamSubmission = async (switches = tabSwitchCount, reason = "") => {
-    stopWebcam();
-    setExamSubmitted(true);
+  // Toggle Mark For Review
+  const handleToggleReview = () => {
+    if (!questions[currentIdx]) return;
+    const qId = questions[currentIdx].id;
+    setMarkedForReview((prev) => ({
+      ...prev,
+      [qId]: !prev[qId]
+    }));
+  };
+
+  // Clear Current Answer
+  const handleClearAnswer = () => {
+    if (!questions[currentIdx]) return;
+    const qId = questions[currentIdx].id;
+    setAnswers((prev) => {
+      const copy = { ...prev };
+      delete copy[qId];
+      return copy;
+    });
+  };
+
+  // Submit Exam
+  const handleSubmitExam = async () => {
+    if (!confirm("Are you sure you want to finish and submit your 100-MCQ assessment? Your answers will be archived for official board evaluation.")) {
+      return;
+    }
+    await processSubmission();
+  };
+
+  const handleAutoSubmit = async () => {
+    await processSubmission();
+  };
+
+  const processSubmission = async () => {
+    setLoading(true);
+    const timeTaken = 3600 - timeLeft;
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const payload = {
-        teacher_email: user?.email || "teacher@devgya.edu",
-        teacher_name: user?.name || "Educator Candidate",
-        paper_id: activePaperInfo?.paper?.id || "paper-101",
-        answers: answers,
-        tab_switch_count: switches,
-        fullscreen_exits: fullscreenExits,
-        face_missing_count: faceMissingCount,
-        gaze_deflection_count: gazeDeflectionCount,
-        total_warnings: totalWarningsRef.current || totalWarnings,
-        webcam_active: webcamActive,
-        proctor_logs: proctorLogs,
-        submitted_at: new Date().toLocaleString()
-      };
-
-      const res = await fetch(`${baseUrl}/olympiad/submit`, {
+      const res = await fetch(`${baseUrl}/olympiad/submit-100`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          teacher_email: user?.email || "teacher@school.edu",
+          teacher_name: user?.name || "Educator",
+          subject: selectedSubject,
+          state: user?.state || "National",
+          district: user?.district || "Central",
+          paper_id: paperData?.paper_id || `tso-national-2026-${selectedSubject.toLowerCase()}`,
+          answers: answers,
+          time_taken_seconds: timeTaken,
+          proctor_incidents: tabSwitches + fullscreenExits
+        })
       });
+
       const data = await res.json();
-      if (data.status === "already_submitted") {
-        setHasAlreadyAttempted(true);
-        setExamSubmitted(true);
-        return;
-      }
-      if (data.submission_id) {
+      if (res.ok) {
         setSubmissionId(data.submission_id);
-        setHasAlreadyAttempted(true);
+        setExamSubmitted(true);
+        setHasAttempted(true);
       }
     } catch (e) {
-      console.error("Error submitting exam", e);
+      console.error("Submission error:", e);
+      setExamSubmitted(true);
+    } finally {
+      setLoading(false);
+      // Stop webcam stream
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
     }
   };
 
-  const formatTime = (secs: number) => {
-    const mins = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
+  // Filter Questions by Active Section
+  const sectionQuestions = useMemo(() => {
+    return questions.filter(q => q.section === activeSection);
+  }, [questions, activeSection]);
 
-  const secondsUntilUnlock = (() => {
-    if (!activePaperInfo || !activePaperInfo.paper || !activePaperInfo.paper.start_time) return 0;
-    const startMs = new Date(activePaperInfo.paper.start_time.replace(" ", "T")).getTime();
-    if (isNaN(startMs)) return 0;
-    const diff = Math.ceil((startMs - nowTime) / 1000);
-    return diff > 0 ? diff : 0;
-  })();
+  const currentQ = questions[currentIdx];
 
-  const hasPaperFromAdmin = !!(activePaperInfo && activePaperInfo.paper && activePaperInfo.paper.questions && activePaperInfo.paper.questions.length > 0);
+  const partAAnsweredCount = useMemo(() => {
+    return questions.filter(q => q.section === "Part-A" && answers[q.id] !== undefined).length;
+  }, [questions, answers]);
 
-  const isExamAccessible = (() => {
-    if (!hasPaperFromAdmin) return false;
-    if (secondsUntilUnlock > 0) return false;
-    const p = activePaperInfo.paper;
-    if (activePaperInfo.is_live) return true;
-    if (!p.end_time) return true;
-    const endMs = new Date(p.end_time.replace(" ", "T")).getTime();
-    if (isNaN(endMs)) return true;
-    return nowTime <= endMs;
-  })();
-
-  // Filter breakdown items
-  const getFilteredBreakdown = () => {
-    if (!selectedBreakdownResult || !selectedBreakdownResult.detailed_breakdown) return [];
-    const list = selectedBreakdownResult.detailed_breakdown;
-    if (breakdownFilter === "correct") return list.filter((i: any) => i.is_correct);
-    if (breakdownFilter === "wrong") return list.filter((i: any) => !i.is_correct);
-    return list;
-  };
+  const partBAnsweredCount = useMemo(() => {
+    return questions.filter(q => q.section === "Part-B" && answers[q.id] !== undefined).length;
+  }, [questions, answers]);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12 font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
       
-      {/* HEADER BANNER */}
-      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
-        
-        <div className="space-y-2 relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-black text-amber-300">
-            <Trophy className="w-3.5 h-3.5 text-amber-400" />
-            <span>National Teachers Skill Olympiad 2026</span>
+      {/* 1. TOP HEADER OVERVIEW (WHEN NOT IN EXAM HALL) */}
+      {!examStarted && (
+        <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden space-y-4">
+          <div className="absolute -top-20 -right-20 w-80 h-80 bg-amber-400/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-0.5 rounded-full">
+                  NATIONAL ASSESSMENT BLUEPRINT
+                </span>
+                <span className="text-[10px] font-bold bg-white/10 text-slate-300 px-2.5 py-0.5 rounded-full">
+                  CBSE / NCERT Standard
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                Teacher Skills Olympiad (TSO) 2026
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 font-medium">
+                National Pedagogy & Subject Mastery Assessment (100 MCQs • 60 Minutes • 60/40 Hybrid Structure)
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab("overview")}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === "overview"
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
+                    : "bg-white/10 text-slate-300 hover:bg-white/20"
+                }`}
+              >
+                Assessment Overview
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("results")}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "results"
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
+                    : "bg-white/10 text-slate-300 hover:bg-white/20"
+                }`}
+              >
+                <Award className="w-3.5 h-3.5" />
+                <span>Results & Rank Cards</span>
+              </button>
+            </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
-            AI-Proctored MCQ Teacher Assessment
-          </h1>
-          
-          <p className="text-xs sm:text-sm text-indigo-200 font-medium leading-relaxed">
-            Evaluate your pedagogical mastery, NEP 2020 integration, and AI-assisted teaching competence under secure anti-cheating supervision.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 shrink-0 relative z-10">
-          <Link
-            href="/dashboard/teacher-olympiad/leaderboard"
-            className="px-4 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-extrabold text-xs rounded-2xl flex items-center gap-2 transition-all shadow-md active:scale-95"
-          >
-            <Trophy className="w-4 h-4 text-amber-200" />
-            <span>Live Leaderboard</span>
-          </Link>
-
-          <Link
-            href="/dashboard/teacher-olympiad/practice"
-            className="px-4 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs rounded-2xl flex items-center gap-2 transition-all shadow-md active:scale-95"
-          >
-            <BookOpen className="w-4 h-4 text-emerald-400" />
-            <span>Practice Olympiad</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* TABS NAVIGATION */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 flex-wrap">
-        <button
-          onClick={() => { setActiveTab("instructions"); }}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "instructions"
-              ? "bg-indigo-600 text-white shadow-md"
-              : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4" />
-          <span>Active Olympiad Hall</span>
-        </button>
-
-        <button
-          onClick={() => { setActiveTab("previous_papers"); loadPreviousPapers(); }}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "previous_papers"
-              ? "bg-indigo-600 text-white shadow-md"
-              : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
-          }`}
-        >
-          <History className="w-4 h-4 text-amber-400" />
-          <span>Previous Olympiad Papers Archive ({previousPapers.length})</span>
-        </button>
-
-        <button
-          onClick={() => { setActiveTab("published"); loadPublishedResults(); }}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "published"
-              ? "bg-indigo-600 text-white shadow-md"
-              : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
-          }`}
-        >
-          <Award className="w-4 h-4 text-amber-500" />
-          <span>Published Evaluation Results</span>
-        </button>
-      </div>
-
-      {/* WARNING MODAL DIALOG */}
-      {warningModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-md bg-white border border-red-200 rounded-3xl p-6 shadow-2xl space-y-4 text-center animate-in zoom-in-95 duration-200">
-            <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-              <AlertTriangle className="w-8 h-8" />
+          {/* Quick Metrics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/10 relative z-10 text-xs font-bold">
+            <div className="p-3 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md">
+              <span className="text-slate-400 text-[10px] block">Assessment Format</span>
+              <span className="text-white text-sm font-black">100 Online MCQs</span>
             </div>
-            <h3 className="text-lg font-black text-slate-900">Anti-Cheating Security Alert</h3>
-            <p className="text-xs text-slate-600 font-semibold leading-relaxed">
-              {warningMessage}
-            </p>
-            <button
-              onClick={() => setWarningModalOpen(false)}
-              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl shadow-lg transition-all"
-            >
-              I Understand & Return to Exam
-            </button>
+            <div className="p-3 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md">
+              <span className="text-slate-400 text-[10px] block">Time Allowed</span>
+              <span className="text-amber-300 text-sm font-black">60 Minutes</span>
+            </div>
+            <div className="p-3 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md">
+              <span className="text-slate-400 text-[10px] block">Structure Breakdown</span>
+              <span className="text-cyan-300 text-sm font-black">60 Part-A + 40 Part-B</span>
+            </div>
+            <div className="p-3 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md">
+              <span className="text-slate-400 text-[10px] block">Negative Marking</span>
+              <span className="text-emerald-400 text-sm font-black">None (0 Penalty)</span>
+            </div>
           </div>
         </div>
       )}
 
-      {/* TAB 1: OLYMPIAD EXAM HALL */}
-      {activeTab === "instructions" && (
+      {/* 2. OVERVIEW & EXAM LAUNCHER TAB */}
+      {!examStarted && activeTab === "overview" && (
         <div className="space-y-6">
           
-          {!examStarted && !examSubmitted && (
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-              
-              {/* STATE 1: NO PAPER FROM ADMIN — OLYMPIAD LOCKED */}
-              {!hasPaperFromAdmin && (
-                <div className="flex flex-col items-center justify-center py-16 space-y-6 text-center">
-                  <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center shadow-inner">
-                    <Lock className="w-10 h-10 text-slate-400" />
+          {/* SECTION BREAKDOWN (60/40 HYBRID STRUCTURE) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            
+            {/* PART-A CARD */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 font-black">
+                    A
                   </div>
-                  <div className="space-y-2 max-w-md">
-                    <h3 className="text-xl font-black text-slate-800">No Olympiad Available</h3>
-                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                      There is no active Olympiad paper published by the Admin at this time. Please check back later or contact your administrator for the next scheduled assessment.
-                    </p>
-                  </div>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-500">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>Waiting for Admin to publish a new Olympiad paper...</span>
-                  </div>
-                </div>
-              )}
-
-              {/* STATE 2: PAPER EXISTS BUT TIME NOT YET — COUNTDOWN */}
-              {hasPaperFromAdmin && !isExamAccessible && secondsUntilUnlock > 0 && (
-                <div className="flex flex-col items-center justify-center py-12 space-y-6 text-center">
-                  <div className="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center shadow-inner border border-amber-200">
-                    <Clock className="w-10 h-10 text-amber-500 animate-pulse" />
-                  </div>
-
-                  <div className="space-y-2 max-w-lg">
-                    <h3 className="text-xl font-black text-slate-800">Olympiad Paper Scheduled</h3>
-                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                      An Olympiad paper has been published by the Admin. It will be accessible at the scheduled start time.
-                    </p>
-                  </div>
-
-                  {/* Paper Info Card */}
-                  <div className="w-full max-w-md p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200 text-left space-y-2">
-                    <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider">Paper Details</p>
-                    <p className="text-sm font-black text-slate-900">{activePaperInfo?.paper?.title}</p>
-                    <p className="text-xs text-slate-600 font-semibold">{activePaperInfo?.paper?.class_name} &bull; {activePaperInfo?.paper?.subject}</p>
-                    <div className="flex items-center gap-2 text-xs font-mono text-slate-500 pt-1">
-                      <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>{activePaperInfo?.paper?.start_time} to {activePaperInfo?.paper?.end_time}</span>
-                    </div>
-                  </div>
-
-                  {/* Live Countdown */}
-                  <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-amber-50 border-2 border-amber-300 shadow-sm">
-                    <div className="w-3 h-3 rounded-full bg-amber-500 animate-ping" />
-                    <span className="text-lg font-black text-amber-800 font-mono tracking-widest">
-                      {formatTime(secondsUntilUnlock)}
-                    </span>
-                    <span className="text-xs font-bold text-amber-600 uppercase">Until Unlock</span>
-                  </div>
-
-                  <p className="text-xs text-slate-400 font-medium">This page will automatically unlock when the scheduled time arrives.</p>
-                </div>
-              )}
-
-              {/* STATE 3: PAPER EXISTS & TIME WINDOW CLOSED */}
-              {hasPaperFromAdmin && !isExamAccessible && secondsUntilUnlock <= 0 && (
-                <div className="flex flex-col items-center justify-center py-12 space-y-6 text-center">
-                  <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center shadow-inner border border-rose-200">
-                    <Lock className="w-10 h-10 text-rose-400" />
-                  </div>
-                  <div className="space-y-2 max-w-md">
-                    <h3 className="text-xl font-black text-slate-800">Assessment Window Closed</h3>
-                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                      The scheduled time window for this Olympiad paper has ended. You can view your results in the Published Results tab or wait for the next scheduled assessment.
-                    </p>
-                  </div>
-                  <div className="w-full max-w-md p-4 rounded-2xl bg-rose-50/60 border border-rose-200 text-left space-y-1">
-                    <p className="text-xs font-bold text-rose-700 uppercase tracking-wider">Expired Paper</p>
-                    <p className="text-sm font-black text-slate-900">{activePaperInfo?.paper?.title}</p>
-                    <p className="text-xs text-slate-600 font-semibold">{activePaperInfo?.paper?.class_name} &bull; {activePaperInfo?.paper?.subject}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* STATE 4: PAPER LIVE — SHOW INSTRUCTIONS & START BUTTON */}
-              {hasPaperFromAdmin && isExamAccessible && (
-                <>
-                  {/* SCHEDULED TIME-WINDOW ACCESS STATUS BANNER */}
-                  <div className="p-4 rounded-2xl border bg-emerald-50 border-emerald-300 text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
-                        <span className="text-xs font-black uppercase tracking-wider">Assessment Access Status: LIVE NOW</span>
-                      </div>
-                      <p className="text-xs font-semibold text-slate-700">
-                        Paper Title: <span className="font-bold text-slate-900">{activePaperInfo?.paper?.title}</span> ({activePaperInfo?.paper?.class_name} &bull; {activePaperInfo?.paper?.subject})
-                      </p>
-                    </div>
-                    <div className="text-left sm:text-right font-mono text-xs space-y-0.5 shrink-0">
-                      <div className="text-[10px] text-slate-500 font-bold uppercase">Scheduled Time Window:</div>
-                      <div className="font-extrabold text-slate-800">{activePaperInfo?.paper?.start_time}</div>
-                      <div className="text-[11px] text-slate-600 font-semibold">to {activePaperInfo?.paper?.end_time}</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                      <ShieldAlert className="w-5 h-5 text-indigo-600" />
-                      Module 2: Practical AI-Proctored MCQ Assessment Protocol
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      Part-A: Universal CBSE Pedagogy
                     </h3>
-                    <p className="text-xs text-slate-500 font-medium">Please review mandatory security guidelines before initiating your live test.</p>
-                  </div>
-
-                  {/* SECURITY FEATURES GRID */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-2">
-                      <div className="flex items-center gap-2 text-amber-700 font-black text-xs uppercase">
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                        <span>Tab-Switch Lock</span>
-                      </div>
-                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                        Navigating to another window or tab is monitored. 3 security warnings will trigger immediate test termination &amp; auto-submission.
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200 space-y-2">
-                      <div className="flex items-center gap-2 text-indigo-700 font-black text-xs uppercase">
-                        <Camera className="w-4 h-4 text-indigo-600" />
-                        <span>Webcam &amp; Frame Analysis</span>
-                      </div>
-                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                        Live camera stream is active with real-time frame analysis for face presence detection &amp; gaze reticle tracking.
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-2">
-                      <div className="flex items-center gap-2 text-emerald-700 font-black text-xs uppercase">
-                        <Clock className="w-4 h-4 text-emerald-600" />
-                        <span>Timer &amp; Real-Time Auto-Save</span>
-                      </div>
-                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                        20-Minute strict countdown. Every MCQ option selected is saved in real-time instantly.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100">
-                    <div className="text-xs text-slate-500 font-semibold flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-emerald-600" />
-                      <span>Results will be submitted directly to the Official Evaluation Board on the Admin Panel.</span>
-                    </div>
-
-                    {hasAlreadyAttempted ? (
-                      <div className="w-full sm:w-auto px-8 py-3.5 text-white font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider bg-emerald-600 opacity-90 cursor-not-allowed">
-                        <CheckCircle2 className="w-4 h-4 text-white" />
-                        <span>Assessment Completed - 1 Attempt Used</span>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleStartExam}
-                        disabled={loadingQuestions || questions.length === 0}
-                        className="w-full sm:w-auto px-8 py-3.5 text-white font-extrabold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95"
-                      >
-                        <Sparkles className="w-4 h-4 text-amber-300" />
-                        <span>Begin Proctored Exam</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-
-            </div>
-          )}
-
-          {/* LIVE EXAM RUNNER */}
-          {examStarted && !examSubmitted && (
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              
-              {/* MAIN QUESTION AREA */}
-              <div className="lg:col-span-3 space-y-6">
-                
-                {/* PROCTORING STATUS TOP STRIP */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
-                    <span className="text-xs font-black text-slate-800">AI Proctoring Active</span>
-                  </div>
-
-                  <div className="flex items-center gap-3 text-xs font-extrabold flex-wrap">
-                    {gazeDeflected && (
-                      <div className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1 rounded-xl shadow-xs animate-pulse">
-                        <EyeOff className="w-3.5 h-3.5" />
-                        <span>Gaze Warning: Looking Away!</span>
-                      </div>
-                    )}
-
-                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border font-black transition-all ${
-                      totalWarnings === 0 
-                        ? "bg-slate-50 text-slate-700 border-slate-200" 
-                        : totalWarnings === 1 
-                        ? "bg-amber-50 text-amber-800 border-amber-300 animate-pulse" 
-                        : totalWarnings === 2
-                        ? "bg-orange-50 text-orange-800 border-orange-400 animate-pulse"
-                        : "bg-rose-50 text-rose-800 border-rose-500 animate-bounce"
-                    }`}>
-                      <AlertTriangle className={`w-3.5 h-3.5 ${totalWarnings === 0 ? "text-slate-500" : "text-rose-600"}`} />
-                      <span>Security Warnings: {totalWarnings}/3</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200">
-                      <Clock className="w-3.5 h-3.5 text-indigo-600" />
-                      <span className="font-mono text-sm">{formatTime(timeLeft)}</span>
-                    </div>
+                    <p className="text-[10px] text-purple-600 font-extrabold uppercase">
+                      60% Weightage • 60 Questions • 60 Marks
+                    </p>
                   </div>
                 </div>
+              </div>
 
-                {/* CURRENT QUESTION CARD */}
-                {questions.length > 0 && (
-                  <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-                    
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="space-y-3">
+                <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900">1. CBSE CPD Modules & NEP Guidelines</span>
+                    <span className="text-[10px] font-extrabold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-md">20 MCQs</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    CBSE 50-hour mandatory training modules, Competency-Based Education (CBE), and learning outcomes.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900">2. Personal Classroom Experience & Scenarios</span>
+                    <span className="text-[10px] font-extrabold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-md">20 MCQs</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Real classroom situation handling, student behavior management, and practical experience-based decision making.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900">3. Modern Pedagogy & Critical Thinking</span>
+                    <span className="text-[10px] font-extrabold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-md">20 MCQs</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Socratic method, Higher Order Thinking Skills (HOTS) question framing, Inclusive Education, and Art-Integrated Learning.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* PART-B CARD */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-black">
+                    B
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      Part-B: Subject Content & Pedagogy
+                    </h3>
+                    <p className="text-[10px] text-indigo-600 font-extrabold uppercase">
+                      40% Weightage • 40 Questions • 40 Marks ({selectedSubject})
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900">1. Core Subject Knowledge</span>
+                    <span className="text-[10px] font-extrabold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">20 MCQs</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Conceptual clarity and subject mastery based on NCERT/CBSE secondary curriculum for {selectedSubject}.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900">2. Subject Pedagogical Knowledge</span>
+                    <span className="text-[10px] font-extrabold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">10 MCQs</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Subject-specific teaching methodologies, Teaching-Learning Material (TLM) usage, and classroom activities.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900">3. Misconceptions & HOTS</span>
+                    <span className="text-[10px] font-extrabold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">10 MCQs</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Identifying and remedying common cognitive misconceptions in {selectedSubject}.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* LAUNCH EXAM ACTION PANEL */}
+          <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 rounded-3xl p-6 border border-indigo-100 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
+            <div className="space-y-1 text-center sm:text-left">
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">LIVE TIMED ASSESSMENT</span>
+              <h3 className="text-base font-black text-slate-900">
+                Ready to take the 100-MCQ National Olympiad?
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Make sure you have 60 uninterrupted minutes and a stable internet connection.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <Link
+                href="/dashboard/teacher-olympiad/practice"
+                className="flex-1 sm:flex-none px-5 py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <BookOpen className="w-4 h-4 text-slate-500" />
+                <span>Practice Mock Tests</span>
+              </Link>
+
+              <button
+                type="button"
+                onClick={handleStartExam}
+                className="flex-1 sm:flex-none px-7 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+              >
+                <Trophy className="w-4 h-4 text-amber-300" />
+                <span>Start 60-Min 100-MCQ Exam</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* 3. LIVE 100-MCQ EXAM HALL ENVIRONMENT */}
+      {examStarted && !examSubmitted && (
+        <div className="space-y-5">
+          
+          {/* EXAM HALL HEADER: TIMER & SECTION SWITCHER */}
+          <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-xl rounded-2xl p-4 border border-slate-200 shadow-md flex flex-wrap items-center justify-between gap-4">
+            
+            {/* Section Switcher Tabs */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveSection("Part-A")}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                  activeSection === "Part-A"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/25"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <span>Part-A: Pedagogy (60 Qs)</span>
+                <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full">{partAAnsweredCount}/60</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSection("Part-B")}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                  activeSection === "Part-B"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <span>Part-B: {selectedSubject} (40 Qs)</span>
+                <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full">{partBAnsweredCount}/40</span>
+              </button>
+            </div>
+
+            {/* Countdown Clock & Submit Button */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl border border-slate-800 shadow-xs">
+                <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span className="font-mono text-sm font-black text-amber-300">{formattedTime}</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSubmitExam}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Submit Exam</span>
+              </button>
+            </div>
+          </div>
+
+          {/* QUESTION ARENA + SIDE PALETTE */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            {/* MAIN QUESTION DISPLAY (3 COLS) */}
+            <div className="lg:col-span-3 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+              
+              {currentQ ? (
+                <>
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                    <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-[11px]">
-                          MCQ Question {currentIdx + 1} of {questions.length}
+                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          {currentQ.section}
                         </span>
-                        <span className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-100 text-purple-700 font-bold text-[11px]">
-                          {questions[currentIdx]?.subject || "Science"}
+                        <span className="text-[10px] font-bold text-slate-400">
+                          {currentQ.module}
                         </span>
                       </div>
-
-                      <span className="text-[11px] font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-                        1 Mark (MCQ)
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-relaxed">
-                        {questions[currentIdx]?.question_text}
+                      <h2 className="text-sm sm:text-base font-extrabold text-slate-900 pt-1">
+                        Question {currentQ.q_number} of 100
                       </h2>
                     </div>
 
-                    {/* MCQ OPTIONS */}
-                    <div className="space-y-2.5 pt-2">
-                      {questions[currentIdx]?.options?.map((opt: string, optIdx: number) => {
-                        const qId = questions[currentIdx].id;
-                        const isSelected = answers[qId] === optIdx;
-
-                        return (
-                          <button
-                            key={optIdx}
-                            onClick={() => handleSelectOption(qId, optIdx)}
-                            className={`w-full p-4 rounded-2xl border text-left text-xs font-bold transition-all flex items-start gap-3 cursor-pointer ${
-                              isSelected
-                                ? "bg-indigo-50/90 border-indigo-600 text-indigo-900 shadow-xs"
-                                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
-                            }`}
-                          >
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
-                              isSelected ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"
-                            }`}>
-                              {String.fromCharCode(65 + optIdx)}
-                            </span>
-                            <span className="flex-1 leading-relaxed">{opt}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* CONTROLS */}
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                      <button
-                        onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
-                        disabled={currentIdx === 0}
-                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 text-xs font-extrabold transition-all cursor-pointer"
-                      >
-                        Previous
-                      </button>
-
-                      {currentIdx < questions.length - 1 ? (
-                        <button
-                          onClick={() => setCurrentIdx(prev => Math.min(questions.length - 1, prev + 1))}
-                          className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold rounded-xl shadow-md transition-all cursor-pointer"
-                        >
-                          Next MCQ
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleFinalExamSubmission(tabSwitchCount, "User submitted")}
-                          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl shadow-lg transition-all cursor-pointer uppercase tracking-wider flex items-center gap-1.5"
-                        >
-                          <FileCheck className="w-4 h-4" />
-                          <span>Complete & Submit Assessment</span>
-                        </button>
-                      )}
-                    </div>
-
-                  </div>
-                )}
-              </div>
-
-              {/* SIDEBAR: LIVE WEBCAM HUD & SECURITY AUDIT LOG */}
-              <div className="space-y-6">
-                
-                {/* WEBCAM FEED WITH AI HUD OVERLAY */}
-                <div className="bg-slate-900 p-4 rounded-3xl border border-slate-800 text-white space-y-3 shadow-md">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-300">
-                      <Camera className="w-4 h-4 text-emerald-400" />
-                      Live AI Proctor Feed
-                    </span>
+                    <button
+                      type="button"
+                      onClick={handleToggleReview}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        markedForReview[currentQ.id]
+                          ? "bg-purple-100 text-purple-700 border border-purple-200"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                      <span>{markedForReview[currentQ.id] ? "Marked for Review" : "Mark Review"}</span>
+                    </button>
                   </div>
 
-                  <div className="relative aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                    <canvas ref={canvasRef} className="hidden" />
-                    <canvas ref={overlayCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10" />
-
-                    {webcamActive && (
-                      <div className="absolute bottom-2 left-2 right-2 bg-slate-900/90 backdrop-blur-md p-2 rounded-xl text-[10px] font-mono text-slate-200 border border-white/10 flex items-center justify-between z-20">
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <span className={`w-2 h-2 rounded-full ${faceDetected ? (gazeDeflected ? "bg-amber-500 animate-ping" : "bg-emerald-500 animate-pulse") : "bg-red-500 animate-ping"}`} />
-                          <span>{faceDetected ? "FACE: OK (1)" : "FACE: MISSING!"}</span>
-                          {faceDetected && (
-                            <span className="text-emerald-400 font-bold ml-1">
-                              &bull; {currentMood}
-                            </span>
-                          )}
-                        </div>
-                        <div className={`font-extrabold ${gazeDeflected ? "text-amber-400" : "text-indigo-300"}`}>
-                          {gazeDeflected ? "GAZE: LOOKING AWAY" : "GAZE: CENTER"}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* SECURITY AUDIT LOG */}
-                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <Activity className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Security Audit Log</span>
-                    </h4>
-                    <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                      {proctorLogs.length} Events
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 text-[11px] font-mono">
-                    {proctorLogs.length === 0 ? (
-                      <p className="text-slate-400 font-sans font-semibold text-[11px] italic">No security incidents detected.</p>
-                    ) : (
-                      proctorLogs.map((log, lIdx) => (
-                        <div key={lIdx} className="p-1.5 rounded-lg bg-slate-50 border border-slate-100 text-slate-700 leading-tight">
-                          {log}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-          {/* HIDDEN RESULTS CONFIRMATION SCREEN */}
-          {examSubmitted && (
-            <div className="bg-white p-8 sm:p-12 rounded-3xl border border-slate-200 shadow-lg text-center space-y-6 max-w-2xl mx-auto">
-              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
-                <CheckCircle2 className="w-10 h-10" />
-              </div>
-
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black text-slate-900">Olympiad Assessment Submitted!</h2>
-                <p className="text-xs text-slate-600 font-medium leading-relaxed max-w-md mx-auto">
-                  Your proctored MCQ test script and AI security audit log have been submitted to the <span className="font-bold text-indigo-600">Super Admin & Olympiad Evaluation Board</span>.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-left space-y-2 text-xs text-slate-700">
-                <div className="flex items-center justify-between font-bold">
-                  <span>Submission ID:</span>
-                  <span className="font-mono text-indigo-700">{submissionId || "sub-992011"}</span>
-                </div>
-                <div className="flex items-center justify-between font-bold">
-                  <span>Evaluation Status:</span>
-                  <span className="text-amber-600 font-extrabold uppercase">Pending Admin Review & Publishing</span>
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-center gap-4">
-                <button
-                  onClick={() => { setExamSubmitted(false); setExamStarted(false); setActiveTab("published"); loadPublishedResults(); }}
-                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all cursor-pointer"
-                >
-                  View Published Results Tab
-                </button>
-              </div>
-            </div>
-          )}
-
-        </div>
-      )}
-
-      {/* TAB 2: PREVIOUS OLYMPIAD PAPERS ARCHIVE */}
-      {activeTab === "previous_papers" && (
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 font-sans">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                <History className="w-5 h-5 text-amber-500" />
-                Previous Olympiad Examination Papers Archive ({previousPapers.length})
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">Browse past Teachers Skill Olympiad question papers, subject blueprints, and model answer keys</p>
-            </div>
-
-            <button
-              onClick={loadPreviousPapers}
-              disabled={loadingPreviousPapers}
-              className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingPreviousPapers ? "animate-spin text-indigo-600" : ""}`} />
-              <span>Refresh Archive</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {previousPapers.length === 0 ? (
-              <div className="col-span-2 p-12 text-center text-slate-400 font-semibold">
-                No past Olympiad papers stored in the archive yet.
-              </div>
-            ) : (
-              previousPapers.map((paper) => (
-                <div key={paper.id} className="p-6 rounded-3xl border border-slate-200 bg-slate-50/60 hover:bg-slate-50 space-y-4 transition-all relative overflow-hidden">
-                  
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-extrabold text-[10px] uppercase border border-amber-200">
-                      Archived Paper
-                    </span>
-                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-100">
-                      {paper.class_name} • {paper.subject}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h4 className="text-base font-black text-slate-900">{paper.title}</h4>
-                    <p className="text-xs text-slate-500 font-medium">
-                      Held under {paper.school_name || "DEVGYA GLOBAL EDUTECH"}
+                  {/* QUESTION TEXT */}
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80">
+                    <p className="text-sm font-bold text-slate-800 leading-relaxed">
+                      {currentQ.question_text}
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs font-bold text-slate-700 bg-white p-3 rounded-2xl border border-slate-200">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-normal uppercase">Total MCQs</span>
-                      <span>{paper.questions?.length || 0} Questions ({paper.total_marks} Marks)</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-normal uppercase">Time Window</span>
-                      <span>{paper.time_allowed_mins} Mins</span>
-                    </div>
+                  {/* OPTIONS LIST */}
+                  <div className="space-y-3">
+                    {currentQ.options?.map((opt: string, optIdx: number) => {
+                      const isSelected = answers[currentQ.id] === optIdx;
+                      return (
+                        <div
+                          key={optIdx}
+                          onClick={() => handleSelectOption(optIdx)}
+                          className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center gap-3.5 ${
+                            isSelected
+                              ? "bg-indigo-50/70 border-indigo-600 shadow-sm"
+                              : "bg-white border-slate-200 hover:border-indigo-200 hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
+                            isSelected
+                              ? "bg-indigo-600 text-white shadow-xs"
+                              : "bg-slate-100 text-slate-600 border border-slate-200"
+                          }`}>
+                            {String.fromCharCode(65 + optIdx)}
+                          </div>
+                          <span className="text-xs font-semibold text-slate-800 leading-relaxed">
+                            {opt}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                    <span className="text-[11px] text-slate-500 font-mono">
-                      Ended: {paper.end_time || "Completed"}
-                    </span>
+                  {/* BOTTOM ACTION BUTTONS */}
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={currentIdx === 0}
+                        onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
+                        className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        <span>Previous</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleClearAnswer}
+                        className="px-3 py-2.5 text-slate-400 hover:text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Clear Selection
+                      </button>
+                    </div>
 
                     <button
-                      onClick={() => setPreviewArchivePaper(paper)}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                      type="button"
+                      disabled={currentIdx >= questions.length - 1}
+                      onClick={() => setCurrentIdx(prev => Math.min(questions.length - 1, prev + 1))}
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Preview Questions</span>
+                      <span>Next Question</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                </>
+              ) : (
+                <div className="text-center py-12 text-slate-400">Loading Question...</div>
+              )}
 
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* PREVIEW ARCHIVE PAPER MODAL */}
-      {previewArchivePaper && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-3xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 text-slate-900 max-h-[90vh] overflow-y-auto font-sans">
-            
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <span className="text-xs font-black uppercase tracking-wider text-indigo-600">Past Olympiad Paper Blueprint</span>
-              <button onClick={() => setPreviewArchivePaper(null)} className="text-slate-400 hover:text-slate-700 font-black text-base">✕</button>
             </div>
 
-            <div className="text-center space-y-1 border-b-2 border-slate-900 pb-4">
-              <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">{previewArchivePaper.school_name || "DEVGYA GLOBAL EDUTECH"}</h2>
-              <h3 className="text-base font-extrabold text-indigo-900">{previewArchivePaper.title}</h3>
-              <div className="flex items-center justify-between text-xs font-bold text-slate-700 pt-2 px-2">
-                <span>Class: {previewArchivePaper.class_name} ({previewArchivePaper.subject})</span>
-                <span>Time Allowed: {previewArchivePaper.time_allowed_mins} Mins</span>
-                <span>Maximum Marks: {previewArchivePaper.total_marks}</span>
+            {/* QUESTION PALETTE GRID (1 COL) */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4 h-fit">
+              <div className="space-y-1">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                  Question Palette (100 MCQs)
+                </h3>
+                <div className="grid grid-cols-2 gap-1.5 text-[10px] font-bold text-slate-500 pt-1">
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Answered</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Review</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-200" /> Unanswered</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-indigo-600" /> Current</span>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-6 pt-2">
-              {previewArchivePaper.questions?.map((q: any, idx: number) => (
-                <div key={idx} className="space-y-2 border-b border-slate-100 pb-4">
-                  <div className="flex items-start justify-between gap-3 text-xs font-extrabold text-slate-900">
-                    <div>
-                      <span>MCQ Q{idx + 1}. </span>
-                      <span>{q.question_text}</span>
-                    </div>
-                    <span className="shrink-0 text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md text-[11px] font-black border border-indigo-100">
-                      [1 Mark]
-                    </span>
-                  </div>
+              {/* 100 Grid Cells */}
+              <div className="grid grid-cols-5 gap-1.5 max-h-[360px] overflow-y-auto pr-1">
+                {questions.map((q, idx) => {
+                  const isCurrent = currentIdx === idx;
+                  const isAnswered = answers[q.id] !== undefined;
+                  const isReview = markedForReview[q.id];
 
-                  {q.options && (
-                    <div className="grid grid-cols-2 gap-2 pl-4 text-xs font-medium text-slate-700">
-                      {q.options.map((opt: string, oIdx: number) => (
-                        <div key={oIdx} className="p-2 rounded-lg bg-slate-50 border border-slate-200">{opt}</div>
-                      ))}
-                    </div>
-                  )}
+                  let bg = "bg-slate-100 text-slate-600 hover:bg-slate-200";
+                  if (isCurrent) bg = "bg-indigo-600 text-white ring-2 ring-indigo-600 ring-offset-1 font-black";
+                  else if (isReview) bg = "bg-purple-500 text-white font-bold";
+                  else if (isAnswered) bg = "bg-emerald-500 text-white font-bold";
 
-                  {q.answer && (
-                    <div className="mt-2 p-3 bg-emerald-50/70 rounded-xl border border-emerald-200 text-xs text-slate-700 space-y-1">
-                      <div className="font-bold text-emerald-800 text-[10px] uppercase">Model Solution:</div>
-                      <p>{q.answer}</p>
-                      {q.explanation && <p className="text-[11px] text-slate-600 font-normal italic">Pedagogical Reason: {q.explanation}</p>}
-                    </div>
-                  )}
+                  return (
+                    <button
+                      key={q.id}
+                      type="button"
+                      onClick={() => {
+                        setCurrentIdx(idx);
+                        setActiveSection(q.section);
+                      }}
+                      className={`h-8 rounded-lg text-[11px] transition-all cursor-pointer flex items-center justify-center ${bg}`}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                  <span>Total Answered:</span>
+                  <span className="font-black text-indigo-600">{Object.keys(answers).length} / 100</span>
                 </div>
-              ))}
-            </div>
+                
+                {/* Webcam Preview if active */}
+                <div className="relative w-full h-24 bg-slate-950 rounded-xl overflow-hidden border border-slate-200">
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                  <div className="absolute top-1 left-1 bg-black/60 backdrop-blur-xs text-white text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    AI Proctor Active
+                  </div>
+                </div>
+              </div>
 
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <button
-                onClick={() => setPreviewArchivePaper(null)}
-                className="px-6 py-2 bg-slate-900 text-white font-extrabold text-xs rounded-xl shadow-md"
-              >
-                Close Preview
-              </button>
             </div>
 
           </div>
+
         </div>
       )}
 
-      {/* TAB 3: PUBLISHED EVALUATION RESULTS */}
-      {activeTab === "published" && (
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 font-sans">
+      {/* 4. POST-SUBMISSION REASSURING CONFIRMATION SCREEN (100% ADMIN-CONTROLLED) */}
+      {examSubmitted && (
+        <div className="max-w-2xl mx-auto bg-white rounded-3xl p-8 border border-slate-200 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-300">
+          
+          <div className="w-18 h-18 rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto shadow-md">
+            <CheckCircle2 className="w-10 h-10" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full border border-emerald-200">
+              ASSESSMENT ARCHIVED SUCCESSFULLY
+            </span>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+              Thank You, {user?.name || "Educator"}!
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-lg mx-auto">
+              Your responses for the <strong>100-MCQ Teacher Skills Olympiad 2026</strong> have been securely recorded and sent to the national evaluation committee.
+            </p>
+          </div>
+
+          {/* OFFICIAL EVALUATION NOTICE BANNER */}
+          <div className="p-5 bg-gradient-to-br from-indigo-50 via-purple-50 to-indigo-50 rounded-2xl border border-indigo-100 space-y-3 text-left">
+            <div className="flex items-center gap-2 text-indigo-900 font-black text-xs">
+              <ShieldCheck className="w-4 h-4 text-indigo-600" />
+              <span>Official Result Declaration & Badge Issuance Protocol</span>
+            </div>
+            
+            <ul className="text-xs text-slate-600 space-y-2 font-medium">
+              <li className="flex items-start gap-2">
+                <span className="text-indigo-600 font-bold">•</span>
+                <span><strong>No Instant Score:</strong> In adherence to national benchmarking standards, scores are held under confidential review.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-indigo-600 font-bold">•</span>
+                <span><strong>Result Declaration Timeline:</strong> Official Merit Lists, State & District Percentile Scorecards will be declared within <strong>10–15 days</strong>.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-indigo-600 font-bold">•</span>
+                <span><strong>Manual Badge Approval:</strong> Verified badges (<em>CBSE-CPD Aligned Pedagogy</em>, <em>Verified Subject Expert</em>, <em>TSO Benchmarked</em>) will be granted to your profile after administrative audit.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <Link
+              href="/dashboard"
+              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
+            >
+              Return to Teacher Dashboard
+            </Link>
+
+            <Link
+              href="/dashboard/teacher-olympiad/practice"
+              className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            >
+              Practice More Mock Tests
+            </Link>
+          </div>
+
+        </div>
+      )}
+
+      {/* 5. ADMIN DECLARED RESULTS TAB */}
+      {!examStarted && activeTab === "results" && (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-500" />
-                Officially Published Olympiad Results
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">Evaluation results verified and published by the Admin Evaluation Board</p>
+              <h2 className="text-lg font-black text-slate-900">
+                Official Olympiad Merit Rankings & Verified Badges
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">
+                Published upon administrative evaluation and national committee review.
+              </p>
             </div>
-
-            <button
-              onClick={loadPublishedResults}
-              disabled={loadingResults}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingResults ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
           </div>
 
           {publishedResults.length === 0 ? (
-            <div className="p-12 text-center space-y-3">
-              <Trophy className="w-12 h-12 text-slate-300 mx-auto" />
-              <h4 className="text-sm font-black text-slate-700">No Published Results Available Yet</h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
-                Your submitted Olympiad assessment is currently being reviewed by the Admin Evaluation Board. Results will appear here once officially published.
-              </p>
+            <div className="text-center py-16 px-4 bg-slate-50 rounded-3xl border border-dashed border-slate-200 space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+                <Clock className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-black text-slate-800">
+                  Assessment Evaluations Under Administration Review
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto font-medium">
+                  Official scorecards and merit ranks are published according to the administration timeline (10–15 days post-assessment).
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              {publishedResults.map((res) => (
-                <div key={res.id} className="p-6 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-100 pb-3">
-                    <div>
-                      <h4 className="text-sm font-black text-slate-900">{res.teacher_name}</h4>
-                      <p className="text-xs text-slate-500 font-mono">{res.teacher_email}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full bg-emerald-600 text-white font-black text-xs shadow-xs">
-                        Final Score: {res.score_percentage}%
-                      </span>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {publishedResults.map((r, idx) => (
+                <div key={idx} className="p-5 bg-gradient-to-br from-indigo-50/50 to-white rounded-2xl border border-indigo-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                      VERIFIED MERIT CARD
+                    </span>
+                    <span className="text-xs font-black text-indigo-600">
+                      Score: {r.official_score || 85}%
+                    </span>
                   </div>
-
-                  {res.official_feedback && (
-                    <div className="p-3.5 rounded-xl bg-white border border-emerald-200 text-xs text-slate-700 font-medium space-y-1">
-                      <div className="font-bold text-emerald-800 text-[11px] uppercase tracking-wider">Evaluation Board Feedback:</div>
-                      <p>{res.official_feedback}</p>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium pt-1 flex-wrap gap-2">
-                    <span className="text-slate-500">Submitted: {res.submitted_at}</span>
-
-                    <button
-                      onClick={() => { setSelectedBreakdownResult(res); setBreakdownFilter("all"); }}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>View Question & Answer Breakdown</span>
-                    </button>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900">{r.teacher_name}</h4>
+                    <p className="text-xs text-slate-500">{r.subject} • {r.district}, {r.state}</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* DETAILED QUESTION & ANSWER BREAKDOWN MODAL */}
-      {selectedBreakdownResult && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-3xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 text-slate-900 max-h-[90vh] overflow-y-auto font-sans">
-            
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <span className="text-xs font-black uppercase tracking-wider text-indigo-600">Candidate Evaluation Report</span>
-                <h3 className="text-base font-black text-slate-900">{selectedBreakdownResult.teacher_name} ({selectedBreakdownResult.score_percentage}%)</h3>
-              </div>
-              <button onClick={() => setSelectedBreakdownResult(null)} className="text-slate-400 hover:text-slate-700 font-black text-base">✕</button>
-            </div>
-
-            {/* SCORE SUMMARY BANNER */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-center space-y-1">
-                <span className="text-[10px] font-extrabold uppercase text-indigo-700">Total Score</span>
-                <p className="text-2xl font-black text-indigo-900">{selectedBreakdownResult.score_percentage}%</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-center space-y-1">
-                <span className="text-[10px] font-extrabold uppercase text-emerald-700">Correct Answers</span>
-                <p className="text-2xl font-black text-emerald-900">{selectedBreakdownResult.correct_count} / {selectedBreakdownResult.total_questions}</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-center space-y-1">
-                <span className="text-[10px] font-extrabold uppercase text-rose-700">Incorrect Answers</span>
-                <p className="text-2xl font-black text-rose-900">{selectedBreakdownResult.total_questions - selectedBreakdownResult.correct_count} / {selectedBreakdownResult.total_questions}</p>
-              </div>
-            </div>
-
-            {/* FILTER TABS */}
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <button
-                onClick={() => setBreakdownFilter("all")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                  breakdownFilter === "all" ? "bg-indigo-600 text-white shadow-xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                All Questions ({selectedBreakdownResult.detailed_breakdown?.length || 0})
-              </button>
-
-              <button
-                onClick={() => setBreakdownFilter("correct")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                  breakdownFilter === "correct" ? "bg-emerald-600 text-white shadow-xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                Correct Answers Only ({selectedBreakdownResult.correct_count})
-              </button>
-
-              <button
-                onClick={() => setBreakdownFilter("wrong")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                  breakdownFilter === "wrong" ? "bg-rose-600 text-white shadow-xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                Incorrect Answers ({selectedBreakdownResult.total_questions - selectedBreakdownResult.correct_count})
-              </button>
-            </div>
-
-            {/* DETAILED QUESTION ITEMS LIST */}
-            <div className="space-y-6 pt-1">
-              {getFilteredBreakdown().length === 0 ? (
-                <div className="p-8 text-center text-slate-400 font-semibold text-xs">
-                  No questions match selected filter.
-                </div>
-              ) : (
-                getFilteredBreakdown().map((item: any, idx: number) => (
-                  <div key={idx} className={`p-5 rounded-2xl border space-y-3 ${
-                    item.is_correct ? "bg-emerald-50/40 border-emerald-200" : "bg-rose-50/40 border-rose-200"
-                  }`}>
-                    
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="font-extrabold text-xs text-slate-900">
-                        Q{idx + 1}. {item.question_text}
-                      </span>
-
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1 ${
-                        item.is_correct ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-rose-100 text-rose-800 border border-rose-300"
-                      }`}>
-                        {item.is_correct ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                        {item.is_correct ? "Correct (+1 Mark)" : "Incorrect (0 Marks)"}
-                      </span>
-                    </div>
-
-                    {/* OPTIONS & USER CHOICE */}
-                    <div className="space-y-1.5 pl-2">
-                      <div className="text-[11px] font-bold text-slate-600">Your Selection:</div>
-                      <div className={`p-2.5 rounded-xl border text-xs font-bold ${
-                        item.is_correct ? "bg-emerald-100/70 border-emerald-300 text-emerald-950" : "bg-rose-100/70 border-rose-300 text-rose-950"
-                      }`}>
-                        {item.user_selected_str}
-                      </div>
-                    </div>
-
-                    {!item.is_correct && (
-                      <div className="space-y-1.5 pl-2">
-                        <div className="text-[11px] font-bold text-emerald-800">Official Correct Solution:</div>
-                        <div className="p-2.5 rounded-xl bg-emerald-100/90 border border-emerald-300 text-xs font-extrabold text-emerald-950">
-                          {item.correct_answer_str}
-                        </div>
-                      </div>
-                    )}
-
-                    {item.explanation && (
-                      <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1 shadow-2xs">
-                        <div className="font-extrabold text-indigo-900 text-[10px] uppercase tracking-wider">Pedagogical Solution & Marking Scheme:</div>
-                        <p className="leading-relaxed">{item.explanation}</p>
-                      </div>
-                    )}
-
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <button
-                onClick={() => setSelectedBreakdownResult(null)}
-                className="px-6 py-2 bg-slate-900 text-white font-extrabold text-xs rounded-xl shadow-md"
-              >
-                Close Report
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* REAL-TIME PROCTORING VIOLATION WARNING MODAL */}
-      {warningModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white border-2 border-rose-500 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 text-slate-900 font-sans relative overflow-hidden">
-            
-            <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="text-center space-y-3">
-              <div className="w-16 h-16 rounded-2xl bg-rose-100 border border-rose-300 text-rose-600 flex items-center justify-center mx-auto shadow-inner animate-bounce">
-                <AlertTriangle className="w-9 h-9" />
-              </div>
-
-              <div>
-                <span className="px-3 py-1 rounded-full bg-rose-600 text-white font-black text-xs uppercase tracking-wider">
-                  SECURITY WARNING {currentWarningNum} / 3
-                </span>
-                <h3 className="text-lg font-black text-slate-900 mt-2">Proctoring Violation Detected</h3>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200 text-xs font-semibold text-rose-900 leading-relaxed text-left">
-                {warningMessage}
-              </div>
-
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 font-medium">
-                {3 - currentWarningNum > 0 ? (
-                  <span>⚠️ You have <strong className="text-rose-700 font-extrabold">{3 - currentWarningNum} warning{3 - currentWarningNum > 1 ? "s" : ""}</strong> remaining before automatic test termination.</span>
-                ) : (
-                  <span className="text-rose-700 font-black">Maximum violations reached. Your test is being auto-submitted.</span>
-                )}
-              </div>
-            </div>
-
-            <button
-              onClick={() => setWarningModalOpen(false)}
-              className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all cursor-pointer uppercase tracking-wider"
-            >
-              I Understand &amp; Return to Assessment
-            </button>
-          </div>
         </div>
       )}
 
