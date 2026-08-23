@@ -87,3 +87,22 @@ async def generate_pdf(payload: Dict[str, Any] = Body(...), include_answers: boo
     except Exception as e:
         logger.error(f"PDF generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+
+@router.post("/generate-worksheet")
+async def generate_worksheet(payload: Dict[str, Any] = Body(...)):
+    """Generate a styled A4 worksheet PDF with custom theme palettes, font scaling, and school branding."""
+    try:
+        pdf_bytes = pdf_generator_service.generate_worksheet_pdf(payload)
+        title = str(payload.get("title") or "Worksheet").replace(" ", "_")
+        subject = str(payload.get("subject") or "General").replace(" ", "_")
+        mode = "TeacherKey" if payload.get("include_answers") else "StudentWorksheet"
+        filename = f"{title}_{subject}_{mode}.pdf"
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Worksheet PDF generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Worksheet PDF generation failed: {str(e)}")

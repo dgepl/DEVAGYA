@@ -157,6 +157,8 @@ class SupabaseService:
 
         if profile_data:
             extra = _teacher_profiles_store.get(email_clean, {})
+            if extra.get("full_name"):
+                profile_data["full_name"] = extra["full_name"]
             profile_data["school_name"] = extra.get("school_name", profile_data.get("school_name", ""))
             profile_data["board"] = extra.get("board", profile_data.get("board", "CBSE"))
             profile_data["subject"] = extra.get("subject", profile_data.get("subject", ""))
@@ -273,6 +275,8 @@ class SupabaseService:
         for p in profiles:
             email_clean = (p.get("email") or "").strip().lower()
             extra = _teacher_profiles_store.get(email_clean, {})
+            if extra.get("full_name"):
+                p["full_name"] = extra["full_name"]
             p["school_name"] = extra.get("school_name", p.get("school_name", ""))
             p["board"] = extra.get("board", p.get("board", "CBSE"))
             p["subject"] = extra.get("subject", p.get("subject", ""))

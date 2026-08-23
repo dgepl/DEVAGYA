@@ -115,13 +115,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     { label: "Olympiad Practice Zone", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
-    // Teacher AI Agents
+    // All-In-One Unified Teacher AI
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
-    { label: "Analytics AI", href: "/dashboard/agents?agent=analytics_assistant", icon: Activity },
-    // General AI Agents & Tools
-    { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
-    { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
-    { label: "Document AI", href: "/dashboard/agents?agent=document_assistant", icon: Layers },
     { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
   ];
 
@@ -207,23 +202,41 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* User Card & Logout */}
-        <div className="pt-3 border-t border-slate-200 space-y-2">
-          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white text-xs">
-              {user.name.charAt(0)}
+        {/* User Card, Profile & Logout */}
+        <div className="pt-3 border-t border-slate-200 space-y-1.5">
+          <Link
+            href="/dashboard/profile"
+            className="p-2.5 bg-slate-50 hover:bg-indigo-50/80 hover:border-indigo-200 rounded-xl border border-slate-200 flex items-center gap-3 transition-all group cursor-pointer"
+            title="Edit Teacher Profile & School Branding"
+          >
+            <div className="w-8 h-8 rounded-full bg-indigo-600 group-hover:bg-indigo-500 flex items-center justify-center font-black text-white text-xs shadow-xs">
+              {user.name ? user.name.charAt(0).toUpperCase() : "U"}
             </div>
-            <div className="flex-1 truncate">
-              <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
-              <p className="text-[10px] text-indigo-600 font-bold capitalize">{user.role.replace('_', ' ')}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-700 truncate">{user.name || "Educator"}</p>
+              <p className="text-[10px] text-indigo-600 font-bold capitalize truncate">
+                {user.role ? user.role.replace('_', ' ') : "Teacher"}
+              </p>
             </div>
-          </div>
+          </Link>
+
+          <Link
+            href="/dashboard/profile"
+            className={`w-full px-3 py-2 text-xs font-bold flex items-center gap-2.5 rounded-xl transition-all cursor-pointer ${
+              pathname === "/dashboard/profile"
+                ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs"
+                : "text-slate-600 hover:text-indigo-600 hover:bg-slate-100"
+            }`}
+          >
+            <Settings className="w-4 h-4 text-slate-500" />
+            <span>Profile & Branding</span>
+          </Link>
 
           <button
             onClick={handleSignOut}
-            className="w-full px-3 py-1.5 text-xs text-slate-600 hover:text-red-600 font-bold flex items-center gap-2 hover:bg-slate-100 rounded-lg transition-colors"
+            className="w-full px-3 py-1.5 text-xs text-slate-600 hover:text-red-600 font-bold flex items-center gap-2.5 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-4 h-4 text-slate-400" />
             <span>Sign Out</span>
           </button>
         </div>

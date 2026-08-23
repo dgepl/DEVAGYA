@@ -153,6 +153,8 @@ export function VideoConsultation() {
   const aiSpeakingCooldownRef = useRef(0);
   const lastAiSpokenCleanRef = useRef("");
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const pendingSpeechRef = useRef<string>("");
+  const silenceTimerRef = useRef<any>(null);
 
   const lang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
@@ -188,13 +190,23 @@ export function VideoConsultation() {
     try {
       const s = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } as any,
       });
       streamRef.current = s;
       if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play().catch(() => {}); }
     } catch {
       try {
-        const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const s = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          } as any
+        });
         streamRef.current = s;
         setCameraOn(false);
       } catch {
@@ -237,15 +249,21 @@ export function VideoConsultation() {
     }
   };
 
-  // Anti-Echo Protected Speech Recognition
+  // Cross-calling functional refs for full decoupling
+  const startListeningRef = useRef<() => void>(() => {});
+  const speakRef = useRef<(text: string) => void>(() => {});
+  const sendMessageRef = useRef<(text: string) => Promise<void>>(async () => {});
+
+  // Anti-Echo Protected Speech Recognition with Mobile Finalization
   const stopListening = useCallback(() => {
+    clearTimeout(silenceTimerRef.current);
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch {}
       recognitionRef.current = null;
     }
   }, []);
 
-  const startListening = useCallback(() => {
+  const startListening: () => void = useCallback(() => {
     if (recognitionRef.current) return;
     // CRITICAL: Never start listening if AI is currently speaking or thinking
     if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
@@ -257,6 +275,15 @@ export function VideoConsultation() {
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = lang.speechLang;
+
+    const finalizeAndSendSpeech = () => {
+      const textToSend = pendingSpeechRef.current.trim();
+      if (textToSend && textToSend.length > 1) {
+        pendingSpeechRef.current = "";
+        clearTimeout(silenceTimerRef.current);
+        sendMessageRef.current(textToSend);
+      }
+    };
 
     rec.onresult = (e: any) => {
       // 1. HARD ECHO GATE: Discard if AI is speaking, AI is thinking, or within audio decay cooldown (800ms)
@@ -282,14 +309,22 @@ export function VideoConsultation() {
         }
       }
 
-      if (interim) setUserSub(interim);
+      const currentText = (final || interim).trim();
+      pendingSpeechRef.current = currentText;
+      setUserSub(currentText);
+
+      // Mobile & Desktop auto-finalization: If final result OR silence debounce timer
+      clearTimeout(silenceTimerRef.current);
       if (final && final.trim()) {
-        setUserSub(final);
-        sendMessage(final.trim());
+        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 600);
+      } else {
+        // On mobile, interim results trigger a 1100ms silence detection
+        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 1100);
       }
     };
 
     rec.onerror = (e: any) => {
+      console.warn("Consultation speech notice:", e.error);
       if (["network", "not-allowed", "service-not-allowed"].includes(e.error)) {
         setSpeechOk(false);
         recognitionRef.current = null;
@@ -298,11 +333,16 @@ export function VideoConsultation() {
 
     rec.onend = () => {
       recognitionRef.current = null;
-      // Only automatically restart if in call, mic is on, and AI is NOT speaking
+      // If there was speech captured right before recognition closed on mobile, send it!
+      if (pendingSpeechRef.current.trim() && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+        finalizeAndSendSpeech();
+      }
+
+      // Auto-restart if in call, mic is on, and AI is NOT speaking
       if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
         setTimeout(() => {
           if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-            startListening();
+            startListeningRef.current();
           }
         }, 300);
       }
@@ -312,8 +352,12 @@ export function VideoConsultation() {
     try { rec.start(); } catch { setSpeechOk(false); }
   }, [lang.speechLang]);
 
+  useEffect(() => {
+    startListeningRef.current = startListening;
+  }, [startListening]);
+
   // High-Quality Natural Text-To-Speech Synthesis with Clean Preprocessing
-  const speak = useCallback((text: string) => {
+  const speak: (text: string) => void = useCallback((text: string) => {
     if (!ttsEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
     // 1. Immediately pause/abort mic input to prevent AI from hearing itself
@@ -327,7 +371,7 @@ export function VideoConsultation() {
     if (!cleanText) {
       isAiSpeakingRef.current = false;
       setAiSpeaking(false);
-      if (inCallRef.current && micOnRef.current) startListening();
+      if (inCallRef.current && micOnRef.current) startListeningRef.current();
       return;
     }
 
@@ -356,7 +400,7 @@ export function VideoConsultation() {
       aiSpeakingCooldownRef.current = Date.now() + 800;
       setTimeout(() => {
         if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-          startListening();
+          startListeningRef.current();
         }
       }, 800);
       setTimeout(() => setAiSub(""), 3500);
@@ -368,16 +412,20 @@ export function VideoConsultation() {
       aiSpeakingCooldownRef.current = Date.now() + 500;
       setTimeout(() => {
         if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-          startListening();
+          startListeningRef.current();
         }
       }, 500);
     };
 
     window.speechSynthesis.speak(utt);
-  }, [ttsEnabled, lang.ttsLang, language, stopListening, startListening]);
+  }, [ttsEnabled, lang.ttsLang, language, stopListening]);
+
+  useEffect(() => {
+    speakRef.current = speak;
+  }, [speak]);
 
   // AI Response Stream & Conversational Video Mentor Dialogue
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage: (text: string) => Promise<void> = useCallback(async (text: string) => {
     if (!text.trim() || isAiThinkingRef.current) return;
     
     // Stop listening while AI thinks and prepares response
@@ -412,7 +460,7 @@ export function VideoConsultation() {
         setTranscript((p) => [...p, { who: "ai", text: full }]);
         isAiThinkingRef.current = false;
         setAiThinking(false);
-        speak(full);
+        speakRef.current(full);
       } else {
         const d = await res.json();
         const t = d.response || "I am here to guide you through your studies!";
@@ -420,15 +468,19 @@ export function VideoConsultation() {
         setTranscript((p) => [...p, { who: "ai", text: t }]);
         isAiThinkingRef.current = false;
         setAiThinking(false);
-        speak(t);
+        speakRef.current(t);
       }
     } catch {
       setAiSub("Connection issue. Please check network.");
       isAiThinkingRef.current = false;
       setAiThinking(false);
-      if (inCallRef.current && micOnRef.current) startListening();
+      if (inCallRef.current && micOnRef.current) startListeningRef.current();
     }
-  }, [user?.id, expression, speak, language, selectedTopic, stopListening, startListening]);
+  }, [user?.id, expression, language, selectedTopic, stopListening]);
+
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
 
   // Face Expression API Detector
   useEffect(() => {
@@ -747,35 +799,57 @@ export function VideoConsultation() {
         
         <button
           onClick={toggleCamera}
-          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${
+          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
             cameraOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500/20 text-red-400 border border-red-500/40"
           }`}
+          title={cameraOn ? "Turn Camera Off" : "Turn Camera On"}
         >
           {cameraOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
         </button>
 
         <button
           onClick={toggleMic}
-          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${
+          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
             micOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500/20 text-red-400 border border-red-500/40"
           }`}
+          title={micOn ? "Mute Microphone" : "Unmute Microphone"}
         >
           {micOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+        </button>
+
+        {/* TAP TO SPEAK / PUSH-TO-TALK MOBILE ACTION BUTTON */}
+        <button
+          onClick={() => {
+            if (!micOn) toggleMic();
+            stopListening();
+            setTimeout(startListening, 100);
+          }}
+          disabled={aiSpeaking || aiThinking}
+          className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+            aiSpeaking || aiThinking
+              ? "bg-slate-800 text-slate-500 opacity-60 cursor-not-allowed"
+              : "bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg shadow-indigo-600/30 active:scale-95"
+          }`}
+        >
+          <Mic className="w-4 h-4 animate-pulse text-cyan-300" />
+          <span>{aiSpeaking ? "AI Speaking..." : aiThinking ? "AI Thinking..." : "Speak Now"}</span>
         </button>
 
         {/* END CALL RED BUTTON */}
         <button
           onClick={endCall}
-          className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/40 active:scale-95 transition-transform"
+          className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/40 active:scale-95 transition-transform cursor-pointer"
+          title="End Consultation Call"
         >
-          <PhoneOff className="w-6 h-6" />
+          <PhoneOff className="w-5 h-5" />
         </button>
 
         <button
           onClick={() => setTtsEnabled(!ttsEnabled)}
-          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${
+          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
             ttsEnabled ? "bg-white/10 hover:bg-white/20 text-white" : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
           }`}
+          title={ttsEnabled ? "Mute AI Voice" : "Enable AI Voice"}
         >
           {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
         </button>
@@ -796,12 +870,12 @@ export function VideoConsultation() {
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             placeholder="Type query..."
-            className="w-32 sm:w-48 px-3.5 py-2.5 text-xs rounded-xl border border-white/20 bg-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400 font-semibold"
+            className="w-28 sm:w-48 px-3.5 py-2.5 text-xs rounded-xl border border-white/20 bg-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400 font-semibold"
           />
           <button
             type="submit"
             disabled={!textInput.trim() || aiThinking}
-            className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl transition-all"
+            className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl transition-all cursor-pointer"
           >
             <Send className="w-4 h-4" />
           </button>

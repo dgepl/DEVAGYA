@@ -176,3 +176,77 @@ async def get_ncert_chapters(subject: str = "Science", class_name: str = "Class 
     selected_class = catalog.get(class_name, catalog["Class 10"])
     chapters = selected_class.get(subject, selected_class.get("Science", []))
     return {"class_name": class_name, "subject": subject, "chapters": chapters}
+
+# --- PERSISTENT QUESTION PAPER HISTORY DATABASE ---
+import json
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
+PAPERS_STORE_FILE = os.path.join(DATA_DIR, "saved_papers.json")
+
+def _load_papers_store() -> dict:
+    if not os.path.exists(PAPERS_STORE_FILE):
+        return {}
+    try:
+        with open(PAPERS_STORE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_papers_store(data: dict):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(PAPERS_STORE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+@router.get("/history")
+async def get_saved_papers_history(email: str = "guest@devgya.com"):
+    """Retrieve saved question papers history for educator."""
+    email_clean = email.strip().lower()
+    store = _load_papers_store()
+    user_papers = store.get(email_clean, [])
+    # Also return guest / global papers if empty
+    if not user_papers and "default" in store:
+        user_papers = store["default"]
+    return {
+        "status": "success",
+        "email": email_clean,
+        "papers": user_papers
+    }
+
+@router.post("/history")
+async def save_paper_to_history(payload: dict):
+    """Save or update a generated question paper to educator history."""
+    email_clean = (payload.get("email") or "guest@devgya.com").strip().lower()
+    paper = payload.get("paper")
+    if not paper:
+        raise HTTPException(status_code=400, detail="Paper object is required.")
+
+    store = _load_papers_store()
+    user_papers = store.get(email_clean, [])
+
+    # Filter duplicate paper if exists
+    filtered = [p for p in user_papers if not (p.get("title") == paper.get("title") and p.get("class_name") == paper.get("class_name"))]
+    updated = [paper] + filtered
+    store[email_clean] = updated
+    _save_papers_store(store)
+
+    return {
+        "status": "success",
+        "message": "Question paper saved to persistent history!",
+        "count": len(updated)
+    }
+
+@router.delete("/history")
+async def delete_paper_from_history(title: str, class_name: str, email: str = "guest@devgya.com"):
+    """Delete a saved question paper from educator history."""
+    email_clean = email.strip().lower()
+    store = _load_papers_store()
+    user_papers = store.get(email_clean, [])
+
+    updated = [p for p in user_papers if not (p.get("title") == title and p.get("class_name") == class_name)]
+    store[email_clean] = updated
+    _save_papers_store(store)
+
+    return {
+        "status": "success",
+        "message": "Question paper deleted from history.",
+        "count": len(updated)
+    }

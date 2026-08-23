@@ -37,11 +37,15 @@ import {
   User,
   ChevronLeft,
   History,
-  Zap
+  Zap,
+  Mic,
+  MicOff,
+  Volume2
 } from "lucide-react";
 import { getAIAgents } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
+import { WorksheetPdfModal } from "@/components/pdf/WorksheetPdfModal";
 
 const iconMap: Record<string, any> = {
   GraduationCap,
@@ -110,12 +114,14 @@ interface AgentConfig {
 
 const AGENT_CUSTOM_WELCOME: Record<string, AgentConfig> = {
   teacher_mentor: {
-    welcomeText: "Hello Educator! 👋 I'm your **Teacher Mentor AI**. I'm here to assist you with lesson strategies, classroom engagement ideas, grading rubrics, and pedagogical guidance.\n\nHow can I support your classroom teaching today?",
+    welcomeText: "Hello Educator! 👋 I'm your **Teacher Mentor AI** — your All-in-One AI Teaching Companion.\n\nI combine **Pedagogy & Classroom Strategies**, **Class Performance Analytics**, **English Language & Pedagogy Coaching**, **Document & Worksheet AI (PDF/DOCX/Photos)**, and **NCERT/CBSE Curriculum Research** all in one place!\n\nHow can I empower your teaching today?",
     chips: [
-      { label: "Class Activity Ideas", icon: "💡", prompt: "Suggest 3 engaging classroom activities to introduce Photosynthesis to Class 10 students." },
-      { label: "Grading Rubric", icon: "📊", prompt: "Create a 4-level rubric for evaluating an oral presentation on Climate Change." },
-      { label: "Student Engagement", icon: "🤝", prompt: "How do I handle indifferent or low-engagement students during group discussions?" },
-      { label: "Differentiated Teaching", icon: "🎯", prompt: "Provide 3 differentiated learning strategies for a mixed-ability mathematics class." },
+      { label: "Class Marks Analytics", icon: "📊", prompt: "Analyze class score distributions and suggest targeted interventions for weak topics in Mathematics." },
+      { label: "Bloom's Pedagogy", icon: "💡", prompt: "Suggest Bloom's taxonomy pedagogical strategies and active recall activities for Class 10 Science." },
+      { label: "English Pedagogy Polish", icon: "✍️", prompt: "Help me polish and refine this parent-teacher communication note in professional academic English." },
+      { label: "Worksheet & PDF RAG", icon: "📄", prompt: "Summarize the attached chapter/worksheet and generate 5 differentiated practice questions." },
+      { label: "Curriculum Research", icon: "🔬", prompt: "Research CBSE Class 10 NCERT curriculum guidelines for experiential learning in Chemistry." },
+      { label: "Student Engagement", icon: "🤝", prompt: "How do I engage low-participation students during interactive classroom discussions?" },
     ]
   },
   question_generator: {
@@ -309,6 +315,15 @@ export function AgentMarketplace() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [xpToast, setXpToast] = useState<number | null>(null);
 
+  // Speech-to-Text state (Voice Question Input)
+  const [isListening, setIsListening] = useState(false);
+  const speechRecognitionRef = useRef<any>(null);
+
+  // PDF & Worksheet Studio modal state
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [selectedPdfContent, setSelectedPdfContent] = useState("");
+  const [pdfModalTitle, setPdfModalTitle] = useState("Classroom Practice Worksheet");
+
   // History state
   const [historyOpen, setHistoryOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -323,6 +338,79 @@ export function AgentMarketplace() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const langDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Toggle Speech-to-Text voice recognition (Mobile & Desktop)
+  const toggleSpeechRecognition = () => {
+    if (typeof window === "undefined") return;
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      alert("Voice input is not supported in this browser. Please use Google Chrome, Safari, or Microsoft Edge.");
+      return;
+    }
+
+    if (isListening) {
+      if (speechRecognitionRef.current) {
+        try { speechRecognitionRef.current.stop(); } catch (e) {}
+        speechRecognitionRef.current = null;
+      }
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = language === "hindi" ? "hi-IN" : language === "hinglish" ? "hi-IN" : "en-IN";
+
+      let initialBaseText = input.trim();
+      let prefix = initialBaseText ? initialBaseText + " " : "";
+
+      rec.onresult = (e: any) => {
+        let interim = "";
+        let final = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) {
+            final += t;
+          } else {
+            interim += t;
+          }
+        }
+        const spoken = (final || interim).trim();
+        if (spoken) {
+          setInput(prefix + spoken);
+          if (inputRef.current) {
+            autoGrow(inputRef.current);
+          }
+        }
+      };
+
+      rec.onerror = (e: any) => {
+        console.warn("Speech recognition notice:", e.error);
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          alert("Microphone permission was denied. Please allow microphone access in your browser settings.");
+          setIsListening(false);
+          speechRecognitionRef.current = null;
+        } else if (e.error !== "no-speech") {
+          setIsListening(false);
+          speechRecognitionRef.current = null;
+        }
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+        speechRecognitionRef.current = null;
+      };
+
+      speechRecognitionRef.current = rec;
+      rec.start();
+      setIsListening(true);
+    } catch (err) {
+      console.error("Speech recognition start failed:", err);
+      setIsListening(false);
+    }
+  };
 
   // Format file size
   const formatFileSize = (bytes: number): string => {
@@ -950,12 +1038,26 @@ export function AgentMarketplace() {
                           </div>
                         )}
 
-                      {/* Copy button */}
+                      {/* Action Bar: Export as PDF Worksheet & Copy */}
                       {m.sender === "assistant" && m.content && (
-                        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedPdfContent(m.content);
+                              setPdfModalTitle("Classroom Practice Worksheet");
+                              setPdfModalOpen(true);
+                            }}
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] rounded-lg border border-indigo-200/80 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                            title="Export as Printable A4 PDF Worksheet with Custom Themes"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Export as PDF Worksheet</span>
+                          </button>
+
                           <button
                             onClick={() => handleCopy(m.id, m.content)}
-                            className="p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
                             title="Copy message"
                           >
                             {copiedId === m.id ? (
@@ -1050,6 +1152,28 @@ export function AgentMarketplace() {
               </div>
             )}
 
+            {/* LIVE VOICE RECORDING LISTENING BANNER */}
+            {isListening && (
+              <div className="mb-2.5 px-3.5 py-2 bg-gradient-to-r from-red-500/10 via-amber-500/10 to-indigo-500/10 border border-red-300/80 rounded-xl flex items-center justify-between gap-2 shadow-xs animate-in fade-in duration-200">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                  </span>
+                  <span className="text-[11px] font-black text-red-700 tracking-wide">
+                    🎙️ Listening to your voice... Speak your question in {language === "hindi" ? "Hindi" : language === "hinglish" ? "Hinglish" : "English"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleSpeechRecognition}
+                  className="text-[10px] font-black text-red-600 hover:text-red-800 uppercase px-2 py-0.5 bg-red-100/80 rounded-md cursor-pointer"
+                >
+                  Stop Recording
+                </button>
+              </div>
+            )}
+
             <div className="flex items-end gap-2">
               <input
                 ref={fileInputRef}
@@ -1063,10 +1187,29 @@ export function AgentMarketplace() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={streaming || attached.length >= MAX_IMAGES}
-                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0 flex items-center gap-1"
+                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
                 title="Attach PDF, worksheet, document, or image (up to 4)"
               >
                 <Paperclip className="w-4 h-4" />
+              </button>
+
+              {/* SPEECH-TO-TEXT VOICE INPUT (MICROPHONE) BUTTON */}
+              <button
+                type="button"
+                onClick={toggleSpeechRecognition}
+                disabled={streaming}
+                className={`p-2.5 rounded-xl border transition-all shrink-0 flex items-center justify-center cursor-pointer ${
+                  isListening
+                    ? "bg-red-500 text-white border-red-600 shadow-md shadow-red-500/30 animate-pulse ring-2 ring-red-400/40"
+                    : "bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 border-slate-200 text-slate-600"
+                }`}
+                title={isListening ? "Stop Voice Input" : "Speak to Type (Voice Question Input - Mobile & Desktop)"}
+              >
+                {isListening ? (
+                  <MicOff className="w-4 h-4 text-white" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
               </button>
 
               <textarea
@@ -1083,7 +1226,7 @@ export function AgentMarketplace() {
                     handleSend();
                   }
                 }}
-                placeholder={`Ask ${selectedAgent?.name || "AI Agent"} anything — or attach a PDF, worksheet 📄, or image...`}
+                placeholder={`Ask ${selectedAgent?.name || "Teacher Mentor AI"} anything — or speak your question 🎙️, attach PDF 📄, or image...`}
                 className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 resize-none max-h-40"
               />
 
@@ -1115,6 +1258,16 @@ export function AgentMarketplace() {
             </p>
           </form>
       </div>
+
+      {/* INTERACTIVE WORKSHEET PDF CUSTOMIZER & EXPORT MODAL */}
+      <WorksheetPdfModal
+        isOpen={pdfModalOpen}
+        onClose={() => setPdfModalOpen(false)}
+        initialContent={selectedPdfContent}
+        defaultTitle={pdfModalTitle}
+        defaultSubject={user.subject || "Science"}
+        defaultClass={user.classes || "Class 10"}
+      />
     </div>
   );
 }

@@ -372,4 +372,306 @@ class PDFGeneratorService:
         buffer.close()
         return pdf_bytes
 
+    def generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
+        """
+        Generate a publication-grade A4 Worksheet / Study Guide PDF from AI text/markdown
+        with custom theme palettes, school branding, student header, and student vs teacher key modes.
+        """
+        title = str(payload.get("title") or "Classroom Practice Worksheet")
+        subject = str(payload.get("subject") or "General Studies")
+        class_name = str(payload.get("class_name") or "Class 10")
+        chapter = str(payload.get("chapter") or "Academic Session")
+        school_name = str(payload.get("school_name") or "DEVGYA GLOBAL ACADEMY")
+        school_logo = payload.get("school_logo")
+        theme_name = str(payload.get("theme") or "cbse").lower()
+        font_size_mode = str(payload.get("font_size") or "standard").lower()
+        include_answers = bool(payload.get("include_answers", False))
+        include_student_header = bool(payload.get("include_student_header", True))
+        content = str(payload.get("content") or "")
+
+        # Theme Color Palettes
+        THEME_COLORS = {
+            "cbse": {
+                "primary": colors.HexColor("#1E3A8A"),      # Navy 900
+                "secondary": colors.HexColor("#3B82F6"),    # Blue 500
+                "border": colors.HexColor("#93C5FD"),       # Blue 200
+                "bg_meta": colors.HexColor("#F0F9FF"),      # Light Sky
+                "highlight": colors.HexColor("#1D4ED8")     # Blue 700
+            },
+            "modern": {
+                "primary": colors.HexColor("#4338CA"),      # Indigo 700
+                "secondary": colors.HexColor("#06B6D4"),    # Cyan 500
+                "border": colors.HexColor("#C7D2FE"),       # Indigo 200
+                "bg_meta": colors.HexColor("#EEF2FF"),      # Light Indigo
+                "highlight": colors.HexColor("#6366F1")     # Indigo 500
+            },
+            "minimalist": {
+                "primary": colors.HexColor("#0F172A"),      # Slate 900
+                "secondary": colors.HexColor("#475569"),    # Slate 600
+                "border": colors.HexColor("#CBD5E1"),       # Slate 300
+                "bg_meta": colors.HexColor("#F8FAFC"),      # Slate 50
+                "highlight": colors.HexColor("#334155")     # Slate 700
+            },
+            "emerald": {
+                "primary": colors.HexColor("#065F46"),      # Emerald 800
+                "secondary": colors.HexColor("#10B981"),    # Emerald 500
+                "border": colors.HexColor("#A7F3D0"),       # Emerald 200
+                "bg_meta": colors.HexColor("#ECFDF5"),      # Light Emerald
+                "highlight": colors.HexColor("#047857")     # Emerald 700
+            }
+        }
+        th = THEME_COLORS.get(theme_name, THEME_COLORS["cbse"])
+
+        # Font & Spacing Configurations
+        if font_size_mode == "compact":
+            margins = 24
+            base_font = 9
+            base_leading = 12
+            q_font = 9.5
+            title_font = 13
+        elif font_size_mode == "large":
+            margins = 36
+            base_font = 11
+            base_leading = 16
+            q_font = 11.5
+            title_font = 16
+        else:
+            margins = 32
+            base_font = 10
+            base_leading = 14
+            q_font = 10.5
+            title_font = 14
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=margins,
+            rightMargin=margins,
+            topMargin=margins,
+            bottomMargin=margins
+        )
+
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            'WTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=title_font,
+            leading=title_font + 4,
+            alignment=1, # Centered
+            textColor=th["primary"]
+        )
+
+        subtitle_style = ParagraphStyle(
+            'WSubtitle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=base_font + 1,
+            leading=base_leading + 2,
+            alignment=1,
+            textColor=th["secondary"]
+        )
+
+        meta_style = ParagraphStyle(
+            'WMeta',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=base_font - 1,
+            leading=base_leading - 2,
+            textColor=colors.HexColor("#334155")
+        )
+
+        section_heading_style = ParagraphStyle(
+            'WSection',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=base_font + 1,
+            leading=base_leading + 3,
+            textColor=th["primary"],
+            spaceBefore=6,
+            spaceAfter=4
+        )
+
+        body_style = ParagraphStyle(
+            'WBody',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=base_font,
+            leading=base_leading,
+            textColor=colors.HexColor("#1E293B"),
+            spaceBefore=2,
+            spaceAfter=3
+        )
+
+        question_style = ParagraphStyle(
+            'WQuestion',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=q_font,
+            leading=base_leading + 1,
+            textColor=colors.HexColor("#0F172A"),
+            spaceBefore=4,
+            spaceAfter=2
+        )
+
+        answer_box_style = ParagraphStyle(
+            'WAnswer',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=base_font - 0.5,
+            leading=base_leading,
+            leftIndent=12,
+            textColor=th["highlight"]
+        )
+
+        blank_line_style = ParagraphStyle(
+            'WBlank',
+            parent=styles['Normal'],
+            fontName='Helvetica-Oblique',
+            fontSize=base_font - 1,
+            leading=base_leading,
+            leftIndent=12,
+            textColor=colors.HexColor("#94A3B8")
+        )
+
+        story = []
+
+        # Process School Logo
+        logo_element = None
+        if school_logo:
+            try:
+                import base64
+                if str(school_logo).startswith(("http://", "https://")):
+                    import httpx
+                    with httpx.Client(timeout=5.0) as client:
+                        res = client.get(school_logo)
+                        if res.status_code == 200:
+                            logo_io = io.BytesIO(res.content)
+                            logo_element = RLImage(logo_io, width=44, height=44)
+                elif "base64," in str(school_logo):
+                    base64_data = str(school_logo).split("base64,")[1]
+                    logo_bytes = base64.b64decode(base64_data)
+                    logo_io = io.BytesIO(logo_bytes)
+                    logo_element = RLImage(logo_io, width=44, height=44)
+                elif os.path.exists(str(school_logo)):
+                    logo_element = RLImage(str(school_logo), width=44, height=44)
+            except Exception:
+                pass
+
+        if not logo_element:
+            default_logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "logo.png"))
+            if os.path.exists(default_logo_path):
+                try:
+                    logo_element = RLImage(default_logo_path, width=44, height=44)
+                except Exception:
+                    pass
+
+        header_title = f"{title} (TEACHER ANSWER KEY)" if include_answers else title
+
+        if logo_element:
+            header_table_data = [
+                [
+                    logo_element,
+                    [
+                        Paragraph(school_name.upper(), title_style),
+                        Spacer(1, 2),
+                        Paragraph(f"{header_title} — {subject.upper()} ({class_name.upper()})", subtitle_style)
+                    ]
+                ]
+            ]
+            header_table = Table(header_table_data, colWidths=[55, 475])
+            header_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (0,0), 'CENTER'),
+                ('ALIGN', (1,0), (1,0), 'CENTER'),
+                ('PADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ]))
+            story.append(header_table)
+        else:
+            story.append(Paragraph(school_name.upper(), title_style))
+            story.append(Spacer(1, 3))
+            story.append(Paragraph(f"{header_title} — {subject.upper()} ({class_name.upper()})", subtitle_style))
+        story.append(Spacer(1, 6))
+
+        # Student Details Info Box
+        if include_student_header and not include_answers:
+            student_box_data = [
+                [
+                    Paragraph("<b>Student Name:</b> ___________________________", meta_style),
+                    Paragraph("<b>Roll No:</b> ________", meta_style),
+                    Paragraph("<b>Class / Sec:</b> ____________", meta_style),
+                    Paragraph("<b>Date:</b> ____________", meta_style)
+                ]
+            ]
+            student_table = Table(student_box_data, colWidths=[200, 100, 115, 115])
+            student_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), th["bg_meta"]),
+                ('BOX', (0,0), (-1,-1), 1, th["border"]),
+                ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
+                ('PADDING', (0,0), (-1,-1), 5),
+            ]))
+            story.append(student_table)
+            story.append(Spacer(1, 6))
+
+        # Divider Rule
+        story.append(HRFlowable(width="100%", thickness=1.5, color=th["primary"], spaceBefore=3, spaceAfter=8))
+
+        # Parse AI Generated Content Lines
+        import html
+        raw_lines = content.split("\n")
+        in_solution_block = False
+
+        for raw_line in raw_lines:
+            line = raw_line.strip()
+            if not line:
+                story.append(Spacer(1, 4))
+                continue
+
+            # Strip markdown formatting bold/italic artifacts safely
+            clean_line = html.escape(line)
+            clean_line = clean_line.replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>")
+
+            # Check if line is a Heading (#, ##, ###, or SECTION)
+            if line.startswith(("#", "SECTION", "Section", "PART", "Part", "**SECTION", "**Section")):
+                heading_text = line.lstrip("#* \t")
+                story.append(Spacer(1, 4))
+                story.append(Paragraph(f"<b>{html.escape(heading_text)}</b>", section_heading_style))
+                story.append(HRFlowable(width="100%", thickness=0.75, color=th["border"], spaceBefore=1, spaceAfter=5))
+            
+            # Check if line is a Question (e.g. "1.", "Q1.", "Question 1:", "2)")
+            elif line.startswith(("1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.", "10.", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10", "Question", "**Q")):
+                q_text = line.replace("**", "")
+                story.append(Spacer(1, 3))
+                story.append(Paragraph(f"<b>{html.escape(q_text)}</b>", question_style))
+                # If student mode, add blank answer line
+                if not include_answers and not any(opt in line for opt in ["(A)", "(B)", "(a)", "(b)"]):
+                    story.append(Paragraph("Answer: ____________________________________________________________________________", blank_line_style))
+                    story.append(Paragraph("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;____________________________________________________________________________", blank_line_style))
+
+            # Check if line is an MCQ Option (e.g. (A), (B), A), B))
+            elif line.startswith(("(", "A.", "B.", "C.", "D.", "a)", "b)", "c)", "d)", "A)", "B)", "C)", "D)")):
+                story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;{clean_line.replace('**', '')}", body_style))
+
+            # Check if line is an Answer or Solution line
+            elif line.lower().startswith(("answer:", "solution:", "correct answer:", "explanation:", "**answer:", "**solution:")):
+                if include_answers:
+                    ans_text = line.replace("**", "")
+                    story.append(Paragraph(f"✓ <b>{html.escape(ans_text)}</b>", answer_box_style))
+                else:
+                    # In student mode, omit solutions
+                    pass
+
+            # Regular Paragraph Line
+            else:
+                formatted_body = clean_line.replace("**", "<b>").replace("__", "<i>")
+                story.append(Paragraph(formatted_body, body_style))
+
+        doc.build(story, canvasmaker=NumberedCanvas)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+
 pdf_generator_service = PDFGeneratorService()

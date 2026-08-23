@@ -139,6 +139,42 @@ export async function downloadPDF(paper: GeneratedPaperResponse, includeAnswers:
   a.remove();
 }
 
+export interface GenerateWorksheetPdfPayload {
+  title: string;
+  subject: string;
+  class_name: string;
+  chapter?: string;
+  content: string;
+  theme?: "cbse" | "modern" | "minimalist" | "emerald";
+  font_size?: "compact" | "standard" | "large";
+  include_answers?: boolean;
+  include_student_header?: boolean;
+  school_name?: string;
+  school_logo?: string;
+}
+
+export async function downloadWorksheetPDF(payload: GenerateWorksheetPdfPayload) {
+  const res = await fetch(`${getApiBase()}/pdf/generate-worksheet`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Failed to generate worksheet PDF (${res.status}): ${errText || 'Server Error'}`);
+  }
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const mode = payload.include_answers ? "TeacherKey" : "StudentWorksheet";
+  a.download = `${payload.title || "Worksheet"}_${payload.subject || "General"}_${mode}.pdf`.replace(/\s+/g, "_");
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export async function getAdminStats() {
   const res = await fetch(`${API_BASE}/admin/stats`);
   if (!res.ok) throw new Error("Failed to fetch admin stats");
