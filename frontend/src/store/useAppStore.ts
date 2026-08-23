@@ -16,6 +16,24 @@ export interface UserProfile {
   streak?: number;
   level?: number;
   coins?: number;
+
+  // Student Specific
+  targetExam?: string;
+  strongSubject?: string;
+  weakSubject?: string;
+  dailyGoalHours?: string;
+  studyMotto?: string;
+  preferredLanguage?: string;
+
+  // Parent Specific
+  childName?: string;
+  childSchool?: string;
+  childClass?: string;
+  childBoard?: string;
+  parentRelation?: string;
+  phone?: string;
+  parentingFocus?: string;
+  weeklyReportAlerts?: boolean;
 }
 
 interface AppState {

@@ -14,20 +14,7 @@ router = APIRouter(prefix="/generator", tags=["Question Generator"])
 async def generate_paper(request: GeneratePaperRequest):
     """Generate Question Paper directly from syllabus/OCR context without requiring file attachment."""
     try:
-        response = await groq_service.generate_questions(
-            class_name=request.class_name,
-            subject=request.subject,
-            chapter=request.chapter,
-            num_mcqs=request.num_mcqs,
-            num_short=request.num_short,
-            num_long=request.num_long,
-            difficulty=request.difficulty,
-            total_marks=request.total_marks,
-            time_allowed_mins=request.time_allowed_mins,
-            title=request.title,
-            school_name=request.school_name,
-            custom_instructions=request.custom_instructions
-        )
+        response = await groq_service.generate_question_paper(request)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Question paper generation failed: {str(e)}")
@@ -67,20 +54,7 @@ async def generate_paper_from_file(
     # If no file is attached, generate directly from prompt/syllabus
     if not file or not file.filename:
         try:
-            return await groq_service.generate_questions(
-                class_name=class_name,
-                subject=subject,
-                chapter=chapter,
-                num_mcqs=num_mcqs,
-                num_short=num_short,
-                num_long=num_long,
-                difficulty=difficulty,
-                total_marks=total_marks,
-                time_allowed_mins=time_allowed_mins,
-                title=title,
-                school_name=school_name,
-                custom_instructions=custom_instructions
-            )
+            return await groq_service.generate_question_paper(req)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to generate paper: {str(e)}")
 
@@ -131,20 +105,7 @@ async def generate_paper_from_file(
 
     # If file couldn't be parsed, fallback to direct text prompt
     if not has_text and not has_image:
-        return await groq_service.generate_questions(
-            class_name=class_name,
-            subject=subject,
-            chapter=chapter,
-            num_mcqs=num_mcqs,
-            num_short=num_short,
-            num_long=num_long,
-            difficulty=difficulty,
-            total_marks=total_marks,
-            time_allowed_mins=time_allowed_mins,
-            title=title,
-            school_name=school_name,
-            custom_instructions=custom_instructions
-        )
+        return await groq_service.generate_question_paper(req)
 
     try:
         response = await groq_service.generate_question_paper_with_attachment(

@@ -42,6 +42,23 @@ class UpdateProfilePayload(BaseModel):
     subject: Optional[str] = None
     classes: Optional[str] = None
     school_logo: Optional[str] = None
+    role: Optional[str] = None
+    # Student specific
+    target_exam: Optional[str] = None
+    strong_subject: Optional[str] = None
+    weak_subject: Optional[str] = None
+    daily_goal_hours: Optional[str] = None
+    study_motto: Optional[str] = None
+    preferred_language: Optional[str] = None
+    # Parent specific
+    child_name: Optional[str] = None
+    child_school: Optional[str] = None
+    child_class: Optional[str] = None
+    child_board: Optional[str] = None
+    parent_relation: Optional[str] = None
+    phone: Optional[str] = None
+    parenting_focus: Optional[str] = None
+    weekly_report_alerts: Optional[bool] = None
 
 from services.supabase_service import supabase_service
 
@@ -225,7 +242,7 @@ async def upload_school_logo(payload: UploadLogoPayload):
 
 @router.put("/profile")
 async def update_profile(payload: UpdateProfilePayload):
-    """Update teacher institutional and personal profile metadata with Cloudinary logo storage."""
+    """Update teacher, student, or parent institutional and personal profile metadata."""
     raw_email = payload.email or ""
     if " " in raw_email.strip():
         raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
@@ -237,34 +254,52 @@ async def update_profile(payload: UpdateProfilePayload):
         upload_res = cloudinary_service.upload_image(payload.school_logo, folder="devgya_school_logos")
         school_logo_url = upload_res.get("secure_url") or payload.school_logo
 
+    payload_dict = payload.dict(exclude_unset=True)
+    if "school_logo" in payload_dict:
+        payload_dict["school_logo"] = school_logo_url
+    if "email" in payload_dict:
+        del payload_dict["email"]
+
     updated = supabase_service.save_teacher_profile_details(
         email=email_clean,
-        full_name=payload.full_name,
-        school_name=payload.school_name,
-        board=payload.board,
-        subject=payload.subject,
-        classes=payload.classes,
-        school_logo=school_logo_url
+        **payload_dict
     )
 
-    profile = await supabase_service.get_profile_by_email(email_clean)
+    profile = await supabase_service.get_profile_by_email(email_clean) or {}
+    user_role = profile.get("role", payload.role or "teacher")
     user_data = {
         "id": profile.get("id", f"usr-{email_clean.split('@')[0]}"),
         "email": email_clean,
         "name": profile.get("full_name", payload.full_name or email_clean.split('@')[0].capitalize()),
-        "role": profile.get("role", "teacher"),
+        "role": user_role,
         "schoolName": profile.get("school_name", ""),
         "board": profile.get("board", "CBSE"),
         "subject": profile.get("subject", ""),
         "classes": profile.get("classes", "Class 10"),
         "schoolLogo": profile.get("school_logo", school_logo_url),
-        "isProfileComplete": profile.get("is_profile_complete", True),
-        "token": f"devgya-jwt-teacher-token-{email_clean}"
+        "isProfileComplete": True,
+        # Student specific
+        "targetExam": profile.get("target_exam", payload.target_exam or ""),
+        "strongSubject": profile.get("strong_subject", payload.strong_subject or ""),
+        "weakSubject": profile.get("weak_subject", payload.weak_subject or ""),
+        "dailyGoalHours": profile.get("daily_goal_hours", payload.daily_goal_hours or "2"),
+        "studyMotto": profile.get("study_motto", payload.study_motto or ""),
+        "preferredLanguage": profile.get("preferred_language", payload.preferred_language or "english"),
+        # Parent specific
+        "childName": profile.get("child_name", payload.child_name or ""),
+        "childSchool": profile.get("child_school", payload.child_school or ""),
+        "childClass": profile.get("child_class", payload.child_class or "Class 10"),
+        "childBoard": profile.get("child_board", payload.child_board or "CBSE"),
+        "parentRelation": profile.get("parent_relation", payload.parent_relation or "Father"),
+        "phone": profile.get("phone", payload.phone or ""),
+        "parentingFocus": profile.get("parenting_focus", payload.parenting_focus or "Exam Preparation"),
+        "weeklyReportAlerts": profile.get("weekly_report_alerts", True if payload.weekly_report_alerts is None else payload.weekly_report_alerts),
+        "token": f"devgya-jwt-{user_role}-token-{email_clean}"
     }
 
     return {
         "status": "success",
-        "message": "Profile updated successfully with Cloudinary branding!",
+        "message": "Profile updated successfully!",
         "user": user_data
     }
 

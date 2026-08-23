@@ -108,9 +108,10 @@ class SupabaseService:
         board: Optional[str] = None,
         subject: Optional[str] = None,
         classes: Optional[str] = None,
-        school_logo: Optional[str] = None
+        school_logo: Optional[str] = None,
+        **kwargs
     ) -> Dict[str, Any]:
-        """Save teacher and institutional profile metadata."""
+        """Save teacher, student, or parent profile metadata."""
         email_clean = email.strip().lower()
         current = _teacher_profiles_store.get(email_clean, {})
         
@@ -121,15 +122,19 @@ class SupabaseService:
         if classes is not None: current["classes"] = classes
         if school_logo is not None: current["school_logo"] = school_logo
         
+        for k, v in kwargs.items():
+            if v is not None:
+                current[k] = v
+        
         current["updated_at"] = os.getenv("APP_TIME", "2026-08-23T10:00:00")
-        current["is_profile_complete"] = bool(current.get("school_name") and current.get("subject"))
+        current["is_profile_complete"] = True
 
         _teacher_profiles_store[email_clean] = current
         _save_teacher_profiles(_teacher_profiles_store)
         return current
 
     async def get_profile_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        """Fetch user profile from Supabase Cloud and merge with teacher profile store."""
+        """Fetch user profile from Supabase Cloud and merge with extra role-specific profile store."""
         email_clean = email.strip().lower()
         profile_data = None
         
@@ -157,14 +162,8 @@ class SupabaseService:
 
         if profile_data:
             extra = _teacher_profiles_store.get(email_clean, {})
-            if extra.get("full_name"):
-                profile_data["full_name"] = extra["full_name"]
-            profile_data["school_name"] = extra.get("school_name", profile_data.get("school_name", ""))
-            profile_data["board"] = extra.get("board", profile_data.get("board", "CBSE"))
-            profile_data["subject"] = extra.get("subject", profile_data.get("subject", ""))
-            profile_data["classes"] = extra.get("classes", profile_data.get("classes", "Class 10"))
-            profile_data["school_logo"] = extra.get("school_logo", profile_data.get("school_logo", ""))
-            profile_data["is_profile_complete"] = extra.get("is_profile_complete", bool(profile_data.get("school_name") and profile_data.get("subject")))
+            for k, v in extra.items():
+                profile_data[k] = v
 
         return profile_data
 

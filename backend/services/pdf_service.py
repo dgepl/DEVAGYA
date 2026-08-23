@@ -655,10 +655,10 @@ class PDFGeneratorService:
         if include_header_bar:
             meta_box_data = [
                 [
-                    build_safe_paragraph(f"<b>Subject:</b> {subject}", meta_style),
-                    build_safe_paragraph(f"<b>Class:</b> {class_name}", meta_style),
-                    build_safe_paragraph(f"<b>Topic:</b> {chapter}", meta_style),
-                    build_safe_paragraph("<b>Session:</b> 2025-26", meta_style)
+                    build_safe_paragraph(subject, meta_style, is_bold_prefix="Subject:"),
+                    build_safe_paragraph(class_name, meta_style, is_bold_prefix="Class:"),
+                    build_safe_paragraph(chapter, meta_style, is_bold_prefix="Topic:"),
+                    build_safe_paragraph("2025-26", meta_style, is_bold_prefix="Session:")
                 ]
             ]
             meta_table = Table(meta_box_data, colWidths=[140, 110, 160, 120])
