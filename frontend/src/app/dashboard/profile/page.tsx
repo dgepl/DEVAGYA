@@ -176,7 +176,7 @@ function ProfileContent() {
   const userRole = user.role || "teacher";
 
   useEffect(() => {
-    if (user) {
+    if (user && user.email) {
       if (user.name) setName(user.name);
       if (user.email) setEmail(user.email);
       if (user.schoolName) setSchoolName(user.schoolName);
@@ -203,9 +203,9 @@ function ProfileContent() {
       if (user.parentingFocus) setParentingFocus(user.parentingFocus);
       if (user.weeklyReportAlerts !== undefined) setWeeklyReportAlerts(user.weeklyReportAlerts);
     }
-  }, [user]);
+  }, [user?.email]);
 
-  // 1. Handle User Profile Picture / Avatar Upload (Client-compressed + Cloud Sync)
+  // 1. Handle User Profile Picture / Avatar Upload (Client-compressed + Instant Cloud Sync)
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -224,19 +224,19 @@ function ProfileContent() {
       setAvatarUrl(compressedBase64);
       updateUserProfile({ avatarUrl: compressedBase64 });
 
-      // Upload to backend API / Cloudinary
+      // Save directly to cloud database immediately
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const res = await fetch(`${baseUrl}/auth/upload-avatar`, {
-        method: "POST",
+      await fetch(`${baseUrl}/auth/profile`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: compressedBase64, email: user.email || email })
+        body: JSON.stringify({
+          email: user.email || email,
+          full_name: name.trim() || user.name,
+          role: userRole,
+          avatar_url: compressedBase64,
+          school_logo: schoolLogo
+        })
       });
-      if (res.ok) {
-        const data = await res.json();
-        const hostedUrl = data.secure_url || data.url || compressedBase64;
-        setAvatarUrl(hostedUrl);
-        updateUserProfile({ avatarUrl: hostedUrl });
-      }
     } catch (err: any) {
       console.warn("Avatar upload notice:", err);
     } finally {
@@ -244,15 +244,29 @@ function ProfileContent() {
     }
   };
 
-  const handleRemoveAvatar = () => {
+  const handleRemoveAvatar = async () => {
     setAvatarUrl("");
     updateUserProfile({ avatarUrl: "" });
     if (avatarInputRef.current) {
       avatarInputRef.current.value = "";
     }
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      await fetch(`${baseUrl}/auth/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email || email,
+          full_name: name.trim() || user.name,
+          role: userRole,
+          avatar_url: "",
+          school_logo: schoolLogo
+        })
+      });
+    } catch (e) {}
   };
 
-  // 2. Handle School / Institution Logo Upload (Client-compressed + Cloud Sync)
+  // 2. Handle School / Institution Logo Upload (Client-compressed + Instant Cloud Sync)
   const handleSchoolLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -272,17 +286,17 @@ function ProfileContent() {
       updateUserProfile({ schoolLogo: compressedBase64 });
 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const res = await fetch(`${baseUrl}/auth/upload-logo`, {
-        method: "POST",
+      await fetch(`${baseUrl}/auth/profile`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: compressedBase64, email: user.email || email })
+        body: JSON.stringify({
+          email: user.email || email,
+          full_name: name.trim() || user.name,
+          role: userRole,
+          avatar_url: avatarUrl,
+          school_logo: compressedBase64
+        })
       });
-      if (res.ok) {
-        const data = await res.json();
-        const hostedUrl = data.secure_url || data.url || compressedBase64;
-        setSchoolLogo(hostedUrl);
-        updateUserProfile({ schoolLogo: hostedUrl });
-      }
     } catch (err: any) {
       console.warn("Logo upload notice:", err);
     } finally {
@@ -290,12 +304,26 @@ function ProfileContent() {
     }
   };
 
-  const handleRemoveSchoolLogo = () => {
+  const handleRemoveSchoolLogo = async () => {
     setSchoolLogo("");
     updateUserProfile({ schoolLogo: "" });
     if (schoolLogoInputRef.current) {
       schoolLogoInputRef.current.value = "";
     }
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      await fetch(`${baseUrl}/auth/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email || email,
+          full_name: name.trim() || user.name,
+          role: userRole,
+          avatar_url: avatarUrl,
+          school_logo: ""
+        })
+      });
+    } catch (e) {}
   };
 
   const handleSave = async (e: React.FormEvent) => {

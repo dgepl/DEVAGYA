@@ -187,7 +187,10 @@ export const useAppStore = create<AppState>((set, get) => {
           const data = await res.json();
           if (data.status === "success" && data.user) {
             const current = get().user;
-            const updatedUser: UserProfile = { ...current, ...data.user };
+            // Preserve valid local avatar and logo if server response is blank
+            const mergedAvatar = data.user.avatarUrl || current.avatarUrl;
+            const mergedLogo = data.user.schoolLogo || current.schoolLogo;
+            const updatedUser: UserProfile = { ...current, ...data.user, avatarUrl: mergedAvatar, schoolLogo: mergedLogo };
             set({ user: updatedUser });
             try {
               localStorage.setItem("devgya_user", JSON.stringify(updatedUser));
