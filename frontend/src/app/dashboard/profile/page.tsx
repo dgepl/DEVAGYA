@@ -401,14 +401,18 @@ function ProfileContent() {
 
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6">
           
-          {/* USER AVATAR WITH CAMERA BADGE */}
+          {/* USER AVATAR WITH CAMERA BADGE & REMOVE BUTTON */}
           <div className="relative group shrink-0">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-1 shadow-xl ring-4 ring-white/10">
+            <div 
+              onClick={() => avatarInputRef.current?.click()}
+              className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-1 shadow-xl ring-4 ring-white/10 cursor-pointer hover:opacity-95 transition-opacity"
+              title="Click to upload profile photo"
+            >
               <div className="w-full h-full rounded-full bg-slate-900 overflow-hidden flex items-center justify-center text-3xl font-black text-white relative">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={name || "User"} className="w-full h-full object-cover" />
                 ) : (
-                  <span>{name?.charAt(0)?.toUpperCase() || userRole.charAt(0).toUpperCase()}</span>
+                  <span>{name?.trim() ? name.trim().charAt(0).toUpperCase() : userRole.charAt(0).toUpperCase()}</span>
                 )}
 
                 {uploadingAvatar && (
@@ -419,7 +423,7 @@ function ProfileContent() {
               </div>
             </div>
 
-            {/* Click to change avatar trigger */}
+            {/* Change Avatar Button */}
             <button
               type="button"
               onClick={() => avatarInputRef.current?.click()}
@@ -428,6 +432,18 @@ function ProfileContent() {
             >
               <Camera className="w-4 h-4" />
             </button>
+
+            {/* Remove Avatar Button if photo exists */}
+            {avatarUrl && (
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                className="absolute top-0 right-0 p-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-lg border-2 border-slate-900 transition-transform active:scale-90 cursor-pointer"
+                title="Remove Profile Photo"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
 
             <input
               ref={avatarInputRef}
@@ -492,62 +508,21 @@ function ProfileContent() {
       {saved && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-black flex items-center gap-2 animate-in fade-in shadow-sm">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>Profile, picture, and school logo successfully saved & synced to cloud!</span>
+          <span>Profile and school logo successfully saved & synced to cloud!</span>
         </div>
       )}
 
       {/* 2. FORM DETAILS CARD */}
       <form onSubmit={handleSave} className="space-y-6">
         
-        {/* SECTION 1: PERSONAL & PROFILE PICTURE IDENTITY */}
+        {/* SECTION 1: PERSONAL IDENTITY */}
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
               <User className="w-5 h-5 text-indigo-600" />
-              Personal & Profile Photo Identity
+              Personal Profile Identity
             </h2>
             <span className="text-xs font-bold text-slate-400">Step 1 of 3</span>
-          </div>
-
-          {/* Profile Photo Upload Box */}
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-xl flex items-center justify-center overflow-hidden border-2 border-white shadow-xs shrink-0">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <span>{name?.charAt(0)?.toUpperCase() || "U"}</span>
-                )}
-              </div>
-              <div className="space-y-0.5 text-center sm:text-left">
-                <h3 className="text-xs font-black text-slate-900">User Profile Picture</h3>
-                <p className="text-[11px] text-slate-500 font-medium">
-                  Displayed on desktop sidebar, top header, and mobile navbar. Hosted on Cloudinary.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={uploadingAvatar}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                {uploadingAvatar ? "Uploading..." : "Upload Photo"}
-              </button>
-              {avatarUrl && (
-                <button
-                  type="button"
-                  onClick={handleRemoveAvatar}
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
-                  title="Remove Photo"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

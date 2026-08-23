@@ -223,10 +223,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             title="Edit Profile & Branding"
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 group-hover:from-indigo-500 group-hover:to-purple-500 flex items-center justify-center font-black text-white text-xs shadow-xs overflow-hidden border border-white shrink-0">
-              {(user.avatarUrl || user.schoolLogo) && (user.avatarUrl || user.schoolLogo)?.startsWith("http") ? (
-                <img src={user.avatarUrl || user.schoolLogo} alt={user.name || "User"} className="w-full h-full object-cover" />
+              {user.avatarUrl && user.avatarUrl.trim().length > 0 ? (
+                <img src={user.avatarUrl} alt={user.name || "User"} className="w-full h-full object-cover" />
               ) : (
-                <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
+                <span>{user.name?.trim() ? user.name.trim().charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : "U")}</span>
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -285,11 +285,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               className="flex items-center gap-2.5 bg-slate-50 hover:bg-indigo-50/80 px-2.5 py-1 rounded-2xl border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer shadow-xs active:scale-95"
               title="View Profile"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center text-xs font-bold shadow-xs overflow-hidden border border-white shrink-0">
-                {(user.avatarUrl || user.schoolLogo) && (user.avatarUrl || user.schoolLogo)?.startsWith("http") ? (
-                  <img src={user.avatarUrl || user.schoolLogo} alt={user.name || "User"} className="w-full h-full object-cover" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center text-xs font-black shadow-xs overflow-hidden border border-white shrink-0">
+                {user.avatarUrl && user.avatarUrl.trim().length > 0 ? (
+                  <img src={user.avatarUrl} alt={user.name || "User"} className="w-full h-full object-cover" />
                 ) : (
-                  <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
+                  <span>{user.name?.trim() ? user.name.trim().charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : "U")}</span>
                 )}
               </div>
               <div className="hidden lg:block text-left pr-1">

@@ -255,12 +255,13 @@ export function MobileTopHeader() {
 
           <Link
             href="/dashboard/profile"
-            className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 border-2 border-white shadow-sm flex items-center justify-center text-white font-extrabold text-xs overflow-hidden active:scale-95 transition-transform"
+            className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 border-2 border-white shadow-sm flex items-center justify-center text-white font-black text-xs overflow-hidden active:scale-95 transition-transform shrink-0"
+            title={user?.name || "Profile"}
           >
-            {(user?.avatarUrl || user?.schoolLogo) ? (
-              <img src={user.avatarUrl || user.schoolLogo} alt={user?.name || "User"} className="w-full h-full object-cover" />
+            {user?.avatarUrl && user.avatarUrl.trim().length > 0 ? (
+              <img src={user.avatarUrl} alt={user?.name || "User"} className="w-full h-full object-cover" />
             ) : (
-              <span>{user?.name?.charAt(0)?.toUpperCase() || "U"}</span>
+              <span>{user?.name?.trim() ? user.name.trim().charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : "U")}</span>
             )}
           </Link>
         </div>
@@ -415,8 +416,12 @@ export function MobileTopHeader() {
               {/* DRAWER HEADER WITH USER INFO & CLOSE BUTTON */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
-                    {user?.name?.charAt(0) || "U"}
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-black text-sm shadow-md overflow-hidden shrink-0 border border-white/20">
+                    {user?.avatarUrl && user.avatarUrl.trim().length > 0 ? (
+                      <img src={user.avatarUrl} alt={user?.name || "User"} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{user?.name?.trim() ? user.name.trim().charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : "U")}</span>
+                    )}
                   </div>
                   <div>
                     <h3 className="text-xs font-black text-slate-900 truncate max-w-[150px]">
