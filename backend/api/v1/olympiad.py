@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any, List
 import time
 from datetime import datetime
 from services.olympiad_service import olympiad_service
+from services.paper_service import paper_service
 
 router = APIRouter(prefix="/olympiad", tags=["Teacher Skills Olympiad (TSO)"])
 
@@ -28,21 +29,52 @@ class Submit100Payload(BaseModel):
     time_taken_seconds: int = 3600
     proctor_incidents: int = 0
 
+class PracticeEvaluatePayload(BaseModel):
+    question_id: str
+    selected_option: int
+    subject: Optional[str] = "Science"
+
 @router.get("/exam-paper")
 async def get_100_exam_paper(
     subject: str = Query("Science"),
     level: str = Query("Secondary")
 ):
     """
-    Generate complete 100-MCQ 60-Minute 60/40 assessment paper:
-    - Part A: 60 MCQs (Universal CBSE CPD, Scenarios, Modern Pedagogy)
-    - Part B: 40 MCQs (Subject Core Knowledge, Pedagogy, Misconceptions/HOTS)
+    Fetch the official Super Admin published 100-MCQ TSO Exam Paper.
+    Includes Admin scheduled start_time and end_time.
     """
-    paper = olympiad_service.generate_full_100_exam_paper(subject=subject, level=level)
+    paper = olympiad_service.get_active_exam_paper(subject=subject, level=level)
     return {
         "status": "success",
         "paper": paper
     }
+
+@router.get("/practice")
+async def get_practice_questions(
+    subject: str = Query("Science"),
+    module: Optional[str] = Query("all")
+):
+    """
+    Fetch 100 dedicated practice mock questions partitioned into Part A and Part B.
+    """
+    questions = olympiad_service.get_100_practice_questions(subject=subject, module=module)
+    return {
+        "status": "success",
+        "total": len(questions),
+        "questions": questions
+    }
+
+@router.post("/practice/evaluate")
+async def evaluate_practice_answer(payload: PracticeEvaluatePayload):
+    """
+    Instantly evaluate a candidate's answer in the practice mock hall.
+    """
+    res = olympiad_service.evaluate_practice_answer(
+        question_id=payload.question_id,
+        selected_option=payload.selected_option,
+        subject=payload.subject or "Science"
+    )
+    return res
 
 @router.post("/register-tso")
 async def register_for_tso(payload: TSORegistrationPayload):

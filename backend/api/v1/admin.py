@@ -56,6 +56,28 @@ class ManualPaperPayload(BaseModel):
     instructions: List[str] = []
     questions: List[Dict[str, Any]] = []
 
+class Generate100TSOPayload(BaseModel):
+    subject: str = "Science"
+    class_name: str = "Secondary (Classes 9–10)"
+    title: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    school_name: Optional[str] = "DEVGYA GLOBAL EDUTECH"
+
+class UpdateQuestionPayload(BaseModel):
+    question_text: Optional[str] = None
+    options: Optional[List[str]] = None
+    correct_answer: Optional[int] = None
+    explanation: Optional[str] = None
+    module: Optional[str] = None
+    section: Optional[str] = None
+
+class UpdateSchedulePayload(BaseModel):
+    title: Optional[str] = None
+    start_time: str
+    end_time: str
+    published: bool = True
+
 @router.post("/login")
 async def admin_login(payload: AdminLoginPayload):
     """Authenticate Admin user with credentials admin / admin123."""
@@ -86,7 +108,7 @@ async def get_admin_dashboard_stats():
             "parents_count": parents_count,
             "total_submissions": len(submissions),
             "total_papers": len(papers),
-            "pending_submissions": len([s for s in submissions if s.get("review_status") == "pending_review"]),
+            "pending_submissions": len([s for s in submissions if s.get("review_status") == "pending_admin_review"]),
             "published_submissions": len([s for s in submissions if s.get("published") is True]),
             "active_board_subscriptions": {"CBSE": 28, "ICSE": 10, "STATE": 4}
         },
@@ -105,19 +127,11 @@ async def get_all_users():
         "users": profiles
     }
 
-@router.delete("/users/{user_id}")
-async def delete_user(user_id: str):
-    """Delete profile from Supabase Cloud."""
-    success = await supabase_service.delete_profile(user_id)
-    if success:
-        return {"status": "success", "message": f"User {user_id} deleted successfully."}
-    raise HTTPException(status_code=400, detail="Failed to delete user profile from database.")
-
-# --- OLYMPIAD MANAGEMENT ENDPOINTS ---
+# --- SUPER ADMIN OLYMPIAD SUBMISSION MANAGEMENT ---
 
 @router.get("/olympiad/submissions")
 async def get_all_olympiad_submissions():
-    """Fetch all teacher Olympiad exam submissions with anti-cheating logs."""
+    """Fetch all Olympiad exam submissions across all papers."""
     submissions = olympiad_service.get_all_submissions()
     return {
         "status": "success",
@@ -125,51 +139,53 @@ async def get_all_olympiad_submissions():
         "submissions": submissions
     }
 
-@router.put("/olympiad/submissions/{sub_id}")
-async def update_olympiad_submission(sub_id: str, payload: UpdateSubmissionPayload):
-    """Admin evaluate, override grade, add feedback, or publish/unpublish result."""
-    result = olympiad_service.update_submission_result(sub_id, payload.dict(exclude_unset=True))
-    if result.get("status") == "success":
-        return result
-    raise HTTPException(status_code=400, detail=result.get("message", "Failed to update submission"))
+# --- TSO 100-MCQ AI GENERATOR & MANAGEMENT ENDPOINTS ---
 
-@router.post("/olympiad/publish-all")
-async def bulk_publish_olympiad_results(paper_id: Optional[str] = Query(None)):
-    """1-Click publish all teacher results for an Olympiad paper."""
-    result = olympiad_service.bulk_publish_submissions(paper_id=paper_id)
-    if result.get("status") == "success":
-        return result
-    raise HTTPException(status_code=400, detail=result.get("message", "Failed to bulk publish submissions"))
+@router.post("/tso/generate-100-ai")
+async def generate_100_tso_paper(payload: Generate100TSOPayload):
+    """
+    Generate complete 100-MCQ TSO Question Paper with AI adhering to 60/40 Hybrid Structure:
+    Part A (60 MCQs): CPD/NEP (20 Qs), Classroom Scenarios (20 Qs), Modern Pedagogy (20 Qs).
+    Part B (40 MCQs): Core Subject (20 Qs), Subject Pedagogy & TLM (10 Qs), Misconceptions & HOTS (10 Qs).
+    """
+    res = await paper_service.generate_100_tso_paper_ai(
+        subject=payload.subject,
+        class_name=payload.class_name,
+        title=payload.title,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        school_name=payload.school_name
+    )
+    if res.get("status") == "success":
+        return res
+    raise HTTPException(status_code=400, detail=res.get("message", "TSO AI generation failed"))
 
-@router.delete("/olympiad/submissions/{sub_id}")
-async def delete_olympiad_submission(sub_id: str):
-    """Admin delete a candidate submission/result."""
-    result = olympiad_service.delete_submission(sub_id)
-    if result.get("status") == "success":
-        return result
-    raise HTTPException(status_code=400, detail=result.get("message", "Failed to delete submission"))
+@router.put("/tso/papers/{paper_id}/questions/{q_id}")
+async def update_tso_question(paper_id: str, q_id: int, payload: UpdateQuestionPayload):
+    """Admin can edit question text, options, answer index, or explanation."""
+    res = paper_service.update_paper_question(paper_id, q_id, payload.dict(exclude_unset=True))
+    if res.get("status") == "success":
+        return res
+    raise HTTPException(status_code=400, detail=res.get("message", "Question update failed"))
 
-@router.delete("/olympiad/submissions")
-async def bulk_delete_olympiad_submissions(paper_id: Optional[str] = Query(None)):
-    """Admin bulk delete Olympiad candidate submissions/results."""
-    result = olympiad_service.bulk_delete_submissions(paper_id=paper_id)
-    if result.get("status") == "success":
-        return result
-    raise HTTPException(status_code=400, detail=result.get("message", "Failed to delete submissions"))
-
-@router.post("/olympiad/questions")
-async def add_olympiad_question(payload: AddQuestionPayload):
-    """Add a new question to the Olympiad Question Bank."""
-    result = olympiad_service.add_question(payload.dict())
-    if result.get("status") == "success":
-        return result
-    raise HTTPException(status_code=400, detail=result.get("message", "Failed to add question"))
+@router.put("/tso/papers/{paper_id}/schedule")
+async def update_tso_schedule(paper_id: str, payload: UpdateSchedulePayload):
+    """Admin can edit test start date/time, end date/time, title, and published activation."""
+    res = paper_service.update_paper_schedule(
+        paper_id=paper_id,
+        title=payload.title,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        published=payload.published
+    )
+    if res.get("status") == "success":
+        return res
+    raise HTTPException(status_code=400, detail=res.get("message", "Schedule update failed"))
 
 # --- SUPER ADMIN PAPER MAKER STUDIO ENDPOINTS ---
 
 @router.get("/papers")
 async def get_admin_papers():
-    """Fetch all question papers in Super Admin Paper Repository."""
     papers = paper_service.get_all_papers()
     return {
         "status": "success",
@@ -179,7 +195,6 @@ async def get_admin_papers():
 
 @router.get("/papers/{paper_id}")
 async def get_paper_detail(paper_id: str):
-    """Fetch a single question paper by ID."""
     paper = paper_service.get_paper_by_id(paper_id)
     if paper:
         return {"status": "success", "paper": paper}
@@ -187,35 +202,13 @@ async def get_paper_detail(paper_id: str):
 
 @router.post("/papers/manual")
 async def create_paper_manual(payload: ManualPaperPayload):
-    """Manually construct and save a complete question paper."""
     result = paper_service.create_paper_manual(payload.dict())
     if result.get("status") == "success":
         return result
     raise HTTPException(status_code=400, detail=result.get("message", "Failed to create paper"))
 
-@router.post("/papers/ai-generate")
-async def generate_paper_from_prompt(payload: AIPaperPromptPayload):
-    """Generate full structured question paper from AI text prompt."""
-    result = await paper_service.generate_paper_from_prompt(
-        prompt_text=payload.prompt_text,
-        title=payload.title or "AI Generated MCQ Question Paper",
-        class_name=payload.class_name or "Class 10",
-        subject=payload.subject or "Science",
-        board=payload.board or "CBSE",
-        difficulty=payload.difficulty or "medium",
-        total_marks=payload.total_marks or 20,
-        time_allowed_mins=payload.time_allowed_mins or 30,
-        start_time=payload.start_time,
-        end_time=payload.end_time,
-        school_name=payload.school_name or "DEVGYA GLOBAL EDUTECH"
-    )
-    if result.get("status") == "success":
-        return result
-    raise HTTPException(status_code=400, detail=result.get("message", "AI paper generation failed"))
-
 @router.put("/papers/{paper_id}")
 async def update_paper(paper_id: str, updates: Dict[str, Any]):
-    """Update paper details or question structure."""
     result = paper_service.update_paper(paper_id, updates)
     if result.get("status") == "success":
         return result
@@ -223,7 +216,6 @@ async def update_paper(paper_id: str, updates: Dict[str, Any]):
 
 @router.delete("/papers/{paper_id}")
 async def delete_paper(paper_id: str):
-    """Delete paper from repository."""
     result = paper_service.delete_paper(paper_id)
     if result.get("status") == "success":
         return result

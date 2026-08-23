@@ -40,11 +40,30 @@ export default function SuperAdminPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loadingLogin, setLoadingLogin] = useState(false);
 
+  const getLocalISOString = (offsetMs = 0) => {
+    const d = new Date(Date.now() + offsetMs);
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
   // Main Tab State
   const [adminTab, setAdminTab] = useState<"olympiad" | "paper_studio" | "users" | "analytics">("paper_studio");
 
   // Paper Studio Sub-Tab State
-  const [paperStudioSubTab, setPaperStudioSubTab] = useState<"ai_prompt" | "manual_builder" | "repository">("ai_prompt");
+  const [paperStudioSubTab, setPaperStudioSubTab] = useState<"tso_100_ai" | "ai_prompt" | "manual_builder" | "repository">("tso_100_ai");
+
+  // Master TSO 100-MCQ AI Generator & Editor State
+  const [tsoSubject, setTsoSubject] = useState("Science");
+  const [tsoClass, setTsoClass] = useState("Secondary (Classes 9–10)");
+  const [tsoTitle, setTsoTitle] = useState("National Teacher Skills Olympiad 2026 — SCIENCE");
+  const [tsoStartTime, setTsoStartTime] = useState(getLocalISOString(0));
+  const [tsoEndTime, setTsoEndTime] = useState(getLocalISOString(30 * 24 * 60 * 60 * 1000));
+  const [generatingTso100, setGeneratingTso100] = useState(false);
+  const [tsoDraftPaper, setTsoDraftPaper] = useState<any | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
+  const [editQuestionModalOpen, setEditQuestionModalOpen] = useState(false);
+  const [savingQuestionEdit, setSavingQuestionEdit] = useState(false);
+  const [activatingTsoPaper, setActivatingTsoPaper] = useState(false);
 
   // Data States
   const [stats, setStats] = useState<any>(null);
@@ -72,11 +91,6 @@ export default function SuperAdminPage() {
   const [aiTitle, setAiTitle] = useState("Class 10 CBSE Science Olympiad Assessment");
   const [aiClass, setAiClass] = useState("Class 10");
   const [aiSubject, setAiSubject] = useState("Science");
-  const getLocalISOString = (offsetMs = 0) => {
-    const d = new Date(Date.now() + offsetMs);
-    const tzOffset = d.getTimezoneOffset() * 60000;
-    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
-  };
 
   const [aiBoard, setAiBoard] = useState("CBSE");
   const [aiDifficulty, setAiDifficulty] = useState("medium");
@@ -211,6 +225,129 @@ export default function SuperAdminPage() {
       alert("Error calling AI Paper Generator.");
     } finally {
       setGeneratingAiPaper(false);
+    }
+  };
+
+  // Master 100-MCQ TSO AI Generator Handler (60/40 Hybrid Structure)
+  const handleGenerateTso100AI = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGeneratingTso100(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const payload = {
+        subject: tsoSubject,
+        class_name: tsoClass,
+        title: tsoTitle,
+        start_time: tsoStartTime.replace("T", " ") + ":00",
+        end_time: tsoEndTime.replace("T", " ") + ":00",
+        school_name: "DEVGYA GLOBAL EDUTECH"
+      };
+
+      const res = await fetch(`${baseUrl}/admin/tso/generate-100-ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.paper) {
+        setTsoDraftPaper(data.paper);
+        setActionMsg(`100-MCQ National TSO Paper for "${data.paper.subject}" synthesized by AI with 60/40 Hybrid Structure!`);
+        fetchAdminData();
+        setTimeout(() => setActionMsg(null), 5000);
+      } else {
+        alert(data.detail || "Failed to synthesize 100-MCQ paper with AI.");
+      }
+    } catch (err) {
+      alert("Error calling TSO AI Synthesizer.");
+    } finally {
+      setGeneratingTso100(false);
+    }
+  };
+
+  // Open Edit Question Modal
+  const handleOpenEditQuestion = (q: any) => {
+    setEditingQuestion({
+      ...q,
+      options: [...(q.options || ["", "", "", ""])]
+    });
+    setEditQuestionModalOpen(true);
+  };
+
+  // Save Question Updates
+  const handleSaveEditedQuestion = async () => {
+    if (!editingQuestion || !tsoDraftPaper) return;
+    setSavingQuestionEdit(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const qId = editingQuestion.id || editingQuestion.question_number;
+      const res = await fetch(`${baseUrl}/admin/tso/papers/${tsoDraftPaper.id}/questions/${qId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question_text: editingQuestion.question_text,
+          options: editingQuestion.options,
+          correct_answer: editingQuestion.correct_answer,
+          explanation: editingQuestion.explanation,
+          module: editingQuestion.module,
+          section: editingQuestion.section
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const updatedQs = tsoDraftPaper.questions.map((q: any) => {
+          if (q.id === qId || q.question_number === qId) {
+            return {
+              ...q,
+              ...editingQuestion,
+              answer: editingQuestion.options[editingQuestion.correct_answer]
+            };
+          }
+          return q;
+        });
+        setTsoDraftPaper({ ...tsoDraftPaper, questions: updatedQs });
+        setEditQuestionModalOpen(false);
+        setEditingQuestion(null);
+        setActionMsg(`Question #${qId} successfully updated and saved!`);
+        fetchAdminData();
+        setTimeout(() => setActionMsg(null), 4000);
+      } else {
+        alert(data.detail || "Failed to update question.");
+      }
+    } catch (err) {
+      alert("Error saving question updates.");
+    } finally {
+      setSavingQuestionEdit(false);
+    }
+  };
+
+  // Save Schedule & Activate TSO Paper for Live Exam Hall
+  const handlePublishTsoPaper = async () => {
+    if (!tsoDraftPaper) return;
+    setActivatingTsoPaper(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const res = await fetch(`${baseUrl}/admin/tso/papers/${tsoDraftPaper.id}/schedule`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: tsoTitle,
+          start_time: tsoStartTime.replace("T", " ") + ":00",
+          end_time: tsoEndTime.replace("T", " ") + ":00",
+          published: true
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg(`TSO Paper "${tsoDraftPaper.title}" is now the ACTIVE LIVE paper for the National Olympiad!`);
+        fetchAdminData();
+        setTimeout(() => setActionMsg(null), 6000);
+      } else {
+        alert(data.detail || "Failed to activate TSO paper.");
+      }
+    } catch (err) {
+      alert("Error activating TSO paper.");
+    } finally {
+      setActivatingTsoPaper(false);
     }
   };
 
@@ -684,7 +821,17 @@ export default function SuperAdminPage() {
         <div className="space-y-6">
           
           {/* PAPER STUDIO SUB-TABS */}
-          <div className="bg-slate-100 p-1.5 rounded-2xl inline-flex items-center gap-1">
+          <div className="bg-slate-100 p-1.5 rounded-2xl inline-flex items-center gap-1 flex-wrap">
+            <button
+              onClick={() => setPaperStudioSubTab("tso_100_ai")}
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                paperStudioSubTab === "tso_100_ai" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <span>TSO 100-MCQ AI Studio (60/40 Structure)</span>
+            </button>
+
             <button
               onClick={() => setPaperStudioSubTab("ai_prompt")}
               className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
@@ -715,6 +862,219 @@ export default function SuperAdminPage() {
               <span>Saved Paper Repository ({papersList.length})</span>
             </button>
           </div>
+
+          {/* SUB-TAB 0: MASTER TSO 100-MCQ AI SYNTHESIZER & QUESTION EDITOR */}
+          {paperStudioSubTab === "tso_100_ai" && (
+            <div className="space-y-6">
+              
+              {/* SYNTHESIZER GENERATOR FORM */}
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <div className="space-y-1 border-b border-slate-100 pb-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-amber-500" />
+                      Synthesize 100-MCQ National Olympiad Paper with AI
+                    </h3>
+                    <span className="text-[10px] font-black uppercase px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                      60/40 HYBRID BLUEPRINT
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Automatically synthesizes all 6 modules: Part-A (60 MCQs: CPD/NEP, Classroom Scenarios, Modern Pedagogy) + Part-B (40 MCQs: Core Depth, TLM, Misconceptions/HOTS).
+                  </p>
+                </div>
+
+                <form onSubmit={handleGenerateTso100AI} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Target Assessment Subject</label>
+                      <select
+                        value={tsoSubject}
+                        onChange={(e) => {
+                          setTsoSubject(e.target.value);
+                          setTsoTitle(`National Teacher Skills Olympiad 2026 — ${e.target.value.toUpperCase()}`);
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                      >
+                        <option value="Science">Science</option>
+                        <option value="Mathematics">Mathematics</option>
+                        <option value="English">English</option>
+                        <option value="Hindi">Hindi</option>
+                        <option value="Social Science">Social Science</option>
+                        <option value="Physics">Physics</option>
+                        <option value="Chemistry">Chemistry</option>
+                        <option value="Biology">Biology</option>
+                        <option value="Computer Science">Computer Science / IT</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Grade / Level</label>
+                      <select
+                        value={tsoClass}
+                        onChange={(e) => setTsoClass(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                      >
+                        <option value="Secondary (Classes 9–10)">Secondary (Classes 9–10)</option>
+                        <option value="Primary (Classes 1–5)">Primary (Classes 1–5)</option>
+                        <option value="Middle School (Classes 6–8)">Middle School (Classes 6–8)</option>
+                        <option value="Senior Secondary (Classes 11–12)">Senior Secondary (Classes 11–12)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Olympiad Paper Title</label>
+                      <input
+                        type="text"
+                        required
+                        value={tsoTitle}
+                        onChange={(e) => setTsoTitle(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                      />
+                    </div>
+                  </div>
+
+                  {/* START & END DATE/TIME SCHEDULING */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-amber-50/60 border border-amber-200">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-amber-900 uppercase mb-1 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        Olympiad Test Start Date & Time
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={tsoStartTime}
+                        onChange={(e) => setTsoStartTime(e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-amber-900 uppercase mb-1 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-rose-600" />
+                        Olympiad Test End Date & Time (Closing)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={tsoEndTime}
+                        onChange={(e) => setTsoEndTime(e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={generatingTso100}
+                    className="w-full py-4 bg-gradient-to-r from-amber-500 via-orange-600 to-indigo-700 hover:from-amber-600 hover:to-indigo-800 text-white font-black text-sm rounded-2xl shadow-xl shadow-orange-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all active:scale-95"
+                  >
+                    {generatingTso100 ? (
+                      <>
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                        <span>Synthesizing 100 AI Questions across all 6 Modules...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5 text-amber-200" />
+                        <span>Synthesize 100-MCQ TSO Paper with AI (100 Marks • 60 Mins)</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* DRAFT 100-MCQ QUESTIONS EXPLORER & QUESTION-BY-QUESTION EDITOR */}
+              {tsoDraftPaper && (
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border-2 border-indigo-200 shadow-xl space-y-6 animate-in zoom-in-95">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                      <span className="text-[10px] font-black uppercase bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-md">
+                        ACTIVE DRAFT ASSESSMENT
+                      </span>
+                      <h3 className="text-lg font-black text-slate-900 mt-1">
+                        {tsoDraftPaper.title}
+                      </h3>
+                      <p className="text-xs text-slate-500 font-bold">
+                        {tsoDraftPaper.questions?.length || 100} Questions • 100 Marks • {tsoDraftPaper.subject}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={activatingTsoPaper}
+                      onClick={handlePublishTsoPaper}
+                      className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center gap-2 cursor-pointer active:scale-95 transition-all"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                      <span>{activatingTsoPaper ? "Activating..." : "Save Schedule & Activate Live for Candidates"}</span>
+                    </button>
+                  </div>
+
+                  {/* 100 Questions List with Edit Action */}
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                    {tsoDraftPaper.questions?.map((q: any, idx: number) => {
+                      const corrIdx = typeof q.correct_answer === "number" ? q.correct_answer : 0;
+                      return (
+                        <div
+                          key={idx}
+                          className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 hover:border-indigo-300 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
+                                  Q{idx + 1}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  {q.section} • {q.module}
+                                </span>
+                              </div>
+                              <p className="text-xs font-bold text-slate-900 pt-1">
+                                {q.question_text}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditQuestion(q)}
+                              className="px-3 py-1.5 bg-white hover:bg-indigo-50 text-indigo-600 font-extrabold text-xs rounded-xl border border-slate-200 shadow-2xs transition-colors cursor-pointer shrink-0"
+                            >
+                              ✏️ Edit Question
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            {q.options?.map((opt: string, optIdx: number) => (
+                              <div
+                                key={optIdx}
+                                className={`p-2 rounded-xl text-[11px] font-semibold border ${
+                                  optIdx === corrIdx
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-bold"
+                                    : "bg-white text-slate-600 border-slate-200"
+                                }`}
+                              >
+                                {opt} {optIdx === corrIdx && "✅ (Correct Answer)"}
+                              </div>
+                            ))}
+                          </div>
+
+                          {q.explanation && (
+                            <p className="text-[11px] text-slate-500 font-medium bg-white p-2.5 rounded-xl border border-slate-100">
+                              💡 <strong>Explanation:</strong> {q.explanation}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              )}
+
+            </div>
+          )}
 
           {/* SUB-TAB A: AI PAPER GENERATOR VIA PROMPT */}
           {paperStudioSubTab === "ai_prompt" && (
@@ -2127,6 +2487,114 @@ export default function SuperAdminPage() {
                 Close Inspector
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT QUESTION MODAL FOR TSO 100-MCQ PAPER */}
+      {editQuestionModalOpen && editingQuestion && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
+                    EDITING QUESTION #{editingQuestion.id || editingQuestion.question_number}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {editingQuestion.section} • {editingQuestion.module}
+                  </span>
+                </div>
+                <h3 className="text-base font-black text-slate-900">
+                  Modify Question Text, Options & Explanation
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setEditQuestionModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 font-black text-sm p-1.5"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Question Text</label>
+                <textarea
+                  rows={3}
+                  value={editingQuestion.question_text || ""}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, question_text: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-indigo-600 outline-none"
+                />
+              </div>
+
+              {/* 4 Options */}
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-700">4 Multiple Choice Options</label>
+                {editingQuestion.options?.map((opt: string, optIdx: number) => (
+                  <div key={optIdx} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingQuestion({ ...editingQuestion, correct_answer: optIdx })}
+                      className={`w-8 h-8 rounded-xl text-xs font-black shrink-0 transition-colors flex items-center justify-center ${
+                        editingQuestion.correct_answer === optIdx
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
+                      }`}
+                      title="Set as Correct Answer"
+                    >
+                      {String.fromCharCode(65 + optIdx)}
+                    </button>
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const newOpts = [...editingQuestion.options];
+                        newOpts[optIdx] = e.target.value;
+                        setEditingQuestion({ ...editingQuestion, options: newOpts });
+                      }}
+                      className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-indigo-600 outline-none"
+                      placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                    />
+                  </div>
+                ))}
+                <p className="text-[10px] text-slate-400 font-medium">
+                  💡 Click the option letter (A, B, C, D) on the left to set it as the correct answer.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Conceptual Explanation</label>
+                <textarea
+                  rows={2}
+                  value={editingQuestion.explanation || ""}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, explanation: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-indigo-600 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditQuestionModalOpen(false)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={savingQuestionEdit}
+                onClick={handleSaveEditedQuestion}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
+              >
+                {savingQuestionEdit ? "Saving Changes..." : "Save Question Changes"}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

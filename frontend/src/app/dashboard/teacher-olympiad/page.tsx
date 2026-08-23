@@ -113,6 +113,31 @@ export default function TeacherOlympiadPage() {
     } catch (e) {}
   };
 
+  // Schedule Window Validation
+  const scheduleStatus = useMemo(() => {
+    if (!paperData) return { isOpen: true, message: "" };
+    const now = new Date().getTime();
+    if (paperData.start_time) {
+      const startMs = new Date(paperData.start_time.replace(" ", "T")).getTime();
+      if (!isNaN(startMs) && now < startMs) {
+        return {
+          isOpen: false,
+          message: `Olympiad opens on ${new Date(startMs).toLocaleString()}`
+        };
+      }
+    }
+    if (paperData.end_time) {
+      const endMs = new Date(paperData.end_time.replace(" ", "T")).getTime();
+      if (!isNaN(endMs) && now > endMs) {
+        return {
+          isOpen: false,
+          message: `Olympiad concluded on ${new Date(endMs).toLocaleString()}`
+        };
+      }
+    }
+    return { isOpen: true, message: "Live & Active" };
+  }, [paperData]);
+
   useEffect(() => {
     loadExamPaper();
     checkAttemptStatus();
@@ -496,12 +521,13 @@ export default function TeacherOlympiadPage() {
 
               <button
                 type="button"
+                disabled={!scheduleStatus.isOpen}
                 onClick={handleStartExam}
-                className="flex-1 sm:flex-none px-7 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                className="flex-1 sm:flex-none px-7 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
               >
                 <Trophy className="w-4 h-4 text-amber-300" />
-                <span>Start 60-Min 100-MCQ Exam</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>{scheduleStatus.isOpen ? "Start 60-Min 100-MCQ Exam" : scheduleStatus.message}</span>
+                {scheduleStatus.isOpen && <ArrowRight className="w-4 h-4" />}
               </button>
             </div>
           </div>
