@@ -428,41 +428,18 @@ function ProfileContent() {
     <div className="max-w-5xl mx-auto space-y-6 pb-20 font-sans animate-in fade-in duration-300">
       
       {/* PAGE HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              My Profile & Settings
-            </h1>
-            <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-              {getRoleLabel()}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 font-medium mt-1">
-            Manage your personal credentials, institution details, and curriculum preferences.
-          </p>
+      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            My Profile & Settings
+          </h1>
+          <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+            {getRoleLabel()}
+          </span>
         </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
-          >
-            {saving ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-3.5 h-3.5" />
-                <span>Save Changes</span>
-              </>
-            )}
-          </button>
-        </div>
+        <p className="text-xs text-slate-500 font-medium mt-1">
+          Manage your personal credentials, institution details, and curriculum preferences.
+        </p>
       </div>
 
       {/* ERROR OR SUCCESS ALERTS */}
