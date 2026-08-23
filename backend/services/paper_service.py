@@ -101,6 +101,7 @@ class PaperService:
           * Module 3: Misconceptions & HOTS (10 MCQs)
         """
         paper_title = title or f"National Teacher Skills Olympiad 2026 — {subject.upper()}"
+        diff_label = difficulty.title() if difficulty else "Medium"
         
         # Split the 100 questions into 10 focused batches of 10 questions each
         # This prevents token-limit truncation and ensures 100% authentic, high-depth AI questions
@@ -141,20 +142,22 @@ STRICT REQUIREMENTS:
 2. Every question must have exactly 4 options: ["(A) ...", "(B) ...", "(C) ...", "(D) ..."]
 3. "correct_answer" must be the 0-based integer index of the correct option (0, 1, 2, or 3).
 4. Provide a clear, insightful conceptual "explanation" for each question.
-5. Return strictly valid JSON array matching this format:
-[
-  {{
-    "question_text": "Detailed question text...",
-    "options": ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"],
-    "correct_answer": 0,
-    "explanation": "Detailed explanation why this option is correct."
-  }}
-]
+5. Return strictly valid JSON object matching this format:
+{{
+  "questions": [
+    {{
+      "question_text": "Detailed question text...",
+      "options": ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"],
+      "correct_answer": 0,
+      "explanation": "Detailed explanation why this option is correct."
+    }}
+  ]
+}}
 """
             try:
                 raw = await ai_provider.chat_completion(
                     [
-                        {"role": "system", "content": "You are a senior CBSE/NCERT curriculum and pedagogy assessment expert. Respond ONLY with a valid JSON array of questions."},
+                        {"role": "system", "content": "You are a senior CBSE/NCERT curriculum and pedagogy assessment expert. Respond ONLY with a valid JSON object containing a 'questions' array."},
                         {"role": "user", "content": prompt}
                     ],
                     temperature=0.45,
@@ -166,12 +169,16 @@ STRICT REQUIREMENTS:
                     text = text.split("```json", 1)[1].split("```", 1)[0].strip()
                 elif "```" in text:
                     text = text.split("```", 1)[1].split("```", 1)[0].strip()
-                if "[" in text and "]" in text:
-                    text = text[text.find("["):text.rfind("]") + 1].strip()
+                if "{" in text and "}" in text:
+                    text = text[text.find("{"):text.rfind("}") + 1].strip()
 
                 parsed = json.loads(text)
                 if isinstance(parsed, dict) and "questions" in parsed:
                     parsed = parsed["questions"]
+                elif isinstance(parsed, list):
+                    pass
+                else:
+                    parsed = []
                 
                 results = []
                 for item in parsed[:count]:
@@ -245,8 +252,15 @@ STRICT REQUIREMENTS:
                         })
                 return fb_results
 
-        # Execute all 10 batches concurrently using asyncio.gather
-        tasks = [generate_single_batch(spec) for spec in batches_spec]
+        # Execute batches with a concurrency limiter (Semaphore=2) to respect Groq rate limits
+        sem = asyncio.Semaphore(2)
+
+        async def sem_batch(spec):
+            async with sem:
+                await asyncio.sleep(0.2)
+                return await generate_single_batch(spec)
+
+        tasks = [sem_batch(spec) for spec in batches_spec]
         batch_results = await asyncio.gather(*tasks)
 
         all_questions = []

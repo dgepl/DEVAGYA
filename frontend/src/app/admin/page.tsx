@@ -257,10 +257,11 @@ export default function SuperAdminPage() {
         fetchAdminData();
         setTimeout(() => setActionMsg(null), 5000);
       } else {
-        alert(data.detail || "Failed to synthesize 100-MCQ paper with AI.");
+        alert(data.detail || data.message || "Failed to synthesize 100-MCQ paper with AI.");
       }
-    } catch (err) {
-      alert("Error calling TSO AI Synthesizer.");
+    } catch (err: any) {
+      console.error("TSO AI Generator error:", err);
+      alert(err?.message ? `Failed to synthesize TSO paper: ${err.message}` : "Failed to synthesize TSO paper. Please try again.");
     } finally {
       setGeneratingTso100(false);
     }
