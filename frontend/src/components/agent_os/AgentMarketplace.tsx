@@ -760,28 +760,6 @@ export function AgentMarketplace() {
 
       {/* FULL-WIDTH AGENT WORKSPACE */}
       <div className="flex flex-col h-[calc(100vh-8.5rem)] min-h-[520px]">
-          {/* 1. HORIZONTAL AGENT SWITCHER PILLS (TOP BAR) */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none shrink-0">
-            {agents.map((a) => {
-              const IconComp = iconMap[a.icon] || Bot;
-              const isSel = a.agent_code === selectedAgentCode;
-              return (
-                <button
-                  key={a.agent_code}
-                  onClick={() => switchAgent(a.agent_code)}
-                  className={`px-4 py-2 rounded-full text-xs font-black whitespace-nowrap shrink-0 flex items-center gap-2 transition-all active:scale-95 cursor-pointer ${
-                    isSel
-                      ? "bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white shadow-md shadow-indigo-600/25 border border-indigo-500"
-                      : "bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs"
-                  }`}
-                >
-                  <IconComp className={`w-4 h-4 ${isSel ? "text-white" : "text-slate-500"}`} />
-                  <span>{a.name}</span>
-                </button>
-              );
-            })}
-          </div>
-
           {/* 2. AGENT DETAIL BANNER + 3D ROBOT + 5 QUICK TOOLS (LIGHT THEME HERO CARD) */}
           {selectedAgent && (
             <div className="bg-gradient-to-br from-[#F6F4FE] via-[#EDE9FE]/60 to-[#F0F4FF] p-4 sm:p-5 rounded-3xl border border-indigo-200/80 shadow-xs mb-3 relative overflow-hidden shrink-0">

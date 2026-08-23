@@ -42,6 +42,7 @@ class UpdateProfilePayload(BaseModel):
     subject: Optional[str] = None
     classes: Optional[str] = None
     school_logo: Optional[str] = None
+    avatar_url: Optional[str] = None
     role: Optional[str] = None
     # Student specific
     target_exam: Optional[str] = None
@@ -262,6 +263,7 @@ async def get_profile(email: str):
         "subject": profile.get("subject", ""),
         "classes": profile.get("classes", "Class 10"),
         "schoolLogo": profile.get("school_logo", ""),
+        "avatarUrl": profile.get("avatar_url", profile.get("school_logo", "")),
         "isProfileComplete": True,
         # Student specific
         "targetExam": profile.get("target_exam", ""),
@@ -296,10 +298,22 @@ class UploadLogoPayload(BaseModel):
 async def upload_school_logo(payload: UploadLogoPayload):
     """Upload school logo image directly to Cloudinary storage."""
     res = cloudinary_service.upload_image(payload.image, folder="devgya_school_logos")
+    url = res.get("secure_url") or payload.image
     return {
         "status": "success",
-        "url": res.get("secure_url", payload.image),
-        "secure_url": res.get("secure_url", payload.image)
+        "url": url,
+        "secure_url": url
+    }
+
+@router.post("/upload-avatar")
+async def upload_user_avatar(payload: UploadLogoPayload):
+    """Upload user profile photo directly to Cloudinary storage."""
+    res = cloudinary_service.upload_image(payload.image, folder="devgya_user_avatars")
+    url = res.get("secure_url") or payload.image
+    return {
+        "status": "success",
+        "url": url,
+        "secure_url": url
     }
 
 @router.put("/profile")
@@ -316,9 +330,19 @@ async def update_profile(payload: UpdateProfilePayload):
         upload_res = cloudinary_service.upload_image(payload.school_logo, folder="devgya_school_logos")
         school_logo_url = upload_res.get("secure_url") or payload.school_logo
 
+    avatar_url = payload.avatar_url or school_logo_url
+    if payload.avatar_url and payload.avatar_url.startswith("data:image"):
+        upload_res = cloudinary_service.upload_image(payload.avatar_url, folder="devgya_user_avatars")
+        avatar_url = upload_res.get("secure_url") or payload.avatar_url
+
     payload_dict = payload.dict(exclude_unset=True)
     if "school_logo" in payload_dict:
         payload_dict["school_logo"] = school_logo_url
+    if "avatar_url" in payload_dict:
+        payload_dict["avatar_url"] = avatar_url
+    elif avatar_url:
+        payload_dict["avatar_url"] = avatar_url
+
     if "email" in payload_dict:
         del payload_dict["email"]
 
@@ -338,7 +362,8 @@ async def update_profile(payload: UpdateProfilePayload):
         "board": profile.get("board", "CBSE"),
         "subject": profile.get("subject", ""),
         "classes": profile.get("classes", "Class 10"),
-        "schoolLogo": profile.get("school_logo", school_logo_url),
+        "schoolLogo": profile.get("school_logo", school_logo_url or ""),
+        "avatarUrl": profile.get("avatar_url", avatar_url or school_logo_url or ""),
         "isProfileComplete": True,
         # Student specific
         "targetExam": profile.get("target_exam", payload.target_exam or ""),

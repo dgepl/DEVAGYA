@@ -220,10 +220,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           <Link
             href="/dashboard/profile"
             className="p-2.5 bg-slate-50 hover:bg-indigo-50/80 hover:border-indigo-200 rounded-xl border border-slate-200 flex items-center gap-3 transition-all group cursor-pointer"
-            title="Edit Teacher Profile & School Branding"
+            title="Edit Profile & Branding"
           >
-            <div className="w-8 h-8 rounded-full bg-indigo-600 group-hover:bg-indigo-500 flex items-center justify-center font-black text-white text-xs shadow-xs">
-              {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 group-hover:from-indigo-500 group-hover:to-purple-500 flex items-center justify-center font-black text-white text-xs shadow-xs overflow-hidden border border-white shrink-0">
+              {(user.avatarUrl || user.schoolLogo) && (user.avatarUrl || user.schoolLogo)?.startsWith("http") ? (
+                <img src={user.avatarUrl || user.schoolLogo} alt={user.name || "User"} className="w-full h-full object-cover" />
+              ) : (
+                <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-700 truncate">{user.name || "Educator"}</p>
@@ -242,7 +246,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             }`}
           >
             <Settings className="w-4 h-4 text-slate-500" />
-            <span>Profile & Branding</span>
+            <span>Profile & Settings</span>
           </Link>
 
           <button
@@ -262,18 +266,37 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         {/* NATIVE MOBILE HEADER */}
         <MobileTopHeader />
         
-        {/* TOP BAR WITH ROLE SWITCHER & AI OS SHORTCUTS (DESKTOP ONLY) */}
+        {/* TOP BAR WITH ROLE SWITCHER & PROFILE CHIP (DESKTOP ONLY) */}
         <header className="hidden md:flex h-16 border-b border-slate-200 bg-white/85 backdrop-blur-md px-4 sm:px-6 items-center justify-between sticky top-0 z-30 gap-4">
           
           <SmartSearchBar />
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             
-            {/* FIXED USER ROLE BADGE (ROLE SWITCHING DISABLED IN PRODUCTION) */}
+            {/* FIXED USER ROLE BADGE */}
             <div className="flex items-center gap-1.5 bg-indigo-50 px-3 py-1.5 rounded-2xl border border-indigo-200 text-xs font-extrabold text-indigo-700">
               <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
               <span className="capitalize">{user.role || "User"} Portal</span>
             </div>
+
+            {/* DESKTOP PROFILE AVATAR SHORTCUT */}
+            <Link
+              href="/dashboard/profile"
+              className="flex items-center gap-2.5 bg-slate-50 hover:bg-indigo-50/80 px-2.5 py-1 rounded-2xl border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer shadow-xs active:scale-95"
+              title="View Profile"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center text-xs font-bold shadow-xs overflow-hidden border border-white shrink-0">
+                {(user.avatarUrl || user.schoolLogo) && (user.avatarUrl || user.schoolLogo)?.startsWith("http") ? (
+                  <img src={user.avatarUrl || user.schoolLogo} alt={user.name || "User"} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
+                )}
+              </div>
+              <div className="hidden lg:block text-left pr-1">
+                <p className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">{user.name || "User"}</p>
+                <p className="text-[10px] text-slate-400 capitalize leading-none">{user.role || "teacher"}</p>
+              </div>
+            </Link>
 
           </div>
         </header>

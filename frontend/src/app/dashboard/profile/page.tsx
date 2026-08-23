@@ -25,7 +25,11 @@ import {
   Smartphone,
   Check,
   Award,
-  Compass
+  Compass,
+  Camera,
+  Cloud,
+  Mail,
+  Zap
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -79,7 +83,7 @@ const PARENT_FOCUS_AREAS = [
 ];
 
 function ProfileContent() {
-  const { user, updateUserProfile } = useAppStore();
+  const { user, updateUserProfile, syncProfileFromServer } = useAppStore();
   const searchParams = useSearchParams();
   const router = useRouter();
   const isOnboarding = searchParams.get("onboarding") === "true";
@@ -90,6 +94,7 @@ function ProfileContent() {
   const [schoolName, setSchoolName] = useState(user.schoolName || "");
   const [board, setBoard] = useState(user.board || "CBSE");
   const [classes, setClasses] = useState(user.classes || "Class 10");
+  const [avatarUrl, setAvatarUrl] = useState<string>(user.avatarUrl || user.schoolLogo || "");
   
   // Teacher Specific State
   const [subject, setSubject] = useState(user.subject || "Science");
@@ -114,6 +119,7 @@ function ProfileContent() {
   const [weeklyReportAlerts, setWeeklyReportAlerts] = useState<boolean>(user.weeklyReportAlerts ?? true);
 
   // Status & Feedback
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -129,7 +135,12 @@ function ProfileContent() {
       if (user.board) setBoard(user.board);
       if (user.classes) setClasses(user.classes);
       if (user.subject) setSubject(user.subject);
-      if (user.schoolLogo) setSchoolLogo(user.schoolLogo);
+      
+      const currentAvatar = user.avatarUrl || user.schoolLogo || "";
+      if (currentAvatar) {
+        setAvatarUrl(currentAvatar);
+        setSchoolLogo(currentAvatar);
+      }
 
       if (user.targetExam) setTargetExam(user.targetExam);
       if (user.strongSubject) setStrongSubject(user.strongSubject);
@@ -149,7 +160,8 @@ function ProfileContent() {
     }
   }, [user]);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Profile Photo / Avatar Upload via Cloudinary
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -163,35 +175,43 @@ function ProfileContent() {
       return;
     }
 
+    setUploadingImage(true);
+    setErrorMsg(null);
+
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result as string;
+      setAvatarUrl(base64);
       setSchoolLogo(base64);
-      setErrorMsg(null);
 
-      // Upload to Cloudinary backend
+      // Upload to Cloudinary backend endpoint
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-        const res = await fetch(`${baseUrl}/auth/upload-logo`, {
+        const res = await fetch(`${baseUrl}/auth/upload-avatar`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: base64, email: user.email || email })
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.secure_url) {
-            setSchoolLogo(data.secure_url);
-          }
+          const hostedUrl = data.secure_url || data.url || base64;
+          setAvatarUrl(hostedUrl);
+          setSchoolLogo(hostedUrl);
+          updateUserProfile({ avatarUrl: hostedUrl, schoolLogo: hostedUrl });
         }
       } catch (err) {
-        console.warn("Cloudinary upload fallback to local base64:", err);
+        console.warn("Cloudinary upload fallback to local data url:", err);
+      } finally {
+        setUploadingImage(false);
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleRemoveLogo = () => {
+  const handleRemoveImage = () => {
+    setAvatarUrl("");
     setSchoolLogo("");
+    updateUserProfile({ avatarUrl: "", schoolLogo: "" });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -203,8 +223,10 @@ function ProfileContent() {
     setErrorMsg(null);
 
     const profileUpdates: any = {
-      name,
+      name: name.trim() || (userRole === "teacher" ? "Educator" : "User"),
       role: userRole,
+      avatarUrl: avatarUrl,
+      schoolLogo: avatarUrl || schoolLogo,
       isProfileComplete: true
     };
 
@@ -213,7 +235,6 @@ function ProfileContent() {
       profileUpdates.board = board;
       profileUpdates.subject = subject;
       profileUpdates.classes = classes;
-      profileUpdates.schoolLogo = schoolLogo;
     } else if (userRole === "student") {
       profileUpdates.schoolName = schoolName.trim() || "Student Academy";
       profileUpdates.board = board;
@@ -238,7 +259,7 @@ function ProfileContent() {
     // Update local Zustand store & localStorage immediately
     updateUserProfile(profileUpdates);
 
-    // Sync with backend API
+    // Sync with backend API (Supabase Cloud + Cloudinary)
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
       const res = await fetch(`${baseUrl}/auth/profile`, {
@@ -246,13 +267,14 @@ function ProfileContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: user.email || email,
-          full_name: name,
+          full_name: name.trim(),
           role: userRole,
           school_name: userRole === "teacher" ? schoolName.trim() : (userRole === "student" ? schoolName.trim() : childSchool.trim()),
           board: userRole === "parent" ? childBoard : board,
           classes: userRole === "parent" ? childClass : classes,
           subject: userRole === "teacher" ? subject : strongSubject,
-          school_logo: schoolLogo,
+          avatar_url: avatarUrl,
+          school_logo: avatarUrl || schoolLogo,
           target_exam: targetExam,
           strong_subject: strongSubject,
           weak_subject: weakSubject,
@@ -264,609 +286,499 @@ function ProfileContent() {
           child_class: childClass,
           child_board: childBoard,
           parent_relation: parentRelation,
-          phone,
+          phone: phone,
           parenting_focus: parentingFocus,
           weekly_report_alerts: weeklyReportAlerts
         })
       });
 
-      if (!res.ok) {
+      if (res.ok) {
         const data = await res.json();
-        console.warn("Backend profile sync notice:", data);
+        if (data.user) {
+          updateUserProfile(data.user);
+        }
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3500);
+
+        if (isOnboarding) {
+          const dest = userRole === "student" ? "/dashboard/student" : (userRole === "parent" ? "/dashboard/parent" : "/dashboard");
+          router.push(dest);
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setErrorMsg(errData.detail || "Failed to update profile on server.");
       }
-    } catch (err) {
-      console.warn("Local profile saved; backend sync notice:", err);
+    } catch (err: any) {
+      console.error("Profile update error:", err);
+      // Fallback: local save worked
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3500);
     } finally {
       setSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 4000);
     }
   };
 
+  const getRoleBadgeInfo = () => {
+    switch (userRole) {
+      case "student":
+        return { label: "Student Learner", color: "from-blue-600 to-indigo-600", bg: "bg-blue-50 text-blue-700 border-blue-200" };
+      case "parent":
+        return { label: "Guardian / Parent", color: "from-purple-600 to-pink-600", bg: "bg-purple-50 text-purple-700 border-purple-200" };
+      default:
+        return { label: "Educator / Teacher", color: "from-indigo-600 to-violet-600", bg: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+    }
+  };
+
+  const roleInfo = getRoleBadgeInfo();
+
   return (
-    <div className="max-w-4xl space-y-8 pb-12 font-sans">
+    <div className="max-w-4xl mx-auto space-y-8 pb-16 animate-in fade-in duration-300">
       
-      {/* ROLE-SPECIFIC ONBOARDING BANNER */}
-      {isOnboarding && (
-        <div className="p-6 rounded-3xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-xl space-y-2 animate-in fade-in duration-300">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-black uppercase tracking-wider backdrop-blur-md">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>
-              {userRole === "student" && "Welcome Student! Setup Your Study Goals"}
-              {userRole === "parent" && "Welcome Parent! Link Your Child's Learning Profile"}
-              {userRole === "teacher" && "Welcome Educator! Configure Your School Credentials"}
-            </span>
+      {/* 1. PROFESSIONAL HERO PROFILE HEADER CARD */}
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
+        {/* Background glow effects */}
+        <div className="absolute -top-16 -right-16 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6">
+          
+          {/* AVATAR WITH CAMERA BADGE & INSTANT UPLOAD */}
+          <div className="relative group shrink-0">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-1 shadow-xl ring-4 ring-white/10">
+              <div className="w-full h-full rounded-full bg-slate-900 overflow-hidden flex items-center justify-center text-3xl font-black text-white relative">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={name || "User"} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{name?.charAt(0)?.toUpperCase() || userRole.charAt(0).toUpperCase()}</span>
+                )}
+
+                {uploadingImage && (
+                  <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center">
+                    <RefreshCw className="w-6 h-6 text-indigo-400 animate-spin" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Click to change avatar trigger */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-lg border-2 border-slate-900 transition-transform active:scale-90 cursor-pointer"
+              title="Upload Profile Photo"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
+            />
           </div>
-          <h2 className="text-xl font-black">
-            {userRole === "student" && "Personalize Your AI Tutor & Exam Target"}
-            {userRole === "parent" && "Tailor AI Guidance to Your Child's Class & Growth"}
-            {userRole === "teacher" && "Configure Your Official School & Teaching Credentials"}
-          </h2>
-          <p className="text-xs text-indigo-100 font-medium leading-relaxed">
-            {userRole === "student" && "Set your class, board, target exams, and favorite subjects so AI mentors can provide laser-accurate NCERT explanations and study plans."}
-            {userRole === "parent" && "Provide your child's academic details to receive customized weekly progress reports, parenting advice, and syllabus timelines."}
-            {userRole === "teacher" && "Fill in your official School Name, Board, Subject, and upload your School Logo to embed in all generated Question Paper PDFs."}
-          </p>
-        </div>
-      )}
 
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
-            {userRole === "student" && <GraduationCap className="w-7 h-7 text-indigo-600" />}
-            {userRole === "parent" && <HeartHandshake className="w-7 h-7 text-purple-600" />}
-            {userRole === "teacher" && <Building2 className="w-7 h-7 text-indigo-600" />}
+          {/* USER DETAILS & BADGES */}
+          <div className="space-y-3 text-center sm:text-left flex-1">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <span className={`text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full border ${roleInfo.bg}`}>
+                {roleInfo.label}
+              </span>
+              <span className="text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                Verified Cloud Account
+              </span>
+              {avatarUrl && avatarUrl.startsWith("http") && (
+                <span className="text-[10px] font-bold bg-white/10 text-indigo-200 border border-white/15 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Cloud className="w-3 h-3 text-cyan-300" />
+                  Cloudinary Hosted
+                </span>
+              )}
+            </div>
 
-            <span>
-              {userRole === "student" && "Student Academic Profile & Study Goals"}
-              {userRole === "parent" && "Parent Profile & Child Guidance Center"}
-              {userRole === "teacher" && "Teacher Profile & School Branding"}
-            </span>
-          </h1>
-          <p className="text-xs text-slate-500 font-semibold mt-1">
-            {userRole === "student" && "Manage your class, target exam goals, strong/weak subjects, and daily study target."}
-            {userRole === "parent" && "Manage parent contact details, child's grade, mentoring focus, and weekly progress alerts."}
-            {userRole === "teacher" && "Manage your school header, official logo, teaching subjects, and assessment credentials."}
-          </p>
-        </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                {name || "Account Profile"}
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 font-medium flex items-center justify-center sm:justify-start gap-1.5 mt-1">
+                <Mail className="w-3.5 h-3.5 text-slate-400" />
+                {email || "user@devgya.com"}
+              </p>
+            </div>
 
-        {saved && (
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-black rounded-2xl shadow-xs animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>Profile Updated Successfully!</span>
+            {/* Quick Meta Chips */}
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+              <span className="text-xs font-semibold text-slate-300 bg-white/10 px-3 py-1 rounded-xl border border-white/10 backdrop-blur-md">
+                🏛️ {schoolName || childSchool || "Institutional Account"}
+              </span>
+              <span className="text-xs font-semibold text-slate-300 bg-white/10 px-3 py-1 rounded-xl border border-white/10 backdrop-blur-md">
+                📖 {board || childBoard || "CBSE"} • {classes || childClass || "Class 10"}
+              </span>
+            </div>
           </div>
-        )}
+
+        </div>
       </div>
 
+      {/* ERROR MESSAGE NOTIFICATION */}
       {errorMsg && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-2xl">
-          {errorMsg}
+        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center justify-between animate-in fade-in">
+          <span>⚠️ {errorMsg}</span>
+          <button type="button" onClick={() => setErrorMsg(null)} className="text-rose-500 hover:text-rose-800">✕</button>
         </div>
       )}
 
+      {/* SUCCESS TOAST */}
+      {saved && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-black flex items-center gap-2 animate-in fade-in shadow-sm">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <span>Profile and picture successfully saved & synced to cloud across all devices!</span>
+        </div>
+      )}
+
+      {/* 2. FORM DETAILS CARD */}
       <form onSubmit={handleSave} className="space-y-6">
         
-        {/* =========================================================================
-            1. STUDENT PROFILE FORM
-        ========================================================================= */}
-        {userRole === "student" && (
-          <>
-            {/* Student Info */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 pb-3 flex items-center gap-2">
-                <User className="w-4 h-4 text-indigo-600" />
-                <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">Student Information</h2>
+        {/* SECTION 1: PERSONAL & AVATAR IDENTITY */}
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <User className="w-5 h-5 text-indigo-600" />
+              Personal & Profile Picture Identity
+            </h2>
+            <span className="text-xs font-bold text-slate-400">Step 1 of 3</span>
+          </div>
+
+          {/* Profile Picture Upload Box */}
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-700 font-black text-xl flex items-center justify-center overflow-hidden border border-indigo-200 shrink-0">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{name?.charAt(0)?.toUpperCase() || "U"}</span>
+                )}
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Student Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Aryan Sharma"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white transition-all shadow-inner"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Account Email</label>
-                  <input
-                    type="email"
-                    disabled
-                    value={email}
-                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-500 font-bold cursor-not-allowed shadow-inner"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">School / College Name</label>
-                  <input
-                    type="text"
-                    value={schoolName}
-                    onChange={(e) => setSchoolName(e.target.value)}
-                    placeholder="e.g. Delhi Public School / St. Xavier's"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white transition-all shadow-inner"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Current Class / Grade</label>
-                  <select
-                    value={classes}
-                    onChange={(e) => setClasses(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {CLASS_OPTIONS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Educational Board</label>
-                  <select
-                    value={board}
-                    onChange={(e) => setBoard(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {BOARD_OPTIONS.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="space-y-0.5 text-center sm:text-left">
+                <h3 className="text-xs font-black text-slate-900">User Profile Picture</h3>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Uploaded to Cloudinary CDN and visible in desktop & mobile upper navbars.
+                </p>
               </div>
             </div>
 
-            {/* Academic Ambitions & Exam Target */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 pb-3 flex items-center gap-2">
-                <Target className="w-4 h-4 text-purple-600" />
-                <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">Academic Goals &amp; Subject Mastery</h2>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                {uploadingImage ? "Uploading..." : "Upload Photo"}
+              </button>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                  title="Remove Photo"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-black text-slate-700">Full Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your full name"
+                required
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-black text-slate-700">Email Address (Read-Only)</label>
+              <input
+                type="email"
+                value={email}
+                disabled
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-500 text-xs font-bold outline-none cursor-not-allowed"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: ROLE-SPECIFIC ACADEMIC & INSTITUTIONAL SETTINGS */}
+        {userRole === "teacher" && (
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-indigo-600" />
+                Teacher Institutional & Exam Settings
+              </h2>
+              <span className="text-xs font-bold text-slate-400">Step 2 of 3</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">School / Coaching Name</label>
+                <input
+                  type="text"
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                  placeholder="e.g. Delhi Public School, Apex Coaching"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all"
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Primary Target Exam / Milestone</label>
-                  <select
-                    value={targetExam}
-                    onChange={(e) => setTargetExam(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {STUDENT_TARGET_EXAMS.map((exam) => (
-                      <option key={exam} value={exam}>{exam}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Curriculum Board</label>
+                <select
+                  value={board}
+                  onChange={(e) => setBoard(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                >
+                  {BOARD_OPTIONS.map((b) => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Favorite / Strongest Subject</label>
-                  <select
-                    value={strongSubject}
-                    onChange={(e) => setStrongSubject(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {SUBJECT_OPTIONS.map((sub) => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Primary Subject Taught</label>
+                <select
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                >
+                  {SUBJECT_OPTIONS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Focus Subject (Needs AI Practice)</label>
-                  <select
-                    value={weakSubject}
-                    onChange={(e) => setWeakSubject(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {SUBJECT_OPTIONS.map((sub) => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Daily Self-Study Target</label>
-                  <select
-                    value={dailyGoalHours}
-                    onChange={(e) => setDailyGoalHours(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    <option value="1">1 Hour / day</option>
-                    <option value="2">2 Hours / day</option>
-                    <option value="3">3 Hours / day (Recommended)</option>
-                    <option value="4">4 Hours / day</option>
-                    <option value="5">5+ Hours / day (Intensive Prep)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Preferred AI Tutor Language</label>
-                  <select
-                    value={preferredLanguage}
-                    onChange={(e) => setPreferredLanguage(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner capitalize"
-                  >
-                    <option value="english">English</option>
-                    <option value="hinglish">Hinglish (Hindi + English)</option>
-                    <option value="hindi">Hindi (हिन्दी)</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Personal Study Motto / Dream Score</label>
-                  <input
-                    type="text"
-                    value={studyMotto}
-                    onChange={(e) => setStudyMotto(e.target.value)}
-                    placeholder="e.g. Aiming for 98% in CBSE Boards and Top Rank in Olympiad"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white transition-all shadow-inner"
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Grades / Classes</label>
+                <select
+                  value={classes}
+                  onChange={(e) => setClasses(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                >
+                  {CLASS_OPTIONS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
             </div>
-          </>
+          </div>
         )}
 
-        {/* =========================================================================
-            2. PARENT PROFILE FORM
-        ========================================================================= */}
-        {userRole === "parent" && (
-          <>
-            {/* Parent Info */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 pb-3 flex items-center gap-2">
-                <User className="w-4 h-4 text-purple-600" />
-                <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">Parent / Guardian Information</h2>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Parent Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Mr. Rajesh Sharma"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-purple-600 focus:bg-white transition-all shadow-inner"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Account Email</label>
-                  <input
-                    type="email"
-                    disabled
-                    value={email}
-                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-500 font-bold cursor-not-allowed shadow-inner"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Relationship to Student</label>
-                  <select
-                    value={parentRelation}
-                    onChange={(e) => setParentRelation(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-purple-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    <option value="Father">Father</option>
-                    <option value="Mother">Mother</option>
-                    <option value="Legal Guardian">Legal Guardian</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Mobile / Phone Number</label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +91 98765 43210"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-purple-600 focus:bg-white transition-all shadow-inner"
-                  />
-                </div>
-              </div>
+        {userRole === "student" && (
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <Target className="w-5 h-5 text-indigo-600" />
+                Student Exam Target & Study Roadmap
+              </h2>
+              <span className="text-xs font-bold text-slate-400">Step 2 of 3</span>
             </div>
 
-            {/* Child's Academic Details */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 pb-3 flex items-center gap-2">
-                <GraduationCap className="w-4 h-4 text-purple-600" />
-                <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">Student / Child Academic Details</h2>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Child's Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={childName}
-                    onChange={(e) => setChildName(e.target.value)}
-                    placeholder="e.g. Aarav Sharma"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-purple-600 focus:bg-white transition-all shadow-inner"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Child's School Name</label>
-                  <input
-                    type="text"
-                    value={childSchool}
-                    onChange={(e) => setChildSchool(e.target.value)}
-                    placeholder="e.g. Delhi Public School"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-purple-600 focus:bg-white transition-all shadow-inner"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Child's Current Class / Grade</label>
-                  <select
-                    value={childClass}
-                    onChange={(e) => setChildClass(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-purple-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {CLASS_OPTIONS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Child's Board</label>
-                  <select
-                    value={childBoard}
-                    onChange={(e) => setChildBoard(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-purple-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {BOARD_OPTIONS.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Primary Parenting &amp; Guidance Focus</label>
-                  <select
-                    value={parentingFocus}
-                    onChange={(e) => setParentingFocus(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-purple-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {PARENT_FOCUS_AREAS.map((area) => (
-                      <option key={area} value={area}>{area}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Notifications & Weekly Reports */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-purple-600" />
-                  <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">Weekly Progress Alerts &amp; AI Coach</h2>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-purple-50/60 rounded-2xl border border-purple-100">
-                <div className="space-y-0.5 max-w-lg">
-                  <p className="text-xs font-black text-slate-900">Weekly Student Assessment &amp; Growth Summary</p>
-                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                    Receive automated weekly performance digests highlighting quiz scores, practice hours, and focus recommendations from Parenting Coach AI.
-                  </p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">School / Academy Name</label>
                 <input
-                  type="checkbox"
-                  checked={weeklyReportAlerts}
-                  onChange={(e) => setWeeklyReportAlerts(e.target.checked)}
-                  className="w-5 h-5 rounded-lg text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+                  type="text"
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                  placeholder="e.g. Modern School, Allen Academy"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Primary Target Exam</label>
+                <select
+                  value={targetExam}
+                  onChange={(e) => setTargetExam(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                >
+                  {STUDENT_TARGET_EXAMS.map((ex) => (
+                    <option key={ex} value={ex}>{ex}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Strongest Subject</label>
+                <select
+                  value={strongSubject}
+                  onChange={(e) => setStrongSubject(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                >
+                  {SUBJECT_OPTIONS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Subject Needing AI Focus</label>
+                <select
+                  value={weakSubject}
+                  onChange={(e) => setWeakSubject(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                >
+                  {SUBJECT_OPTIONS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Daily Study Goal (Hours)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="16"
+                  value={dailyGoalHours}
+                  onChange={(e) => setDailyGoalHours(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Personal Study Motto</label>
+                <input
+                  type="text"
+                  value={studyMotto}
+                  onChange={(e) => setStudyMotto(e.target.value)}
+                  placeholder="e.g. Consistent effort beats talent!"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all"
                 />
               </div>
             </div>
-          </>
+          </div>
         )}
 
-        {/* =========================================================================
-            3. TEACHER PROFILE FORM
-        ========================================================================= */}
-        {userRole === "teacher" && (
-          <>
-            {/* Educator Info */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 pb-3 flex items-center gap-2">
-                <User className="w-4 h-4 text-indigo-600" />
-                <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">Teacher Personal Info</h2>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Prof. Ananya Roy"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white transition-all shadow-inner"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Email Address</label>
-                  <input
-                    type="email"
-                    disabled
-                    value={email}
-                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-500 font-bold cursor-not-allowed shadow-inner"
-                  />
-                  <span className="text-[10px] text-slate-400 font-medium">Registered account email</span>
-                </div>
-              </div>
+        {userRole === "parent" && (
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <HeartHandshake className="w-5 h-5 text-indigo-600" />
+                Parent & Child Profile Settings
+              </h2>
+              <span className="text-xs font-bold text-slate-400">Step 2 of 3</span>
             </div>
 
-            {/* School & Teaching Info */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 pb-3 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-indigo-600" />
-                <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">School &amp; Subject Details (Auto-Fetched in Paper Generator)</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Relationship to Student</label>
+                <select
+                  value={parentRelation}
+                  onChange={(e) => setParentRelation(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                >
+                  <option value="Father">Father</option>
+                  <option value="Mother">Mother</option>
+                  <option value="Guardian">Guardian</option>
+                </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Official School / Institution Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={schoolName}
-                    onChange={(e) => setSchoolName(e.target.value)}
-                    placeholder="e.g. Delhi Public School / Apex International Academy"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white transition-all shadow-inner"
-                  />
-                  <span className="text-[10px] text-slate-500 font-medium">This name will be printed on top of all Question Paper PDFs.</span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Education Board</label>
-                  <select
-                    value={board}
-                    onChange={(e) => setBoard(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {BOARD_OPTIONS.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Primary Subject Taught</label>
-                  <select
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {SUBJECT_OPTIONS.map((sub) => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Primary Class / Grade Taught</label>
-                  <select
-                    value={classes}
-                    onChange={(e) => setClasses(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-600 focus:bg-white cursor-pointer shadow-inner"
-                  >
-                    {CLASS_OPTIONS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* School Logo & Branding */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-indigo-600" />
-                  <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider">School Logo (Embedded in PDF Header)</h2>
-                </div>
-                {schoolLogo && (
-                  <button
-                    type="button"
-                    onClick={handleRemoveLogo}
-                    className="text-xs text-rose-600 font-bold hover:text-rose-700 flex items-center gap-1 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Remove Custom Logo</span>
-                  </button>
-                )}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Phone Number (For Progress SMS)</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all"
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center flex flex-col items-center justify-center min-h-[140px] space-y-2">
-                  {schoolLogo ? (
-                    <img 
-                      src={schoolLogo} 
-                      alt="Official School Logo" 
-                      className="max-h-24 max-w-full object-contain rounded-lg shadow-sm"
-                    />
-                  ) : (
-                    <img 
-                      src="/logo.png" 
-                      alt="Default DEVGYA Logo" 
-                      className="max-h-16 max-w-full object-contain opacity-80"
-                    />
-                  )}
-                  <span className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
-                    {schoolLogo ? "Custom School Logo Active" : "Default DEVGYA Logo Active"}
-                  </span>
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Child's Full Name</label>
+                <input
+                  type="text"
+                  value={childName}
+                  onChange={(e) => setChildName(e.target.value)}
+                  placeholder="e.g. Aarav Sharma"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all"
+                />
+              </div>
 
-                <div className="sm:col-span-2 space-y-3">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/webp"
-                    onChange={handleLogoUpload}
-                    className="hidden"
-                    id="school-logo-input"
-                  />
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Child's School</label>
+                <input
+                  type="text"
+                  value={childSchool}
+                  onChange={(e) => setChildSchool(e.target.value)}
+                  placeholder="e.g. Delhi Public School"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all"
+                />
+              </div>
 
-                  <label
-                    htmlFor="school-logo-input"
-                    className="border-2 border-dashed border-indigo-200 hover:border-indigo-500 bg-indigo-50/40 hover:bg-indigo-50/80 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all space-y-2 group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Upload className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-black text-indigo-900 block">Click to Upload School Logo</span>
-                      <span className="text-[10px] text-slate-500 font-medium">PNG, JPG, or WEBP (Max 5MB)</span>
-                    </div>
-                  </label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Child's Class</label>
+                <select
+                  value={childClass}
+                  onChange={(e) => setChildClass(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                >
+                  {CLASS_OPTIONS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
 
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    💡 Tip: Upload a transparent background PNG logo for high-quality official PDF question paper headers.
-                  </p>
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Parenting Primary Focus</label>
+                <select
+                  value={parentingFocus}
+                  onChange={(e) => setParentingFocus(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs font-bold outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                >
+                  {PARENT_FOCUS_AREAS.map((pf) => (
+                    <option key={pf} value={pf}>{pf}</option>
+                  ))}
+                </select>
               </div>
             </div>
-          </>
+          </div>
         )}
 
-        {/* BOTTOM ACTION BUTTONS */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4">
+        {/* SECTION 3: SAVE ACTIONS BAR */}
+        <div className="sticky bottom-4 z-20 bg-white/95 backdrop-blur-md rounded-2xl p-4 border border-slate-200 shadow-xl flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+            <Shield className="w-4 h-4 text-indigo-600" />
+            <span className="hidden sm:inline">Settings are encrypted and backed up to Supabase Cloud PostgreSQL.</span>
+            <span className="sm:hidden">Auto-synced to Cloud</span>
+          </div>
+
           <button
             type="submit"
             disabled={saving}
-            className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-2xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+            className="px-6 py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 transition-all flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
           >
-            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>{saving ? "Saving Changes..." : "Save Profile Settings"}</span>
+            {saving ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Saving to Cloud...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Save All Changes</span>
+              </>
+            )}
           </button>
-
-          {isOnboarding && (
-            <button
-              type="button"
-              onClick={() => {
-                if (userRole === "student") router.push("/dashboard/student");
-                else if (userRole === "parent") router.push("/dashboard/parent");
-                else router.push("/dashboard/generator");
-              }}
-              className="px-6 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-2xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 uppercase tracking-wider transition-all cursor-pointer"
-            >
-              <span>Continue to Workspace</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          )}
         </div>
 
       </form>
@@ -876,7 +788,11 @@ function ProfileContent() {
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xs text-slate-400 font-semibold">Loading Profile Settings...</div>}>
+    <Suspense fallback={
+      <div className="min-h-[400px] flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
+      </div>
+    }>
       <ProfileContent />
     </Suspense>
   );

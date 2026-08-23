@@ -219,10 +219,10 @@ export function MobileTopHeader() {
             href="/dashboard/profile"
             className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 border-2 border-white shadow-sm flex items-center justify-center text-white font-extrabold text-xs overflow-hidden active:scale-95 transition-transform"
           >
-            {user?.schoolLogo && user.schoolLogo.startsWith("http") ? (
-              <img src={user.schoolLogo} alt={user?.name || "User"} className="w-full h-full object-cover" />
+            {(user?.avatarUrl || user?.schoolLogo) ? (
+              <img src={user.avatarUrl || user.schoolLogo} alt={user?.name || "User"} className="w-full h-full object-cover" />
             ) : (
-              <span>{user?.name?.charAt(0)?.toUpperCase() || "T"}</span>
+              <span>{user?.name?.charAt(0)?.toUpperCase() || "U"}</span>
             )}
           </Link>
         </div>

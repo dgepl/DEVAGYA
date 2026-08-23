@@ -8,6 +8,7 @@ export interface UserProfile {
   role: "teacher" | "super_admin" | "student" | "parent" | "management";
   schoolName: string;
   schoolLogo?: string;
+  avatarUrl?: string;
   board: string;
   subject?: string;
   classes?: string;
