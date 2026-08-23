@@ -29,7 +29,8 @@ import {
   Camera,
   Cloud,
   Mail,
-  Zap
+  Zap,
+  FileText
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -83,7 +84,7 @@ const PARENT_FOCUS_AREAS = [
 ];
 
 function ProfileContent() {
-  const { user, updateUserProfile, syncProfileFromServer } = useAppStore();
+  const { user, updateUserProfile } = useAppStore();
   const searchParams = useSearchParams();
   const router = useRouter();
   const isOnboarding = searchParams.get("onboarding") === "true";
@@ -94,11 +95,13 @@ function ProfileContent() {
   const [schoolName, setSchoolName] = useState(user.schoolName || "");
   const [board, setBoard] = useState(user.board || "CBSE");
   const [classes, setClasses] = useState(user.classes || "Class 10");
-  const [avatarUrl, setAvatarUrl] = useState<string>(user.avatarUrl || user.schoolLogo || "");
+  
+  // Distinct User Avatar and School Logo
+  const [avatarUrl, setAvatarUrl] = useState<string>(user.avatarUrl || "");
+  const [schoolLogo, setSchoolLogo] = useState<string>(user.schoolLogo || "");
   
   // Teacher Specific State
   const [subject, setSubject] = useState(user.subject || "Science");
-  const [schoolLogo, setSchoolLogo] = useState<string>(user.schoolLogo || "");
 
   // Student Specific State
   const [targetExam, setTargetExam] = useState(user.targetExam || "CBSE Class 10 Board Exam 2026");
@@ -119,11 +122,15 @@ function ProfileContent() {
   const [weeklyReportAlerts, setWeeklyReportAlerts] = useState<boolean>(user.weeklyReportAlerts ?? true);
 
   // Status & Feedback
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Separate Refs for Avatar and School Logo
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const schoolLogoInputRef = useRef<HTMLInputElement>(null);
 
   const userRole = user.role || "teacher";
 
@@ -136,11 +143,8 @@ function ProfileContent() {
       if (user.classes) setClasses(user.classes);
       if (user.subject) setSubject(user.subject);
       
-      const currentAvatar = user.avatarUrl || user.schoolLogo || "";
-      if (currentAvatar) {
-        setAvatarUrl(currentAvatar);
-        setSchoolLogo(currentAvatar);
-      }
+      if (user.avatarUrl) setAvatarUrl(user.avatarUrl);
+      if (user.schoolLogo) setSchoolLogo(user.schoolLogo);
 
       if (user.targetExam) setTargetExam(user.targetExam);
       if (user.strongSubject) setStrongSubject(user.strongSubject);
@@ -160,8 +164,8 @@ function ProfileContent() {
     }
   }, [user]);
 
-  // Handle Profile Photo / Avatar Upload via Cloudinary
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 1. Handle User Profile Picture / Avatar Upload (Cloudinary)
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -175,16 +179,14 @@ function ProfileContent() {
       return;
     }
 
-    setUploadingImage(true);
+    setUploadingAvatar(true);
     setErrorMsg(null);
 
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result as string;
       setAvatarUrl(base64);
-      setSchoolLogo(base64);
 
-      // Upload to Cloudinary backend endpoint
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
         const res = await fetch(`${baseUrl}/auth/upload-avatar`, {
@@ -196,24 +198,81 @@ function ProfileContent() {
           const data = await res.json();
           const hostedUrl = data.secure_url || data.url || base64;
           setAvatarUrl(hostedUrl);
-          setSchoolLogo(hostedUrl);
-          updateUserProfile({ avatarUrl: hostedUrl, schoolLogo: hostedUrl });
+          updateUserProfile({ avatarUrl: hostedUrl });
+        } else {
+          updateUserProfile({ avatarUrl: base64 });
         }
       } catch (err) {
-        console.warn("Cloudinary upload fallback to local data url:", err);
+        console.warn("Avatar upload fallback to local data url:", err);
+        updateUserProfile({ avatarUrl: base64 });
       } finally {
-        setUploadingImage(false);
+        setUploadingAvatar(false);
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleRemoveImage = () => {
+  const handleRemoveAvatar = () => {
     setAvatarUrl("");
+    updateUserProfile({ avatarUrl: "" });
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = "";
+    }
+  };
+
+  // 2. Handle School / Institution Logo Upload (Cloudinary)
+  const handleSchoolLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMsg("Please upload a valid image file for the school logo.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Logo size exceeds 5MB limit. Please upload a smaller image.");
+      return;
+    }
+
+    setUploadingLogo(true);
+    setErrorMsg(null);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      setSchoolLogo(base64);
+
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+        const res = await fetch(`${baseUrl}/auth/upload-logo`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64, email: user.email || email })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const hostedUrl = data.secure_url || data.url || base64;
+          setSchoolLogo(hostedUrl);
+          updateUserProfile({ schoolLogo: hostedUrl });
+        } else {
+          updateUserProfile({ schoolLogo: base64 });
+        }
+      } catch (err) {
+        console.warn("Logo upload fallback to local data url:", err);
+        updateUserProfile({ schoolLogo: base64 });
+      } finally {
+        setUploadingLogo(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveSchoolLogo = () => {
     setSchoolLogo("");
-    updateUserProfile({ avatarUrl: "", schoolLogo: "" });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    updateUserProfile({ schoolLogo: "" });
+    if (schoolLogoInputRef.current) {
+      schoolLogoInputRef.current.value = "";
     }
   };
 
@@ -226,7 +285,7 @@ function ProfileContent() {
       name: name.trim() || (userRole === "teacher" ? "Educator" : "User"),
       role: userRole,
       avatarUrl: avatarUrl,
-      schoolLogo: avatarUrl || schoolLogo,
+      schoolLogo: schoolLogo,
       isProfileComplete: true
     };
 
@@ -274,7 +333,7 @@ function ProfileContent() {
           classes: userRole === "parent" ? childClass : classes,
           subject: userRole === "teacher" ? subject : strongSubject,
           avatar_url: avatarUrl,
-          school_logo: avatarUrl || schoolLogo,
+          school_logo: schoolLogo,
           target_exam: targetExam,
           strong_subject: strongSubject,
           weak_subject: weakSubject,
@@ -342,7 +401,7 @@ function ProfileContent() {
 
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6">
           
-          {/* AVATAR WITH CAMERA BADGE & INSTANT UPLOAD */}
+          {/* USER AVATAR WITH CAMERA BADGE */}
           <div className="relative group shrink-0">
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-1 shadow-xl ring-4 ring-white/10">
               <div className="w-full h-full rounded-full bg-slate-900 overflow-hidden flex items-center justify-center text-3xl font-black text-white relative">
@@ -352,7 +411,7 @@ function ProfileContent() {
                   <span>{name?.charAt(0)?.toUpperCase() || userRole.charAt(0).toUpperCase()}</span>
                 )}
 
-                {uploadingImage && (
+                {uploadingAvatar && (
                   <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center">
                     <RefreshCw className="w-6 h-6 text-indigo-400 animate-spin" />
                   </div>
@@ -363,7 +422,7 @@ function ProfileContent() {
             {/* Click to change avatar trigger */}
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => avatarInputRef.current?.click()}
               className="absolute bottom-0 right-0 p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-lg border-2 border-slate-900 transition-transform active:scale-90 cursor-pointer"
               title="Upload Profile Photo"
             >
@@ -371,11 +430,11 @@ function ProfileContent() {
             </button>
 
             <input
-              ref={fileInputRef}
+              ref={avatarInputRef}
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={handleImageUpload}
+              onChange={handleAvatarUpload}
             />
           </div>
 
@@ -387,7 +446,7 @@ function ProfileContent() {
               </span>
               <span className="text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Verified Cloud Account
+                Verified Account
               </span>
               {avatarUrl && avatarUrl.startsWith("http") && (
                 <span className="text-[10px] font-bold bg-white/10 text-indigo-200 border border-white/15 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -433,29 +492,29 @@ function ProfileContent() {
       {saved && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-black flex items-center gap-2 animate-in fade-in shadow-sm">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>Profile and picture successfully saved & synced to cloud across all devices!</span>
+          <span>Profile, picture, and school logo successfully saved & synced to cloud!</span>
         </div>
       )}
 
       {/* 2. FORM DETAILS CARD */}
       <form onSubmit={handleSave} className="space-y-6">
         
-        {/* SECTION 1: PERSONAL & AVATAR IDENTITY */}
+        {/* SECTION 1: PERSONAL & PROFILE PICTURE IDENTITY */}
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
               <User className="w-5 h-5 text-indigo-600" />
-              Personal & Profile Picture Identity
+              Personal & Profile Photo Identity
             </h2>
             <span className="text-xs font-bold text-slate-400">Step 1 of 3</span>
           </div>
 
-          {/* Profile Picture Upload Box */}
+          {/* Profile Photo Upload Box */}
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-700 font-black text-xl flex items-center justify-center overflow-hidden border border-indigo-200 shrink-0">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-xl flex items-center justify-center overflow-hidden border-2 border-white shadow-xs shrink-0">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={avatarUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
                 ) : (
                   <span>{name?.charAt(0)?.toUpperCase() || "U"}</span>
                 )}
@@ -463,7 +522,7 @@ function ProfileContent() {
               <div className="space-y-0.5 text-center sm:text-left">
                 <h3 className="text-xs font-black text-slate-900">User Profile Picture</h3>
                 <p className="text-[11px] text-slate-500 font-medium">
-                  Uploaded to Cloudinary CDN and visible in desktop & mobile upper navbars.
+                  Displayed on desktop sidebar, top header, and mobile navbar. Hosted on Cloudinary.
                 </p>
               </div>
             </div>
@@ -471,17 +530,17 @@ function ProfileContent() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingImage}
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={uploadingAvatar}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
               >
                 <Upload className="w-3.5 h-3.5" />
-                {uploadingImage ? "Uploading..." : "Upload Photo"}
+                {uploadingAvatar ? "Uploading..." : "Upload Photo"}
               </button>
               {avatarUrl && (
                 <button
                   type="button"
-                  onClick={handleRemoveImage}
+                  onClick={handleRemoveAvatar}
                   className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
                   title="Remove Photo"
                 >
@@ -516,15 +575,67 @@ function ProfileContent() {
           </div>
         </div>
 
-        {/* SECTION 2: ROLE-SPECIFIC ACADEMIC & INSTITUTIONAL SETTINGS */}
+        {/* SECTION 2: ROLE-SPECIFIC SETTINGS & SCHOOL LOGO */}
         {userRole === "teacher" && (
           <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                 <GraduationCap className="w-5 h-5 text-indigo-600" />
-                Teacher Institutional & Exam Settings
+                School Branding & Curriculum Settings
               </h2>
               <span className="text-xs font-bold text-slate-400">Step 2 of 3</span>
+            </div>
+
+            {/* Dedicated School Logo Upload Box */}
+            <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-white text-purple-700 font-black text-xl flex items-center justify-center overflow-hidden border border-purple-200 shadow-xs shrink-0 p-1">
+                  {schoolLogo ? (
+                    <img src={schoolLogo} alt="School Logo Preview" className="w-full h-full object-contain" />
+                  ) : (
+                    <Building2 className="w-8 h-8 text-purple-400" />
+                  )}
+                </div>
+                <div className="space-y-0.5 text-center sm:text-left">
+                  <div className="flex items-center justify-center sm:justify-start gap-1.5">
+                    <h3 className="text-xs font-black text-slate-900">School / Institution Official Logo</h3>
+                    <span className="text-[9px] font-extrabold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-md">Exam Paper Branding</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    This logo is automatically placed on the top header of generated CBSE Question Papers, Answer Keys & Watermarks.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => schoolLogoInputRef.current?.click()}
+                  disabled={uploadingLogo}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  {uploadingLogo ? "Uploading..." : "Upload School Logo"}
+                </button>
+                {schoolLogo && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveSchoolLogo}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                    title="Remove School Logo"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+
+                <input
+                  ref={schoolLogoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleSchoolLogoUpload}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

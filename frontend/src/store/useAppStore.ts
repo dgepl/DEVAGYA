@@ -51,6 +51,9 @@ interface AppState {
   deleteSavedPaper: (index: number) => void;
   setOcrDraftText: (text: string) => void;
   setActiveChildId: (childId: string) => void;
+  dismissedNotificationIds: string[];
+  dismissNotification: (id: string) => void;
+  clearAllNotifications: (ids?: string[]) => void;
   syncProfileFromServer: (email?: string) => Promise<void>;
   fetchSavedPapers: (email?: string) => Promise<void>;
   initSession: () => void;
@@ -102,9 +105,24 @@ const getInitialSavedPapers = (email?: string): GeneratedPaperResponse[] => {
   return [];
 };
 
+const getInitialDismissedNotificationIds = (email?: string): string[] => {
+  if (typeof window !== "undefined") {
+    try {
+      const key = email ? `devgya_dismissed_notifs_${email.trim().toLowerCase()}` : "devgya_dismissed_notifs";
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+  }
+  return [];
+};
+
 export const useAppStore = create<AppState>((set, get) => {
   const initialUser = getInitialUser();
   const initialPapers = getInitialSavedPapers(initialUser.email);
+  const initialDismissed = getInitialDismissedNotificationIds(initialUser.email);
 
   return {
     user: initialUser,
@@ -112,6 +130,29 @@ export const useAppStore = create<AppState>((set, get) => {
     savedPapers: initialPapers,
     ocrDraftText: "",
     activeChildId: "",
+    dismissedNotificationIds: initialDismissed,
+    dismissNotification: (id: string) => set((state) => {
+      if (state.dismissedNotificationIds.includes(id)) return state;
+      const updated = [...state.dismissedNotificationIds, id];
+      if (typeof window !== "undefined") {
+        try {
+          const key = state.user?.email ? `devgya_dismissed_notifs_${state.user.email.trim().toLowerCase()}` : "devgya_dismissed_notifs";
+          localStorage.setItem(key, JSON.stringify(updated));
+        } catch (e) {}
+      }
+      return { dismissedNotificationIds: updated };
+    }),
+    clearAllNotifications: (ids?: string[]) => set((state) => {
+      const toAdd = ids && ids.length > 0 ? ids : ["ALL_CLEARED"];
+      const updated = Array.from(new Set([...state.dismissedNotificationIds, ...toAdd]));
+      if (typeof window !== "undefined") {
+        try {
+          const key = state.user?.email ? `devgya_dismissed_notifs_${state.user.email.trim().toLowerCase()}` : "devgya_dismissed_notifs";
+          localStorage.setItem(key, JSON.stringify(updated));
+        } catch (e) {}
+      }
+      return { dismissedNotificationIds: updated };
+    }),
     fetchSavedPapers: async (targetEmail?: string) => {
       const emailToFetch = targetEmail || get().user?.email;
       if (!emailToFetch || emailToFetch === "" || emailToFetch.includes("guest") || typeof window === "undefined") {
@@ -163,9 +204,14 @@ export const useAppStore = create<AppState>((set, get) => {
           localStorage.setItem("devgya_user", JSON.stringify(user));
         } catch (e) {}
       }
-      // Load user-specific papers
+      // Load user-specific papers and dismissed notifications
       const userPapers = getInitialSavedPapers(user.email);
-      set({ user, savedPapers: userPapers.length > 0 ? userPapers : get().savedPapers });
+      const userDismissed = getInitialDismissedNotificationIds(user.email);
+      set({ 
+        user, 
+        savedPapers: userPapers.length > 0 ? userPapers : get().savedPapers,
+        dismissedNotificationIds: userDismissed
+      });
 
       // Fetch latest profile and papers from server for multi-device sync
       if (user.email) {
@@ -187,7 +233,8 @@ export const useAppStore = create<AppState>((set, get) => {
     initSession: () => {
       const user = getInitialUser();
       const userPapers = getInitialSavedPapers(user.email);
-      set({ user, savedPapers: userPapers });
+      const userDismissed = getInitialDismissedNotificationIds(user.email);
+      set({ user, savedPapers: userPapers, dismissedNotificationIds: userDismissed });
       if (user.email) {
         get().syncProfileFromServer(user.email);
         get().fetchSavedPapers(user.email);

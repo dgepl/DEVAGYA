@@ -263,7 +263,7 @@ async def get_profile(email: str):
         "subject": profile.get("subject", ""),
         "classes": profile.get("classes", "Class 10"),
         "schoolLogo": profile.get("school_logo", ""),
-        "avatarUrl": profile.get("avatar_url", profile.get("school_logo", "")),
+        "avatarUrl": profile.get("avatar_url", ""),
         "isProfileComplete": True,
         # Student specific
         "targetExam": profile.get("target_exam", ""),
@@ -324,13 +324,14 @@ async def update_profile(payload: UpdateProfilePayload):
         raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
     email_clean = raw_email.strip().lower()
 
-    # Upload to Cloudinary if base64 image data is provided
+    # Upload School Logo to Cloudinary if base64 image data is provided
     school_logo_url = payload.school_logo
     if payload.school_logo and payload.school_logo.startswith("data:image"):
         upload_res = cloudinary_service.upload_image(payload.school_logo, folder="devgya_school_logos")
         school_logo_url = upload_res.get("secure_url") or payload.school_logo
 
-    avatar_url = payload.avatar_url or school_logo_url
+    # Upload Avatar to Cloudinary if base64 image data is provided
+    avatar_url = payload.avatar_url
     if payload.avatar_url and payload.avatar_url.startswith("data:image"):
         upload_res = cloudinary_service.upload_image(payload.avatar_url, folder="devgya_user_avatars")
         avatar_url = upload_res.get("secure_url") or payload.avatar_url
@@ -340,14 +341,13 @@ async def update_profile(payload: UpdateProfilePayload):
         payload_dict["school_logo"] = school_logo_url
     if "avatar_url" in payload_dict:
         payload_dict["avatar_url"] = avatar_url
-    elif avatar_url:
-        payload_dict["avatar_url"] = avatar_url
-
     if "email" in payload_dict:
         del payload_dict["email"]
 
     updated = supabase_service.save_teacher_profile_details(
         email=email_clean,
+        school_logo=school_logo_url,
+        avatar_url=avatar_url,
         **payload_dict
     )
 
@@ -362,8 +362,8 @@ async def update_profile(payload: UpdateProfilePayload):
         "board": profile.get("board", "CBSE"),
         "subject": profile.get("subject", ""),
         "classes": profile.get("classes", "Class 10"),
-        "schoolLogo": profile.get("school_logo", school_logo_url or ""),
-        "avatarUrl": profile.get("avatar_url", avatar_url or school_logo_url or ""),
+        "schoolLogo": profile.get("school_logo") or school_logo_url or "",
+        "avatarUrl": profile.get("avatar_url") or avatar_url or "",
         "isProfileComplete": True,
         # Student specific
         "targetExam": profile.get("target_exam", payload.target_exam or ""),

@@ -109,6 +109,7 @@ class SupabaseService:
         subject: Optional[str] = None,
         classes: Optional[str] = None,
         school_logo: Optional[str] = None,
+        avatar_url: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """Save teacher, student, or parent profile metadata to local store and sync directly to Supabase Cloud."""
@@ -121,6 +122,7 @@ class SupabaseService:
         if subject is not None: current["subject"] = subject
         if classes is not None: current["classes"] = classes
         if school_logo is not None: current["school_logo"] = school_logo
+        if avatar_url is not None: current["avatar_url"] = avatar_url
         
         for k, v in kwargs.items():
             if v is not None:

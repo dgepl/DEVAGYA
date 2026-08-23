@@ -258,72 +258,7 @@ export function MobileTeacherDashboard() {
       {/* DEFAULT SECTIONS (WHEN NOT SEARCHING) */}
       {!hasSearch && (
         <>
-          {/* 4. QUICK ACTIONS (4-COLUMN ROW) */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-                QUICK ACTIONS
-              </h2>
-              <Link 
-                href="/dashboard/generator" 
-                className="text-xs font-extrabold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5"
-              >
-                View All <ChevronRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2">
-              {/* Create Paper */}
-              <Link
-                href="/dashboard/generator"
-                className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs hover:border-purple-200 hover:shadow-sm transition-all flex flex-col items-center text-center space-y-1.5 active:scale-95 cursor-pointer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-purple-100/70 border border-purple-200/60 flex items-center justify-center text-purple-600">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <span className="text-[11px] font-black text-slate-900 leading-tight">Create Paper</span>
-                <span className="text-[9px] text-slate-400 font-bold leading-none">Generate instantly</span>
-              </Link>
-
-              {/* Scan & Solve */}
-              <Link
-                href="/dashboard/ocr"
-                className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs hover:border-cyan-200 hover:shadow-sm transition-all flex flex-col items-center text-center space-y-1.5 active:scale-95 cursor-pointer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-cyan-100/70 border border-cyan-200/60 flex items-center justify-center text-cyan-600">
-                  <Scan className="w-5 h-5" />
-                </div>
-                <span className="text-[11px] font-black text-slate-900 leading-tight">Scan & Solve</span>
-                <span className="text-[9px] text-slate-400 font-bold leading-none">Extract text & solve</span>
-              </Link>
-
-              {/* AI Mentor */}
-              <Link
-                href="/dashboard/agents?agent=teacher_mentor"
-                className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs hover:border-emerald-200 hover:shadow-sm transition-all flex flex-col items-center text-center space-y-1.5 active:scale-95 cursor-pointer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-emerald-100/70 border border-emerald-200/60 flex items-center justify-center text-emerald-600">
-                  <Bot className="w-5 h-5" />
-                </div>
-                <span className="text-[11px] font-black text-slate-900 leading-tight">AI Mentor</span>
-                <span className="text-[9px] text-slate-400 font-bold leading-none">Smart suggestions</span>
-              </Link>
-
-              {/* Analytics */}
-              <Link
-                href="/dashboard/agents?agent=teacher_mentor"
-                className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs hover:border-orange-200 hover:shadow-sm transition-all flex flex-col items-center text-center space-y-1.5 active:scale-95 cursor-pointer"
-              >
-                <div className="w-11 h-11 rounded-2xl bg-orange-100/70 border border-orange-200/60 flex items-center justify-center text-orange-600">
-                  <TrendingUp className="w-5 h-5" />
-                </div>
-                <span className="text-[11px] font-black text-slate-900 leading-tight">Analytics</span>
-                <span className="text-[9px] text-slate-400 font-bold leading-none">Track performance</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* 5. TEACHER CORE TOOLS (3-COLUMN EXACT GRID) */}
+          {/* TEACHER CORE TOOLS (3-COLUMN EXACT GRID) */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
               <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">

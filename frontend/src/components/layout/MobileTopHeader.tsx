@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { 
@@ -28,7 +28,8 @@ import {
   FileText, 
   HeartHandshake, 
   ShieldCheck,
-  Bell
+  Bell,
+  CheckCircle2
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -36,74 +37,113 @@ export function MobileTopHeader() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, logout } = useAppStore();
+  const { 
+    user, 
+    logout, 
+    savedPapers, 
+    ocrDraftText, 
+    dismissedNotificationIds, 
+    dismissNotification, 
+    clearAllNotifications 
+  } = useAppStore();
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("all");
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: "notif-1",
-      type: "paper",
-      title: "Question Paper Ready for Print",
-      message: "Periodic Assessment Exam (Class 10 Science - Chemical Reactions) generated with model answers & marking rubric.",
-      tag: "EXAM PAPER",
-      tagColor: "bg-purple-100 text-purple-700 border-purple-200",
-      time: "10m ago",
-      read: false,
-      actionUrl: "/dashboard/papers",
-      actionText: "View Paper Archive",
-      icon: Sparkles
-    },
-    {
-      id: "notif-2",
-      type: "olympiad",
-      title: "National Teacher Skill Olympiad 2026 Live!",
-      message: "Official registrations open for CBSE/NCERT educator proficiency test. Access unlimited timed practice tests.",
-      tag: "OLYMPIAD ALERT",
-      tagColor: "bg-amber-100 text-amber-700 border-amber-200",
-      time: "1h ago",
-      read: false,
-      actionUrl: "/dashboard/teacher-olympiad/practice",
-      actionText: "Start Olympiad Practice",
-      icon: Trophy
-    },
-    {
-      id: "notif-3",
-      type: "ai",
-      title: "Teacher Mentor AI Upgraded",
-      message: "Bloom's Taxonomy HOTS analysis & NEP 2020 experiential activity generator now active in your classroom studio.",
-      tag: "PEDAGOGY AI",
-      tagColor: "bg-emerald-100 text-emerald-700 border-emerald-200",
-      time: "5h ago",
-      read: false,
-      actionUrl: "/dashboard/agents?agent=teacher_mentor",
-      actionText: "Launch Teacher Mentor",
-      icon: GraduationCap
-    },
-    {
-      id: "notif-4",
-      type: "ocr",
-      title: "Vision OCR Scanner Batch Mode Active",
-      message: "Scan textbook pages or student worksheets directly to Question Paper Generator without re-typing.",
-      tag: "VISION OCR",
-      tagColor: "bg-cyan-100 text-cyan-700 border-cyan-200",
-      time: "1d ago",
-      read: true,
-      actionUrl: "/dashboard/ocr",
-      actionText: "Open OCR Scanner",
-      icon: ScanText
+  const role = user?.role || "teacher";
+
+  // Build real dynamic practical notifications based on user activity
+  const rawNotifications = useMemo(() => {
+    const list: any[] = [];
+
+    // 1. Real notifications from generated question papers
+    if (savedPapers && savedPapers.length > 0) {
+      savedPapers.forEach((paper, idx) => {
+        const id = `paper-${(paper.title || "exam").toLowerCase().replace(/[^a-z0-9]/g, "-")}-${(paper.class_name || "c10").toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+        list.push({
+          id,
+          type: "paper",
+          title: `Paper Generated: ${paper.title || `${paper.subject || "Exam"} Paper`}`,
+          message: `${paper.class_name || "Class 10"} • ${paper.subject || "General"} (${paper.total_marks || 40} Marks) is ready for download & classroom print.`,
+          tag: "EXAM PAPER",
+          tagColor: "bg-purple-100 text-purple-700 border-purple-200",
+          time: idx === 0 ? "Latest" : "Saved",
+          actionUrl: "/dashboard/papers",
+          actionText: "View Paper Archive",
+          icon: Sparkles
+        });
+      });
     }
-  ]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+    // 2. Real Olympiad notification (Teacher or Student)
+    if (role === "teacher") {
+      list.push({
+        id: "olympiad-official-teacher-2026",
+        type: "olympiad",
+        title: "National Teacher Skill Olympiad 2026",
+        message: "Official CBSE/NCERT educator proficiency test registrations are live. Start unlimited timed practice mock tests.",
+        tag: "OLYMPIAD ALERT",
+        tagColor: "bg-amber-100 text-amber-700 border-amber-200",
+        time: "Active",
+        actionUrl: "/dashboard/teacher-olympiad/practice",
+        actionText: "Start Olympiad Practice",
+        icon: Trophy
+      });
+    } else if (role === "student") {
+      list.push({
+        id: "student-practice-olympiad-2026",
+        type: "olympiad",
+        title: "Student Olympiad & Board Exam Prep",
+        message: "Timed practice quizzes, flashcards & NCERT tests are ready for your target exam.",
+        tag: "EXAM PREP",
+        tagColor: "bg-blue-100 text-blue-700 border-blue-200",
+        time: "Active",
+        actionUrl: "/dashboard/student/practice",
+        actionText: "Start Practice Quiz",
+        icon: Trophy
+      });
+    }
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    // 3. Real OCR draft notification if text is scanned
+    if (ocrDraftText && ocrDraftText.trim().length > 0) {
+      list.push({
+        id: "ocr-active-draft-text",
+        type: "ocr",
+        title: "OCR Document Text Extracted",
+        message: "Scanned document text is loaded and ready to generate questions or review.",
+        tag: "VISION OCR",
+        tagColor: "bg-cyan-100 text-cyan-700 border-cyan-200",
+        time: "Ready",
+        actionUrl: "/dashboard/ocr",
+        actionText: "Open OCR Scanner",
+        icon: ScanText
+      });
+    }
+
+    return list;
+  }, [savedPapers, role, ocrDraftText]);
+
+  // Remove any notification that has been seen/dismissed by the user!
+  const notifications = useMemo(() => {
+    return rawNotifications.filter(n => !dismissedNotificationIds.includes(n.id));
+  }, [rawNotifications, dismissedNotificationIds]);
+
+  const unreadCount = notifications.length;
+
+  const handleClearAll = () => {
+    clearAllNotifications(rawNotifications.map(n => n.id));
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? ({ ...n, read: true }) : n));
+  const handleDismissOne = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dismissNotification(id);
+  };
+
+  const handleActionClick = (id: string) => {
+    dismissNotification(id);
+    setNotifOpen(false);
   };
 
   const handleSignOut = (e?: React.MouseEvent) => {
@@ -117,8 +157,6 @@ export function MobileTopHeader() {
       window.location.replace("/");
     }
   };
-
-  const role = user?.role || "teacher";
 
   // Build full role-spec nav items matching desktop sidebar exactly
   let navItems = [
@@ -242,7 +280,7 @@ export function MobileTopHeader() {
                   <div>
                     <h3 className="text-sm font-black text-slate-900">Notifications</h3>
                     <p className="text-[10px] text-slate-500 font-bold">
-                      {unreadCount > 0 ? `${unreadCount} unread update${unreadCount > 1 ? "s" : ""}` : "All caught up"}
+                      {unreadCount > 0 ? `${unreadCount} active notification${unreadCount > 1 ? "s" : ""}` : "All caught up"}
                     </p>
                   </div>
                 </div>
@@ -251,10 +289,10 @@ export function MobileTopHeader() {
                   {unreadCount > 0 && (
                     <button
                       type="button"
-                      onClick={markAllAsRead}
+                      onClick={handleClearAll}
                       className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-lg cursor-pointer transition-colors"
                     >
-                      Mark all read
+                      Clear all
                     </button>
                   )}
                   <button
@@ -273,7 +311,7 @@ export function MobileTopHeader() {
                   { id: "all", label: `All (${notifications.length})` },
                   { id: "paper", label: "Papers" },
                   { id: "olympiad", label: "Olympiad" },
-                  { id: "ai", label: "AI Updates" },
+                  { id: "ocr", label: "OCR" },
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -290,37 +328,44 @@ export function MobileTopHeader() {
                 ))}
               </div>
 
-              {/* Notifications List */}
+              {/* Real Notifications List */}
               <div className="space-y-3">
                 {filteredNotifs.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 space-y-2">
-                    <Bell className="w-8 h-8 text-slate-300 mx-auto" />
-                    <p className="text-xs font-bold text-slate-500">No notifications in this category</p>
+                  <div className="text-center py-12 px-3 bg-slate-50/60 rounded-3xl border border-dashed border-slate-200 text-slate-400 space-y-2">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-xs">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    </div>
+                    <h4 className="text-xs font-black text-slate-800">You're all caught up! 🎉</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                      No active notifications. When you generate a new question paper or receive an Olympiad update, it will show up here.
+                    </p>
                   </div>
                 ) : (
                   filteredNotifs.map(item => {
-                    const IconComp = item.icon;
+                    const IconComp = item.icon || Sparkles;
                     return (
                       <div
                         key={item.id}
-                        onClick={() => markAsRead(item.id)}
-                        className={`p-3.5 rounded-2xl border transition-all space-y-2 relative cursor-pointer ${
-                          item.read 
-                            ? "bg-slate-50/70 border-slate-200/80 text-slate-600" 
-                            : "bg-white border-indigo-200 shadow-xs ring-1 ring-indigo-500/10"
-                        }`}
+                        className="p-3.5 rounded-2xl border border-slate-200/90 bg-white shadow-xs transition-all space-y-2 relative"
                       >
-                        {!item.read && (
-                          <span className="absolute top-3.5 right-3.5 w-2 h-2 rounded-full bg-indigo-600" />
-                        )}
-
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-2">
                           <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md border ${item.tagColor}`}>
                             {item.tag}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-bold ml-auto pr-3">
-                            {item.time}
-                          </span>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400 font-bold">
+                              {item.time}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDismissOne(e, item.id)}
+                              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                              title="Dismiss and remove"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="space-y-1">
@@ -336,8 +381,8 @@ export function MobileTopHeader() {
                           <div className="pt-1">
                             <Link
                               href={item.actionUrl}
-                              onClick={() => setNotifOpen(false)}
-                              className="inline-flex items-center gap-1 text-[11px] font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors"
+                              onClick={() => handleActionClick(item.id)}
+                              className="inline-flex items-center gap-1 text-[11px] font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
                             >
                               <span>{item.actionText}</span>
                               <ChevronRight className="w-3.5 h-3.5" />
