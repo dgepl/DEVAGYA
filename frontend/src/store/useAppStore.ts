@@ -54,6 +54,8 @@ interface AppState {
   dismissedNotificationIds: string[];
   dismissNotification: (id: string) => void;
   clearAllNotifications: (ids?: string[]) => void;
+  isMobileDrawerOpen: boolean;
+  setMobileDrawerOpen: (open: boolean) => void;
   syncProfileFromServer: (email?: string) => Promise<void>;
   fetchSavedPapers: (email?: string) => Promise<void>;
   initSession: () => void;
@@ -131,6 +133,8 @@ export const useAppStore = create<AppState>((set, get) => {
     ocrDraftText: "",
     activeChildId: "",
     dismissedNotificationIds: initialDismissed,
+    isMobileDrawerOpen: false,
+    setMobileDrawerOpen: (open: boolean) => set({ isMobileDrawerOpen: open }),
     dismissNotification: (id: string) => set((state) => {
       if (state.dismissedNotificationIds.includes(id)) return state;
       const updated = [...state.dismissedNotificationIds, id];

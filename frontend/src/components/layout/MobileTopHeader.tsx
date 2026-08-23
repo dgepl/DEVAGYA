@@ -45,10 +45,11 @@ export function MobileTopHeader() {
     ocrDraftText, 
     dismissedNotificationIds, 
     dismissNotification, 
-    clearAllNotifications 
+    clearAllNotifications,
+    isMobileDrawerOpen,
+    setMobileDrawerOpen
   } = useAppStore();
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("all");
 
@@ -152,25 +153,21 @@ export function MobileTopHeader() {
       e.preventDefault();
       e.stopPropagation();
     }
-    setDrawerOpen(false);
+    setMobileDrawerOpen(false);
     logout();
     if (typeof window !== "undefined") {
       window.location.replace("/");
     }
   };
 
-  // Build full role-spec nav items matching desktop sidebar exactly
+  // Exact match to Desktop Sidebar Nav Items
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Teachers Skill Olympiad", href: "/dashboard/teacher-olympiad", icon: Trophy },
-    { label: "Olympiad Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
+    { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
-    { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
-    { label: "Analytics AI", href: "/dashboard/agents?agent=analytics_assistant", icon: Activity },
-    { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
-    { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
-    { label: "Document AI", href: "/dashboard/agents?agent=document_assistant", icon: Layers },
+    { label: "Teacher Skill Olympiad", href: "/dashboard/teacher-olympiad", icon: Trophy },
+    { label: "Olympiad Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
   ];
 
@@ -218,7 +215,7 @@ export function MobileTopHeader() {
         {/* LEFT: HAMBURGER MENU BUTTON */}
         <button
           type="button"
-          onClick={() => setDrawerOpen(true)}
+          onClick={() => setMobileDrawerOpen(true)}
           className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
           aria-label="Open Navigation Menu"
         >
@@ -400,10 +397,10 @@ export function MobileTopHeader() {
         </div>
       )}
 
-      {/* SLIDE-OVER NAVIGATION DRAWER */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-end md:hidden">
-          <div className="w-5/6 max-w-sm bg-white h-full p-6 space-y-6 shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-300">
+      {/* SLIDE-OVER NAVIGATION DRAWER (OPENS FROM LEFT TO MATCH HAMBURGER) */}
+      {isMobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-start md:hidden">
+          <div className="w-5/6 max-w-sm bg-white h-full p-6 space-y-6 shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-left duration-300">
             
             <div className="space-y-5">
               {/* DRAWER HEADER WITH USER INFO & CLOSE BUTTON */}
@@ -420,20 +417,20 @@ export function MobileTopHeader() {
                     <h3 className="text-xs font-black text-slate-900 truncate max-w-[150px]">
                       {user?.name || "User Account"}
                     </h3>
-                    <p className="text-[10px] text-indigo-600 font-bold capitalize">{role.replace('_', ' ')} Account</p>
+                    <p className="text-[10px] text-indigo-600 font-bold capitalize">{role.replace('_', ' ')} Portal</p>
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setDrawerOpen(false)}
+                  onClick={() => setMobileDrawerOpen(false)}
                   className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* ROLE-BASED SIDEBAR MENU ITEMS */}
+              {/* ROLE-BASED SIDEBAR MENU ITEMS (EXACT MATCH TO DESKTOP SIDEBAR) */}
               <div className="space-y-1">
                 <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2 mb-2">
                   Navigation & Tools ({navItems.length})
@@ -450,7 +447,7 @@ export function MobileTopHeader() {
                     <Link
                       key={item.href}
                       href={item.href}
-                      onClick={() => setDrawerOpen(false)}
+                      onClick={() => setMobileDrawerOpen(false)}
                       className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                         isActive
                           ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs"

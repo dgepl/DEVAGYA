@@ -27,7 +27,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF } from "@/lib/api";
 
 export function MobileTeacherDashboard() {
-  const { user, savedPapers, setActivePaper } = useAppStore();
+  const { user, savedPapers, setActivePaper, setMobileDrawerOpen } = useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
 
   const allTools = [
@@ -264,12 +264,14 @@ export function MobileTeacherDashboard() {
               <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
                 TEACHER CORE TOOLS
               </h2>
-              <Link 
-                href="/dashboard/generator" 
-                className="text-xs font-extrabold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+              <button 
+                type="button"
+                onClick={() => setMobileDrawerOpen(true)} 
+                className="text-xs font-extrabold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 cursor-pointer active:scale-95 transition-transform"
               >
-                View All Tools <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+                <span>View All Tools</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
