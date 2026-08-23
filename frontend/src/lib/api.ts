@@ -21,6 +21,7 @@ export interface GeneratePaperPayload {
   school_name: string;
   school_logo?: string;
   custom_instructions?: string;
+  user_email?: string;
 }
 
 export interface QuestionItem {

@@ -51,6 +51,7 @@ interface AppState {
   setOcrDraftText: (text: string) => void;
   setActiveChildId: (childId: string) => void;
   syncProfileFromServer: (email?: string) => Promise<void>;
+  fetchSavedPapers: (email?: string) => Promise<void>;
   initSession: () => void;
   logout: () => void;
 }
@@ -110,6 +111,28 @@ export const useAppStore = create<AppState>((set, get) => {
     savedPapers: initialPapers,
     ocrDraftText: "",
     activeChildId: "",
+    fetchSavedPapers: async (targetEmail?: string) => {
+      const emailToFetch = targetEmail || get().user?.email;
+      if (!emailToFetch || emailToFetch === "" || emailToFetch.includes("guest") || typeof window === "undefined") {
+        return;
+      }
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+        const res = await fetch(`${baseUrl}/generator/history?email=${encodeURIComponent(emailToFetch.trim().toLowerCase())}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.papers && Array.isArray(data.papers)) {
+            set({ savedPapers: data.papers });
+            try {
+              localStorage.setItem(`devgya_saved_papers_${emailToFetch.trim().toLowerCase()}`, JSON.stringify(data.papers));
+              localStorage.setItem("devgya_saved_papers", JSON.stringify(data.papers));
+            } catch (e) {}
+          }
+        }
+      } catch (err) {
+        console.warn("Paper history sync notice:", err);
+      }
+    },
     syncProfileFromServer: async (targetEmail?: string) => {
       const emailToSync = targetEmail || get().user?.email;
       if (!emailToSync || emailToSync === "" || emailToSync.includes("guest") || typeof window === "undefined") {
@@ -143,27 +166,10 @@ export const useAppStore = create<AppState>((set, get) => {
       const userPapers = getInitialSavedPapers(user.email);
       set({ user, savedPapers: userPapers.length > 0 ? userPapers : get().savedPapers });
 
-      // Fetch latest profile from server to ensure multi-device synchronization
+      // Fetch latest profile and papers from server for multi-device sync
       if (user.email) {
         get().syncProfileFromServer(user.email);
-      }
-
-      // Fetch server history in background
-      if (user.email && typeof window !== "undefined") {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-        fetch(`${baseUrl}/generator/history?email=${encodeURIComponent(user.email)}`)
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.papers && Array.isArray(data.papers) && data.papers.length > 0) {
-              const merged = [...data.papers];
-              set({ savedPapers: merged });
-              try {
-                localStorage.setItem(`devgya_saved_papers_${user.email.trim().toLowerCase()}`, JSON.stringify(merged));
-                localStorage.setItem("devgya_saved_papers", JSON.stringify(merged));
-              } catch (e) {}
-            }
-          })
-          .catch(() => {});
+        get().fetchSavedPapers(user.email);
       }
     },
     updateUserProfile: (updates) => {
@@ -183,6 +189,7 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ user, savedPapers: userPapers });
       if (user.email) {
         get().syncProfileFromServer(user.email);
+        get().fetchSavedPapers(user.email);
       }
     },
     switchRole: (role) => set((state) => ({ user: { ...state.user, role } })),

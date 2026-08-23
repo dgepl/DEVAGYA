@@ -10,11 +10,43 @@ from services.pdf_service import extract_document_text, extract_pdf_content
 
 router = APIRouter(prefix="/generator", tags=["Question Generator"])
 
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
+PAPERS_STORE_FILE = os.path.join(DATA_DIR, "saved_papers.json")
+
+def _load_papers_store() -> dict:
+    if not os.path.exists(PAPERS_STORE_FILE):
+        return {}
+    try:
+        with open(PAPERS_STORE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_papers_store(data: dict):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(PAPERS_STORE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+def _save_paper_for_user(email: Optional[str], paper_data: dict):
+    if not paper_data:
+        return
+    email_clean = (email or "guest@devgya.com").strip().lower()
+    store = _load_papers_store()
+    user_papers = store.get(email_clean, [])
+    filtered = [p for p in user_papers if not (p.get("title") == paper_data.get("title") and p.get("class_name") == paper_data.get("class_name"))]
+    store[email_clean] = [paper_data] + filtered
+    # Also update global default pool so new devices have immediate access
+    store["default"] = [paper_data] + [p for p in store.get("default", []) if not (p.get("title") == paper_data.get("title") and p.get("class_name") == paper_data.get("class_name"))]
+    _save_papers_store(store)
+
 @router.post("/generate", response_model=GeneratedPaperResponse)
 async def generate_paper(request: GeneratePaperRequest):
     """Generate Question Paper directly from syllabus/OCR context without requiring file attachment."""
     try:
         response = await groq_service.generate_question_paper(request)
+        if request.user_email:
+            response.user_email = request.user_email
+        _save_paper_for_user(request.user_email, response.dict())
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Question paper generation failed: {str(e)}")
@@ -33,7 +65,8 @@ async def generate_paper_from_file(
     num_short: int = Form(2),
     num_long: int = Form(1),
     school_name: str = Form("DEVGYA GLOBAL ACADEMY"),
-    custom_instructions: str = Form("")
+    custom_instructions: str = Form(""),
+    user_email: str = Form("")
 ):
     """Generate Question Paper with optional reference PDF/Photo or direct prompt."""
     req = GeneratePaperRequest(
@@ -48,13 +81,17 @@ async def generate_paper_from_file(
         num_short=num_short,
         num_long=num_long,
         school_name=school_name,
-        custom_instructions=custom_instructions
+        custom_instructions=custom_instructions,
+        user_email=user_email
     )
 
     # If no file is attached, generate directly from prompt/syllabus
     if not file or not file.filename:
         try:
-            return await groq_service.generate_question_paper(req)
+            res = await groq_service.generate_question_paper(req)
+            if user_email: res.user_email = user_email
+            _save_paper_for_user(user_email, res.dict())
+            return res
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to generate paper: {str(e)}")
 
@@ -105,12 +142,19 @@ async def generate_paper_from_file(
 
     # If file couldn't be parsed, fallback to direct text prompt
     if not has_text and not has_image:
-        return await groq_service.generate_question_paper(req)
+        res = await groq_service.generate_question_paper(req)
+        if user_email: res.user_email = user_email
+        _save_paper_for_user(user_email, res.dict())
+        return res
 
     try:
         response = await groq_service.generate_question_paper_with_attachment(
-            req, extracted_text=extracted_text, image_data_url=image_data_url
+            req=req,
+            extracted_text=extracted_text,
+            image_data_url=image_data_url
         )
+        if user_email: response.user_email = user_email
+        _save_paper_for_user(user_email, response.dict())
         return response
     except Exception as e:
         if isinstance(e, HTTPException):

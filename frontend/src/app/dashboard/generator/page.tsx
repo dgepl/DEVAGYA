@@ -175,6 +175,7 @@ export default function GeneratorPage() {
         formData.append("num_short", String(parsedShort));
         formData.append("num_long", String(parsedLong));
         formData.append("custom_instructions", customPrompt);
+        formData.append("user_email", user.email || "");
 
         res = await generateQuestionPaperFromFile(formData);
       } else {
@@ -191,7 +192,8 @@ export default function GeneratorPage() {
           num_mcqs: parsedMcqs,
           num_short: parsedShort,
           num_long: parsedLong,
-          custom_instructions: customPrompt
+          custom_instructions: customPrompt,
+          user_email: user.email || ""
         });
       }
 

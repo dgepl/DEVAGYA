@@ -1,12 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import { FileText, Download, CheckCircle, Trash2, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF } from "@/lib/api";
 
 export default function PapersPage() {
-  const { savedPapers, activePaper, deleteSavedPaper } = useAppStore();
+  const { user, savedPapers, activePaper, deleteSavedPaper, fetchSavedPapers } = useAppStore();
+
+  useEffect(() => {
+    if (user?.email) {
+      fetchSavedPapers(user.email);
+    }
+  }, [user?.email, fetchSavedPapers]);
 
   const allPapers = savedPapers.length > 0 ? savedPapers : (activePaper ? [activePaper] : []);
 
