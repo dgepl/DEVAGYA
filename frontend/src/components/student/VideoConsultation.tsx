@@ -185,34 +185,17 @@ export function VideoConsultation() {
 
   const fmt = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
-  // Media Stream Setup
+  // Media Stream Setup - Video preview only, keeping microphone available for Web Speech API
   const startCamera = useCallback(async () => {
     try {
       const s = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } as any,
+        audio: false // Crucial: Do NOT lock mic in getUserMedia so SpeechRecognition gets full audio access on iOS/Android
       });
       streamRef.current = s;
       if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play().catch(() => {}); }
     } catch {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          } as any
-        });
-        streamRef.current = s;
-        setCameraOn(false);
-      } catch {
-        setCameraOn(false);
-        setMicOn(false);
-      }
+      setCameraOn(false);
     }
   }, []);
 
@@ -235,18 +218,17 @@ export function VideoConsultation() {
   };
 
   const toggleMic = () => {
-    const at = streamRef.current?.getAudioTracks()[0];
-    if (at) { 
-      at.enabled = !at.enabled; 
-      setMicOn(at.enabled);
-      if (!at.enabled) {
+    setMicOn((prev) => {
+      const next = !prev;
+      if (!next) {
         stopListening();
       } else {
         if (!isAiSpeakingRef.current && !isAiThinkingRef.current) {
           startListening();
         }
       }
-    }
+      return next;
+    });
   };
 
   // Cross-calling functional refs for full decoupling
@@ -265,14 +247,16 @@ export function VideoConsultation() {
 
   const startListening: () => void = useCallback(() => {
     if (recognitionRef.current) return;
-    // CRITICAL: Never start listening if AI is currently speaking or thinking
+    // Never start listening if AI is currently speaking or thinking
     if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
 
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setSpeechOk(false); return; }
 
+    const isMobileDevice = typeof navigator !== "undefined" && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
+
     const rec = new SR();
-    rec.continuous = true;
+    rec.continuous = !isMobileDevice; // On mobile, single utterance mode is required for speech capture
     rec.interimResults = true;
     rec.lang = lang.speechLang;
 
@@ -281,12 +265,13 @@ export function VideoConsultation() {
       if (textToSend && textToSend.length > 1) {
         pendingSpeechRef.current = "";
         clearTimeout(silenceTimerRef.current);
+        setUserSub("");
         sendMessageRef.current(textToSend);
       }
     };
 
     rec.onresult = (e: any) => {
-      // 1. HARD ECHO GATE: Discard if AI is speaking, AI is thinking, or within audio decay cooldown (800ms)
+      // Echo gate: Discard if AI is speaking or in cooldown
       if (isAiSpeakingRef.current || isAiThinkingRef.current || Date.now() < aiSpeakingCooldownRef.current) {
         return;
       }
@@ -301,7 +286,7 @@ export function VideoConsultation() {
       const candidate = (final || interim).trim().toLowerCase();
       if (!candidate) return;
 
-      // 2. SECONDARY ECHO FILTER: If transcript matches AI's own recent words (speaker leakage), ignore it
+      // Echo filter against recent AI output
       const recentAiText = lastAiSpokenCleanRef.current;
       if (recentAiText && candidate.length > 4) {
         if (recentAiText.includes(candidate) || (candidate.length > 15 && recentAiText.slice(0, 40).includes(candidate.slice(0, 20)))) {
@@ -313,19 +298,17 @@ export function VideoConsultation() {
       pendingSpeechRef.current = currentText;
       setUserSub(currentText);
 
-      // Mobile & Desktop auto-finalization: If final result OR silence debounce timer
       clearTimeout(silenceTimerRef.current);
       if (final && final.trim()) {
-        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 600);
+        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 500);
       } else {
-        // On mobile, interim results trigger a 1100ms silence detection
-        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 1100);
+        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 900);
       }
     };
 
     rec.onerror = (e: any) => {
       console.warn("Consultation speech notice:", e.error);
-      if (["network", "not-allowed", "service-not-allowed"].includes(e.error)) {
+      if (["not-allowed", "service-not-allowed"].includes(e.error)) {
         setSpeechOk(false);
         recognitionRef.current = null;
       }
@@ -333,23 +316,27 @@ export function VideoConsultation() {
 
     rec.onend = () => {
       recognitionRef.current = null;
-      // If there was speech captured right before recognition closed on mobile, send it!
       if (pendingSpeechRef.current.trim() && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
         finalizeAndSendSpeech();
       }
 
-      // Auto-restart if in call, mic is on, and AI is NOT speaking
+      // Auto-restart listening if in call and AI is quiet
       if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
         setTimeout(() => {
           if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
             startListeningRef.current();
           }
-        }, 300);
+        }, 200);
       }
     };
 
     recognitionRef.current = rec;
-    try { rec.start(); } catch { setSpeechOk(false); }
+    try { 
+      rec.start(); 
+      setSpeechOk(true);
+    } catch { 
+      // Handled silently
+    }
   }, [lang.speechLang]);
 
   useEffect(() => {

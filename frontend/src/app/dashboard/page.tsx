@@ -24,7 +24,8 @@ import {
   TrendingUp,
   Activity,
   Search,
-  Video
+  Video,
+  Trophy
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF, GeneratedPaperResponse } from "@/lib/api";
@@ -89,10 +90,19 @@ export default function TeacherDashboardOverviewPage() {
 
   const teacherTools = [
     {
+      code: "teacher_mentor",
+      href: "/dashboard/agents?agent=teacher_mentor",
+      name: "Teacher Mentor AI",
+      desc: "Pedagogy, class analytics, English polish, document AI & NCERT curriculum research.",
+      icon: GraduationCap,
+      color: "from-indigo-500 to-purple-600",
+      badge: "Super Agent"
+    },
+    {
       code: "generator",
       href: "/dashboard/generator",
       name: "Question Generator",
-      desc: "Create 1M, 3M, 5M NCERT exam papers with model answer keys.",
+      desc: "Create 1M, 3M, 5M NCERT exam papers with model answer keys & school branding.",
       icon: Sparkles,
       color: "from-amber-500 to-yellow-600",
       badge: "Core Studio"
@@ -101,64 +111,37 @@ export default function TeacherDashboardOverviewPage() {
       code: "ocr",
       href: "/dashboard/ocr",
       name: "OCR Scanner",
-      desc: "Extract text from textbook pages, worksheets & handwritten notes.",
+      desc: "Extract text from textbook pages, worksheets & handwritten notes using Vision AI.",
       icon: ScanText,
       color: "from-cyan-500 to-blue-600",
       badge: "Vision AI"
     },
     {
-      code: "teacher_mentor",
-      href: "/dashboard/agents?agent=teacher_mentor",
-      name: "Teacher Mentor AI",
-      desc: "Pedagogical guidance, classroom management & CBSE syllabus strategy.",
-      icon: GraduationCap,
-      color: "from-indigo-500 to-purple-600",
-      badge: "Master Mentor"
-    },
-    {
-      code: "analytics_assistant",
-      href: "/dashboard/agents?agent=analytics_assistant",
-      name: "Analytics AI",
-      desc: "Analyze student performance, assessment scores & mark trends.",
-      icon: Activity,
-      color: "from-purple-500 to-pink-600",
-      badge: "Performance"
-    },
-    {
-      code: "english_coach",
-      href: "/dashboard/agents?agent=english_coach",
-      name: "English Coach",
-      desc: "Grammar, literature summaries, and writing skills assistant.",
-      icon: MessageSquare,
-      color: "from-blue-500 to-indigo-600",
-      badge: "Language"
-    },
-    {
-      code: "research_assistant",
-      href: "/dashboard/agents?agent=research_assistant",
-      name: "Research Assistant",
-      desc: "Gather historical facts, scientific diagrams & textbook research.",
-      icon: Search,
+      code: "teacher_olympiad",
+      href: "/dashboard/teacher-olympiad",
+      name: "Teacher Skill Olympiad",
+      desc: "Test and certify pedagogical, leadership, and subject teaching proficiencies.",
+      icon: Trophy,
       color: "from-amber-500 to-orange-600",
-      badge: "Research"
+      badge: "Official Exam"
     },
     {
-      code: "document_assistant",
-      href: "/dashboard/agents?agent=document_assistant",
-      name: "Document AI",
-      desc: "Analyze attached PDF worksheets and synthesize answers.",
-      icon: Layers,
-      color: "from-teal-500 to-emerald-600",
-      badge: "PDF Analysis"
+      code: "olympiad_practice",
+      href: "/dashboard/teacher-olympiad/practice",
+      name: "Olympiad Practice",
+      desc: "Unlimited timed practice quizzes and mock papers for teacher skill mastery.",
+      icon: BookOpen,
+      color: "from-emerald-500 to-teal-600",
+      badge: "Practice Zone"
     },
     {
       code: "video-consultation",
       href: "/dashboard/video-consultation",
       name: "Video Consultation",
-      desc: "Schedule 1-on-1 virtual mentoring & video consultations.",
+      desc: "Schedule 1-on-1 virtual mentoring, video consultations & AI voice sessions.",
       icon: Video,
-      color: "from-red-500 to-rose-600",
-      badge: "Virtual Meeting"
+      color: "from-rose-500 to-red-600",
+      badge: "Live Video"
     }
   ];
 

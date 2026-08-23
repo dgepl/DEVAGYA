@@ -2,7 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ScanText, UploadCloud, ArrowRight, FileCode, Sparkles, Copy, Check, Download, RefreshCw, FileText } from "lucide-react";
+import { 
+  ScanText, 
+  UploadCloud, 
+  ArrowRight, 
+  FileCode, 
+  Sparkles, 
+  Copy, 
+  Check, 
+  Download, 
+  RefreshCw, 
+  FileText,
+  GraduationCap
+} from "lucide-react";
 import { scanOCRPage } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -52,6 +64,15 @@ export default function OCRPage() {
       setOcrDraftText(extractedText);
       router.push("/dashboard/generator");
     }
+  };
+
+  const handleSendToMentorAI = () => {
+    if (!extractedText) return;
+    const prompt = `Here is the textbook / worksheet content extracted from the OCR Scanner. Please analyze this curriculum material, explain core concepts, and provide lesson planning and teaching strategies:\n\n${extractedText}`;
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("devgya_mentor_initial_prompt", prompt);
+    }
+    router.push(`/dashboard/agents?agent=teacher_mentor&prompt=${encodeURIComponent(prompt.slice(0, 1200))}`);
   };
 
   return (
@@ -140,20 +161,33 @@ export default function OCRPage() {
             />
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
             <span className="text-xs text-slate-500 font-semibold">
-              {extractedText ? `${extractedText.split(' ').length} words extracted` : 'Waiting for file upload...'}
+              {extractedText ? `${extractedText.split(/\s+/).length} words extracted` : 'Waiting for file upload...'}
             </span>
 
-            <button
-              onClick={handleBridgeToGenerator}
-              disabled={!extractedText}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all flex items-center gap-2"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>Use in AI Paper Generator</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={handleSendToMentorAI}
+                disabled={!extractedText}
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 text-indigo-700 font-extrabold text-xs rounded-2xl border border-indigo-200 shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                title="Send extracted textbook text to Teacher Mentor AI for lesson planning & pedagogy"
+              >
+                <GraduationCap className="w-4 h-4 text-indigo-600" />
+                <span>Send to Teacher Mentor AI</span>
+              </button>
+
+              <button
+                onClick={handleBridgeToGenerator}
+                disabled={!extractedText}
+                className="flex-1 sm:flex-initial px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                title="Use extracted text directly in AI Paper Generator without file upload"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>Use in AI Paper Generator</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
         </div>

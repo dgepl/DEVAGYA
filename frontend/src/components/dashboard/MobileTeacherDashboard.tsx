@@ -12,7 +12,9 @@ import {
   Plus, 
   GraduationCap,
   Activity,
-  Layers
+  Layers,
+  Trophy,
+  BookOpen
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -47,7 +49,7 @@ export function MobileTeacherDashboard() {
             href="/dashboard/generator"
             className="flex-1 py-3 bg-white text-indigo-950 font-black text-xs rounded-2xl text-center shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform uppercase tracking-wider"
           >
-            <Zap className="w-4 h-4 text-amber-500 fill-amber-400" />
+            <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400" />
             <span>Generate Paper</span>
           </Link>
           
@@ -61,23 +63,36 @@ export function MobileTeacherDashboard() {
         </div>
       </div>
 
-      {/* QUICK LAUNCH SPEED-DIAL GRID */}
+      {/* QUICK LAUNCH SPEED-DIAL GRID - 6 MATCHING SIDEBAR TOOLS */}
       <div className="space-y-3">
         <h2 className="text-xs font-black uppercase tracking-wider text-slate-500 px-1">
-          Teacher Core AI Studios
+          Teacher Core Tools
         </h2>
 
         <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/dashboard/agents?agent=teacher_mentor"
+            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-indigo-300 hover:shadow-md transition-all space-y-2 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-extrabold text-slate-900">Teacher Mentor AI</h3>
+              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Pedagogy & Lesson AI</p>
+            </div>
+          </Link>
+
           <Link
             href="/dashboard/generator"
             className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-amber-300 hover:shadow-md transition-all space-y-2 group"
           >
             <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 group-hover:scale-105 transition-transform">
-              <Zap className="w-5 h-5 fill-amber-400" />
+              <Sparkles className="w-5 h-5 text-amber-500 fill-amber-400" />
             </div>
             <div>
               <h3 className="text-xs font-extrabold text-slate-900">Question Generator</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">NCERT & Bloom's Paper</p>
+              <p className="text-[10px] text-slate-400 font-bold mt-0.5">NCERT Exam Papers</p>
             </div>
           </Link>
 
@@ -89,34 +104,47 @@ export function MobileTeacherDashboard() {
               <ScanText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-extrabold text-slate-900">OCR Book Scanner</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Scanned PDF to Test</p>
+              <h3 className="text-xs font-extrabold text-slate-900">OCR Scanner</h3>
+              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Book Page to Test</p>
             </div>
           </Link>
 
           <Link
-            href="/dashboard/agents?agent=teacher_mentor"
-            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-indigo-300 hover:shadow-md transition-all space-y-2 group"
+            href="/dashboard/teacher-olympiad"
+            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-orange-300 hover:shadow-md transition-all space-y-2 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform">
-              <GraduationCap className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600 group-hover:scale-105 transition-transform">
+              <Trophy className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-extrabold text-slate-900">Teacher Mentor AI</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Pedagogical Advice</p>
+              <h3 className="text-xs font-extrabold text-slate-900">Teacher Skill Olympiad</h3>
+              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Official Certification</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/dashboard/teacher-olympiad/practice"
+            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all space-y-2 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-105 transition-transform">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-extrabold text-slate-900">Olympiad Practice</h3>
+              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Practice Mock Tests</p>
             </div>
           </Link>
 
           <Link
             href="/dashboard/video-consultation"
-            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all space-y-2 group"
+            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-rose-300 hover:shadow-md transition-all space-y-2 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 group-hover:scale-105 transition-transform">
               <Video className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-xs font-extrabold text-slate-900">Video Consultation</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Parent & Student Call</p>
+              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Live 1-on-1 Mentoring</p>
             </div>
           </Link>
         </div>

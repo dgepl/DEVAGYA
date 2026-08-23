@@ -288,7 +288,7 @@ export function AgentMarketplace() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [selectedAgentCode, setSelectedAgentCode] = useState("teacher_mentor");
 
-  // Read agent & prompt from URL query params
+  // Read agent & prompt from URL query params or sessionStorage (from OCR Scanner)
   const searchParams = useSearchParams();
   useEffect(() => {
     const agentParam = searchParams.get("agent");
@@ -299,9 +299,26 @@ export function AgentMarketplace() {
       setMessages([getWelcomeMsg(agentParam)]);
       setActiveConvId(null);
     }
-    if (promptParam) {
+    
+    // Check sessionStorage first for full untruncated OCR text
+    const sessionPrompt = typeof window !== "undefined" ? sessionStorage.getItem("devgya_mentor_initial_prompt") : null;
+    if (sessionPrompt) {
+      setInput(sessionPrompt);
+      sessionStorage.removeItem("devgya_mentor_initial_prompt");
+      setTimeout(() => {
+        if (inputRef.current) {
+          autoGrow(inputRef.current);
+          inputRef.current.focus();
+        }
+      }, 150);
+    } else if (promptParam) {
       setInput(promptParam);
-      setTimeout(() => inputRef.current?.focus(), 150);
+      setTimeout(() => {
+        if (inputRef.current) {
+          autoGrow(inputRef.current);
+          inputRef.current.focus();
+        }
+      }, 150);
     }
   }, [searchParams]);
 
@@ -1045,14 +1062,14 @@ export function AgentMarketplace() {
                             type="button"
                             onClick={() => {
                               setSelectedPdfContent(m.content);
-                              setPdfModalTitle("Classroom Practice Worksheet");
+                              setPdfModalTitle("Academic Overview & Study Notes");
                               setPdfModalOpen(true);
                             }}
                             className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] rounded-lg border border-indigo-200/80 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
-                            title="Export as Printable A4 PDF Worksheet with Custom Themes"
+                            title="Export as Printable A4 PDF Document with Custom Themes"
                           >
                             <FileText className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>Export as PDF Worksheet</span>
+                            <span>Export as PDF Document</span>
                           </button>
 
                           <button

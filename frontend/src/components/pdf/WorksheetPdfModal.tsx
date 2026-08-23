@@ -4,15 +4,12 @@ import { useState } from "react";
 import { 
   FileText, 
   Download, 
-  Sparkles, 
   X, 
   Palette, 
   Check, 
   Type, 
   Building2, 
-  UserCheck, 
-  RefreshCw,
-  Eye
+  RefreshCw
 } from "lucide-react";
 import { downloadWorksheetPDF, GenerateWorksheetPdfPayload } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
@@ -65,7 +62,7 @@ export function WorksheetPdfModal({
   isOpen,
   onClose,
   initialContent,
-  defaultTitle = "Classroom Practice Worksheet",
+  defaultTitle = "Academic Overview & Study Notes",
   defaultSubject = "Science",
   defaultClass = "Class 10"
 }: WorksheetPdfModalProps) {
@@ -74,11 +71,10 @@ export function WorksheetPdfModal({
   const [title, setTitle] = useState(defaultTitle);
   const [subject, setSubject] = useState(user.subject || defaultSubject);
   const [className, setClassName] = useState(user.classes || defaultClass);
-  const [chapter, setChapter] = useState("Unit Revision");
+  const [chapter, setChapter] = useState("Curriculum Notes");
   const [theme, setTheme] = useState<"cbse" | "modern" | "minimalist" | "emerald">("cbse");
   const [fontSize, setFontSize] = useState<"compact" | "standard" | "large">("standard");
-  const [includeAnswers, setIncludeAnswers] = useState(false);
-  const [includeStudentHeader, setIncludeStudentHeader] = useState(true);
+  const [includeHeaderBar, setIncludeHeaderBar] = useState(true);
   const [schoolName, setSchoolName] = useState(user.schoolName || "DEVGYA GLOBAL ACADEMY");
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -90,15 +86,14 @@ export function WorksheetPdfModal({
     setErrorMsg(null);
     try {
       const payload: GenerateWorksheetPdfPayload = {
-        title: title.trim() || "Classroom Worksheet",
+        title: title.trim() || "Academic Document",
         subject: subject.trim() || "General",
         class_name: className.trim() || "Class 10",
-        chapter: chapter.trim() || "General Syllabus",
+        chapter: chapter.trim() || "Curriculum",
         content: initialContent,
         theme,
         font_size: fontSize,
-        include_answers: includeAnswers,
-        include_student_header: includeStudentHeader,
+        include_student_header: includeHeaderBar,
         school_name: schoolName.trim() || "DEVGYA GLOBAL EDUTECH",
         school_logo: user.schoolLogo
       };
@@ -125,7 +120,7 @@ export function WorksheetPdfModal({
             </div>
             <div>
               <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-                PDF & Worksheet Studio
+                PDF Document Studio
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-md">
                   A4 Print Ready
                 </span>
@@ -158,30 +153,30 @@ export function WorksheetPdfModal({
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <span className="text-[11px] text-slate-500 font-bold">Worksheet / Exam Title</span>
+                <span className="text-[11px] text-slate-500 font-bold">Document Title</span>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white"
-                  placeholder="e.g. Chemical Equations Practice Worksheet"
+                  placeholder="e.g. Chemistry Overview & Study Guide"
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-[11px] text-slate-500 font-bold">Subject & Chapter</span>
+                <span className="text-[11px] text-slate-500 font-bold">Subject & Class</span>
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="text"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white"
                     placeholder="Subject"
                   />
                   <input
                     type="text"
                     value={className}
                     onChange={(e) => setClassName(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white"
                     placeholder="Class"
                   />
                 </div>
@@ -227,43 +222,14 @@ export function WorksheetPdfModal({
             </div>
           </div>
 
-          {/* 3. DOCUMENT MODE & OPTIONS */}
+          {/* 3. LAYOUT & DENSITY CONTROLS */}
           <div className="space-y-3">
             <label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
               <Type className="w-4 h-4 text-indigo-600" />
-              Document Layout & Edition Mode
+              Typography & Header Settings
             </label>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Student vs Teacher Key */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                <span className="text-[11px] font-bold text-slate-800 block">Edition Mode</span>
-                <div className="grid grid-cols-2 gap-1.5 bg-slate-200/60 p-1 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setIncludeAnswers(false)}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      !includeAnswers
-                        ? "bg-white text-indigo-700 shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Student Worksheet
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIncludeAnswers(true)}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      includeAnswers
-                        ? "bg-white text-emerald-700 shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Teacher Answer Key
-                  </button>
-                </div>
-              </div>
-
               {/* Font Size Scaling */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                 <span className="text-[11px] font-bold text-slate-800 block">Font Spacing & Density</span>
@@ -288,23 +254,23 @@ export function WorksheetPdfModal({
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Student Header Checkbox */}
-            {!includeAnswers && (
-              <label className="flex items-center gap-2.5 p-3 bg-indigo-50/50 border border-indigo-200/70 rounded-2xl cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeStudentHeader}
-                  onChange={(e) => setIncludeStudentHeader(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                />
-                <div className="flex-1">
-                  <span className="text-xs font-bold text-indigo-950 block">Include Student Details Header Box</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Adds Name, Roll No, Date, and Class fill-in boxes at the top of the worksheet</span>
-                </div>
-              </label>
-            )}
+              {/* Header Details Bar Checkbox */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center">
+                <label className="flex items-center gap-2.5 cursor-pointer w-full">
+                  <input
+                    type="checkbox"
+                    checked={includeHeaderBar}
+                    onChange={(e) => setIncludeHeaderBar(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <span className="text-xs font-bold text-slate-900 block">Include Subject & Session Header</span>
+                    <span className="text-[10px] text-slate-500 font-medium">Adds Subject, Class, and Academic Session badge bar</span>
+                  </div>
+                </label>
+              </div>
+            </div>
           </div>
 
           {/* 4. SCHOOL BRANDING */}
@@ -359,7 +325,7 @@ export function WorksheetPdfModal({
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                <span>Download {includeAnswers ? "Teacher Key PDF" : "Worksheet PDF"}</span>
+                <span>Download PDF Document</span>
               </>
             )}
           </button>

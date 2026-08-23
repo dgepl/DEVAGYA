@@ -374,19 +374,71 @@ class PDFGeneratorService:
 
     def generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
         """
-        Generate a publication-grade A4 Worksheet / Study Guide PDF from AI text/markdown
-        with custom theme palettes, school branding, student header, and student vs teacher key modes.
+        Generate a publication-grade A4 PDF Document from AI text/markdown for ANY academic content
+        (Notes, Lesson Plans, Worksheets, Study Guides, Overviews, Question Sets, Curriculum).
         """
-        title = str(payload.get("title") or "Classroom Practice Worksheet")
+        import re
+        import html
+
+        def clean_md_to_reportlab(text: str) -> str:
+            if not text:
+                return ""
+            # 1. Normalize unicode characters (smart quotes, dashes, non-breaking spaces)
+            t = text.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
+            t = t.replace("\u201c", '"').replace("\u201d", '"')
+            t = t.replace("\u2018", "'").replace("\u2019", "'")
+            t = t.replace("\u00a0", " ")
+
+            # 2. Escape XML entities (&, <, >)
+            t = html.escape(t)
+
+            # 3. Match and convert markdown bold **text** to <b>text</b>
+            t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t)
+
+            # 4. Match and convert markdown italic *text* or _text_ to <i>text</i>
+            t = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'<i>\1</i>', t)
+            t = re.sub(r'(?<!_)_([^_]+?)_(?!_)', r'<i>\1</i>', t)
+
+            # 5. Convert inline code `text` to font Courier
+            t = re.sub(r'`([^`]+?)`', r'<font face="Courier">\1</font>', t)
+
+            # 6. Balance unclosed tags
+            open_b = t.count("<b>")
+            close_b = t.count("</b>")
+            if open_b > close_b:
+                t += "</b>" * (open_b - close_b)
+            elif close_b > open_b:
+                t = "<b>" * (close_b - open_b) + t
+
+            open_i = t.count("<i>")
+            close_i = t.count("</i>")
+            if open_i > close_i:
+                t += "</i>" * (open_i - close_i)
+            elif close_i > open_i:
+                t = "<i>" * (close_i - open_i) + t
+
+            return t
+
+        def build_safe_paragraph(raw_text: str, style, is_bold_prefix: str = "") -> Paragraph:
+            formatted = clean_md_to_reportlab(raw_text)
+            if is_bold_prefix:
+                formatted = f"<b>{html.escape(is_bold_prefix)}</b> {formatted}"
+            try:
+                return Paragraph(formatted, style)
+            except Exception:
+                # Guaranteed fallback without any formatting tags
+                plain = html.escape(raw_text).replace("\u2011", "-").replace("\u201c", '"').replace("\u201d", '"')
+                return Paragraph(plain, style)
+
+        title = str(payload.get("title") or "Academic Document")
         subject = str(payload.get("subject") or "General Studies")
         class_name = str(payload.get("class_name") or "Class 10")
-        chapter = str(payload.get("chapter") or "Academic Session")
+        chapter = str(payload.get("chapter") or "Curriculum")
         school_name = str(payload.get("school_name") or "DEVGYA GLOBAL ACADEMY")
         school_logo = payload.get("school_logo")
         theme_name = str(payload.get("theme") or "cbse").lower()
         font_size_mode = str(payload.get("font_size") or "standard").lower()
-        include_answers = bool(payload.get("include_answers", False))
-        include_student_header = bool(payload.get("include_student_header", True))
+        include_header_bar = bool(payload.get("include_student_header", True))
         content = str(payload.get("content") or "")
 
         # Theme Color Palettes
@@ -427,20 +479,20 @@ class PDFGeneratorService:
             margins = 24
             base_font = 9
             base_leading = 12
-            q_font = 9.5
-            title_font = 13
+            h1_font = 13
+            h2_font = 11
         elif font_size_mode == "large":
             margins = 36
             base_font = 11
             base_leading = 16
-            q_font = 11.5
-            title_font = 16
+            h1_font = 16
+            h2_font = 13.5
         else:
             margins = 32
             base_font = 10
             base_leading = 14
-            q_font = 10.5
-            title_font = 14
+            h1_font = 14
+            h2_font = 12
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -455,17 +507,17 @@ class PDFGeneratorService:
         styles = getSampleStyleSheet()
 
         title_style = ParagraphStyle(
-            'WTitle',
+            'WDocTitle',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=title_font,
-            leading=title_font + 4,
+            fontSize=h1_font,
+            leading=h1_font + 4,
             alignment=1, # Centered
             textColor=th["primary"]
         )
 
         subtitle_style = ParagraphStyle(
-            'WSubtitle',
+            'WDocSubtitle',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
             fontSize=base_font + 1,
@@ -475,7 +527,7 @@ class PDFGeneratorService:
         )
 
         meta_style = ParagraphStyle(
-            'WMeta',
+            'WDocMeta',
             parent=styles['Normal'],
             fontName='Helvetica',
             fontSize=base_font - 1,
@@ -483,19 +535,30 @@ class PDFGeneratorService:
             textColor=colors.HexColor("#334155")
         )
 
-        section_heading_style = ParagraphStyle(
-            'WSection',
+        h1_style = ParagraphStyle(
+            'WDocH1',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=base_font + 1,
-            leading=base_leading + 3,
+            fontSize=h2_font + 1,
+            leading=base_leading + 4,
             textColor=th["primary"],
-            spaceBefore=6,
+            spaceBefore=8,
             spaceAfter=4
         )
 
+        h2_style = ParagraphStyle(
+            'WDocH2',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=h2_font,
+            leading=base_leading + 2,
+            textColor=th["highlight"],
+            spaceBefore=6,
+            spaceAfter=3
+        )
+
         body_style = ParagraphStyle(
-            'WBody',
+            'WDocBody',
             parent=styles['Normal'],
             fontName='Helvetica',
             fontSize=base_font,
@@ -505,35 +568,28 @@ class PDFGeneratorService:
             spaceAfter=3
         )
 
-        question_style = ParagraphStyle(
-            'WQuestion',
+        bullet_style = ParagraphStyle(
+            'WDocBullet',
             parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=q_font,
-            leading=base_leading + 1,
-            textColor=colors.HexColor("#0F172A"),
-            spaceBefore=4,
+            fontName='Helvetica',
+            fontSize=base_font,
+            leading=base_leading,
+            leftIndent=14,
+            textColor=colors.HexColor("#1E293B"),
+            spaceBefore=1,
             spaceAfter=2
         )
 
-        answer_box_style = ParagraphStyle(
-            'WAnswer',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=base_font - 0.5,
-            leading=base_leading,
-            leftIndent=12,
-            textColor=th["highlight"]
-        )
-
-        blank_line_style = ParagraphStyle(
-            'WBlank',
+        callout_style = ParagraphStyle(
+            'WDocCallout',
             parent=styles['Normal'],
             fontName='Helvetica-Oblique',
-            fontSize=base_font - 1,
+            fontSize=base_font,
             leading=base_leading,
-            leftIndent=12,
-            textColor=colors.HexColor("#94A3B8")
+            leftIndent=14,
+            textColor=th["primary"],
+            spaceBefore=3,
+            spaceAfter=3
         )
 
         story = []
@@ -568,16 +624,15 @@ class PDFGeneratorService:
                 except Exception:
                     pass
 
-        header_title = f"{title} (TEACHER ANSWER KEY)" if include_answers else title
-
+        # Top Header
         if logo_element:
             header_table_data = [
                 [
                     logo_element,
                     [
-                        Paragraph(school_name.upper(), title_style),
+                        build_safe_paragraph(school_name.upper(), title_style),
                         Spacer(1, 2),
-                        Paragraph(f"{header_title} — {subject.upper()} ({class_name.upper()})", subtitle_style)
+                        build_safe_paragraph(f"{title} — {subject.upper()} ({class_name.upper()})", subtitle_style)
                     ]
                 ]
             ]
@@ -591,83 +646,131 @@ class PDFGeneratorService:
             ]))
             story.append(header_table)
         else:
-            story.append(Paragraph(school_name.upper(), title_style))
+            story.append(build_safe_paragraph(school_name.upper(), title_style))
             story.append(Spacer(1, 3))
-            story.append(Paragraph(f"{header_title} — {subject.upper()} ({class_name.upper()})", subtitle_style))
+            story.append(build_safe_paragraph(f"{title} — {subject.upper()} ({class_name.upper()})", subtitle_style))
         story.append(Spacer(1, 6))
 
-        # Student Details Info Box
-        if include_student_header and not include_answers:
-            student_box_data = [
+        # Academic Metadata Bar
+        if include_header_bar:
+            meta_box_data = [
                 [
-                    Paragraph("<b>Student Name:</b> ___________________________", meta_style),
-                    Paragraph("<b>Roll No:</b> ________", meta_style),
-                    Paragraph("<b>Class / Sec:</b> ____________", meta_style),
-                    Paragraph("<b>Date:</b> ____________", meta_style)
+                    build_safe_paragraph(f"<b>Subject:</b> {subject}", meta_style),
+                    build_safe_paragraph(f"<b>Class:</b> {class_name}", meta_style),
+                    build_safe_paragraph(f"<b>Topic:</b> {chapter}", meta_style),
+                    build_safe_paragraph("<b>Session:</b> 2025-26", meta_style)
                 ]
             ]
-            student_table = Table(student_box_data, colWidths=[200, 100, 115, 115])
-            student_table.setStyle(TableStyle([
+            meta_table = Table(meta_box_data, colWidths=[140, 110, 160, 120])
+            meta_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,-1), th["bg_meta"]),
                 ('BOX', (0,0), (-1,-1), 1, th["border"]),
                 ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
-                ('PADDING', (0,0), (-1,-1), 5),
+                ('PADDING', (0,0), (-1,-1), 4),
             ]))
-            story.append(student_table)
-            story.append(Spacer(1, 6))
+            story.append(meta_table)
+            story.append(Spacer(1, 4))
 
         # Divider Rule
-        story.append(HRFlowable(width="100%", thickness=1.5, color=th["primary"], spaceBefore=3, spaceAfter=8))
+        story.append(HRFlowable(width="100%", thickness=1.5, color=th["primary"], spaceBefore=2, spaceAfter=6))
 
-        # Parse AI Generated Content Lines
-        import html
+        # Parse AI Generated Markdown Content Lines
         raw_lines = content.split("\n")
-        in_solution_block = False
+        in_table_block = False
+        table_rows = []
 
         for raw_line in raw_lines:
             line = raw_line.strip()
             if not line:
-                story.append(Spacer(1, 4))
+                if in_table_block and table_rows:
+                    # Flush table
+                    try:
+                        t_flow = Table(table_rows)
+                        t_flow.setStyle(TableStyle([
+                            ('BACKGROUND', (0,0), (-1,0), th["bg_meta"]),
+                            ('BOX', (0,0), (-1,-1), 1, th["border"]),
+                            ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
+                            ('PADDING', (0,0), (-1,-1), 4),
+                        ]))
+                        story.append(t_flow)
+                        story.append(Spacer(1, 4))
+                    except Exception:
+                        pass
+                    in_table_block = False
+                    table_rows = []
+                story.append(Spacer(1, 3))
                 continue
 
-            # Strip markdown formatting bold/italic artifacts safely
-            clean_line = html.escape(line)
-            clean_line = clean_line.replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>")
-
-            # Check if line is a Heading (#, ##, ###, or SECTION)
-            if line.startswith(("#", "SECTION", "Section", "PART", "Part", "**SECTION", "**Section")):
-                heading_text = line.lstrip("#* \t")
-                story.append(Spacer(1, 4))
-                story.append(Paragraph(f"<b>{html.escape(heading_text)}</b>", section_heading_style))
-                story.append(HRFlowable(width="100%", thickness=0.75, color=th["border"], spaceBefore=1, spaceAfter=5))
-            
-            # Check if line is a Question (e.g. "1.", "Q1.", "Question 1:", "2)")
-            elif line.startswith(("1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.", "10.", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10", "Question", "**Q")):
-                q_text = line.replace("**", "")
-                story.append(Spacer(1, 3))
-                story.append(Paragraph(f"<b>{html.escape(q_text)}</b>", question_style))
-                # If student mode, add blank answer line
-                if not include_answers and not any(opt in line for opt in ["(A)", "(B)", "(a)", "(b)"]):
-                    story.append(Paragraph("Answer: ____________________________________________________________________________", blank_line_style))
-                    story.append(Paragraph("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;____________________________________________________________________________", blank_line_style))
-
-            # Check if line is an MCQ Option (e.g. (A), (B), A), B))
-            elif line.startswith(("(", "A.", "B.", "C.", "D.", "a)", "b)", "c)", "d)", "A)", "B)", "C)", "D)")):
-                story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;{clean_line.replace('**', '')}", body_style))
-
-            # Check if line is an Answer or Solution line
-            elif line.lower().startswith(("answer:", "solution:", "correct answer:", "explanation:", "**answer:", "**solution:")):
-                if include_answers:
-                    ans_text = line.replace("**", "")
-                    story.append(Paragraph(f"✓ <b>{html.escape(ans_text)}</b>", answer_box_style))
-                else:
-                    # In student mode, omit solutions
+            # Markdown Table Row Detection
+            if line.startswith("|") and line.endswith("|"):
+                cells = [c.strip() for c in line.strip("|").split("|")]
+                if all(set(c).issubset({"-", ":", " "}) for c in cells):
+                    # Separator line like |---|---|
+                    continue
+                in_table_block = True
+                p_cells = [build_safe_paragraph(c, body_style) for c in cells]
+                table_rows.append(p_cells)
+                continue
+            elif in_table_block and table_rows:
+                try:
+                    t_flow = Table(table_rows)
+                    t_flow.setStyle(TableStyle([
+                        ('BACKGROUND', (0,0), (-1,0), th["bg_meta"]),
+                        ('BOX', (0,0), (-1,-1), 1, th["border"]),
+                        ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
+                        ('PADDING', (0,0), (-1,-1), 4),
+                    ]))
+                    story.append(t_flow)
+                    story.append(Spacer(1, 4))
+                except Exception:
                     pass
+                in_table_block = False
+                table_rows = []
+
+            # Headings (#, ##, ###, or SECTION / Chapter)
+            if line.startswith(("# ", "## ", "### ", "#### ")):
+                level = line.count("#")
+                h_text = line.lstrip("#* \t")
+                chosen_style = h1_style if level <= 2 else h2_style
+                story.append(build_safe_paragraph(h_text, chosen_style))
+                story.append(HRFlowable(width="100%", thickness=0.75, color=th["border"], spaceBefore=1, spaceAfter=4))
+
+            elif line.startswith(("SECTION", "Section", "PART", "Part", "CHAPTER", "Chapter", "UNIT", "Unit", "**SECTION", "**Section")):
+                h_text = line.strip("* \t")
+                story.append(build_safe_paragraph(h_text, h1_style))
+                story.append(HRFlowable(width="100%", thickness=0.75, color=th["border"], spaceBefore=1, spaceAfter=4))
+
+            # Blockquote (> text)
+            elif line.startswith(">"):
+                quote_text = line.lstrip("> \t")
+                story.append(build_safe_paragraph(quote_text, callout_style, is_bold_prefix="💡"))
+
+            # Bullet points (- , * , • )
+            elif line.startswith(("- ", "* ", "• ", "+ ")):
+                bullet_text = line[2:].strip()
+                story.append(build_safe_paragraph(f"• {bullet_text}", bullet_style))
+
+            # Numbered items (1. , 2. , Q1. , Question 1:)
+            elif re.match(r'^(Q\d+[\.\:]|\d+[\.\)]|Question\s+\d+[\.\:])\s*', line):
+                story.append(build_safe_paragraph(line, body_style))
 
             # Regular Paragraph Line
             else:
-                formatted_body = clean_line.replace("**", "<b>").replace("__", "<i>")
-                story.append(Paragraph(formatted_body, body_style))
+                story.append(build_safe_paragraph(line, body_style))
+
+        # Flush any trailing table
+        if in_table_block and table_rows:
+            try:
+                t_flow = Table(table_rows)
+                t_flow.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,0), th["bg_meta"]),
+                    ('BOX', (0,0), (-1,-1), 1, th["border"]),
+                    ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
+                    ('PADDING', (0,0), (-1,-1), 4),
+                ]))
+                story.append(t_flow)
+            except Exception:
+                pass
 
         doc.build(story, canvasmaker=NumberedCanvas)
         pdf_bytes = buffer.getvalue()

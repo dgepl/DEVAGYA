@@ -12,10 +12,25 @@ router = APIRouter(prefix="/generator", tags=["Question Generator"])
 
 @router.post("/generate", response_model=GeneratedPaperResponse)
 async def generate_paper(request: GeneratePaperRequest):
-    raise HTTPException(
-        status_code=400,
-        detail="Reference document (PDF or Image) is compulsory. Please attach a reference file to generate a question paper."
-    )
+    """Generate Question Paper directly from syllabus/OCR context without requiring file attachment."""
+    try:
+        response = await groq_service.generate_questions(
+            class_name=request.class_name,
+            subject=request.subject,
+            chapter=request.chapter,
+            num_mcqs=request.num_mcqs,
+            num_short=request.num_short,
+            num_long=request.num_long,
+            difficulty=request.difficulty,
+            total_marks=request.total_marks,
+            time_allowed_mins=request.time_allowed_mins,
+            title=request.title,
+            school_name=request.school_name,
+            custom_instructions=request.custom_instructions
+        )
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Question paper generation failed: {str(e)}")
 
 @router.post("/generate-from-file", response_model=GeneratedPaperResponse)
 async def generate_paper_from_file(
@@ -33,12 +48,41 @@ async def generate_paper_from_file(
     school_name: str = Form("DEVGYA GLOBAL ACADEMY"),
     custom_instructions: str = Form("")
 ):
-    """Generate Question Paper strictly requiring reference PDF/Photo file attachment."""
+    """Generate Question Paper with optional reference PDF/Photo or direct prompt."""
+    req = GeneratePaperRequest(
+        title=title,
+        class_name=class_name,
+        subject=subject,
+        chapter=chapter,
+        difficulty=difficulty,
+        total_marks=total_marks,
+        time_allowed_mins=time_allowed_mins,
+        num_mcqs=num_mcqs,
+        num_short=num_short,
+        num_long=num_long,
+        school_name=school_name,
+        custom_instructions=custom_instructions
+    )
+
+    # If no file is attached, generate directly from prompt/syllabus
     if not file or not file.filename:
-        raise HTTPException(
-            status_code=400,
-            detail="Reference document (PDF or Image) is compulsory. Please attach a reference file to generate a question paper."
-        )
+        try:
+            return await groq_service.generate_questions(
+                class_name=class_name,
+                subject=subject,
+                chapter=chapter,
+                num_mcqs=num_mcqs,
+                num_short=num_short,
+                num_long=num_long,
+                difficulty=difficulty,
+                total_marks=total_marks,
+                time_allowed_mins=time_allowed_mins,
+                title=title,
+                school_name=school_name,
+                custom_instructions=custom_instructions
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to generate paper: {str(e)}")
 
     extracted_text = ""
     image_data_url = None
@@ -61,7 +105,7 @@ async def generate_paper_from_file(
         except Exception:
             raise HTTPException(
                 status_code=400,
-                detail="Unable to read or parse the attached image file. Please upload a valid, clear image (JPG, PNG, WebP)."
+                detail="Unable to read the attached image file. Please upload a clear JPG, PNG, or WebP image."
             )
     elif ext == ".pdf" or "pdf" in content_type:
         try:
@@ -85,26 +129,22 @@ async def generate_paper_from_file(
     has_text = bool(extracted_text and len(extracted_text.strip()) >= 10)
     has_image = bool(image_data_url and len(image_data_url) > 100)
 
+    # If file couldn't be parsed, fallback to direct text prompt
     if not has_text and not has_image:
-        raise HTTPException(
-            status_code=400,
-            detail="Unable to read text or images from the attached PDF or document. Please ensure the file is clear and readable."
+        return await groq_service.generate_questions(
+            class_name=class_name,
+            subject=subject,
+            chapter=chapter,
+            num_mcqs=num_mcqs,
+            num_short=num_short,
+            num_long=num_long,
+            difficulty=difficulty,
+            total_marks=total_marks,
+            time_allowed_mins=time_allowed_mins,
+            title=title,
+            school_name=school_name,
+            custom_instructions=custom_instructions
         )
-
-    req = GeneratePaperRequest(
-        title=title,
-        class_name=class_name,
-        subject=subject,
-        chapter=chapter,
-        difficulty=difficulty,
-        total_marks=total_marks,
-        time_allowed_mins=time_allowed_mins,
-        num_mcqs=num_mcqs,
-        num_short=num_short,
-        num_long=num_long,
-        school_name=school_name,
-        custom_instructions=custom_instructions
-    )
 
     try:
         response = await groq_service.generate_question_paper_with_attachment(

@@ -110,13 +110,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   // Role-based Nav Specifications — each agent is a direct sidebar link
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    // Olympiad & Core Studios
-    { label: "Teachers Skill Olympiad", href: "/dashboard/teacher-olympiad", icon: Trophy },
-    { label: "Olympiad Practice Zone", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
+    { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
-    // All-In-One Unified Teacher AI
-    { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
+    { label: "Teacher Skill Olympiad", href: "/dashboard/teacher-olympiad", icon: Trophy },
+    { label: "Olympiad Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
   ];
 
