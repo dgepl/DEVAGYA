@@ -25,6 +25,7 @@ class GeneratePaperRequest(BaseModel):
     num_short: int = Field(default=5)
     num_long: int = Field(default=3)
     school_name: str = Field(default="Apex International Academy")
+    school_logo: Optional[str] = None
     custom_instructions: Optional[str] = None
 
 class GeneratedPaperResponse(BaseModel):
@@ -38,3 +39,4 @@ class GeneratedPaperResponse(BaseModel):
     instructions: List[str]
     questions: List[QuestionItem]
     school_name: str
+    school_logo: Optional[str] = None

@@ -19,6 +19,7 @@ async def generate_pdf(payload: Dict[str, Any] = Body(...), include_answers: boo
         total_marks = int(payload.get("total_marks") or 40)
         time_allowed_mins = int(payload.get("time_allowed_mins") or 90)
         school_name = str(payload.get("school_name") or "DEVGYA GLOBAL ACADEMY")
+        school_logo = payload.get("school_logo")
         
         raw_instructions = payload.get("instructions")
         instructions = [str(i) for i in raw_instructions] if isinstance(raw_instructions, list) and raw_instructions else [
@@ -71,7 +72,8 @@ async def generate_pdf(payload: Dict[str, Any] = Body(...), include_answers: boo
             time_allowed_mins=time_allowed_mins,
             instructions=instructions,
             questions=clean_questions,
-            school_name=school_name
+            school_name=school_name,
+            school_logo=school_logo
         )
 
         pdf_bytes = pdf_generator_service.generate_question_paper_pdf(clean_paper, include_answers=include_answers)

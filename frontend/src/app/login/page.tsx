@@ -59,7 +59,13 @@ export default function LoginPage() {
 
       if (role === "student") router.push("/dashboard/student");
       else if (role === "parent") router.push("/dashboard/parent");
-      else router.push("/dashboard");
+      else {
+        if (!data.user.schoolName || !data.user.subject || data.user.isProfileComplete === false) {
+          router.push("/dashboard/profile?onboarding=true");
+        } else {
+          router.push("/dashboard");
+        }
+      }
     } catch (err: any) {
       if (err?.message === "Failed to fetch") {
         setError("Unable to connect to the authentication server. Please check your network connection.");

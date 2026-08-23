@@ -9,6 +9,9 @@ export interface UserProfile {
   schoolName: string;
   schoolLogo?: string;
   board: string;
+  subject?: string;
+  classes?: string;
+  isProfileComplete?: boolean;
   xp?: number;
   streak?: number;
   level?: number;
@@ -22,6 +25,7 @@ interface AppState {
   ocrDraftText: string;
   activeChildId: string;
   setUser: (user: UserProfile) => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => void;
   switchRole: (role: "teacher" | "student" | "parent" | "super_admin") => void;
   setActivePaper: (paper: GeneratedPaperResponse | null) => void;
   savePaper: (paper: GeneratedPaperResponse) => void;
@@ -37,8 +41,11 @@ const defaultUser: UserProfile = {
   name: "Guest User",
   email: "",
   role: "student",
-  schoolName: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+  schoolName: "",
   board: "CBSE",
+  subject: "",
+  classes: "Class 10",
+  isProfileComplete: false,
   xp: 0,
   streak: 0,
   level: 1,
@@ -86,6 +93,17 @@ export const useAppStore = create<AppState>((set) => ({
       } catch (e) {}
     }
     set({ user });
+  },
+  updateUserProfile: (updates) => {
+    set((state) => {
+      const updatedUser = { ...state.user, ...updates };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("devgya_user", JSON.stringify(updatedUser));
+        } catch (e) {}
+      }
+      return { user: updatedUser };
+    });
   },
   initSession: () => {
     const user = getInitialUser();

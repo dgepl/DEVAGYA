@@ -43,13 +43,13 @@ const CLASS_OPTIONS = [
 
 export default function GeneratorPage() {
   const router = useRouter();
-  const { ocrDraftText, savedPapers, savePaper, deleteSavedPaper, setOcrDraftText } = useAppStore();
+  const { user, ocrDraftText, savedPapers, savePaper, deleteSavedPaper, setOcrDraftText } = useAppStore();
 
-  // Clean Form State (No Hardcoded Mock Pre-fills)
-  const [schoolName, setSchoolName] = useState("");
+  // Clean Form State (Auto-Prefills from Teacher Profile)
+  const [schoolName, setSchoolName] = useState(user.schoolName || "");
   const [title, setTitle] = useState("");
-  const [className, setClassName] = useState("");
-  const [subject, setSubject] = useState("");
+  const [className, setClassName] = useState(user.classes || "");
+  const [subject, setSubject] = useState(user.subject || "");
   const [chapter, setChapter] = useState("");
   const [difficulty, setDifficulty] = useState("medium");
   const [totalMarks, setTotalMarks] = useState<string>("");
@@ -59,6 +59,15 @@ export default function GeneratorPage() {
   const [numLong, setNumLong] = useState<string>("1");
   const [customPrompt, setCustomPrompt] = useState("");
   const [showAnswerKey, setShowAnswerKey] = useState(true);
+
+  // Auto-update from user profile on login/profile updates
+  useEffect(() => {
+    if (user) {
+      if (user.schoolName && !schoolName) setSchoolName(user.schoolName);
+      if (user.subject && !subject) setSubject(user.subject);
+      if (user.classes && !className) setClassName(user.classes);
+    }
+  }, [user]);
 
   // File Attachment State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -144,7 +153,7 @@ export default function GeneratorPage() {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("school_name", schoolName.trim() || "DEVGYA GLOBAL ACADEMY");
+      formData.append("school_name", schoolName.trim() || user.schoolName || "DEVGYA GLOBAL ACADEMY");
       formData.append("title", title.trim() || `${subject.trim() || "General"} Assessment`);
       formData.append("class_name", className || "Class 10");
       formData.append("subject", subject.trim() || "General");
@@ -158,6 +167,9 @@ export default function GeneratorPage() {
       formData.append("custom_instructions", customPrompt);
 
       const res = await generateQuestionPaperFromFile(formData);
+      if (user.schoolLogo && !res.school_logo) {
+        res.school_logo = user.schoolLogo;
+      }
       setPaper(res);
       savePaper(res);
     } catch (err: any) {
@@ -179,20 +191,22 @@ export default function GeneratorPage() {
   // Inline Question Editing
   const handleUpdateQuestion = (id: number, updatedFields: Partial<QuestionItem>) => {
     if (!paper) return;
-    const updated = {
-      ...paper,
-      questions: paper.questions.map(q => q.id === id ? { ...q, ...updatedFields } : q)
-    };
+    const updatedQuestions = paper.questions.map((q) => {
+      if (q.id === id) {
+        return { ...q, ...updatedFields };
+      }
+      return q;
+    });
+
+    const updated = { ...paper, questions: updatedQuestions };
     setPaper(updated);
     savePaper(updated);
   };
 
   const handleDeleteQuestion = (id: number) => {
     if (!paper) return;
-    const updated = {
-      ...paper,
-      questions: paper.questions.filter(q => q.id !== id)
-    };
+    const updatedQuestions = paper.questions.filter((q) => q.id !== id);
+    const updated = { ...paper, questions: updatedQuestions };
     setPaper(updated);
     savePaper(updated);
   };
@@ -228,7 +242,12 @@ export default function GeneratorPage() {
     if (!paper) return;
     setDownloadingStudent(true);
     try {
-      await downloadPDF(paper, false);
+      const paperWithLogo = {
+        ...paper,
+        school_name: paper.school_name || schoolName || user.schoolName || "DEVGYA GLOBAL ACADEMY",
+        school_logo: (paper as any).school_logo || user.schoolLogo || ""
+      };
+      await downloadPDF(paperWithLogo, false);
     } catch (err) {
       console.error(err);
       alert("Error generating Student Question Paper PDF.");
@@ -241,7 +260,12 @@ export default function GeneratorPage() {
     if (!paper) return;
     setDownloadingTeacher(true);
     try {
-      await downloadPDF(paper, true);
+      const paperWithLogo = {
+        ...paper,
+        school_name: paper.school_name || schoolName || user.schoolName || "DEVGYA GLOBAL ACADEMY",
+        school_logo: (paper as any).school_logo || user.schoolLogo || ""
+      };
+      await downloadPDF(paperWithLogo, true);
     } catch (err) {
       console.error(err);
       alert("Error generating Teacher Answer Key PDF.");
@@ -333,6 +357,38 @@ export default function GeneratorPage() {
             <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">
               Fields Optional
             </span>
+          </div>
+
+          {/* ACTIVE SCHOOL BRANDING STATUS CARD */}
+          <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-white border border-indigo-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                {user.schoolLogo ? (
+                  <img src={user.schoolLogo} alt="School Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <Building className="w-5 h-5 text-indigo-600" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 block">
+                  Active School Branding
+                </span>
+                <p className="text-xs font-black text-slate-900 truncate">
+                  {schoolName || user.schoolName || "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED"}
+                </p>
+                <p className="text-[10px] text-slate-500 font-medium truncate">
+                  {user.board || "CBSE"} &bull; {user.subject || "All Subjects"} &bull; {user.classes || "Class 10"}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/profile")}
+              className="px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-indigo-200 text-indigo-700 font-extrabold text-[10px] rounded-xl shrink-0 transition-all cursor-pointer shadow-xs"
+            >
+              Edit Logo / Profile
+            </button>
           </div>
 
           {/* 1. School & Title */}

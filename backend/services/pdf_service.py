@@ -4,7 +4,7 @@ import re
 import zipfile
 import xml.etree.ElementTree as ET
 from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
@@ -233,12 +233,65 @@ class PDFGeneratorService:
 
         story = []
 
+        # Process School Logo if available
+        logo_element = None
+        raw_logo = getattr(paper, "school_logo", None)
+        if raw_logo:
+            try:
+                import base64
+                if str(raw_logo).startswith(("http://", "https://")):
+                    import httpx
+                    with httpx.Client(timeout=5.0) as client:
+                        res = client.get(raw_logo)
+                        if res.status_code == 200:
+                            logo_io = io.BytesIO(res.content)
+                            logo_element = RLImage(logo_io, width=48, height=48)
+                elif "base64," in str(raw_logo):
+                    base64_data = str(raw_logo).split("base64,")[1]
+                    logo_bytes = base64.b64decode(base64_data)
+                    logo_io = io.BytesIO(logo_bytes)
+                    logo_element = RLImage(logo_io, width=48, height=48)
+                elif os.path.exists(str(raw_logo)):
+                    logo_element = RLImage(str(raw_logo), width=48, height=48)
+            except Exception as e:
+                pass
+
+        # Fallback to DEVGYA official logo if available
+        if not logo_element:
+            default_logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "logo.png"))
+            if os.path.exists(default_logo_path):
+                try:
+                    logo_element = RLImage(default_logo_path, width=48, height=48)
+                except Exception:
+                    pass
+
         # Header Block
         header_title = f"{paper.title} (TEACHER ANSWER KEY)" if include_answers else paper.title
 
-        story.append(Paragraph(paper.school_name.upper(), title_style))
-        story.append(Spacer(1, 4))
-        story.append(Paragraph(f"{header_title} — {paper.subject.upper()}", subtitle_style))
+        if logo_element:
+            header_table_data = [
+                [
+                    logo_element,
+                    [
+                        Paragraph(paper.school_name.upper(), title_style),
+                        Spacer(1, 3),
+                        Paragraph(f"{header_title} — {paper.subject.upper()}", subtitle_style)
+                    ]
+                ]
+            ]
+            header_table = Table(header_table_data, colWidths=[60, 460])
+            header_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (0,0), 'CENTER'),
+                ('ALIGN', (1,0), (1,0), 'CENTER'),
+                ('PADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+            ]))
+            story.append(header_table)
+        else:
+            story.append(Paragraph(paper.school_name.upper(), title_style))
+            story.append(Spacer(1, 4))
+            story.append(Paragraph(f"{header_title} — {paper.subject.upper()}", subtitle_style))
         story.append(Spacer(1, 8))
 
         # Metadata Table (Class, Time, Marks, Chapter)

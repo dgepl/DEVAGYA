@@ -13,8 +13,6 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"teacher" | "student" | "parent">("teacher");
-  const [schoolName, setSchoolName] = useState("");
-  const [board, setBoard] = useState("CBSE");
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,20 +101,28 @@ export default function RegisterPage() {
           password,
           name,
           role,
-          school_name: schoolName || "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
-          board,
           otp_code: otpCode
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Registration failed.");
 
-      setUser(data.user);
+      const registeredUser = {
+        ...data.user,
+        isProfileComplete: false
+      };
+      setUser(registeredUser);
 
-      // Redirect to correct role dashboard
-      if (role === "student") router.push("/dashboard/student");
-      else if (role === "parent") router.push("/dashboard/parent");
-      else router.push("/dashboard");
+      // Redirect to profile completion for teachers, or role dashboard for others
+      if (role === "teacher") {
+        router.push("/dashboard/profile?onboarding=true");
+      } else if (role === "student") {
+        router.push("/dashboard/student");
+      } else if (role === "parent") {
+        router.push("/dashboard/parent");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       setError(err.message || "Registration failed.");
     } finally {
@@ -215,37 +221,6 @@ export default function RegisterPage() {
                 required
                 className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold shadow-inner transition-all"
               />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Institution / School</label>
-              <div className="relative">
-                <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                <input
-                  type="text"
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                  placeholder="School name"
-                  required
-                  className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-3 py-3 text-xs text-slate-900 font-semibold shadow-inner transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Board</label>
-              <select
-                value={board}
-                onChange={(e) => setBoard(e.target.value)}
-                className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl px-3 py-3 text-xs text-slate-900 font-semibold shadow-inner transition-all"
-              >
-                <option value="CBSE">CBSE Board</option>
-                <option value="ICSE">ICSE / ISC</option>
-                <option value="STATE">State Board</option>
-                <option value="IB">IB International</option>
-              </select>
             </div>
           </div>
 

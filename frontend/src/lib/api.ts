@@ -19,6 +19,7 @@ export interface GeneratePaperPayload {
   num_short: number;
   num_long: number;
   school_name: string;
+  school_logo?: string;
   custom_instructions?: string;
 }
 
@@ -44,6 +45,7 @@ export interface GeneratedPaperResponse {
   instructions: string[];
   questions: QuestionItem[];
   school_name: string;
+  school_logo?: string;
 }
 
 function parseErrorMessage(errData: any, fallback: string): string {
