@@ -50,12 +50,13 @@ export default function SuperAdminPage() {
   const [adminTab, setAdminTab] = useState<"olympiad" | "paper_studio" | "users" | "analytics">("paper_studio");
 
   // Paper Studio Sub-Tab State
-  const [paperStudioSubTab, setPaperStudioSubTab] = useState<"tso_100_ai" | "ai_prompt" | "manual_builder" | "repository">("tso_100_ai");
+  const [paperStudioSubTab, setPaperStudioSubTab] = useState<"tso_100_ai" | "manual_builder" | "repository">("tso_100_ai");
 
   // Master TSO 100-MCQ AI Generator & Editor State
   const [tsoSubject, setTsoSubject] = useState("Science");
   const [tsoClass, setTsoClass] = useState("Secondary (Classes 9–10)");
   const [tsoTitle, setTsoTitle] = useState("National Teacher Skills Olympiad 2026 — SCIENCE");
+  const [tsoDifficulty, setTsoDifficulty] = useState("medium");
   const [tsoStartTime, setTsoStartTime] = useState(getLocalISOString(0));
   const [tsoEndTime, setTsoEndTime] = useState(getLocalISOString(30 * 24 * 60 * 60 * 1000));
   const [generatingTso100, setGeneratingTso100] = useState(false);
@@ -238,6 +239,7 @@ export default function SuperAdminPage() {
         subject: tsoSubject,
         class_name: tsoClass,
         title: tsoTitle,
+        difficulty: tsoDifficulty,
         start_time: tsoStartTime.replace("T", " ") + ":00",
         end_time: tsoEndTime.replace("T", " ") + ":00",
         school_name: "DEVGYA GLOBAL EDUTECH"
@@ -833,16 +835,6 @@ export default function SuperAdminPage() {
             </button>
 
             <button
-              onClick={() => setPaperStudioSubTab("ai_prompt")}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-                paperStudioSubTab === "ai_prompt" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Wand2 className="w-4 h-4 text-indigo-600" />
-              <span>AI Paper Generator via Prompt</span>
-            </button>
-
-            <button
               onClick={() => setPaperStudioSubTab("manual_builder")}
               className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
                 paperStudioSubTab === "manual_builder" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
@@ -880,21 +872,72 @@ export default function SuperAdminPage() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 font-medium">
-                    Automatically synthesizes all 6 modules: Part-A (60 MCQs: CPD/NEP, Classroom Scenarios, Modern Pedagogy) + Part-B (40 MCQs: Core Depth, TLM, Misconceptions/HOTS).
+                    DEVGYA AI strictly constructs the official 100-MCQ paper across all 6 blueprint modules:
                   </p>
                 </div>
 
-                <form onSubmit={handleGenerateTso100AI} className="space-y-5">
+                {/* 60/40 BLUEPRINT MODULES VISUAL OVERVIEW */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* PART-A (60 MCQs) */}
+                  <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-purple-200/60 pb-2">
+                      <span className="text-xs font-black text-purple-950 uppercase">Part-A: Universal Pedagogy</span>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-purple-200 text-purple-900">
+                        60% Weightage (60 MCQs)
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 text-xs text-purple-900 font-semibold">
+                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-purple-100">
+                        <span>• Module 1: CBSE CPD Modules & NEP Guidelines</span>
+                        <span className="font-black text-purple-700">20 MCQs</span>
+                      </div>
+                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-purple-100">
+                        <span>• Module 2: Personal Classroom Experience & Scenarios</span>
+                        <span className="font-black text-purple-700">20 MCQs</span>
+                      </div>
+                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-purple-100">
+                        <span>• Module 3: Modern Pedagogy & Critical Thinking</span>
+                        <span className="font-black text-purple-700">20 MCQs</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PART-B (40 MCQs) */}
+                  <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-indigo-200/60 pb-2">
+                      <span className="text-xs font-black text-indigo-950 uppercase">Part-B: Subject Depth & Pedagogy</span>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-indigo-200 text-indigo-900">
+                        40% Weightage (40 MCQs)
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 text-xs text-indigo-900 font-semibold">
+                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-indigo-100">
+                        <span>• Module 1: Core Subject Knowledge ({tsoSubject})</span>
+                        <span className="font-black text-indigo-700">20 MCQs</span>
+                      </div>
+                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-indigo-100">
+                        <span>• Module 2: Subject Pedagogical Knowledge & TLM</span>
+                        <span className="font-black text-indigo-700">10 MCQs</span>
+                      </div>
+                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-indigo-100">
+                        <span>• Module 3: Misconceptions & HOTS Remediation</span>
+                        <span className="font-black text-indigo-700">10 MCQs</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleGenerateTso100AI} className="space-y-5 pt-2">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Target Assessment Subject</label>
+                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Target Subject for Part-B</label>
                       <select
                         value={tsoSubject}
                         onChange={(e) => {
                           setTsoSubject(e.target.value);
                           setTsoTitle(`National Teacher Skills Olympiad 2026 — ${e.target.value.toUpperCase()}`);
                         }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900"
                       >
                         <option value="Science">Science</option>
                         <option value="Mathematics">Mathematics</option>
@@ -905,31 +948,32 @@ export default function SuperAdminPage() {
                         <option value="Chemistry">Chemistry</option>
                         <option value="Biology">Biology</option>
                         <option value="Computer Science">Computer Science / IT</option>
+                        <option value="General Pedagogy">General Teaching & School Education</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Grade / Level</label>
+                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Assessment Difficulty Level</label>
                       <select
-                        value={tsoClass}
-                        onChange={(e) => setTsoClass(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                        value={tsoDifficulty}
+                        onChange={(e) => setTsoDifficulty(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900"
                       >
-                        <option value="Secondary (Classes 9–10)">Secondary (Classes 9–10)</option>
-                        <option value="Primary (Classes 1–5)">Primary (Classes 1–5)</option>
-                        <option value="Middle School (Classes 6–8)">Middle School (Classes 6–8)</option>
-                        <option value="Senior Secondary (Classes 11–12)">Senior Secondary (Classes 11–12)</option>
+                        <option value="easy">Easy / Foundational (Core concept recall)</option>
+                        <option value="medium">Medium / Standard (Application & scenarios)</option>
+                        <option value="hard">Hard / Advanced (Complex case-studies & HOTS)</option>
+                        <option value="expert">Expert / National Olympiad (High cognitive load)</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Olympiad Paper Title</label>
+                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Official Olympiad Paper Title</label>
                       <input
                         type="text"
                         required
                         value={tsoTitle}
                         onChange={(e) => setTsoTitle(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900"
                       />
                     </div>
                   </div>
@@ -973,12 +1017,12 @@ export default function SuperAdminPage() {
                     {generatingTso100 ? (
                       <>
                         <RefreshCw className="w-5 h-5 animate-spin" />
-                        <span>Synthesizing 100 AI Questions across all 6 Modules...</span>
+                        <span>Synthesizing 100 AI Questions ({tsoDifficulty.toUpperCase()}) across all 6 Modules...</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-5 h-5 text-amber-200" />
-                        <span>Synthesize 100-MCQ TSO Paper with AI (100 Marks • 60 Mins)</span>
+                        <span>Synthesize 100-MCQ TSO Paper with AI ({tsoDifficulty.toUpperCase()} • 100 Marks • 60 Mins)</span>
                       </>
                     )}
                   </button>
@@ -997,7 +1041,7 @@ export default function SuperAdminPage() {
                         {tsoDraftPaper.title}
                       </h3>
                       <p className="text-xs text-slate-500 font-bold">
-                        {tsoDraftPaper.questions?.length || 100} Questions • 100 Marks • {tsoDraftPaper.subject}
+                        {tsoDraftPaper.questions?.length || 100} Questions • 100 Marks • {tsoDraftPaper.subject} • Difficulty: {tsoDraftPaper.difficulty || tsoDifficulty}
                       </p>
                     </div>
 
@@ -1073,381 +1117,6 @@ export default function SuperAdminPage() {
                 </div>
               )}
 
-            </div>
-          )}
-
-          {/* SUB-TAB A: AI PAPER GENERATOR VIA PROMPT */}
-          {paperStudioSubTab === "ai_prompt" && (
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-              <div className="space-y-1 border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                  <Wand2 className="w-5 h-5 text-indigo-600" />
-                  Generate Question Paper from Custom Prompt
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">Enter your custom instruction prompt and let DEVGYA AI generate a structured CBSE/NCERT paper with model answers.</p>
-              </div>
-
-              <form onSubmit={handleGenerateAiPaper} className="space-y-5">
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1.5">AI Paper Generation Prompt</label>
-                  <textarea
-                    required
-                    value={aiPromptText}
-                    onChange={(e) => setAiPromptText(e.target.value)}
-                    rows={4}
-                    placeholder="E.g. Generate a Class 10 CBSE Science Mid-Term Exam covering Electricity, Magnetic Effects, and Light with HOTS questions..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-600 shadow-inner"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Paper Title</label>
-                    <input
-                      type="text"
-                      required
-                      value={aiTitle}
-                      onChange={(e) => setAiTitle(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Class / Grade</label>
-                    <select
-                      value={aiClass}
-                      onChange={(e) => setAiClass(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    >
-                      <option value="Class 9">Class 9</option>
-                      <option value="Class 10">Class 10</option>
-                      <option value="Class 11">Class 11</option>
-                      <option value="Class 12">Class 12</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Subject</label>
-                    <select
-                      value={aiSubject}
-                      onChange={(e) => setAiSubject(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    >
-                      <option value="Science">Science</option>
-                      <option value="Mathematics">Mathematics</option>
-                      <option value="English">English</option>
-                      <option value="Physics">Physics</option>
-                      <option value="Chemistry">Chemistry</option>
-                      <option value="Biology">Biology</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Board</label>
-                    <select
-                      value={aiBoard}
-                      onChange={(e) => setAiBoard(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    >
-                      <option value="CBSE">CBSE</option>
-                      <option value="ICSE">ICSE</option>
-                      <option value="State Board">State Board</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                      <span>Total Marks (Question Count)</span>
-                      <span className="text-[9px] text-indigo-600 font-black lowercase">1 mark = 1 question</span>
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={aiTotalMarks}
-                      onChange={(e) => setAiTotalMarks(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Time Allowed (Mins)</label>
-                    <input
-                      type="number"
-                      min={5}
-                      value={aiTimeMins}
-                      onChange={(e) => setAiTimeMins(parseInt(e.target.value) || 30)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase mb-1 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-indigo-600" />
-                      Paper Access Start Time
-                    </label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={aiStartTime}
-                      onChange={(e) => setAiStartTime(e.target.value)}
-                      className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase mb-1 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-rose-600" />
-                      Paper Access End Time (Closing Time)
-                    </label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={aiEndTime}
-                      onChange={(e) => setAiEndTime(e.target.value)}
-                      className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={generatingAiPaper}
-                  className="w-full py-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-black text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer disabled:opacity-50 transition-all"
-                >
-                  {generatingAiPaper ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 text-amber-300" />}
-                  <span>{generatingAiPaper ? `Synthesizing ${aiTotalMarks} MCQ Questions with AI...` : `Generate ${aiTotalMarks} Questions Paper with AI`}</span>
-                </button>
-              </form>
-
-              {/* AI DRAFT REVIEW & LIVE QUESTION EDITOR */}
-              {aiDraftPaper && (
-                <div className="p-6 rounded-3xl border-2 border-indigo-300 bg-gradient-to-b from-indigo-50/50 via-white to-white shadow-xl space-y-6 animate-in fade-in duration-300">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-100 pb-4">
-                    <div>
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase tracking-wider mb-2">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        AI Paper Draft Ready — Review, Edit &amp; Publish
-                      </div>
-                      <h3 className="text-xl font-black text-slate-900">{aiDraftPaper.title}</h3>
-                      <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                        {aiDraftPaper.class_name} • {aiDraftPaper.subject} • {aiDraftPaper.board} • {aiDraftPaper.questions?.length || 0} Questions ({aiDraftPaper.questions?.length || 0} Marks)
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setAiDraftPaper(null)}
-                        className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-extrabold text-xs transition-all cursor-pointer"
-                      >
-                        Discard Draft
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={publishingAiPaper}
-                        onClick={handlePublishAiDraftPaper}
-                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-2 uppercase tracking-wider transition-all cursor-pointer active:scale-95"
-                      >
-                        {publishingAiPaper ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                        <span>Publish Paper to Olympiad</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* EDITABLE QUESTIONS LIST */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                        Generated Questions ({aiDraftPaper.questions?.length || 0})
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updatedQ = [...(aiDraftPaper.questions || [])];
-                          const newNum = updatedQ.length + 1;
-                          updatedQ.push({
-                            id: newNum,
-                            question_number: newNum,
-                            question_type: "mcq",
-                            question_text: "",
-                            marks: 1,
-                            options: ["", "", "", ""],
-                            correct_answer: 0,
-                            answer: "",
-                            explanation: ""
-                          });
-                          setAiDraftPaper({ ...aiDraftPaper, questions: updatedQ, total_marks: updatedQ.length });
-                        }}
-                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Question</span>
-                      </button>
-                    </div>
-
-                    {aiDraftPaper.questions?.map((q: any, qIdx: number) => (
-                      <div key={qIdx} className="p-5 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="font-extrabold text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">
-                            Question #{qIdx + 1} (1 Mark)
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updatedQ = aiDraftPaper.questions.filter((_: any, idx: number) => idx !== qIdx);
-                              setAiDraftPaper({ ...aiDraftPaper, questions: updatedQ, total_marks: updatedQ.length });
-                            }}
-                            className="text-slate-400 hover:text-red-600 text-xs font-bold cursor-pointer"
-                          >
-                            Remove Question
-                          </button>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-extrabold text-slate-600 uppercase mb-1">Question Prompt Text</label>
-                          <textarea
-                            required
-                            value={q.question_text}
-                            onChange={(e) => {
-                              const updated = [...aiDraftPaper.questions];
-                              updated[qIdx].question_text = e.target.value;
-                              setAiDraftPaper({ ...aiDraftPaper, questions: updated });
-                            }}
-                            rows={2}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900"
-                          />
-                        </div>
-
-                        {/* MCQ OPTIONS & RADIO BUTTONS */}
-                        <div className="space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-200">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
-                            <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wider">
-                              MCQ Options &amp; Correct Answer Key
-                            </label>
-
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-slate-500 uppercase">Correct Answer:</span>
-                              <select
-                                value={q.correct_answer ?? 0}
-                                onChange={(e) => {
-                                  const updated = [...aiDraftPaper.questions];
-                                  const selectedIdx = parseInt(e.target.value);
-                                  updated[qIdx].correct_answer = selectedIdx;
-                                  updated[qIdx].answer = updated[qIdx].options[selectedIdx] || `Option ${String.fromCharCode(65 + selectedIdx)}`;
-                                  setAiDraftPaper({ ...aiDraftPaper, questions: updated });
-                                }}
-                                className="bg-emerald-50 border border-emerald-300 text-emerald-800 font-extrabold text-xs rounded-xl px-3 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                              >
-                                <option value={0}>Option A (1st Option)</option>
-                                <option value={1}>Option B (2nd Option)</option>
-                                <option value={2}>Option C (3rd Option)</option>
-                                <option value={3}>Option D (4th Option)</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            {(q.options || ["", "", "", ""]).map((opt: string, optIdx: number) => {
-                              const isCorrect = (q.correct_answer ?? 0) === optIdx;
-                              const optLetter = String.fromCharCode(65 + optIdx);
-
-                              return (
-                                <div
-                                  key={optIdx}
-                                  className={`p-2.5 rounded-xl border transition-all flex items-center gap-3 ${
-                                    isCorrect 
-                                      ? "bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20" 
-                                      : "bg-white border-slate-200 hover:border-slate-300"
-                                  }`}
-                                >
-                                  <label className="flex items-center gap-2 cursor-pointer shrink-0">
-                                    <input
-                                      type="radio"
-                                      name={`ai_draft_correct_opt_${qIdx}`}
-                                      checked={isCorrect}
-                                      onChange={() => {
-                                        const updated = [...aiDraftPaper.questions];
-                                        updated[qIdx].correct_answer = optIdx;
-                                        updated[qIdx].answer = opt || `Option ${optLetter}`;
-                                        setAiDraftPaper({ ...aiDraftPaper, questions: updated });
-                                      }}
-                                      className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                    />
-                                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${
-                                      isCorrect ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
-                                    }`}>
-                                      {optLetter}
-                                    </span>
-                                  </label>
-
-                                  <input
-                                    type="text"
-                                    required
-                                    value={opt}
-                                    placeholder={`Enter option ${optLetter} text...`}
-                                    onChange={(e) => {
-                                      const updated = [...aiDraftPaper.questions];
-                                      updated[qIdx].options[optIdx] = e.target.value;
-                                      if ((updated[qIdx].correct_answer ?? 0) === optIdx) {
-                                        updated[qIdx].answer = e.target.value;
-                                      }
-                                      setAiDraftPaper({ ...aiDraftPaper, questions: updated });
-                                    }}
-                                    className="flex-1 bg-transparent border-0 text-xs font-bold text-slate-900 focus:outline-none placeholder:text-slate-400"
-                                  />
-
-                                  {isCorrect && (
-                                    <span className="px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shrink-0">
-                                      ✅ Correct Option
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-extrabold text-slate-600 uppercase mb-1">
-                            Pedagogical Solution &amp; Explanation
-                          </label>
-                          <textarea
-                            value={q.explanation || ""}
-                            onChange={(e) => {
-                              const updated = [...aiDraftPaper.questions];
-                              updated[qIdx].explanation = e.target.value;
-                              setAiDraftPaper({ ...aiDraftPaper, questions: updated });
-                            }}
-                            rows={2}
-                            placeholder="Reasoning explanation..."
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* BOTTOM PUBLISH ACTION */}
-                  <div className="pt-4 border-t border-indigo-100 flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      disabled={publishingAiPaper}
-                      onClick={handlePublishAiDraftPaper}
-                      className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-2xl shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 uppercase tracking-wider transition-all cursor-pointer"
-                    >
-                      {publishingAiPaper ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                      <span>Publish Paper to Olympiad</span>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

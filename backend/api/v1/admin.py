@@ -60,6 +60,7 @@ class Generate100TSOPayload(BaseModel):
     subject: str = "Science"
     class_name: str = "Secondary (Classes 9–10)"
     title: Optional[str] = None
+    difficulty: Optional[str] = "medium"
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     school_name: Optional[str] = "DEVGYA GLOBAL EDUTECH"
@@ -152,6 +153,7 @@ async def generate_100_tso_paper(payload: Generate100TSOPayload):
         subject=payload.subject,
         class_name=payload.class_name,
         title=payload.title,
+        difficulty=payload.difficulty or "medium",
         start_time=payload.start_time,
         end_time=payload.end_time,
         school_name=payload.school_name

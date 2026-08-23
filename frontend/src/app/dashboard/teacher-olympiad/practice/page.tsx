@@ -27,7 +27,7 @@ export default function OlympiadPracticePage() {
   const userSubject = user?.subject || "Science";
 
   const [selectedSubject, setSelectedSubject] = useState<string>(userSubject);
-  const [selectedSection, setSelectedSection] = useState<"all" | "Part-A" | "Part-B">("all");
+  const [selectedModule, setSelectedModule] = useState<string>("all");
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
@@ -84,9 +84,11 @@ export default function OlympiadPracticePage() {
   };
 
   const filteredQuestions = useMemo(() => {
-    if (selectedSection === "all") return questions;
-    return questions.filter(q => q.section === selectedSection);
-  }, [questions, selectedSection]);
+    if (selectedModule === "all") return questions;
+    if (selectedModule === "Part-A") return questions.filter(q => q.section === "Part-A");
+    if (selectedModule === "Part-B") return questions.filter(q => q.section === "Part-B");
+    return questions.filter(q => q.module === selectedModule);
+  }, [questions, selectedModule]);
 
   const totalAnswered = Object.keys(selectedAnswers).length;
   const totalCorrect = Object.values(evaluations).filter((e: any) => e.is_correct).length;
@@ -118,67 +120,114 @@ export default function OlympiadPracticePage() {
       </div>
 
       {/* HERO BANNER */}
-      <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-        <div className="space-y-2 max-w-xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-black">
-            <Trophy className="w-3.5 h-3.5" />
-            <span>100-MCQ Mock Practice Arena</span>
+      <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl space-y-5 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-black">
+              <Trophy className="w-3.5 h-3.5" />
+              <span>100-MCQ 60/40 Master Practice Arena</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+              Teacher Skills Olympiad Practice Drills
+            </h1>
+
+            <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
+              100 authentic questions across all 6 blueprint modules. Practice untimed with instant step-by-step pedagogical explanations.
+            </p>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-            Teacher Skills Olympiad Practice Drills
-          </h1>
-
-          <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
-            Practice pedagogy scenarios, CBSE CPD training modules, and {selectedSubject} subject depth untimed with instant solutions and explanations.
-          </p>
-        </div>
-
-        {/* SUBJECT & SECTION SELECTOR */}
-        <div className="shrink-0 space-y-2">
-          <div className="space-y-1">
+          <div className="shrink-0 space-y-1">
             <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Subject Track</label>
             <select
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 text-white font-bold text-xs rounded-xl px-3.5 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer"
+              className="bg-slate-800 border border-slate-700 text-white font-bold text-xs rounded-xl px-3.5 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer"
             >
-              <option value="Science">Science</option>
-              <option value="Mathematics">Mathematics</option>
-              <option value="English">English</option>
-              <option value="Hindi">Hindi</option>
-              <option value="Social Science">Social Science</option>
-              <option value="Physics">Physics</option>
-              <option value="Chemistry">Chemistry</option>
-              <option value="Biology">Biology</option>
-              <option value="Computer Science">Computer Science / IT</option>
+              <option value="Science">Science Track</option>
+              <option value="Mathematics">Mathematics Track</option>
+              <option value="English">English Track</option>
+              <option value="Hindi">Hindi Track</option>
+              <option value="Social Science">Social Science Track</option>
+              <option value="Physics">Physics Track</option>
+              <option value="Chemistry">Chemistry Track</option>
+              <option value="Biology">Biology Track</option>
+              <option value="Computer Science">Computer Science Track</option>
             </select>
           </div>
+        </div>
 
-          <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700">
+        {/* 6 MODULE FILTER CHIPS */}
+        <div className="pt-2 border-t border-slate-800/80 space-y-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-black text-slate-400 uppercase">
+            <Filter className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Filter by 60/40 Assessment Modules:</span>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
             <button
-              onClick={() => setSelectedSection("all")}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black transition-all cursor-pointer ${
-                selectedSection === "all" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
+              onClick={() => setSelectedModule("all")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                selectedModule === "all" ? "bg-white text-slate-900 shadow-md" : "bg-slate-800/80 text-slate-300 hover:bg-slate-700"
               }`}
             >
-              All (100 Qs)
+              All 100 Questions
             </button>
+
+            {/* PART-A CHIPS */}
             <button
-              onClick={() => setSelectedSection("Part-A")}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black transition-all cursor-pointer ${
-                selectedSection === "Part-A" ? "bg-purple-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
+              onClick={() => setSelectedModule("CBSE CPD Modules & NEP Guidelines")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                selectedModule === "CBSE CPD Modules & NEP Guidelines" ? "bg-purple-500 text-white shadow-md" : "bg-purple-950/60 text-purple-200 border border-purple-800/50 hover:bg-purple-900/60"
               }`}
             >
-              Part-A (Pedagogy)
+              Part A1: CBSE CPD & NEP (20 Qs)
             </button>
+
             <button
-              onClick={() => setSelectedSection("Part-B")}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black transition-all cursor-pointer ${
-                selectedSection === "Part-B" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
+              onClick={() => setSelectedModule("Personal Classroom Experience & Scenarios")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                selectedModule === "Personal Classroom Experience & Scenarios" ? "bg-purple-500 text-white shadow-md" : "bg-purple-950/60 text-purple-200 border border-purple-800/50 hover:bg-purple-900/60"
               }`}
             >
-              Part-B ({selectedSubject})
+              Part A2: Classroom Scenarios (20 Qs)
+            </button>
+
+            <button
+              onClick={() => setSelectedModule("Modern Pedagogy & Critical Thinking")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                selectedModule === "Modern Pedagogy & Critical Thinking" ? "bg-purple-500 text-white shadow-md" : "bg-purple-950/60 text-purple-200 border border-purple-800/50 hover:bg-purple-900/60"
+              }`}
+            >
+              Part A3: Modern Pedagogy (20 Qs)
+            </button>
+
+            {/* PART-B CHIPS */}
+            <button
+              onClick={() => setSelectedModule("Core Subject Knowledge")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                selectedModule === "Core Subject Knowledge" ? "bg-indigo-500 text-white shadow-md" : "bg-indigo-950/60 text-indigo-200 border border-indigo-800/50 hover:bg-indigo-900/60"
+              }`}
+            >
+              Part B1: Core Subject (20 Qs)
+            </button>
+
+            <button
+              onClick={() => setSelectedModule("Subject Pedagogical Knowledge & TLM")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                selectedModule === "Subject Pedagogical Knowledge & TLM" ? "bg-indigo-500 text-white shadow-md" : "bg-indigo-950/60 text-indigo-200 border border-indigo-800/50 hover:bg-indigo-900/60"
+              }`}
+            >
+              Part B2: Subject TLM (10 Qs)
+            </button>
+
+            <button
+              onClick={() => setSelectedModule("Misconceptions & HOTS")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                selectedModule === "Misconceptions & HOTS" ? "bg-indigo-500 text-white shadow-md" : "bg-indigo-950/60 text-indigo-200 border border-indigo-800/50 hover:bg-indigo-900/60"
+              }`}
+            >
+              Part B3: Misconceptions & HOTS (10 Qs)
             </button>
           </div>
         </div>

@@ -84,6 +84,7 @@ class PaperService:
         subject: str = "Science",
         class_name: str = "Secondary (Classes 9–10)",
         title: Optional[str] = None,
+        difficulty: str = "medium",
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         school_name: str = "DEVGYA GLOBAL EDUTECH"
@@ -101,22 +102,24 @@ class PaperService:
         """
         paper_title = title or f"National Teacher Skills Olympiad 2026 — {subject.upper()}"
         
-        # Modules configuration
+        # Modules configuration with explicit difficulty tuning
+        diff_label = difficulty.title() if difficulty else "Medium"
         modules_spec = [
             # Part A
-            {"section": "Part-A", "module": "CBSE CPD Modules & NEP Guidelines", "count": 20, "prompt": f"Generate 20 high-quality multiple choice questions (MCQs) testing CBSE 50-hour Continuous Professional Development (CPD) modules, NEP 2020 pedagogical reforms, Competency-Based Education (CBE), PARAKH guidelines, and learning outcome assessments for school educators."},
-            {"section": "Part-A", "module": "Personal Classroom Experience & Scenarios", "count": 20, "prompt": f"Generate 20 scenario-based MCQs testing real classroom situation handling, diverse student behavior management, handling test anxiety, mixed-ability teaching, and ethical decision-making for educators."},
-            {"section": "Part-A", "module": "Modern Pedagogy & Critical Thinking", "count": 20, "prompt": f"Generate 20 MCQs evaluating modern pedagogical strategies: Socratic questioning, Higher Order Thinking Skills (HOTS) framing, Art-Integrated Learning (AIL), and Inclusive Education."},
+            {"section": "Part-A", "module": "CBSE CPD Modules & NEP Guidelines", "count": 20, "prompt": f"Generate 20 high-quality multiple choice questions (MCQs) at {diff_label} difficulty level testing CBSE 50-hour Continuous Professional Development (CPD) modules, NEP 2020 pedagogical reforms, Competency-Based Education (CBE), PARAKH guidelines, and learning outcome assessments for school educators."},
+            {"section": "Part-A", "module": "Personal Classroom Experience & Scenarios", "count": 20, "prompt": f"Generate 20 scenario-based MCQs at {diff_label} difficulty level testing real classroom situation handling, diverse student behavior management, handling test anxiety, mixed-ability teaching, and ethical decision-making for educators."},
+            {"section": "Part-A", "module": "Modern Pedagogy & Critical Thinking", "count": 20, "prompt": f"Generate 20 MCQs at {diff_label} difficulty level evaluating modern pedagogical strategies: Socratic questioning, Higher Order Thinking Skills (HOTS) framing, Art-Integrated Learning (AIL), and Inclusive Education."},
             # Part B
-            {"section": "Part-B", "module": "Core Subject Knowledge", "count": 20, "prompt": f"Generate 20 rigorous conceptual MCQs testing core subject depth and NCERT/CBSE curriculum mastery in {subject} for {class_name} teachers."},
-            {"section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "count": 10, "prompt": f"Generate 10 MCQs on subject-specific pedagogical methodologies, Teaching-Learning Material (TLM) utilization, digital simulations (e.g. PhET, GeoGebra), and experiential lab activities in {subject}."},
-            {"section": "Part-B", "module": "Misconceptions & HOTS", "count": 10, "prompt": f"Generate 10 MCQs focusing on identifying common student cognitive misconceptions in {subject} and formulating diagnostic Higher Order Thinking Skills (HOTS) remediation."}
+            {"section": "Part-B", "module": "Core Subject Knowledge", "count": 20, "prompt": f"Generate 20 rigorous conceptual MCQs at {diff_label} difficulty level testing core subject depth and NCERT/CBSE curriculum mastery in {subject} for {class_name} teachers."},
+            {"section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "count": 10, "prompt": f"Generate 10 MCQs at {diff_label} difficulty level on subject-specific pedagogical methodologies, Teaching-Learning Material (TLM) utilization, digital simulations (e.g. PhET, GeoGebra), and experiential lab activities in {subject}."},
+            {"section": "Part-B", "module": "Misconceptions & HOTS", "count": 10, "prompt": f"Generate 10 MCQs at {diff_label} difficulty level focusing on identifying common student cognitive misconceptions in {subject} and formulating diagnostic Higher Order Thinking Skills (HOTS) remediation."}
         ]
 
         async def generate_module_qs(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
             count = spec["count"]
             prompt = f"""
 You are DEVGYA's Chief Assessment Architect for the National Teacher Skills Olympiad (TSO).
+Difficulty Target: {diff_label} Level.
 {spec["prompt"]}
 
 STRICT REQUIREMENTS:
