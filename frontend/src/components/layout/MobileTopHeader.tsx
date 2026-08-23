@@ -38,6 +38,73 @@ export function MobileTopHeader() {
   const router = useRouter();
   const { user, logout } = useAppStore();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+
+  const [notifications, setNotifications] = useState([
+    {
+      id: "notif-1",
+      type: "paper",
+      title: "Question Paper Ready for Print",
+      message: "Periodic Assessment Exam (Class 10 Science - Chemical Reactions) generated with model answers & marking rubric.",
+      tag: "EXAM PAPER",
+      tagColor: "bg-purple-100 text-purple-700 border-purple-200",
+      time: "10m ago",
+      read: false,
+      actionUrl: "/dashboard/papers",
+      actionText: "View Paper Archive",
+      icon: Sparkles
+    },
+    {
+      id: "notif-2",
+      type: "olympiad",
+      title: "National Teacher Skill Olympiad 2026 Live!",
+      message: "Official registrations open for CBSE/NCERT educator proficiency test. Access unlimited timed practice tests.",
+      tag: "OLYMPIAD ALERT",
+      tagColor: "bg-amber-100 text-amber-700 border-amber-200",
+      time: "1h ago",
+      read: false,
+      actionUrl: "/dashboard/teacher-olympiad/practice",
+      actionText: "Start Olympiad Practice",
+      icon: Trophy
+    },
+    {
+      id: "notif-3",
+      type: "ai",
+      title: "Teacher Mentor AI Upgraded",
+      message: "Bloom's Taxonomy HOTS analysis & NEP 2020 experiential activity generator now active in your classroom studio.",
+      tag: "PEDAGOGY AI",
+      tagColor: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      time: "5h ago",
+      read: false,
+      actionUrl: "/dashboard/agents?agent=teacher_mentor",
+      actionText: "Launch Teacher Mentor",
+      icon: GraduationCap
+    },
+    {
+      id: "notif-4",
+      type: "ocr",
+      title: "Vision OCR Scanner Batch Mode Active",
+      message: "Scan textbook pages or student worksheets directly to Question Paper Generator without re-typing.",
+      tag: "VISION OCR",
+      tagColor: "bg-cyan-100 text-cyan-700 border-cyan-200",
+      time: "1d ago",
+      read: true,
+      actionUrl: "/dashboard/ocr",
+      actionText: "Open OCR Scanner",
+      icon: ScanText
+    }
+  ]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const markAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? ({ ...n, read: true }) : n));
+  };
 
   const handleSignOut = (e?: React.MouseEvent) => {
     if (e) {
@@ -102,6 +169,10 @@ export function MobileTopHeader() {
     navItems.push({ label: "Super Admin", href: "/admin", icon: ShieldCheck });
   }
 
+  const filteredNotifs = activeFilter === "all" 
+    ? notifications 
+    : notifications.filter(n => n.type === activeFilter);
+
   return (
     <>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-100 px-4 py-2.5 flex items-center justify-between shadow-xs md:hidden">
@@ -130,15 +201,19 @@ export function MobileTopHeader() {
 
         {/* RIGHT: NOTIFICATIONS BELL + PROFILE AVATAR */}
         <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/parent/notifications"
-            className="relative w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors"
+          <button
+            type="button"
+            onClick={() => setNotifOpen(true)}
+            className="relative w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer active:scale-95"
+            title="Notifications"
           >
             <Bell className="w-5 h-5 text-slate-700" />
-            <span className="absolute top-0.5 right-0.5 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-xs">
-              3
-            </span>
-          </Link>
+            {unreadCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-pulse">
+                {unreadCount}
+              </span>
+            )}
+          </button>
 
           <Link
             href="/dashboard/profile"
@@ -152,6 +227,139 @@ export function MobileTopHeader() {
           </Link>
         </div>
       </header>
+
+      {/* PROFESSIONAL TEACHER NOTIFICATIONS CENTER DRAWER */}
+      {notifOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-end md:hidden">
+          <div className="w-full max-w-sm bg-white h-full p-5 space-y-4 shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-300">
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">Notifications</h3>
+                    <p className="text-[10px] text-slate-500 font-bold">
+                      {unreadCount > 0 ? `${unreadCount} unread update${unreadCount > 1 ? "s" : ""}` : "All caught up"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllAsRead}
+                      className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setNotifOpen(false)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {[
+                  { id: "all", label: `All (${notifications.length})` },
+                  { id: "paper", label: "Papers" },
+                  { id: "olympiad", label: "Olympiad" },
+                  { id: "ai", label: "AI Updates" },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveFilter(tab.id)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all cursor-pointer ${
+                      activeFilter === tab.id
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Notifications List */}
+              <div className="space-y-3">
+                {filteredNotifs.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 space-y-2">
+                    <Bell className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="text-xs font-bold text-slate-500">No notifications in this category</p>
+                  </div>
+                ) : (
+                  filteredNotifs.map(item => {
+                    const IconComp = item.icon;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => markAsRead(item.id)}
+                        className={`p-3.5 rounded-2xl border transition-all space-y-2 relative cursor-pointer ${
+                          item.read 
+                            ? "bg-slate-50/70 border-slate-200/80 text-slate-600" 
+                            : "bg-white border-indigo-200 shadow-xs ring-1 ring-indigo-500/10"
+                        }`}
+                      >
+                        {!item.read && (
+                          <span className="absolute top-3.5 right-3.5 w-2 h-2 rounded-full bg-indigo-600" />
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md border ${item.tagColor}`}>
+                            {item.tag}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-bold ml-auto pr-3">
+                            {item.time}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <h4 className="text-xs font-black text-slate-900 leading-snug">
+                            {item.title}
+                          </h4>
+                          <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                            {item.message}
+                          </p>
+                        </div>
+
+                        {item.actionUrl && (
+                          <div className="pt-1">
+                            <Link
+                              href={item.actionUrl}
+                              onClick={() => setNotifOpen(false)}
+                              className="inline-flex items-center gap-1 text-[11px] font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors"
+                            >
+                              <span>{item.actionText}</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-slate-100">
+              <p className="text-[10px] text-center text-slate-400 font-bold">
+                DEVGYA AI Notification Engine • Real-time Alerts
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SLIDE-OVER NAVIGATION DRAWER */}
       {drawerOpen && (

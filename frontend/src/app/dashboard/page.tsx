@@ -44,6 +44,8 @@ export default function TeacherDashboardOverviewPage() {
   const [conversations, setConversations] = useState<ChatConvSummary[]>([]);
   const [loadingConvs, setLoadingConvs] = useState<boolean>(true);
   const [downloadingIdx, setDownloadingIdx] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [desktopFilter, setDesktopFilter] = useState<string>("all");
 
   // Fetch recent AI conversations from backend
   useEffect(() => {
@@ -145,6 +147,33 @@ export default function TeacherDashboardOverviewPage() {
     }
   ];
 
+  // Dynamic filter for desktop
+  const qClean = searchQuery.toLowerCase().trim();
+  
+  const filteredPapers = savedPapers.filter(p => {
+    if (!qClean) return true;
+    return (
+      (p.title || "").toLowerCase().includes(qClean) ||
+      (p.subject || "").toLowerCase().includes(qClean) ||
+      (p.class_name || "").toLowerCase().includes(qClean) ||
+      (p.chapter || "").toLowerCase().includes(qClean)
+    );
+  });
+
+  const filteredTools = teacherTools.filter(t => {
+    if (desktopFilter === "generator" && t.code !== "generator") return false;
+    if (desktopFilter === "olympiad" && !t.code.includes("olympiad")) return false;
+    if (desktopFilter === "ai" && !["teacher_mentor", "video-consultation"].includes(t.code)) return false;
+    if (desktopFilter === "ocr" && t.code !== "ocr") return false;
+
+    if (!qClean) return true;
+    return (
+      t.name.toLowerCase().includes(qClean) ||
+      t.desc.toLowerCase().includes(qClean) ||
+      t.badge.toLowerCase().includes(qClean)
+    );
+  });
+
   return (
     <>
       <MobileTeacherDashboard />
@@ -174,18 +203,64 @@ export default function TeacherDashboardOverviewPage() {
         <div className="flex flex-wrap items-center gap-3 relative z-10 shrink-0">
           <Link
             href="/dashboard/generator"
-            className="px-6 py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-xs rounded-2xl shadow-lg hover:shadow-indigo-500/25 transition-all flex items-center gap-2.5 active:scale-95"
+            className="px-6 py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-xs rounded-2xl shadow-lg hover:shadow-indigo-500/25 transition-all flex items-center gap-2.5 active:scale-95 cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-yellow-300 animate-pulse" />
             Create Question Paper
           </Link>
           <Link
             href="/dashboard/agents?agent=teacher_mentor"
-            className="px-5 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/20 backdrop-blur-md transition-all flex items-center gap-2 active:scale-95"
+            className="px-5 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/20 backdrop-blur-md transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
           >
             <Bot className="w-4 h-4 text-cyan-300" />
             Ask AI Mentor
           </Link>
+        </div>
+      </div>
+
+      {/* INTERACTIVE WORKSPACE SEARCH & FILTER BAR */}
+      <div className="glass-panel p-4 rounded-3xl border border-slate-200 bg-white shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full md:w-96 bg-slate-50 border border-slate-200/90 rounded-2xl px-4 py-2.5 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400 focus-within:bg-white transition-all">
+          <Search className="w-4 h-4 text-indigo-600 shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search question papers, tools, syllabus (e.g. Science, Class 10)..."
+            className="w-full bg-transparent outline-none text-xs font-semibold text-slate-800 placeholder-slate-400"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="text-slate-400 hover:text-slate-700 cursor-pointer text-xs"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Quick Filter Capsule Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto scrollbar-none">
+          {[
+            { id: "all", label: "All Tools & Papers" },
+            { id: "generator", label: "Question Generator" },
+            { id: "olympiad", label: "Teacher Olympiad" },
+            { id: "ocr", label: "Vision OCR" },
+            { id: "ai", label: "AI Mentorship" },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setDesktopFilter(f.id)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                desktopFilter === f.id
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -259,24 +334,24 @@ export default function TeacherDashboardOverviewPage() {
                   Your Saved Question Papers
                 </h2>
                 <p className="text-xs text-slate-500 font-medium">
-                  {savedPapers.length > 0
-                    ? `Showing ${savedPapers.length} question paper(s) generated in your workspace.`
-                    : "No papers saved yet. Generate a paper to view and download here."}
+                  {filteredPapers.length > 0
+                    ? `Showing ${filteredPapers.length} question paper(s) generated in your workspace.`
+                    : searchQuery ? "No papers matched your search query." : "No papers saved yet. Generate a paper to view and download here."}
                 </p>
               </div>
 
               <Link
                 href="/dashboard/generator"
-                className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shrink-0"
+                className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
               >
                 <PlusCircle className="w-4 h-4" />
                 New Paper
               </Link>
             </div>
 
-            {savedPapers.length > 0 ? (
+            {filteredPapers.length > 0 ? (
               <div className="space-y-3">
-                {savedPapers.map((paper, idx) => (
+                {filteredPapers.map((paper, idx) => (
                   <div
                     key={idx}
                     className="p-5 rounded-2xl border border-slate-200 hover:border-indigo-300 bg-slate-50/50 hover:bg-white transition-all space-y-4 group shadow-sm"
@@ -440,45 +515,53 @@ export default function TeacherDashboardOverviewPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {teacherTools.map((tool) => {
-            const IconComp = tool.icon;
-            return (
-              <div
-                key={tool.code}
-                className="glass-panel p-6 rounded-3xl border border-slate-200/80 bg-white hover:border-indigo-300 transition-all space-y-4 group shadow-sm hover:shadow-md flex flex-col justify-between"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${tool.color} text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
-                      <IconComp className="w-5 h-5" />
-                    </div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-full">
-                      {tool.badge}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="text-base font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                      {tool.name}
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1">
-                      {tool.desc}
-                    </p>
-                  </div>
-                </div>
-
-                <Link
-                  href={tool.href}
-                  className="w-full py-2.5 px-4 bg-slate-50 group-hover:bg-indigo-600 text-slate-700 group-hover:text-white font-bold text-xs rounded-xl border border-slate-200 group-hover:border-indigo-600 transition-all flex items-center justify-center gap-2 mt-2"
+        {filteredTools.length === 0 ? (
+          <div className="p-8 rounded-2xl border border-slate-200 bg-white text-center space-y-2">
+            <Search className="w-8 h-8 text-slate-300 mx-auto" />
+            <h3 className="text-sm font-bold text-slate-800">No matching tools found</h3>
+            <p className="text-xs text-slate-400">Try clearing your search term or adjusting filters.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredTools.map((tool) => {
+              const IconComp = tool.icon;
+              return (
+                <div
+                  key={tool.code}
+                  className="glass-panel p-6 rounded-3xl border border-slate-200/80 bg-white hover:border-indigo-300 transition-all space-y-4 group shadow-sm hover:shadow-md flex flex-col justify-between"
                 >
-                  Open Tool
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            );
-          })}
-        </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${tool.color} text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
+                        <IconComp className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-full">
+                        {tool.badge}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-base font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                        {tool.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1">
+                        {tool.desc}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Link
+                    href={tool.href}
+                    className="w-full py-2.5 px-4 bg-slate-50 group-hover:bg-indigo-600 text-slate-700 group-hover:text-white font-bold text-xs rounded-xl border border-slate-200 group-hover:border-indigo-600 transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer"
+                  >
+                    Open Tool
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   </>
