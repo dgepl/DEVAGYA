@@ -40,7 +40,10 @@ import {
   Zap,
   Mic,
   MicOff,
-  Volume2
+  Volume2,
+  ThumbsUp,
+  ThumbsDown,
+  ArrowRight
 } from "lucide-react";
 import { getAIAgents } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
@@ -70,6 +73,7 @@ interface ChatMessage {
   sender: "user" | "assistant";
   content: string;
   image_urls?: string[];
+  timestamp?: string;
 }
 
 interface Conversation {
@@ -114,14 +118,13 @@ interface AgentConfig {
 
 const AGENT_CUSTOM_WELCOME: Record<string, AgentConfig> = {
   teacher_mentor: {
-    welcomeText: "Hello Educator! 👋 I'm your **Teacher Mentor AI** — your All-in-One AI Teaching Companion.\n\nI combine **Pedagogy & Classroom Strategies**, **Class Performance Analytics**, **English Language & Pedagogy Coaching**, **Document & Worksheet AI (PDF/DOCX/Photos)**, and **NCERT/CBSE Curriculum Research** all in one place!\n\nHow can I empower your teaching today?",
+    welcomeText: "Hello Educator! 👋\n\nI'm your **Teacher Mentor AI** — your All-in-One AI Teaching Companion.\n\nI combine **Pedagogy & Classroom Strategies**, **Class Performance Analytics**, **English Language & Pedagogy Coaching**, **Document & Worksheet AI (PDF/DOCX/Photos)**, and **NCERT/CBSE Curriculum Research** all in one place!\n\nHow can I empower your teaching today? 🚀",
     chips: [
-      { label: "Class Marks Analytics", icon: "📊", prompt: "Analyze class score distributions and suggest targeted interventions for weak topics in Mathematics." },
-      { label: "Bloom's Pedagogy", icon: "💡", prompt: "Suggest Bloom's taxonomy pedagogical strategies and active recall activities for Class 10 Science." },
-      { label: "English Pedagogy Polish", icon: "✍️", prompt: "Help me polish and refine this parent-teacher communication note in professional academic English." },
-      { label: "Worksheet & PDF RAG", icon: "📄", prompt: "Summarize the attached chapter/worksheet and generate 5 differentiated practice questions." },
-      { label: "Curriculum Research", icon: "🔬", prompt: "Research CBSE Class 10 NCERT curriculum guidelines for experiential learning in Chemistry." },
-      { label: "Student Engagement", icon: "🤝", prompt: "How do I engage low-participation students during interactive classroom discussions?" },
+      { label: "Pedagogy & Classroom Advice", icon: "🎓", prompt: "Suggest effective pedagogy strategies, active recall techniques, and Bloom's taxonomy ideas for my classroom." },
+      { label: "Document & Worksheet Extraction", icon: "📄", prompt: "Summarize the attached chapter/worksheet and generate 5 differentiated practice questions." },
+      { label: "Class Analytics & Marks Radar", icon: "📊", prompt: "Analyze class score distributions and suggest targeted interventions for weak topics." },
+      { label: "Academic & Curriculum Research", icon: "📖", prompt: "Research CBSE & NCERT curriculum guidelines for experiential concept learning." },
+      { label: "English Communication Coach", icon: "💬", prompt: "Help me polish and refine this parent-teacher communication note in professional academic English." },
     ]
   },
   question_generator: {
@@ -756,9 +759,9 @@ export function AgentMarketplace() {
       )}
 
       {/* FULL-WIDTH AGENT WORKSPACE */}
-      <div className="flex flex-col h-[calc(100vh-8rem)] min-h-[500px]">
-          {/* MOBILE HORIZONTAL AGENT SWITCHER PILLS */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 scrollbar-none md:hidden shrink-0">
+      <div className="flex flex-col h-[calc(100vh-8.5rem)] min-h-[520px]">
+          {/* 1. HORIZONTAL AGENT SWITCHER PILLS (TOP BAR) */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none shrink-0">
             {agents.map((a) => {
               const IconComp = iconMap[a.icon] || Bot;
               const isSel = a.agent_code === selectedAgentCode;
@@ -766,126 +769,151 @@ export function AgentMarketplace() {
                 <button
                   key={a.agent_code}
                   onClick={() => switchAgent(a.agent_code)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all active:scale-95 ${
+                  className={`px-4 py-2 rounded-full text-xs font-black whitespace-nowrap shrink-0 flex items-center gap-2 transition-all active:scale-95 cursor-pointer ${
                     isSel
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20 border border-indigo-600"
-                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                      ? "bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white shadow-md shadow-indigo-600/25 border border-indigo-500"
+                      : "bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs"
                   }`}
                 >
-                  <IconComp className="w-3.5 h-3.5" />
+                  <IconComp className={`w-4 h-4 ${isSel ? "text-white" : "text-slate-500"}`} />
                   <span>{a.name}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* AGENT DETAIL BANNER + LANGUAGE + HISTORY */}
+          {/* 2. AGENT DETAIL BANNER + 3D ROBOT + 5 QUICK TOOLS (LIGHT THEME HERO CARD) */}
           {selectedAgent && (
-            <div className="bg-white p-4 rounded-t-3xl border border-slate-200 border-b-0 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shrink-0">
-                    <Bot className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-extrabold text-slate-900 truncate">
-                        {activeConvId
-                          ? conversations.find((c) => c.id === activeConvId)
-                              ?.title || selectedAgent.name
-                          : selectedAgent.name}
-                      </h2>
-                      <span className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
-                        Active
-                      </span>
+            <div className="bg-gradient-to-br from-[#F6F4FE] via-[#EDE9FE]/60 to-[#F0F4FF] p-4 sm:p-5 rounded-3xl border border-indigo-200/80 shadow-xs mb-3 relative overflow-hidden shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                {/* Left: Avatar, Title, Active Badge, Subtitle & Controls */}
+                <div className="space-y-2.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/25 shrink-0 border border-white/40">
+                      <Bot className="w-6 h-6" />
                     </div>
-                    <p className="text-[10px] text-slate-500 font-semibold flex items-center gap-1 truncate">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
-                      {streaming
-                        ? `${selectedAgent.name} is replying...`
-                        : selectedAgent.description}
-                    </p>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm sm:text-base font-black text-slate-900 truncate">
+                          {selectedAgent.name}
+                        </h2>
+                        <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-300 shrink-0">
+                          ACTIVE
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0 animate-pulse" />
+                        <span className="truncate">Your all-in-one AI teaching companion that understands your classroom.</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* CONTROLS ROW: Language + History + New Chat */}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    {/* LANGUAGE SELECTOR */}
+                    <div className="relative" ref={langDropdownRef}>
+                      <button
+                        onClick={() => setLangDropdownOpen((v) => !v)}
+                        className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        title="Select AI reply language"
+                      >
+                        <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>{currentLang.label} ({currentLang.code === "english" ? "GB" : currentLang.code.toUpperCase()})</span>
+                      </button>
+
+                      {langDropdownOpen && (
+                        <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1 min-w-[160px]">
+                          {LANGUAGES.map((lang) => (
+                            <button
+                              key={lang.code}
+                              onClick={() => {
+                                setLanguage(lang.code);
+                                setLangDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer ${
+                                language === lang.code
+                                  ? "bg-violet-50 text-violet-700"
+                                  : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              <span className="text-sm">{lang.flag}</span>
+                              <span>{lang.label}</span>
+                              {language === lang.code && (
+                                <Check className="w-3.5 h-3.5 text-violet-600 ml-auto" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* HISTORY BUTTON (Reverse Clock) */}
+                    <button
+                      onClick={() => setHistoryOpen((v) => !v)}
+                      className="p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl shadow-2xs transition-all cursor-pointer"
+                      title="Chat history"
+                    >
+                      <History className="w-4 h-4 text-slate-600" />
+                    </button>
+
+                    {/* NEW CHAT BUTTON */}
+                    <button
+                      onClick={newChat}
+                      className="p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl shadow-2xs transition-all cursor-pointer"
+                      title="New chat"
+                    >
+                      <Plus className="w-4 h-4 text-slate-600" />
+                    </button>
                   </div>
                 </div>
 
-                {/* ACTION BUTTONS: Language + History + New Chat */}
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                  {/* LANGUAGE SELECTOR */}
-                  <div className="relative" ref={langDropdownRef}>
-                    <button
-                      onClick={() => setLangDropdownOpen((v) => !v)}
-                      className="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
-                      title="Select AI reply language"
-                    >
-                      <Globe className="w-3.5 h-3.5" />
-                      <span>{currentLang.flag} {currentLang.label}</span>
-                    </button>
-
-                    {langDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[160px]">
-                        {LANGUAGES.map((lang) => (
-                          <button
-                            key={lang.code}
-                            onClick={() => {
-                              setLanguage(lang.code);
-                              setLangDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 text-xs font-bold transition-colors flex items-center gap-2 ${
-                              language === lang.code
-                                ? "bg-violet-50 text-violet-700"
-                                : "text-slate-700 hover:bg-slate-50"
-                            }`}
-                          >
-                            <span className="text-sm">{lang.flag}</span>
-                            <span>{lang.label}</span>
-                            {language === lang.code && (
-                              <Check className="w-3.5 h-3.5 text-violet-600 ml-auto" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                {/* Right: 3D Cute AI Robot Avatar Illustration */}
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-rose-500/10 rounded-3xl border border-indigo-200/70 p-1 flex items-center justify-center shrink-0 shadow-inner">
+                  <div className="w-full h-full bg-white/95 rounded-2xl flex flex-col items-center justify-center shadow-md border border-white">
+                    <Bot className="w-8 h-8 text-indigo-600" />
+                    <span className="text-[8px] font-black text-indigo-700 uppercase tracking-tighter mt-0.5">DEVGYA AI</span>
                   </div>
-
-                  {/* HISTORY BUTTON (Reverse Clock) */}
-                  <button
-                    onClick={() => setHistoryOpen((v) => !v)}
-                    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
-                    title="Chat history"
-                  >
-                    <History className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">History</span>
-                  </button>
-
-                  {/* NEW CHAT BUTTON */}
-                  <button
-                    onClick={newChat}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">New Chat</span>
-                  </button>
                 </div>
               </div>
 
-              {/* Capabilities tags */}
-              <div className="flex items-center gap-1.5 flex-wrap mt-3 pt-3 border-t border-slate-100">
-                {selectedAgent.capabilities?.map(
-                  (cap: string, i: number) => (
-                    <span
-                      key={i}
-                      className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-xl"
-                    >
-                      {cap}
-                    </span>
-                  )
-                )}
+              {/* 5 QUICK ACTIONS TOOL CHIPS (2-COLUMN GRID MATCHING SCREENSHOT) */}
+              <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-indigo-200/60">
+                {(AGENT_CUSTOM_WELCOME[selectedAgentCode] || AGENT_CUSTOM_WELCOME["teacher_mentor"]).chips.slice(0, 5).map((chip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setInput(chip.prompt);
+                      setTimeout(() => inputRef.current?.focus(), 100);
+                    }}
+                    className={`p-2.5 bg-white/90 hover:bg-white border border-indigo-100/90 hover:border-indigo-300 rounded-2xl text-left transition-all shadow-xs flex items-center gap-2 group active:scale-95 cursor-pointer ${
+                      idx === 4 ? "col-span-1" : ""
+                    }`}
+                  >
+                    <span className="text-sm shrink-0">{chip.icon}</span>
+                    <span className="text-[11px] font-bold text-slate-800 group-hover:text-indigo-700 truncate leading-tight">{chip.label}</span>
+                  </button>
+                ))}
+
+                {/* View all tools link */}
+                <div className="flex items-center justify-end pr-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInput("List all pedagogical tools, CBSE exam strategies, and document extraction actions for " + selectedAgent.name);
+                      setTimeout(() => inputRef.current?.focus(), 100);
+                    }}
+                    className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    View all tools <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* MAIN CHAT AREA WITH HISTORY OVERLAY */}
-          <div className="flex-1 relative border border-slate-200 border-t-0 overflow-hidden bg-slate-50">
+          {/* 3. MAIN CHAT AREA WITH HISTORY OVERLAY & MESSAGE BUBBLES */}
+          <div className="flex-1 relative rounded-3xl border border-slate-200/90 overflow-hidden bg-slate-50 shadow-inner flex flex-col justify-between">
             {/* HISTORY SLIDE-OUT PANEL */}
             {historyOpen && (
               <>
@@ -893,7 +921,7 @@ export function AgentMarketplace() {
                   className="absolute inset-0 z-20 bg-slate-900/20 backdrop-blur-[2px]"
                   onClick={() => setHistoryOpen(false)}
                 />
-                <aside className="absolute z-30 inset-y-0 right-0 w-72 bg-white/98 backdrop-blur-xl border-l border-slate-200 flex flex-col shadow-2xl animate-in slide-in-from-right-5 duration-200">
+                <aside className="absolute z-30 inset-y-0 right-0 w-72 sm:w-80 bg-white/98 backdrop-blur-xl border-l border-slate-200 flex flex-col shadow-2xl animate-in slide-in-from-right-5 duration-200">
                   <div className="p-4 border-b border-slate-200 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
@@ -980,7 +1008,7 @@ export function AgentMarketplace() {
                         newChat();
                         setHistoryOpen(false);
                       }}
-                      className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
+                      className="w-full px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Start New Chat
@@ -991,23 +1019,24 @@ export function AgentMarketplace() {
             )}
 
             {/* MESSAGES AREA */}
-            <div className="h-full overflow-y-auto bg-slate-50/50">
-              <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="max-w-3xl mx-auto space-y-4">
                 {messages.map((m) => (
                   <div
                     key={m.id}
-                    className={`w-full flex items-start gap-3 my-2 ${
+                    className={`w-full flex items-start gap-2.5 my-2 ${
                       m.sender === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
+                    {/* Bot Avatar Icon */}
                     {m.sender === "assistant" && (
-                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-rose-500 text-white flex items-center justify-center font-bold shrink-0 shadow-md shadow-indigo-500/20 border border-white/20">
-                        <Bot className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                      <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md shadow-purple-600/20">
+                        <Bot className="w-4 h-4 text-white" />
                       </div>
                     )}
 
                     <div
-                      className={`relative min-w-[60px] max-w-[85%] sm:max-w-[78%] px-4.5 py-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm transition-all ${
+                      className={`relative min-w-[60px] max-w-[88%] sm:max-w-[80%] px-4 py-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-xs transition-all ${
                         m.sender === "user"
                           ? "bg-indigo-600 text-white font-medium rounded-tr-xs shadow-indigo-600/10 text-left whitespace-pre-wrap break-words"
                           : "bg-white border border-slate-200/90 text-slate-800 rounded-tl-xs shadow-xs"
@@ -1021,7 +1050,7 @@ export function AgentMarketplace() {
                               key={`${m.id}-img-${i}`}
                               src={url}
                               alt={`Attached ${i + 1}`}
-                              className="w-24 h-24 object-cover rounded-xl border border-slate-200 shadow-sm"
+                              className="w-24 h-24 object-cover rounded-xl border border-slate-200 shadow-xs"
                             />
                           ))}
                         </div>
@@ -1037,13 +1066,21 @@ export function AgentMarketplace() {
                         </div>
                       )}
 
+                      {/* User message timestamp */}
+                      {m.sender === "user" && (
+                        <div className="flex items-center justify-end gap-1 mt-1 text-[9.5px] text-indigo-200 font-semibold">
+                          <span>{m.timestamp || "Just now"}</span>
+                          <span>✓✓</span>
+                        </div>
+                      )}
+
                       {/* Typing indicator */}
                       {m.sender === "assistant" &&
                         m.id === messages[messages.length - 1].id &&
                         streaming &&
                         !m.content && (
                           <div className="flex items-center gap-1.5 py-1">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" />
+                            <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" />
                             <span
                               className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce"
                               style={{ animationDelay: "0.15s" }}
@@ -1055,7 +1092,7 @@ export function AgentMarketplace() {
                           </div>
                         )}
 
-                      {/* Action Bar: Export as PDF Worksheet & Copy */}
+                      {/* Action Bar: Export as PDF Document, 👍, 👎, 📋 */}
                       {m.sender === "assistant" && m.content && (
                         <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
                           <button
@@ -1065,47 +1102,40 @@ export function AgentMarketplace() {
                               setPdfModalTitle("Academic Overview & Study Notes");
                               setPdfModalOpen(true);
                             }}
-                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] rounded-lg border border-indigo-200/80 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                            className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200/80 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95"
                             title="Export as Printable A4 PDF Document with Custom Themes"
                           >
-                            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                            <FileText className="w-3.5 h-3.5 text-purple-600" />
                             <span>Export as PDF Document</span>
                           </button>
 
-                          <button
-                            onClick={() => handleCopy(m.id, m.content)}
-                            className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer rounded-lg hover:bg-slate-100"
-                            title="Copy message"
-                          >
-                            {copiedId === m.id ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      )}
-
-                      {/* QUICK STARTER SUGGESTION CHIPS FOR MOBILE & DESKTOP */}
-                      {m.id === "welcome" && messages.length <= 1 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100">
-                          {(AGENT_CUSTOM_WELCOME[selectedAgentCode] || AGENT_CUSTOM_WELCOME["teacher_mentor"]).chips.map((chip, idx) => (
+                          <div className="flex items-center gap-1">
                             <button
-                              key={idx}
                               type="button"
-                              onClick={() => {
-                                setInput(chip.prompt);
-                                setTimeout(() => inputRef.current?.focus(), 100);
-                              }}
-                              className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-left hover:border-indigo-300 hover:bg-indigo-50/60 transition-all shadow-xs group active:scale-95 flex items-center gap-2.5"
+                              className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                              title="Helpful response"
                             >
-                              <span className="text-base shrink-0">{chip.icon}</span>
-                              <div className="min-w-0 flex-1">
-                                <span className="text-xs font-bold text-slate-800 group-hover:text-indigo-700 block leading-tight truncate">{chip.label}</span>
-                                <span className="text-[9px] text-slate-400 font-medium block truncate mt-0.5">{chip.prompt}</span>
-                              </div>
+                              <ThumbsUp className="w-3.5 h-3.5" />
                             </button>
-                          ))}
+                            <button
+                              type="button"
+                              className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Report issue"
+                            >
+                              <ThumbsDown className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleCopy(m.id, m.content)}
+                              className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                              title="Copy message"
+                            >
+                              {copiedId === m.id ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1114,166 +1144,182 @@ export function AgentMarketplace() {
                 <div ref={chatEndRef} />
               </div>
             </div>
-          </div>
 
-          {/* INPUT BAR */}
-          <form
-            onSubmit={handleSend}
-            className="p-4 border border-slate-200 border-t-0 bg-white rounded-b-3xl"
-          >
-            {/* Attached file & document previews */}
-            {attached.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2.5">
-                {attached.map((item) => (
-                  <div key={item.id} className="relative group">
-                    {item.type === "image" && item.dataUrl ? (
-                      <img
-                        src={item.dataUrl}
-                        alt={item.name}
-                        className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-xs"
-                      />
-                    ) : (
-                      <div className="h-16 px-3 py-2 bg-gradient-to-br from-slate-50 to-indigo-50/50 border border-slate-200 rounded-xl flex items-center gap-2 shadow-xs min-w-[140px] max-w-[200px]">
-                        <div className="w-8 h-8 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center shrink-0">
-                          <FileText className="w-4 h-4 text-red-600" />
+            {/* 4. FLOATING ROUNDED PILL INPUT BAR */}
+            <form
+              onSubmit={handleSend}
+              className="p-3 bg-white/95 backdrop-blur-md border-t border-slate-200/90 rounded-b-3xl"
+            >
+              {/* Attached file & document previews */}
+              {attached.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2 max-w-3xl mx-auto">
+                  {attached.map((item) => (
+                    <div key={item.id} className="relative group">
+                      {item.type === "image" && item.dataUrl ? (
+                        <img
+                          src={item.dataUrl}
+                          alt={item.name}
+                          className="w-14 h-14 object-cover rounded-xl border border-slate-200 shadow-xs"
+                        />
+                      ) : (
+                        <div className="h-14 px-3 py-1.5 bg-gradient-to-br from-slate-50 to-indigo-50/50 border border-slate-200 rounded-xl flex items-center gap-2 shadow-xs min-w-[130px] max-w-[190px]">
+                          <div className="w-7 h-7 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center shrink-0">
+                            <FileText className="w-3.5 h-3.5 text-red-600" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{item.name}</p>
+                            <p className="text-[9px] font-semibold text-slate-400 mt-0.5">{item.type.toUpperCase()} • {item.sizeStr}</p>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-800 truncate leading-tight">{item.name}</p>
-                          <p className="text-[10px] font-semibold text-slate-400 mt-0.5">{item.type.toUpperCase()} • {item.sizeStr}</p>
-                        </div>
-                      </div>
-                    )}
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAttached((prev) =>
+                            prev.filter((a) => a.id !== item.id)
+                          )
+                        }
+                        className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {attached.length < MAX_IMAGES && (
                     <button
                       type="button"
-                      onClick={() =>
-                        setAttached((prev) =>
-                          prev.filter((a) => a.id !== item.id)
-                        )
-                      }
-                      className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-14 h-14 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer"
                     >
-                      <X className="w-3 h-3" />
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="text-[8.5px] font-bold">Add file</span>
                     </button>
+                  )}
+                </div>
+              )}
+
+              {/* LIVE VOICE RECORDING LISTENING BANNER */}
+              {isListening && (
+                <div className="mb-2 max-w-3xl mx-auto px-3.5 py-2 bg-gradient-to-r from-red-500/10 via-amber-500/10 to-indigo-500/10 border border-red-300/80 rounded-2xl flex items-center justify-between gap-2 shadow-xs animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                    </span>
+                    <span className="text-[11px] font-black text-red-700 tracking-wide">
+                      🎙️ Listening to your voice... Speak your question in {language === "hindi" ? "Hindi" : language === "hinglish" ? "Hinglish" : "English"}
+                    </span>
                   </div>
-                ))}
-                {attached.length < MAX_IMAGES && (
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 flex flex-col items-center justify-center gap-0.5 transition-colors"
+                    onClick={toggleSpeechRecognition}
+                    className="text-[10px] font-black text-red-600 hover:text-red-800 uppercase px-2 py-0.5 bg-red-100/80 rounded-md cursor-pointer"
                   >
-                    <Plus className="w-4 h-4" />
-                    <span className="text-[9px] font-bold">Add file</span>
+                    Stop
                   </button>
-                )}
-              </div>
-            )}
-
-            {/* LIVE VOICE RECORDING LISTENING BANNER */}
-            {isListening && (
-              <div className="mb-2.5 px-3.5 py-2 bg-gradient-to-r from-red-500/10 via-amber-500/10 to-indigo-500/10 border border-red-300/80 rounded-xl flex items-center justify-between gap-2 shadow-xs animate-in fade-in duration-200">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                  </span>
-                  <span className="text-[11px] font-black text-red-700 tracking-wide">
-                    🎙️ Listening to your voice... Speak your question in {language === "hindi" ? "Hindi" : language === "hinglish" ? "Hinglish" : "English"}
-                  </span>
                 </div>
+              )}
+
+              {/* FLOATING PILL CONTAINER */}
+              <div className="max-w-3xl mx-auto bg-slate-100/80 hover:bg-slate-100 border border-slate-200/90 rounded-full px-2 py-1.5 flex items-center gap-1.5 shadow-sm transition-all focus-within:ring-2 focus-within:ring-indigo-200 focus-within:border-indigo-400 focus-within:bg-white">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf,.docx,.doc,.txt,.md,.csv"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleFiles(e.target.files)}
+                />
+                
+                {/* Paperclip Button */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={streaming || attached.length >= MAX_IMAGES}
+                  className="w-8 h-8 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0 flex items-center justify-center cursor-pointer shadow-2xs"
+                  title="Attach PDF, worksheet, document, or image"
+                >
+                  <Paperclip className="w-4 h-4 text-slate-600" />
+                </button>
+
+                {/* Microphone Button */}
                 <button
                   type="button"
                   onClick={toggleSpeechRecognition}
-                  className="text-[10px] font-black text-red-600 hover:text-red-800 uppercase px-2 py-0.5 bg-red-100/80 rounded-md cursor-pointer"
+                  disabled={streaming}
+                  className={`w-8 h-8 rounded-full border transition-all shrink-0 flex items-center justify-center cursor-pointer shadow-2xs ${
+                    isListening
+                      ? "bg-red-500 text-white border-red-600 shadow-md shadow-red-500/30 animate-pulse ring-2 ring-red-400/40"
+                      : "bg-white hover:bg-slate-50 border-slate-200 text-slate-600"
+                  }`}
+                  title={isListening ? "Stop Voice Input" : "Speak to Type"}
                 >
-                  Stop Recording
+                  {isListening ? (
+                    <MicOff className="w-4 h-4 text-white" />
+                  ) : (
+                    <Mic className="w-4 h-4 text-slate-600" />
+                  )}
                 </button>
-              </div>
-            )}
 
-            <div className="flex items-end gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,.pdf,.docx,.doc,.txt,.md,.csv"
-                multiple
-                className="hidden"
-                onChange={(e) => handleFiles(e.target.files)}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={streaming || attached.length >= MAX_IMAGES}
-                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
-                title="Attach PDF, worksheet, document, or image (up to 4)"
-              >
-                <Paperclip className="w-4 h-4" />
-              </button>
+                {/* Textarea Input */}
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  rows={1}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    autoGrow(e.target);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder={`Ask anything to ${selectedAgent?.name || "Teacher Mentor AI"}...`}
+                  className="flex-1 bg-transparent px-2 py-1 text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none resize-none max-h-32"
+                />
 
-              {/* SPEECH-TO-TEXT VOICE INPUT (MICROPHONE) BUTTON */}
-              <button
-                type="button"
-                onClick={toggleSpeechRecognition}
-                disabled={streaming}
-                className={`p-2.5 rounded-xl border transition-all shrink-0 flex items-center justify-center cursor-pointer ${
-                  isListening
-                    ? "bg-red-500 text-white border-red-600 shadow-md shadow-red-500/30 animate-pulse ring-2 ring-red-400/40"
-                    : "bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 border-slate-200 text-slate-600"
-                }`}
-                title={isListening ? "Stop Voice Input" : "Speak to Type (Voice Question Input - Mobile & Desktop)"}
-              >
-                {isListening ? (
-                  <MicOff className="w-4 h-4 text-white" />
+                {/* Circular Send Button */}
+                {streaming ? (
+                  <button
+                    type="button"
+                    onClick={stopGenerating}
+                    className="w-9 h-9 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-rose-500/30 cursor-pointer active:scale-95 transition-all"
+                  >
+                    <StopCircle className="w-4 h-4" />
+                  </button>
                 ) : (
-                  <Mic className="w-4 h-4" />
+                  <button
+                    type="submit"
+                    disabled={
+                      (!input.trim() && attached.length === 0) || streaming
+                    }
+                    className="w-9 h-9 rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-600/30 cursor-pointer active:scale-95 transition-all"
+                  >
+                    <Send className="w-4 h-4 text-white -translate-x-0.5" />
+                  </button>
                 )}
-              </button>
+              </div>
 
-              <textarea
-                ref={inputRef}
-                value={input}
-                rows={1}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  autoGrow(e.target);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder={`Ask ${selectedAgent?.name || "Teacher Mentor AI"} anything — or speak your question 🎙️, attach PDF 📄, or image...`}
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 resize-none max-h-40"
-              />
-
-              {streaming ? (
+              {/* Sub-bar footer */}
+              <div className="flex items-center justify-center gap-3 text-[10px] text-slate-400 font-bold mt-1.5">
+                <span className="flex items-center gap-1">
+                  <MessageSquare className="w-3 h-3 text-slate-400" />
+                  Conversations are saved automatically
+                </span>
+                <span>|</span>
                 <button
                   type="button"
-                  onClick={stopGenerating}
-                  className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-glow transition-all flex items-center gap-2 shrink-0"
+                  onClick={() => setHistoryOpen(true)}
+                  className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 cursor-pointer"
                 >
-                  <StopCircle className="w-4 h-4" />
-                  Stop
+                  <History className="w-3 h-3" />
+                  History
                 </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={
-                    (!input.trim() && attached.length === 0) || streaming
-                  }
-                  className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-glow transition-all flex items-center gap-2 shrink-0"
-                >
-                  <Send className="w-4 h-4" />
-                  Send
-                </button>
-              )}
-            </div>
-            <p className="mt-2 text-[10px] text-slate-400 font-semibold flex items-center gap-1.5">
-              <RefreshCw className="w-3 h-3" />
-              Conversations saved automatically. Click 🕘 History to revisit past chats. Language: {currentLang.flag} {currentLang.label}
-            </p>
-          </form>
+              </div>
+            </form>
+          </div>
       </div>
 
       {/* INTERACTIVE WORKSHEET PDF CUSTOMIZER & EXPORT MODAL */}
