@@ -111,7 +111,7 @@ class SupabaseService:
         school_logo: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
-        """Save teacher, student, or parent profile metadata."""
+        """Save teacher, student, or parent profile metadata to local store and sync directly to Supabase Cloud."""
         email_clean = email.strip().lower()
         current = _teacher_profiles_store.get(email_clean, {})
         
@@ -131,10 +131,27 @@ class SupabaseService:
 
         _teacher_profiles_store[email_clean] = current
         _save_teacher_profiles(_teacher_profiles_store)
+
+        # Sync permanently to Supabase Cloud PostgreSQL
+        if SERVICE_KEY:
+            try:
+                meta_json = json.dumps(current)
+                patch_payload = {"avatar_url": meta_json}
+                if full_name:
+                    patch_payload["full_name"] = full_name
+                with httpx.Client(timeout=5.0) as client:
+                    client.patch(
+                        f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{email_clean}",
+                        headers=headers,
+                        json=patch_payload
+                    )
+            except Exception as sync_err:
+                logger.warn(f"Supabase Cloud profile sync notice: {sync_err}")
+
         return current
 
     async def get_profile_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        """Fetch user profile from Supabase Cloud and merge with extra role-specific profile store."""
+        """Fetch user profile from Supabase Cloud and unpack all metadata."""
         email_clean = email.strip().lower()
         profile_data = None
         
@@ -161,11 +178,124 @@ class SupabaseService:
             }
 
         if profile_data:
+            # Unpack metadata stored in Supabase avatar_url
+            raw_avatar = profile_data.get("avatar_url")
+            if raw_avatar and isinstance(raw_avatar, str) and raw_avatar.startswith("{") and raw_avatar.endswith("}"):
+                try:
+                    unpacked = json.loads(raw_avatar)
+                    if isinstance(unpacked, dict):
+                        for k, v in unpacked.items():
+                            profile_data[k] = v
+                except Exception:
+                    pass
+
+            # Also merge local fallback store
             extra = _teacher_profiles_store.get(email_clean, {})
             for k, v in extra.items():
-                profile_data[k] = v
+                if k not in profile_data or not profile_data[k]:
+                    profile_data[k] = v
 
         return profile_data
+
+    async def save_question_paper_to_cloud(self, email: str, paper_data: dict) -> bool:
+        """Persist a question paper directly into Supabase Cloud question_papers table."""
+        if not paper_data or not SERVICE_KEY:
+            return False
+        try:
+            email_clean = (email or "guest@devgya.com").strip().lower()
+            profile = await self.get_profile_by_email(email_clean)
+            teacher_id = profile.get("id") if profile else None
+
+            # Difficulty mapping to valid enum
+            raw_diff = str(paper_data.get("difficulty") or "medium").lower()
+            valid_diffs = {"easy", "medium", "hard", "mixed"}
+            diff = raw_diff if raw_diff in valid_diffs else "medium"
+
+            row = {
+                "title": str(paper_data.get("title") or "Assessment Exam"),
+                "class_name": str(paper_data.get("class_name") or "Class 10"),
+                "subject_name": str(paper_data.get("subject") or "General"),
+                "chapter_title": str(paper_data.get("chapter") or "General Syllabus"),
+                "difficulty": diff,
+                "total_marks": int(paper_data.get("total_marks") or 40),
+                "time_allowed_mins": int(paper_data.get("time_allowed_mins") or 90),
+                "questions": paper_data.get("questions") or [],
+                "answer_key": {"instructions": paper_data.get("instructions") or []}
+            }
+            if teacher_id and "-" in str(teacher_id):
+                row["teacher_id"] = teacher_id
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(f"{SUPABASE_URL}/rest/v1/question_papers", headers=headers, json=row)
+                return res.status_code in (200, 201)
+        except Exception as e:
+            logger.warn(f"Cloud question paper save notice: {e}")
+            return False
+
+    async def get_question_papers_from_cloud(self, email: str) -> List[Dict[str, Any]]:
+        """Retrieve question papers directly from Supabase Cloud."""
+        if not SERVICE_KEY:
+            return []
+        try:
+            email_clean = (email or "guest@devgya.com").strip().lower()
+            profile = await self.get_profile_by_email(email_clean)
+            if not profile or not profile.get("id") or "-" not in str(profile.get("id")):
+                return []
+
+            teacher_id = profile.get("id")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/question_papers?teacher_id=eq.{teacher_id}&order=created_at.desc",
+                    headers=headers
+                )
+                if res.status_code == 200:
+                    rows = res.json()
+                    papers = []
+                    for r in rows:
+                        answer_data = r.get("answer_key") or {}
+                        instructions = answer_data.get("instructions") if isinstance(answer_data, dict) else [
+                            "All questions are compulsory.",
+                            "Write clear and concise answers."
+                        ]
+                        papers.append({
+                            "title": r.get("title"),
+                            "class_name": r.get("class_name"),
+                            "subject": r.get("subject_name"),
+                            "chapter": r.get("chapter_title"),
+                            "difficulty": r.get("difficulty"),
+                            "total_marks": r.get("total_marks"),
+                            "time_allowed_mins": r.get("time_allowed_mins"),
+                            "instructions": instructions or [
+                                "All questions are compulsory."
+                            ],
+                            "questions": r.get("questions") or [],
+                            "school_name": profile.get("school_name", "DEVGYA GLOBAL ACADEMY"),
+                            "school_logo": profile.get("school_logo", ""),
+                            "created_at": r.get("created_at")
+                        })
+                    return papers
+        except Exception as e:
+            logger.warn(f"Cloud question paper get notice: {e}")
+        return []
+
+    async def delete_question_paper_from_cloud(self, email: str, title: str, class_name: str) -> bool:
+        """Delete a question paper from Supabase Cloud."""
+        if not SERVICE_KEY:
+            return False
+        try:
+            email_clean = (email or "guest@devgya.com").strip().lower()
+            profile = await self.get_profile_by_email(email_clean)
+            if not profile or not profile.get("id") or "-" not in str(profile.get("id")):
+                return False
+
+            teacher_id = profile.get("id")
+            url = f"{SUPABASE_URL}/rest/v1/question_papers?teacher_id=eq.{teacher_id}&title=eq.{title}&class_name=eq.{class_name}"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.delete(url, headers=headers)
+                return res.status_code in (200, 204)
+        except Exception as e:
+            logger.warn(f"Cloud question paper delete notice: {e}")
+            return False
 
     async def create_profile(
         self, 
@@ -186,7 +316,7 @@ class SupabaseService:
         if existing:
             return existing
 
-        # Save metadata to local store
+        # Save metadata to local store & cloud
         self.save_teacher_profile_details(
             email=email_clean,
             full_name=full_name,
@@ -198,10 +328,18 @@ class SupabaseService:
         )
 
         url = f"{SUPABASE_URL}/rest/v1/profiles"
+        meta_json = json.dumps({
+            "school_name": school_name,
+            "board": board,
+            "subject": subject,
+            "classes": classes,
+            "school_logo": school_logo
+        })
         payload = {
             "email": email_clean,
             "full_name": full_name,
             "role": role,
+            "avatar_url": meta_json,
             "is_active": True
         }
         

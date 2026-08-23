@@ -12,7 +12,8 @@ import {
   Brain,
   Layers,
   GraduationCap,
-  ScanText
+  ScanText,
+  Bot
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -31,7 +32,7 @@ export function MobileBottomDock() {
         { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain, agentCode: "student_tutor" },
         { label: "Ask AI", href: "/dashboard/agents?agent=student_tutor", icon: Sparkles, central: true, agentCode: "student_tutor" },
         { label: "Flashcards", href: "/dashboard/student/flashcards", icon: Layers },
-        { label: "Video Call", href: "/dashboard/video-consultation", icon: Video },
+        { label: "Profile", href: "/dashboard/profile", icon: User },
       ];
     }
 
@@ -40,16 +41,18 @@ export function MobileBottomDock() {
         { label: "Home", href: "/dashboard/parent", icon: Home },
         { label: "Coach AI", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake, agentCode: "parent_coach" },
         { label: "Ask Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake, central: true, agentCode: "parent_coach" },
-        { label: "Consult", href: "/dashboard/video-consultation", icon: Video }
+        { label: "Consult", href: "/dashboard/video-consultation", icon: Video },
+        { label: "Profile", href: "/dashboard/profile", icon: User }
       ];
     }
 
-    // Default Teacher tabs
+    // Default Teacher tabs (5 tabs matching reference)
     return [
-      { label: "Home", href: "/dashboard", icon: Home },
+      { label: "Dashboard", href: "/dashboard", icon: Home },
       { label: "Generator", href: "/dashboard/generator", icon: Zap },
-      { label: "Teacher AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap, central: true, agentCode: "teacher_mentor" },
-      { label: "OCR Scan", href: "/dashboard/ocr", icon: ScanText }
+      { label: "TEACHER AI", href: "/dashboard/agents?agent=teacher_mentor", icon: Bot, central: true, agentCode: "teacher_mentor" },
+      { label: "OCR Scan", href: "/dashboard/ocr", icon: ScanText },
+      { label: "Profile", href: "/dashboard/profile", icon: User }
     ];
   };
 

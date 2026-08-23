@@ -1,12 +1,14 @@
 import os
 import io
 import base64
+import json
 from typing import Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from PIL import Image
 from schemas.question import GeneratePaperRequest, GeneratedPaperResponse
 from services.groq_service import groq_service
 from services.pdf_service import extract_document_text, extract_pdf_content
+from services.supabase_service import supabase_service
 
 router = APIRouter(prefix="/generator", tags=["Question Generator"])
 
@@ -27,7 +29,7 @@ def _save_papers_store(data: dict):
     with open(PAPERS_STORE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
-def _save_paper_for_user(email: Optional[str], paper_data: dict):
+async def _save_paper_for_user(email: Optional[str], paper_data: dict):
     if not paper_data:
         return
     email_clean = (email or "guest@devgya.com").strip().lower()
@@ -36,6 +38,8 @@ def _save_paper_for_user(email: Optional[str], paper_data: dict):
     filtered = [p for p in user_papers if not (p.get("title") == paper_data.get("title") and p.get("class_name") == paper_data.get("class_name"))]
     store[email_clean] = [paper_data] + filtered
     _save_papers_store(store)
+    # Sync to Supabase Cloud
+    await supabase_service.save_question_paper_to_cloud(email_clean, paper_data)
 
 @router.post("/generate", response_model=GeneratedPaperResponse)
 async def generate_paper(request: GeneratePaperRequest):
@@ -44,7 +48,7 @@ async def generate_paper(request: GeneratePaperRequest):
         response = await groq_service.generate_question_paper(request)
         if request.user_email:
             response.user_email = request.user_email
-        _save_paper_for_user(request.user_email, response.dict())
+        await _save_paper_for_user(request.user_email, response.dict())
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Question paper generation failed: {str(e)}")
@@ -88,7 +92,7 @@ async def generate_paper_from_file(
         try:
             res = await groq_service.generate_question_paper(req)
             if user_email: res.user_email = user_email
-            _save_paper_for_user(user_email, res.dict())
+            await _save_paper_for_user(user_email, res.dict())
             return res
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to generate paper: {str(e)}")
@@ -142,7 +146,7 @@ async def generate_paper_from_file(
     if not has_text and not has_image:
         res = await groq_service.generate_question_paper(req)
         if user_email: res.user_email = user_email
-        _save_paper_for_user(user_email, res.dict())
+        await _save_paper_for_user(user_email, res.dict())
         return res
 
     try:
@@ -152,7 +156,7 @@ async def generate_paper_from_file(
             image_data_url=image_data_url
         )
         if user_email: response.user_email = user_email
-        _save_paper_for_user(user_email, response.dict())
+        await _save_paper_for_user(user_email, response.dict())
         return response
     except Exception as e:
         if isinstance(e, HTTPException):
@@ -241,8 +245,18 @@ def _save_papers_store(data: dict):
 
 @router.get("/history")
 async def get_saved_papers_history(email: str = "guest@devgya.com"):
-    """Retrieve saved question papers history for educator."""
+    """Retrieve saved question papers history for educator from Supabase Cloud."""
     email_clean = email.strip().lower()
+    # 1. Fetch from Supabase Cloud
+    cloud_papers = await supabase_service.get_question_papers_from_cloud(email_clean)
+    if cloud_papers:
+        return {
+            "status": "success",
+            "email": email_clean,
+            "papers": cloud_papers
+        }
+
+    # 2. Fallback to local store
     store = _load_papers_store()
     user_papers = store.get(email_clean, [])
     return {
@@ -253,30 +267,21 @@ async def get_saved_papers_history(email: str = "guest@devgya.com"):
 
 @router.post("/history")
 async def save_paper_to_history(payload: dict):
-    """Save or update a generated question paper to educator history."""
+    """Save or update a generated question paper to educator history in cloud & local store."""
     email_clean = (payload.get("email") or "guest@devgya.com").strip().lower()
     paper = payload.get("paper")
     if not paper:
         raise HTTPException(status_code=400, detail="Paper object is required.")
 
-    store = _load_papers_store()
-    user_papers = store.get(email_clean, [])
-
-    # Filter duplicate paper if exists
-    filtered = [p for p in user_papers if not (p.get("title") == paper.get("title") and p.get("class_name") == paper.get("class_name"))]
-    updated = [paper] + filtered
-    store[email_clean] = updated
-    _save_papers_store(store)
-
+    await _save_paper_for_user(email_clean, paper)
     return {
         "status": "success",
-        "message": "Question paper saved to persistent history!",
-        "count": len(updated)
+        "message": "Question paper saved to persistent cloud history!"
     }
 
 @router.delete("/history")
 async def delete_paper_from_history(title: str, class_name: str, email: str = "guest@devgya.com"):
-    """Delete a saved question paper from educator history."""
+    """Delete a saved question paper from educator history in cloud & local store."""
     email_clean = email.strip().lower()
     store = _load_papers_store()
     user_papers = store.get(email_clean, [])
@@ -290,6 +295,9 @@ async def delete_paper_from_history(title: str, class_name: str, email: str = "g
             store[pool] = [p for p in store[pool] if not (p.get("title") == title and p.get("class_name") == class_name)]
 
     _save_papers_store(store)
+
+    # Delete from Supabase Cloud
+    await supabase_service.delete_question_paper_from_cloud(email_clean, title, class_name)
 
     return {
         "status": "success",

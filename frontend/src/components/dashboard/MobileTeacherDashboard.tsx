@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { 
   Zap, 
-  ScanText, 
+  Scan,
   Sparkles, 
   Video, 
   FileText, 
@@ -11,189 +12,356 @@ import {
   Download, 
   Plus, 
   GraduationCap,
-  Activity,
-  Layers,
+  TrendingUp,
+  Bot,
   Trophy,
-  BookOpen
+  BookOpen,
+  Search,
+  SlidersHorizontal,
+  ChevronRight,
+  FolderOpen
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { downloadPDF } from "@/lib/api";
 
 export function MobileTeacherDashboard() {
   const { user, savedPapers } = useAppStore();
+  const [searchQuery, setSearchQuery] = useState("");
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-300 md:hidden">
+    <div className="space-y-5 pb-24 animate-in fade-in duration-300 md:hidden px-1">
       
-      {/* MOBILE APP HERO BANNER */}
-      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-950 text-white p-6 rounded-3xl shadow-xl border border-indigo-700/50 relative overflow-hidden space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-black uppercase tracking-widest bg-white/15 px-3 py-1 rounded-full text-indigo-100 border border-white/10 backdrop-blur-md">
-            Teacher OS Hub
+      {/* 1. HERO BANNER WITH GRADUATION 3D ART & ACTION BUTTONS */}
+      <div className="bg-gradient-to-br from-[#1b1c54] via-[#2a1b6d] to-[#12163b] text-white p-5 rounded-[28px] shadow-xl border border-indigo-700/40 relative overflow-hidden space-y-3">
+        {/* Decorative background glow */}
+        <div className="absolute -top-10 -right-10 w-44 h-44 bg-purple-500/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
+
+        {/* Top Badges */}
+        <div className="flex items-center justify-between relative z-10">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider bg-white/15 px-3 py-1 rounded-full text-indigo-100 border border-white/10 backdrop-blur-md">
+            TEACHER OS HUB
           </span>
-          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2.5 py-0.5 rounded-full border border-emerald-400/20">
-            ● AI Ready
+          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 border border-emerald-400/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            AI Ready
           </span>
         </div>
 
-        <div>
-          <h1 className="text-xl font-black tracking-tight leading-snug">
-            Welcome, {user?.name || "Teacher"}! 👋
-          </h1>
-          <p className="text-xs text-indigo-200 font-medium mt-1">
-            CBSE & NCERT AI Automation Hub for Educators
-          </p>
+        {/* Headline & 3D Illustration Row */}
+        <div className="flex items-center justify-between gap-2 relative z-10 pt-1">
+          <div className="space-y-1 max-w-[62%]">
+            <h1 className="text-xl font-black tracking-tight leading-tight">
+              Welcome back,<br />
+              <span className="text-white font-extrabold">{user?.name || "testinh87"}! 👋</span>
+            </h1>
+            <p className="text-[11px] text-slate-300 font-medium leading-tight">
+              CBSE & NCERT AI Automation Hub for Educators
+            </p>
+          </div>
+
+          {/* 3D Stack Books & Graduation Cap Art */}
+          <div className="relative shrink-0 w-24 h-24 flex items-center justify-center">
+            <div className="w-20 h-20 bg-gradient-to-tr from-purple-600 to-indigo-500 rounded-3xl rotate-6 shadow-lg flex flex-col items-center justify-center p-2 border border-white/20">
+              <GraduationCap className="w-8 h-8 text-amber-300 drop-shadow" />
+              <div className="w-10 h-1.5 bg-amber-400 rounded-full mt-1" />
+              <div className="w-12 h-1 bg-white/60 rounded-full mt-1" />
+            </div>
+            {/* Small plant badge */}
+            <div className="absolute bottom-0 left-0 bg-emerald-500/90 text-white text-[10px] p-1 rounded-full shadow-md border border-white/40">
+              🌱
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2.5 pt-1 relative z-10">
           <Link
             href="/dashboard/generator"
-            className="flex-1 py-3 bg-white text-indigo-950 font-black text-xs rounded-2xl text-center shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform uppercase tracking-wider"
+            className="px-4 py-2.5 bg-white text-indigo-900 font-extrabold text-xs rounded-2xl shadow-lg flex items-center gap-2 active:scale-95 transition-all hover:bg-slate-50"
           >
-            <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400" />
+            <Sparkles className="w-4 h-4 text-purple-600 fill-purple-500" />
             <span>Generate Paper</span>
           </Link>
           
           <Link
             href="/dashboard/agents?agent=teacher_mentor"
-            className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl border border-white/20 transition-colors flex items-center justify-center"
+            className="p-2.5 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95"
             title="Teacher Mentor AI"
           >
-            <GraduationCap className="w-5 h-5 text-amber-300" />
+            <GraduationCap className="w-5 h-5 text-indigo-200" />
           </Link>
         </div>
       </div>
 
-      {/* QUICK LAUNCH SPEED-DIAL GRID - 6 MATCHING SIDEBAR TOOLS */}
-      <div className="space-y-3">
-        <h2 className="text-xs font-black uppercase tracking-wider text-slate-500 px-1">
-          Teacher Core Tools
-        </h2>
+      {/* 2. SEARCH BAR WITH FILTER BUTTON */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 flex-1 text-slate-400 text-xs">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search tools, papers, resources..."
+            className="w-full bg-transparent outline-none text-slate-800 placeholder:text-slate-400 text-xs font-medium"
+          />
+        </div>
+        <button 
+          type="button" 
+          className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors"
+          aria-label="Filter"
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+        </button>
+      </div>
 
-        <div className="grid grid-cols-2 gap-3">
+      {/* 3. QUICK ACTIONS (4-COLUMN ROW) */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+            QUICK ACTIONS
+          </h2>
+          <Link 
+            href="/dashboard/generator" 
+            className="text-xs font-extrabold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5"
+          >
+            View All <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          {/* Create Paper */}
+          <Link
+            href="/dashboard/generator"
+            className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs hover:border-purple-200 hover:shadow-sm transition-all flex flex-col items-center text-center space-y-1.5 active:scale-95"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-purple-100/70 border border-purple-200/60 flex items-center justify-center text-purple-600">
+              <FileText className="w-5 h-5" />
+            </div>
+            <span className="text-[11px] font-black text-slate-900 leading-tight">Create Paper</span>
+            <span className="text-[9px] text-slate-400 font-bold leading-none">Generate instantly</span>
+          </Link>
+
+          {/* Scan & Solve */}
+          <Link
+            href="/dashboard/ocr"
+            className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs hover:border-cyan-200 hover:shadow-sm transition-all flex flex-col items-center text-center space-y-1.5 active:scale-95"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-cyan-100/70 border border-cyan-200/60 flex items-center justify-center text-cyan-600">
+              <Scan className="w-5 h-5" />
+            </div>
+            <span className="text-[11px] font-black text-slate-900 leading-tight">Scan & Solve</span>
+            <span className="text-[9px] text-slate-400 font-bold leading-none">Extract text & solve</span>
+          </Link>
+
+          {/* AI Mentor */}
           <Link
             href="/dashboard/agents?agent=teacher_mentor"
-            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-indigo-300 hover:shadow-md transition-all space-y-2 group"
+            className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs hover:border-emerald-200 hover:shadow-sm transition-all flex flex-col items-center text-center space-y-1.5 active:scale-95"
           >
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-100/70 border border-emerald-200/60 flex items-center justify-center text-emerald-600">
+              <Bot className="w-5 h-5" />
+            </div>
+            <span className="text-[11px] font-black text-slate-900 leading-tight">AI Mentor</span>
+            <span className="text-[9px] text-slate-400 font-bold leading-none">Smart suggestions</span>
+          </Link>
+
+          {/* Analytics */}
+          <Link
+            href="/dashboard/agents?agent=teacher_mentor"
+            className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs hover:border-orange-200 hover:shadow-sm transition-all flex flex-col items-center text-center space-y-1.5 active:scale-95"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-orange-100/70 border border-orange-200/60 flex items-center justify-center text-orange-600">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <span className="text-[11px] font-black text-slate-900 leading-tight">Analytics</span>
+            <span className="text-[9px] text-slate-400 font-bold leading-none">Track performance</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* 4. TEACHER CORE TOOLS (3-COLUMN EXACT GRID) */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+            TEACHER CORE TOOLS
+          </h2>
+          <Link 
+            href="/dashboard/generator" 
+            className="text-xs font-extrabold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+          >
+            View All Tools <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {/* Card 1: Teacher Mentor AI */}
+          <Link
+            href="/dashboard/agents?agent=teacher_mentor"
+            className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-purple-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95"
+          >
+            <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
               <GraduationCap className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-extrabold text-slate-900">Teacher Mentor AI</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Pedagogy & Lesson AI</p>
+              <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Teacher Mentor AI</h3>
+              <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Pedagogy & Lesson AI</p>
+            </div>
+            <div className="flex justify-end pt-1">
+              <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                <ArrowRight className="w-3 h-3" />
+              </div>
             </div>
           </Link>
 
+          {/* Card 2: Question Generator */}
           <Link
             href="/dashboard/generator"
-            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-amber-300 hover:shadow-md transition-all space-y-2 group"
+            className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-amber-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95"
           >
-            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 group-hover:scale-105 transition-transform">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
               <Sparkles className="w-5 h-5 text-amber-500 fill-amber-400" />
             </div>
             <div>
-              <h3 className="text-xs font-extrabold text-slate-900">Question Generator</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">NCERT Exam Papers</p>
+              <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Question Generator</h3>
+              <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">NCERT Exam Papers</p>
+            </div>
+            <div className="flex justify-end pt-1">
+              <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                <ArrowRight className="w-3 h-3" />
+              </div>
             </div>
           </Link>
 
+          {/* Card 3: OCR Scanner */}
           <Link
             href="/dashboard/ocr"
-            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-cyan-300 hover:shadow-md transition-all space-y-2 group"
+            className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-cyan-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95"
           >
-            <div className="w-10 h-10 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600 group-hover:scale-105 transition-transform">
-              <ScanText className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600">
+              <Scan className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-extrabold text-slate-900">OCR Scanner</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Book Page to Test</p>
+              <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">OCR Scanner</h3>
+              <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Book Page to Test</p>
+            </div>
+            <div className="flex justify-end pt-1">
+              <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                <ArrowRight className="w-3 h-3" />
+              </div>
             </div>
           </Link>
 
-          <Link
-            href="/dashboard/teacher-olympiad"
-            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-orange-300 hover:shadow-md transition-all space-y-2 group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600 group-hover:scale-105 transition-transform">
-              <Trophy className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-xs font-extrabold text-slate-900">Teacher Skill Olympiad</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Official Certification</p>
-            </div>
-          </Link>
-
+          {/* Card 4: Olympiad Practice */}
           <Link
             href="/dashboard/teacher-olympiad/practice"
-            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all space-y-2 group"
+            className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-emerald-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95"
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-105 transition-transform">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-extrabold text-slate-900">Olympiad Practice</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Practice Mock Tests</p>
+              <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Olympiad Practice</h3>
+              <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Practice Mock Tests</p>
+            </div>
+            <div className="flex justify-end pt-1">
+              <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                <ArrowRight className="w-3 h-3" />
+              </div>
             </div>
           </Link>
 
+          {/* Card 5: Teacher Skill Olympiad */}
+          <Link
+            href="/dashboard/teacher-olympiad"
+            className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-orange-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95"
+          >
+            <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600">
+              <Trophy className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Teacher Skill Olympiad</h3>
+              <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Official Certification</p>
+            </div>
+            <div className="flex justify-end pt-1">
+              <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                <ArrowRight className="w-3 h-3" />
+              </div>
+            </div>
+          </Link>
+
+          {/* Card 6: Video Consultation */}
           <Link
             href="/dashboard/video-consultation"
-            className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-rose-300 hover:shadow-md transition-all space-y-2 group"
+            className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-rose-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95"
           >
-            <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 group-hover:scale-105 transition-transform">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
               <Video className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-extrabold text-slate-900">Video Consultation</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Live 1-on-1 Mentoring</p>
+              <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Video Consultation</h3>
+              <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Live 1-on-1 Mentoring</p>
+            </div>
+            <div className="flex justify-end pt-1">
+              <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                <ArrowRight className="w-3 h-3" />
+              </div>
             </div>
           </Link>
         </div>
       </div>
 
-      {/* RECENT GENERATED PAPERS TOUCH CARDS */}
-      <div className="space-y-3">
+      {/* 5. RECENT QUESTION PAPERS SECTION */}
+      <div className="space-y-2.5">
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-xs font-black uppercase tracking-wider text-slate-500">
-            Recent Question Papers ({savedPapers.length})
+          <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+            RECENT QUESTION PAPERS ({savedPapers.length})
           </h2>
-          <Link href="/dashboard/generator" className="text-xs font-bold text-indigo-600 flex items-center gap-1">
-            Generate New <ArrowRight className="w-3.5 h-3.5" />
+          <Link 
+            href="/dashboard/generator" 
+            className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-0.5 rounded-full flex items-center gap-1 transition-colors"
+          >
+            Generate New +
           </Link>
         </div>
 
         {savedPapers.length === 0 ? (
-          <div className="p-6 bg-white rounded-2xl border border-slate-200 text-center space-y-3">
-            <FileText className="w-8 h-8 text-slate-300 mx-auto" />
-            <p className="text-xs font-bold text-slate-600">No question papers created yet.</p>
-            <Link
-              href="/dashboard/generator"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white font-extrabold text-xs rounded-xl shadow-md"
-            >
-              <Plus className="w-3.5 h-3.5" /> Generate First Paper
-            </Link>
+          <div className="p-5 bg-white rounded-3xl border border-slate-100 shadow-xs flex items-center gap-4">
+            {/* 3D Purple Folder Illustration */}
+            <div className="w-16 h-16 rounded-2xl bg-indigo-100/80 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shrink-0 shadow-inner">
+              <FolderOpen className="w-8 h-8 text-indigo-500" />
+            </div>
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-black text-slate-900">No question papers created yet.</h3>
+              <p className="text-[11px] text-slate-400 font-medium">Generate your first paper to get started.</p>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">
-            {savedPapers.slice(0, 4).map((paper: any) => (
+            {savedPapers.slice(0, 4).map((paper: any, idx: number) => (
               <div
-                key={paper.id}
-                className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between"
+                key={idx}
+                className="p-3.5 bg-white rounded-2xl border border-slate-100 shadow-xs flex items-center justify-between gap-2 hover:border-indigo-200 transition-all"
               >
-                <div className="space-y-1 min-w-0 pr-3">
+                <div className="space-y-0.5 min-w-0 pr-2">
                   <h3 className="text-xs font-black text-slate-900 truncate">
-                    {paper.subject} • Class {paper.grade}
+                    {paper.title || `${paper.subject} Exam`}
                   </h3>
                   <p className="text-[10px] text-slate-400 font-bold">
-                    {paper.chapter} • Marks: {paper.total_marks || 20}
+                    {paper.class_name} • {paper.subject} • {paper.total_marks || 40} Marks
                   </p>
                 </div>
 
-                <Link
-                  href={`/dashboard/generator?paper=${paper.id}`}
-                  className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 font-bold text-xs shrink-0 flex items-center gap-1"
-                >
-                  <Download className="w-4 h-4" />
-                </Link>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => downloadPDF(paper, false)}
+                    className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                    title="Download PDF"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
