@@ -337,12 +337,12 @@ async def update_profile(payload: UpdateProfilePayload):
         avatar_url = upload_res.get("secure_url") or payload.avatar_url
 
     payload_dict = payload.dict(exclude_unset=True)
-    if "school_logo" in payload_dict:
-        payload_dict["school_logo"] = school_logo_url
-    if "avatar_url" in payload_dict:
-        payload_dict["avatar_url"] = avatar_url
     if "email" in payload_dict:
         del payload_dict["email"]
+    if "school_logo" in payload_dict:
+        del payload_dict["school_logo"]
+    if "avatar_url" in payload_dict:
+        del payload_dict["avatar_url"]
 
     updated = supabase_service.save_teacher_profile_details(
         email=email_clean,

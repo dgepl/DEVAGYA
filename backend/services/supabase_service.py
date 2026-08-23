@@ -196,17 +196,25 @@ class SupabaseService:
                 "is_active": True
             }
 
-        if profile_data:
             # Unpack metadata stored in Supabase avatar_url
             raw_avatar = profile_data.get("avatar_url")
             if raw_avatar and isinstance(raw_avatar, str) and raw_avatar.startswith("{") and raw_avatar.endswith("}"):
                 try:
                     unpacked = json.loads(raw_avatar)
                     if isinstance(unpacked, dict):
+                        # Extract clean image URL if present
+                        inner_avatar = unpacked.get("avatar_url", "")
+                        if isinstance(inner_avatar, str) and (inner_avatar.startswith("http") or inner_avatar.startswith("data:image")):
+                            profile_data["avatar_url"] = inner_avatar
+                        else:
+                            profile_data["avatar_url"] = ""
                         for k, v in unpacked.items():
-                            profile_data[k] = v
+                            if k != "avatar_url":
+                                profile_data[k] = v
                 except Exception:
-                    pass
+                    profile_data["avatar_url"] = ""
+            elif not raw_avatar or not (isinstance(raw_avatar, str) and (raw_avatar.startswith("http") or raw_avatar.startswith("data:image"))):
+                profile_data["avatar_url"] = ""
 
             # Also merge local fallback store
             extra = _teacher_profiles_store.get(email_clean, {})
@@ -214,7 +222,10 @@ class SupabaseService:
                 if k not in profile_data or not profile_data[k]:
                     profile_data[k] = v
 
-        return profile_data
+            # Final sanity check on avatar_url
+            final_avatar = profile_data.get("avatar_url")
+            if not isinstance(final_avatar, str) or not (final_avatar.startswith("http") or final_avatar.startswith("data:image")):
+                profile_data["avatar_url"] = ""
 
     async def save_question_paper_to_cloud(self, email: str, paper_data: dict) -> bool:
         """Persist a question paper directly into Supabase Cloud question_papers table."""
