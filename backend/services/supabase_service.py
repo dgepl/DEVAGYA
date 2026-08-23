@@ -141,12 +141,29 @@ class SupabaseService:
                 patch_payload = {"avatar_url": meta_json}
                 if full_name:
                     patch_payload["full_name"] = full_name
-                with httpx.Client(timeout=5.0) as client:
-                    client.patch(
+                with httpx.Client(timeout=8.0) as client:
+                    patch_res = client.patch(
                         f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{email_clean}",
-                        headers=headers,
+                        headers={**headers, "Prefer": "return=representation"},
                         json=patch_payload
                     )
+                    # If row doesn't exist in Supabase profiles table, insert it
+                    if patch_res.status_code in (200, 204):
+                        rows = patch_res.json() if patch_res.status_code == 200 else []
+                        if not rows:
+                            insert_row = {
+                                "id": f"usr-{email_clean.split('@')[0]}",
+                                "email": email_clean,
+                                "full_name": full_name or email_clean.split('@')[0].capitalize(),
+                                "role": current.get("role", "teacher"),
+                                "avatar_url": meta_json,
+                                "is_active": True
+                            }
+                            client.post(
+                                f"{SUPABASE_URL}/rest/v1/profiles",
+                                headers=headers,
+                                json=insert_row
+                            )
             except Exception as sync_err:
                 logger.warn(f"Supabase Cloud profile sync notice: {sync_err}")
 

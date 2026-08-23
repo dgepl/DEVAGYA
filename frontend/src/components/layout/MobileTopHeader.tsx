@@ -32,6 +32,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { DevgyaLogo } from "@/components/common/DevgyaLogo";
 
 export function MobileTopHeader() {
   const pathname = usePathname();
@@ -225,16 +226,8 @@ export function MobileTopHeader() {
         </button>
 
         {/* CENTER: DEVGYA GLOBAL LOGO & TEXT BRANDING */}
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <img 
-            src="/logo.png" 
-            alt="DEVGYA GLOBAL" 
-            className="h-8 w-auto object-contain mix-blend-multiply" 
-          />
-          <div className="flex flex-col text-left">
-            <span className="text-[11px] font-black text-slate-900 tracking-wider uppercase leading-tight">DEVGYA GLOBAL</span>
-            <span className="text-[8.5px] font-bold text-slate-500 tracking-widest uppercase leading-none">EDUCATION</span>
-          </div>
+        <Link href="/dashboard" className="flex items-center gap-2 transition-transform active:scale-98">
+          <DevgyaLogo size="sm" showText={true} />
         </Link>
 
         {/* RIGHT: NOTIFICATIONS BELL + PROFILE AVATAR */}

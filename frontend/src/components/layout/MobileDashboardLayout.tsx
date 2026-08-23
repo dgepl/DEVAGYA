@@ -25,6 +25,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { DevgyaLogo } from "@/components/common/DevgyaLogo";
 
 export function MobileDashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -73,12 +74,8 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
       
       {/* MOBILE TOP HEADER BAR */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <img 
-            src="/logo.png" 
-            alt="DEVGYA GLOBAL" 
-            className="h-10 w-auto max-h-10 object-contain mix-blend-multiply" 
-          />
+        <Link href="/dashboard" className="flex items-center gap-2 transition-transform active:scale-98">
+          <DevgyaLogo size="sm" showText={true} />
         </Link>
 
         <div className="flex items-center gap-2">

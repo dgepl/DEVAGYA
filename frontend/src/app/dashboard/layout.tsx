@@ -45,6 +45,7 @@ import { SmartSearchBar } from "@/components/search/SmartSearchBar";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { MobileTopHeader } from "@/components/layout/MobileTopHeader";
 import { MobileBottomDock } from "@/components/layout/MobileBottomDock";
+import { DevgyaLogo } from "@/components/common/DevgyaLogo";
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -182,12 +183,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-slate-200 p-4 space-y-6 fixed inset-y-0 z-40 bg-white/95 backdrop-blur-xl">
         
         {/* Brand Header - Prominent Logo */}
-        <Link href="/" className="flex items-center justify-start px-2 py-1 group">
-          <img
-            src="/logo.png"
-            alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED"
-            className="h-20 w-auto max-h-24 max-w-[240px] object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
-          />
+        <Link href="/" className="flex items-center justify-start px-2 py-1 group transition-transform active:scale-98">
+          <DevgyaLogo size="md" showText={true} />
         </Link>
 
         {/* Primary Nav */}

@@ -30,7 +30,8 @@ import {
   Cloud,
   Mail,
   Zap,
-  FileText
+  FileText,
+  LogOut
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -83,8 +84,48 @@ const PARENT_FOCUS_AREAS = [
   "Overall Personality & Spoken English Growth"
 ];
 
+/**
+ * Compress image on client-side using HTML5 Canvas
+ * Transforms any 5-15MB phone camera photo into a super lightweight (~20KB) JPEG in milliseconds.
+ */
+const compressImageFile = (file: File, maxWidth = 320, quality = 0.82): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read image file"));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(event.target?.result as string);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressedBase64);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 function ProfileContent() {
-  const { user, updateUserProfile } = useAppStore();
+  const { user, updateUserProfile, logout } = useAppStore();
   const searchParams = useSearchParams();
   const router = useRouter();
   const isOnboarding = searchParams.get("onboarding") === "true";
@@ -164,8 +205,8 @@ function ProfileContent() {
     }
   }, [user]);
 
-  // 1. Handle User Profile Picture / Avatar Upload (Cloudinary)
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 1. Handle User Profile Picture / Avatar Upload (Client-compressed + Cloud Sync)
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -174,42 +215,33 @@ function ProfileContent() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg("Image size exceeds 5MB limit. Please upload a smaller image.");
-      return;
-    }
-
     setUploadingAvatar(true);
     setErrorMsg(null);
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      setAvatarUrl(base64);
+    try {
+      // Compress in browser instantly down to < 25KB
+      const compressedBase64 = await compressImageFile(file, 320, 0.82);
+      setAvatarUrl(compressedBase64);
+      updateUserProfile({ avatarUrl: compressedBase64 });
 
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-        const res = await fetch(`${baseUrl}/auth/upload-avatar`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64, email: user.email || email })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const hostedUrl = data.secure_url || data.url || base64;
-          setAvatarUrl(hostedUrl);
-          updateUserProfile({ avatarUrl: hostedUrl });
-        } else {
-          updateUserProfile({ avatarUrl: base64 });
-        }
-      } catch (err) {
-        console.warn("Avatar upload fallback to local data url:", err);
-        updateUserProfile({ avatarUrl: base64 });
-      } finally {
-        setUploadingAvatar(false);
+      // Upload to backend API / Cloudinary
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const res = await fetch(`${baseUrl}/auth/upload-avatar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: compressedBase64, email: user.email || email })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const hostedUrl = data.secure_url || data.url || compressedBase64;
+        setAvatarUrl(hostedUrl);
+        updateUserProfile({ avatarUrl: hostedUrl });
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.warn("Avatar upload notice:", err);
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleRemoveAvatar = () => {
@@ -220,8 +252,8 @@ function ProfileContent() {
     }
   };
 
-  // 2. Handle School / Institution Logo Upload (Cloudinary)
-  const handleSchoolLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 2. Handle School / Institution Logo Upload (Client-compressed + Cloud Sync)
+  const handleSchoolLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -230,42 +262,32 @@ function ProfileContent() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg("Logo size exceeds 5MB limit. Please upload a smaller image.");
-      return;
-    }
-
     setUploadingLogo(true);
     setErrorMsg(null);
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      setSchoolLogo(base64);
+    try {
+      // Compress in browser instantly down to < 30KB
+      const compressedBase64 = await compressImageFile(file, 380, 0.85);
+      setSchoolLogo(compressedBase64);
+      updateUserProfile({ schoolLogo: compressedBase64 });
 
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-        const res = await fetch(`${baseUrl}/auth/upload-logo`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64, email: user.email || email })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const hostedUrl = data.secure_url || data.url || base64;
-          setSchoolLogo(hostedUrl);
-          updateUserProfile({ schoolLogo: hostedUrl });
-        } else {
-          updateUserProfile({ schoolLogo: base64 });
-        }
-      } catch (err) {
-        console.warn("Logo upload fallback to local data url:", err);
-        updateUserProfile({ schoolLogo: base64 });
-      } finally {
-        setUploadingLogo(false);
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const res = await fetch(`${baseUrl}/auth/upload-logo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: compressedBase64, email: user.email || email })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const hostedUrl = data.secure_url || data.url || compressedBase64;
+        setSchoolLogo(hostedUrl);
+        updateUserProfile({ schoolLogo: hostedUrl });
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.warn("Logo upload notice:", err);
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const handleRemoveSchoolLogo = () => {
@@ -318,7 +340,7 @@ function ProfileContent() {
     // Update local Zustand store & localStorage immediately
     updateUserProfile(profileUpdates);
 
-    // Sync with backend API (Supabase Cloud + Cloudinary)
+    // Sync with backend API (Supabase Cloud)
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
       const res = await fetch(`${baseUrl}/auth/profile`, {
@@ -374,6 +396,13 @@ function ProfileContent() {
       setTimeout(() => setSaved(false), 3500);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSignOut = () => {
+    logout();
+    if (typeof window !== "undefined") {
+      window.location.replace("/");
     }
   };
 
@@ -467,7 +496,7 @@ function ProfileContent() {
               {avatarUrl && avatarUrl.startsWith("http") && (
                 <span className="text-[10px] font-bold bg-white/10 text-indigo-200 border border-white/15 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Cloud className="w-3 h-3 text-cyan-300" />
-                  Cloudinary Hosted
+                  Cloud Hosted
                 </span>
               )}
             </div>
@@ -500,7 +529,7 @@ function ProfileContent() {
       {errorMsg && (
         <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center justify-between animate-in fade-in">
           <span>⚠️ {errorMsg}</span>
-          <button type="button" onClick={() => setErrorMsg(null)} className="text-rose-500 hover:text-rose-800">✕</button>
+          <button type="button" onClick={() => setErrorMsg(null)} className="text-rose-500 hover:text-rose-800 cursor-pointer">✕</button>
         </div>
       )}
 
@@ -508,7 +537,7 @@ function ProfileContent() {
       {saved && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-black flex items-center gap-2 animate-in fade-in shadow-sm">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>Profile and school logo successfully saved & synced to cloud!</span>
+          <span>Profile, picture, and branding successfully saved & synced to cloud!</span>
         </div>
       )}
 
@@ -864,6 +893,28 @@ function ProfileContent() {
                 <span>Save All Changes</span>
               </>
             )}
+          </button>
+        </div>
+
+        {/* SECTION 4: MOBILE & DESKTOP SIGN OUT SECTION */}
+        <div className="bg-rose-50/60 rounded-3xl p-6 border border-rose-100 flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+          <div className="space-y-1 text-center sm:text-left">
+            <h3 className="text-xs font-black text-rose-900 flex items-center justify-center sm:justify-start gap-1.5">
+              <LogOut className="w-4 h-4 text-rose-600" />
+              Sign Out of Account
+            </h3>
+            <p className="text-[11px] text-rose-700/80 font-medium">
+              Safely end your session on this device. Your saved papers and profile stay preserved in the cloud.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="w-full sm:w-auto px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Log Out Account</span>
           </button>
         </div>
 
