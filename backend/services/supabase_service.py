@@ -196,6 +196,7 @@ class SupabaseService:
                 "is_active": True
             }
 
+        if profile_data:
             # Unpack metadata stored in Supabase avatar_url
             raw_avatar = profile_data.get("avatar_url")
             if raw_avatar and isinstance(raw_avatar, str) and raw_avatar.startswith("{") and raw_avatar.endswith("}"):
@@ -226,6 +227,8 @@ class SupabaseService:
             final_avatar = profile_data.get("avatar_url")
             if not isinstance(final_avatar, str) or not (final_avatar.startswith("http") or final_avatar.startswith("data:image")):
                 profile_data["avatar_url"] = ""
+
+        return profile_data
 
     async def save_question_paper_to_cloud(self, email: str, paper_data: dict) -> bool:
         """Persist a question paper directly into Supabase Cloud question_papers table."""
