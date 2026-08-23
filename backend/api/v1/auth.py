@@ -215,12 +215,74 @@ async def login_user(payload: LoginPayload):
         "subject": profile.get("subject", ""),
         "classes": profile.get("classes", "Class 10"),
         "schoolLogo": profile.get("school_logo", ""),
-        "isProfileComplete": profile.get("is_profile_complete", bool(profile.get("school_name") and profile.get("subject"))),
+        "isProfileComplete": True,
+        # Student specific
+        "targetExam": profile.get("target_exam", ""),
+        "strongSubject": profile.get("strong_subject", ""),
+        "weakSubject": profile.get("weak_subject", ""),
+        "dailyGoalHours": profile.get("daily_goal_hours", "2"),
+        "studyMotto": profile.get("study_motto", ""),
+        "preferredLanguage": profile.get("preferred_language", "english"),
+        # Parent specific
+        "childName": profile.get("child_name", ""),
+        "childSchool": profile.get("child_school", ""),
+        "childClass": profile.get("child_class", "Class 10"),
+        "childBoard": profile.get("child_board", "CBSE"),
+        "parentRelation": profile.get("parent_relation", "Father"),
+        "phone": profile.get("phone", ""),
+        "parentingFocus": profile.get("parenting_focus", "Exam Preparation"),
+        "weeklyReportAlerts": profile.get("weekly_report_alerts", True),
         "token": f"devgya-jwt-{user_role}-token-{user_id}"
     }
     return {
         "status": "success",
         "message": "Login successful!",
+        "user": user_data
+    }
+
+@router.get("/profile")
+async def get_profile(email: str):
+    """Fetch real-time profile data from server to keep multiple devices in sync."""
+    if not email:
+        raise HTTPException(status_code=400, detail="Email parameter is required.")
+    email_clean = email.strip().lower()
+    profile = await supabase_service.get_profile_by_email(email_clean)
+    if not profile:
+        raise HTTPException(status_code=404, detail="User profile not found.")
+
+    user_role = profile.get("role", "teacher")
+    user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
+    user_data = {
+        "id": user_id,
+        "email": email_clean,
+        "name": profile.get("full_name", email_clean.split('@')[0].capitalize()),
+        "role": user_role,
+        "schoolName": profile.get("school_name", ""),
+        "board": profile.get("board", "CBSE"),
+        "subject": profile.get("subject", ""),
+        "classes": profile.get("classes", "Class 10"),
+        "schoolLogo": profile.get("school_logo", ""),
+        "isProfileComplete": True,
+        # Student specific
+        "targetExam": profile.get("target_exam", ""),
+        "strongSubject": profile.get("strong_subject", ""),
+        "weakSubject": profile.get("weak_subject", ""),
+        "dailyGoalHours": profile.get("daily_goal_hours", "2"),
+        "studyMotto": profile.get("study_motto", ""),
+        "preferredLanguage": profile.get("preferred_language", "english"),
+        # Parent specific
+        "childName": profile.get("child_name", ""),
+        "childSchool": profile.get("child_school", ""),
+        "childClass": profile.get("child_class", "Class 10"),
+        "childBoard": profile.get("child_board", "CBSE"),
+        "parentRelation": profile.get("parent_relation", "Father"),
+        "phone": profile.get("phone", ""),
+        "parentingFocus": profile.get("parenting_focus", "Exam Preparation"),
+        "weeklyReportAlerts": profile.get("weekly_report_alerts", True),
+        "token": f"devgya-jwt-{user_role}-token-{user_id}"
+    }
+    return {
+        "status": "success",
         "user": user_data
     }
 

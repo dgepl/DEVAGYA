@@ -50,14 +50,29 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, logout } = useAppStore();
+  const { user, logout, initSession, syncProfileFromServer } = useAppStore();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isAgentsPage = pathname?.startsWith("/dashboard/agents");
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    initSession();
+
+    // Auto-sync profile on window focus or tab visibility change across multiple devices
+    const handleFocus = () => {
+      if (user?.email) {
+        syncProfileFromServer(user.email);
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+    };
+  }, [user?.email]);
 
   const handleSignOut = () => {
     logout();

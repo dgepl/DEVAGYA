@@ -50,6 +50,7 @@ interface AppState {
   deleteSavedPaper: (index: number) => void;
   setOcrDraftText: (text: string) => void;
   setActiveChildId: (childId: string) => void;
+  syncProfileFromServer: (email?: string) => Promise<void>;
   initSession: () => void;
   logout: () => void;
 }
@@ -109,6 +110,29 @@ export const useAppStore = create<AppState>((set, get) => {
     savedPapers: initialPapers,
     ocrDraftText: "",
     activeChildId: "",
+    syncProfileFromServer: async (targetEmail?: string) => {
+      const emailToSync = targetEmail || get().user?.email;
+      if (!emailToSync || emailToSync === "" || emailToSync.includes("guest") || typeof window === "undefined") {
+        return;
+      }
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+        const res = await fetch(`${baseUrl}/auth/profile?email=${encodeURIComponent(emailToSync.trim().toLowerCase())}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === "success" && data.user) {
+            const current = get().user;
+            const updatedUser: UserProfile = { ...current, ...data.user };
+            set({ user: updatedUser });
+            try {
+              localStorage.setItem("devgya_user", JSON.stringify(updatedUser));
+            } catch (e) {}
+          }
+        }
+      } catch (err) {
+        console.warn("Real-time profile server sync notice:", err);
+      }
+    },
     setUser: (user) => {
       if (typeof window !== "undefined") {
         try {
@@ -118,6 +142,11 @@ export const useAppStore = create<AppState>((set, get) => {
       // Load user-specific papers
       const userPapers = getInitialSavedPapers(user.email);
       set({ user, savedPapers: userPapers.length > 0 ? userPapers : get().savedPapers });
+
+      // Fetch latest profile from server to ensure multi-device synchronization
+      if (user.email) {
+        get().syncProfileFromServer(user.email);
+      }
 
       // Fetch server history in background
       if (user.email && typeof window !== "undefined") {
@@ -152,6 +181,9 @@ export const useAppStore = create<AppState>((set, get) => {
       const user = getInitialUser();
       const userPapers = getInitialSavedPapers(user.email);
       set({ user, savedPapers: userPapers });
+      if (user.email) {
+        get().syncProfileFromServer(user.email);
+      }
     },
     switchRole: (role) => set((state) => ({ user: { ...state.user, role } })),
     setActivePaper: (paper) => set({ activePaper: paper }),
