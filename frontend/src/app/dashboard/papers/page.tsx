@@ -15,7 +15,7 @@ export default function PapersPage() {
     }
   }, [user?.email, fetchSavedPapers]);
 
-  const allPapers = savedPapers.length > 0 ? savedPapers : (activePaper ? [activePaper] : []);
+  const allPapers = savedPapers;
 
   return (
     <div className="space-y-8">

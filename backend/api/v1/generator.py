@@ -35,8 +35,6 @@ def _save_paper_for_user(email: Optional[str], paper_data: dict):
     user_papers = store.get(email_clean, [])
     filtered = [p for p in user_papers if not (p.get("title") == paper_data.get("title") and p.get("class_name") == paper_data.get("class_name"))]
     store[email_clean] = [paper_data] + filtered
-    # Also update global default pool so new devices have immediate access
-    store["default"] = [paper_data] + [p for p in store.get("default", []) if not (p.get("title") == paper_data.get("title") and p.get("class_name") == paper_data.get("class_name"))]
     _save_papers_store(store)
 
 @router.post("/generate", response_model=GeneratedPaperResponse)
@@ -247,9 +245,6 @@ async def get_saved_papers_history(email: str = "guest@devgya.com"):
     email_clean = email.strip().lower()
     store = _load_papers_store()
     user_papers = store.get(email_clean, [])
-    # Also return guest / global papers if empty
-    if not user_papers and "default" in store:
-        user_papers = store["default"]
     return {
         "status": "success",
         "email": email_clean,
@@ -288,6 +283,12 @@ async def delete_paper_from_history(title: str, class_name: str, email: str = "g
 
     updated = [p for p in user_papers if not (p.get("title") == title and p.get("class_name") == class_name)]
     store[email_clean] = updated
+
+    # Clean up from guest and default pools to prevent resurrection
+    for pool in ("default", "guest@devgya.com"):
+        if pool in store:
+            store[pool] = [p for p in store[pool] if not (p.get("title") == title and p.get("class_name") == class_name)]
+
     _save_papers_store(store)
 
     return {

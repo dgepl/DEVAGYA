@@ -217,21 +217,28 @@ export const useAppStore = create<AppState>((set, get) => {
     deleteSavedPaper: (index) => set((state) => {
       const paperToDelete = state.savedPapers[index];
       const updated = state.savedPapers.filter((_, i) => i !== index);
+      const userEmail = state.user?.email || "guest@devgya.com";
+
       if (typeof window !== "undefined") {
         try {
           const emailKey = state.user?.email ? `devgya_saved_papers_${state.user.email.trim().toLowerCase()}` : "devgya_saved_papers";
           localStorage.setItem(emailKey, JSON.stringify(updated));
           localStorage.setItem("devgya_saved_papers", JSON.stringify(updated));
 
-          if (paperToDelete && state.user?.email) {
+          if (paperToDelete) {
             const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-            fetch(`${baseUrl}/generator/history?title=${encodeURIComponent(paperToDelete.title)}&class_name=${encodeURIComponent(paperToDelete.class_name)}&email=${encodeURIComponent(state.user.email)}`, {
+            fetch(`${baseUrl}/generator/history?title=${encodeURIComponent(paperToDelete.title)}&class_name=${encodeURIComponent(paperToDelete.class_name)}&email=${encodeURIComponent(userEmail)}`, {
               method: "DELETE"
             }).catch(() => {});
           }
         } catch (e) {}
       }
-      return { savedPapers: updated };
+
+      const shouldClearActive = state.activePaper && paperToDelete && state.activePaper.title === paperToDelete.title && state.activePaper.class_name === paperToDelete.class_name;
+      return { 
+        savedPapers: updated,
+        activePaper: shouldClearActive ? null : state.activePaper
+      };
     }),
     setOcrDraftText: (ocrDraftText) => set({ ocrDraftText }),
     setActiveChildId: (activeChildId) => set({ activeChildId }),
