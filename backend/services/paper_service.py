@@ -37,37 +37,64 @@ class PaperService:
         papers = self.get_all_papers()
         return next((p for p in papers if p["id"] == paper_id), None)
 
-    def get_active_olympiad_paper(self) -> Optional[Dict[str, Any]]:
+    def get_active_olympiad_paper(self, subject: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Returns the currently active published Olympiad paper for candidates."""
         papers = self.get_all_papers()
-        # Find published TSO paper
-        published = [p for p in papers if p.get("published") is True]
-        if published:
-            return published[0]
-        return None
+        if not papers:
+            return None
+
+        # 1. Match published paper for this specific subject track
+        if subject:
+            subj_clean = subject.strip().lower()
+            for p in papers:
+                p_subj = p.get("subject", "").strip().lower()
+                if p.get("published") is True and (p_subj == subj_clean or subj_clean in p_subj or p_subj in subj_clean):
+                    return p
+
+        # 2. Fallback to latest published paper
+        for p in papers:
+            if p.get("published") is True:
+                return p
+
+        # 3. Fallback to most recent paper
+        return papers[0] if papers else None
 
     def create_paper_manual(self, paper_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
             papers = self.get_all_papers()
             new_id = f"paper-{int(time.time() * 1000) % 1000000:06d}"
             
+            is_published = paper_data.get("published", True)
+            subj = paper_data.get("subject", "Science")
+
+            if is_published:
+                # Deactivate previously active paper for this subject track
+                for p in papers:
+                    if p.get("subject", "").strip().lower() == subj.strip().lower():
+                        p["published"] = False
+
             created_paper = {
                 "id": new_id,
-                "title": paper_data.get("title", "Custom Exam Paper"),
+                "title": paper_data.get("title", f"TSO 2026 Official Paper — {subj}"),
                 "class_name": paper_data.get("class_name", "Class 10"),
-                "subject": paper_data.get("subject", "Science"),
+                "subject": subj,
                 "board": paper_data.get("board", "CBSE"),
-                "chapter": paper_data.get("chapter", "Full Syllabus"),
+                "chapter": paper_data.get("chapter", "Full Syllabus 60/40 Blueprint"),
                 "difficulty": paper_data.get("difficulty", "medium"),
-                "total_marks": len(paper_data.get("questions", [])) or paper_data.get("total_marks", 20),
-                "time_allowed_mins": paper_data.get("time_allowed_mins", 30),
+                "total_marks": len(paper_data.get("questions", [])) or paper_data.get("total_marks", 100),
+                "time_allowed_mins": paper_data.get("time_allowed_mins", 60),
                 "school_name": paper_data.get("school_name", "DEVGYA GLOBAL EDUTECH"),
                 "source": "manual",
                 "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "start_time": paper_data.get("start_time") or time.strftime("%Y-%m-%d %H:%M:%S"),
                 "end_time": paper_data.get("end_time") or "2026-12-31 23:59:59",
-                "published": paper_data.get("published", False),
-                "instructions": paper_data.get("instructions", ["All questions are compulsory."]),
+                "published": is_published,
+                "instructions": paper_data.get("instructions", [
+                    "Total 100 Multiple Choice Questions (1 Mark Each • No Negative Marking).",
+                    "Part-A carries 60% weightage (60 Questions) covering CBSE CPD, Scenarios & Modern Pedagogy.",
+                    "Part-B carries 40% weightage (40 Questions) covering Core Subject Depth, TLM & HOTS.",
+                    "Total Duration: 60 Minutes."
+                ]),
                 "questions": paper_data.get("questions", [])
             }
 

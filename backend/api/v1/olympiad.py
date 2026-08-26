@@ -105,15 +105,35 @@ async def submit_100_exam_paper(payload: Submit100Payload):
     raise HTTPException(status_code=400, detail=res.get("message", "Submission failed"))
 
 @router.get("/attempt-status")
-async def get_user_attempt_status(email: str = Query(...)):
-    """Check if candidate has already submitted the 100-MCQ Olympiad assessment."""
+async def get_user_attempt_status(
+    email: str = Query(...),
+    paper_id: Optional[str] = Query(None),
+    subject: Optional[str] = Query(None)
+):
+    """Check if candidate has already submitted the current active 100-MCQ Olympiad assessment."""
     submissions = olympiad_service.get_all_submissions()
     clean = email.strip().lower()
-    user_sub = next((s for s in submissions if s.get("teacher_email") == clean), None)
+
+    # Identify the current active paper
+    active_paper = olympiad_service.get_active_exam_paper(subject=subject or "Science")
+    active_paper_id = paper_id or (active_paper.get("id") if active_paper else None)
+
+    if active_paper_id:
+        user_sub = next((
+            s for s in submissions 
+            if s.get("teacher_email") == clean and (
+                str(s.get("paper_id", "")).strip().lower() == str(active_paper_id).strip().lower()
+                or str(active_paper_id).strip().lower() in str(s.get("paper_id", "")).strip().lower()
+            )
+        ), None)
+    else:
+        user_sub = next((s for s in submissions if s.get("teacher_email") == clean), None)
+
     return {
         "status": "success",
         "has_attempted": bool(user_sub),
-        "submission": user_sub
+        "submission": user_sub,
+        "active_paper_id": active_paper_id
     }
 
 @router.get("/results")

@@ -90,6 +90,7 @@ export default function TeacherOlympiadPage() {
       if (data.status === "success" && data.paper) {
         setPaperData(data.paper);
         setQuestions(data.paper.questions || []);
+        await checkAttemptStatus(data.paper.id);
       }
     } catch (e) {
       console.error("Error loading Olympiad 100 paper:", e);
@@ -99,16 +100,20 @@ export default function TeacherOlympiadPage() {
   };
 
   // 2. Check Candidate's Attempt Status & Load Submitted Evaluations
-  const checkAttemptStatus = async () => {
+  const checkAttemptStatus = async (targetPaperId?: string) => {
     if (!user?.email) return;
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      const res = await fetch(`${baseUrl}/olympiad/attempt-status?email=${encodeURIComponent(user.email.trim().toLowerCase())}`);
+      const pId = targetPaperId || paperData?.id || "";
+      const pQuery = pId ? `&paper_id=${encodeURIComponent(pId)}` : "";
+      const res = await fetch(`${baseUrl}/olympiad/attempt-status?email=${encodeURIComponent(user.email.trim().toLowerCase())}&subject=${encodeURIComponent(selectedSubject)}${pQuery}`);
       const data = await res.json();
       if (data.status === "success") {
         setHasAttempted(data.has_attempted);
         if (data.submission) {
           setUserSubmission(data.submission);
+        } else {
+          setUserSubmission(null);
         }
       }
     } catch (e) {
