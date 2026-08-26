@@ -67,6 +67,58 @@ class AssignmentPDFRequest(BaseModel):
     config: AssignmentPDFConfig
     is_teacher_key: bool = False
 
+def robust_json_parser(raw_text: str) -> Dict[str, Any]:
+    """Resilient multi-tier JSON parser for AI outputs with LaTeX math, unescaped backslashes, and trailing commas."""
+    text = (raw_text or "").strip()
+    if "```json" in text:
+        text = text.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif "```" in text:
+        text = text.split("```", 1)[1].split("```", 1)[0].strip()
+
+    if "{" in text and "}" in text:
+        text = text[text.find("{"):text.rfind("}") + 1].strip()
+
+    # Tier 1: Standard parse
+    try:
+        return json.loads(text, strict=False)
+    except Exception:
+        pass
+
+    # Tier 2: Escape unescaped backslashes (common in LaTeX formulas like \frac, \sqrt, \alpha, \pm)
+    sanitized = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', text)
+    try:
+        return json.loads(sanitized, strict=False)
+    except Exception:
+        pass
+
+    # Tier 3: Strip trailing commas before closing braces/brackets
+    sanitized_no_trailing = re.sub(r',\s*([}\]])', r'\1', sanitized)
+    try:
+        return json.loads(sanitized_no_trailing, strict=False)
+    except Exception:
+        pass
+
+    # Tier 4: Regex-based extraction of question objects if root wrapper had formatting issues
+    try:
+        q_match = re.search(r'"questions"\s*:\s*\[(.*)\]', text, re.DOTALL)
+        if q_match:
+            items = []
+            block_pattern = re.compile(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}')
+            for b in block_pattern.findall(q_match.group(1)):
+                try:
+                    cleaned_b = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', b)
+                    cleaned_b = re.sub(r',\s*([}\]])', r'\1', cleaned_b)
+                    items.append(json.loads(cleaned_b, strict=False))
+                except Exception:
+                    pass
+            if items:
+                return {"questions": items}
+    except Exception:
+        pass
+
+    # Fallback to direct json.loads to raise informative error if completely unrecoverable
+    return json.loads(sanitized_no_trailing)
+
 @router.post("/generate-ai")
 async def generate_ai_assignment(req: GenerateAssignmentRequest):
     """
@@ -105,7 +157,7 @@ async def generate_ai_assignment(req: GenerateAssignmentRequest):
             f"You are DEVGYA's Master CBSE/NCERT Curriculum Architect and Senior Teacher Assessment Synthesizer for {req.class_name} {req.subject}. "
             f"Generate 100% original, academically rigorous questions strictly tailored to the topic '{req.chapter_topic}'. "
             f"Use formal LaTeX notation for mathematical and scientific formulas (e.g. $x^2 + 5x + 6 = 0$, $\\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$, $H_2SO_4$). "
-            f"Respond ONLY with a valid JSON object matching the requested schema."
+            f"IMPORTANT: Ensure valid, well-formed JSON output. Escape all quotes and backslashes properly. Respond ONLY with the JSON object."
         )
 
         user_prompt = f"""
@@ -169,20 +221,12 @@ Return a JSON object matching this exact structure:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.5,
+            temperature=0.4,
             max_tokens=4000,
             response_format_json=True
         )
 
-        text = (raw_response or "").strip()
-        if "```json" in text:
-            text = text.split("```json", 1)[1].split("```", 1)[0].strip()
-        elif "```" in text:
-            text = text.split("```", 1)[1].split("```", 1)[0].strip()
-        if "{" in text and "}" in text:
-            text = text[text.find("{"):text.rfind("}") + 1].strip()
-
-        parsed = json.loads(text)
+        parsed = robust_json_parser(raw_response)
         raw_questions = parsed.get("questions") or []
 
         # Clean and standardize questions

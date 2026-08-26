@@ -163,8 +163,9 @@ export function MobileTopHeader() {
   // Exact match to Desktop Sidebar Nav Items
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
+    { label: "AI Assignment Maker", href: "/dashboard/assignments", icon: FileText },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
+    { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
     { label: "Teacher Skill Olympiad", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Olympiad Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
