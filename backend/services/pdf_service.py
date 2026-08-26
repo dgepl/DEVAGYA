@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, Image as RLImage
 from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -27,6 +28,10 @@ try:
         if os.path.exists(fp):
             pdfmetrics.registerFont(TTFont("DevanagariUnicode", fp))
             pdfmetrics.registerFont(TTFont("DevanagariUnicode-Bold", fp))
+            try:
+                pdfmetrics.registerFontFamily("DevanagariUnicode", normal="DevanagariUnicode", bold="DevanagariUnicode-Bold", italic="DevanagariUnicode", boldItalic="DevanagariUnicode-Bold")
+            except Exception:
+                pass
             UNICODE_FONT_NAME = "DevanagariUnicode"
             UNICODE_BOLD_FONT_NAME = "DevanagariUnicode-Bold"
             break
@@ -118,6 +123,93 @@ def extract_document_text(file_bytes: bytes, filename: str, content_type: str = 
     if len(text) > 35000:
         text = text[:35000] + f"\n\n[...Truncated remaining text of {filename} for prompt context size limit...]"
     return text
+
+def strip_emojis_for_pdf(raw: str) -> str:
+    if not raw:
+        return ""
+    emoji_pattern = re.compile(
+        "["
+        "\U00010000-\U0010FFFF"
+        "\u2600-\u27BF"
+        "\u2300-\u23FF"
+        "\u2B50\u2B55\u231A\u231B\u2328\u23CF"
+        "\uFE00-\uFE0F"
+        "\u200D"
+        "]+",
+        flags=re.UNICODE
+    )
+    return emoji_pattern.sub("", str(raw))
+
+def format_math_for_pdf(raw: str) -> str:
+    if not raw:
+        return ""
+    t = str(raw)
+    # Fractions: \frac{a}{b} -> (a / b)
+    t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1 / \2)', t)
+    # Square root: \sqrt{x} -> √(x)
+    t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
+    # Exponents & Subscripts
+    sup_map = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻', '=': '⁼', 'n': 'ⁿ'}
+    sub_map = {'0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋', '=': '₌', 'a': 'ₐ', 'e': 'ₑ', 'i': 'ᵢ', 'o': 'ₒ', 'r': 'ᵣ', 'u': 'ᵤ', 'v': 'ᵥ', 'x': 'ₓ'}
+    
+    t = re.sub(r'\^\{([0-9+\-n]+)\}', lambda m: "".join(sup_map.get(c, c) for c in m.group(1)), t)
+    t = re.sub(r'\^([0-9+\-n])', lambda m: "".join(sup_map.get(c, c) for c in m.group(1)), t)
+    t = re.sub(r'_\{([0-9+\-aeioruvx]+)\}', lambda m: "".join(sub_map.get(c, c) for c in m.group(1)), t)
+    t = re.sub(r'_([0-9+\-aeioruvx])', lambda m: "".join(sub_map.get(c, c) for c in m.group(1)), t)
+
+    # Greek symbols & operators
+    symbols = [
+        (r'\\times', '×'),
+        (r'\\div', '÷'),
+        (r'\\pm', '±'),
+        (r'\\mp', '∓'),
+        (r'\\cdot', '·'),
+        (r'\\degree', '°'),
+        (r'\^\\circ', '°'),
+        (r'\\Delta', 'Δ'),
+        (r'\\delta', 'δ'),
+        (r'\\theta', 'θ'),
+        (r'\\Theta', 'Θ'),
+        (r'\\pi', 'π'),
+        (r'\\alpha', 'α'),
+        (r'\\beta', 'β'),
+        (r'\\gamma', 'γ'),
+        (r'\\Gamma', 'Γ'),
+        (r'\\lambda', 'λ'),
+        (r'\\Lambda', 'Λ'),
+        (r'\\mu', 'µ'),
+        (r'\\sigma', 'σ'),
+        (r'\\Sigma', 'Σ'),
+        (r'\\omega', 'ω'),
+        (r'\\Omega', 'Ω'),
+        (r'\\rho', 'ρ'),
+        (r'\\phi', 'φ'),
+        (r'\\Phi', 'Φ'),
+        (r'\\approx', '≈'),
+        (r'\\neq', '≠'),
+        (r'\\leq', '≤'),
+        (r'\\le', '≤'),
+        (r'\\geq', '≥'),
+        (r'\\ge', '≥'),
+        (r'\\rightarrow', '→'),
+        (r'\\to', '→'),
+        (r'\\leftarrow', '←'),
+        (r'\\leftrightarrow', '↔'),
+        (r'\\infty', '∞'),
+        (r'\\text\{([^{}]+)\}', r'\1'),
+        (r'\\mathrm\{([^{}]+)\}', r'\1'),
+        (r'\\mathbf\{([^{}]+)\}', r'<b>\1</b>'),
+        (r'\\mathit\{([^{}]+)\}', r'<i>\1</i>'),
+    ]
+    for pattern_str, repl in symbols:
+        t = re.sub(pattern_str, repl, t)
+    
+    # Clean math delimiters
+    t = re.sub(r'\$\$([^\$]+)\$\$', r'\1', t)
+    t = re.sub(r'\$([^\$]+)\$', r'\1', t)
+    t = re.sub(r'\\\[(.*?)\\\]', r'\1', t)
+    t = re.sub(r'\\\((.*?)\\\)', r'\1', t)
+    return t
 
 class NumberedCanvas(canvas.Canvas):
     """Custom canvas for adding page numbers and subtle watermark."""
