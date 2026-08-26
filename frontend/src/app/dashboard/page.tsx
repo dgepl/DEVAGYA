@@ -101,6 +101,15 @@ export default function TeacherDashboardOverviewPage() {
       badge: "Super Agent"
     },
     {
+      code: "assignments",
+      href: "/dashboard/assignments",
+      name: "AI Assignment Maker",
+      desc: "Generate 100% original homework worksheets with ruled writing lines & PDF customizer.",
+      icon: FileText,
+      color: "from-blue-600 to-indigo-700",
+      badge: "New Studio"
+    },
+    {
       code: "generator",
       href: "/dashboard/generator",
       name: "Question Generator",

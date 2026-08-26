@@ -5,7 +5,7 @@ import html
 import zipfile
 import xml.etree.ElementTree as ET
 from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, Image as RLImage
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, Flowable, Image as RLImage
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
@@ -265,9 +265,10 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\left', '', t)
     t = re.sub(r'\\right', '', t)
     t = re.sub(r'\\[,\;!]', ' ', t)
-    t = re.sub(r'\\quad', ' &nbsp; ', t)
-    t = re.sub(r'\\qquad', ' &nbsp;&nbsp; ', t)
+    t = re.sub(r'\\quad', '\u00A0\u00A0', t)
+    t = re.sub(r'\\qquad', '\u00A0\u00A0\u00A0\u00A0', t)
     t = re.sub(r'\\\s+', ' ', t)
+    t = t.replace('&nbsp;', '\u00A0')
 
     # 14. Convert Markdown bold **text** to <b>text</b>
     t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t)
@@ -317,7 +318,13 @@ class NumberedCanvas(canvas.Canvas):
         self.drawRightString(A4[0] - 40, 20, page_str)
         
         self.line(40, 32, A4[0] - 40, 32)
-        self.restoreState()
+def build_safe_paragraph(text: str, style, is_bold_prefix: Optional[str] = None) -> Paragraph:
+    """Safely cleans academic Markdown, KaTeX math, and XML tags before wrapping in ReportLab Paragraph."""
+    raw_str = str(text or "")
+    if is_bold_prefix:
+        raw_str = f"**{is_bold_prefix}** {raw_str}"
+    cleaned = clean_md_to_reportlab(raw_str)
+    return Paragraph(cleaned, style)
 
 
 class PDFGeneratorService:
@@ -927,9 +934,397 @@ class PDFGeneratorService:
             except Exception:
                 pass
 
-        doc.build(story, canvasmaker=NumberedCanvas)
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        return pdf_bytes
+class RuledLinesFlowable(Flowable):
+    """Draws crisp, high-precision ruled writing lines for student handwritten answers."""
+    def __init__(self, num_lines=4, line_spacing=18, style="solid", stroke_color=colors.HexColor("#CBD5E1")):
+        super().__init__()
+        self.num_lines = max(1, num_lines)
+        self.line_spacing = line_spacing
+        self.style = style
+        self.stroke_color = stroke_color
+        self.width = 0
+        self.height = self.num_lines * line_spacing + 4
 
+    def wrap(self, availWidth, availHeight):
+        self.width = availWidth
+        return self.width, self.height
+
+    def draw(self):
+        self.canv.saveState()
+        self.canv.setStrokeColor(self.stroke_color)
+        self.canv.setLineWidth(0.55)
+        if self.style == "dotted":
+            self.canv.setDash([2, 3])
+        for i in range(self.num_lines):
+            y = self.height - ((i + 1) * self.line_spacing)
+            self.canv.line(0, y, self.width, y)
+        self.canv.restoreState()
+
+class ResponseBoxFlowable(Flowable):
+    """Draws a styled response box for student written solutions, calculations, or diagrams."""
+    def __init__(self, height_pt=75, stroke_color=colors.HexColor("#94A3B8"), bg_color=colors.HexColor("#F8FAFC")):
+        super().__init__()
+        self.height_pt = max(30, height_pt)
+        self.stroke_color = stroke_color
+        self.bg_color = bg_color
+        self.width = 0
+
+    def wrap(self, availWidth, availHeight):
+        self.width = availWidth
+        return self.width, self.height_pt
+
+    def draw(self):
+        self.canv.saveState()
+        self.canv.setFillColor(self.bg_color)
+        self.canv.setStrokeColor(self.stroke_color)
+        self.canv.setLineWidth(0.7)
+        self.canv.roundRect(0, 0, self.width, self.height_pt, radius=3, stroke=1, fill=1)
+        self.canv.setFont("Helvetica-Oblique", 7.5)
+        self.canv.setFillColor(colors.HexColor("#94A3B8"))
+        self.canv.drawString(6, self.height_pt - 10, "Student Response / Working Space:")
+        self.canv.restoreState()
+
+# Append to PDFGeneratorService
+def _generate_assignment_worksheet_pdf(self, assignment: Dict[str, Any], config: Dict[str, Any], is_teacher_key: bool = False) -> bytes:
+    """
+    Renders fully tailored Assignment / Worksheet PDF with custom student response spaces
+    (ruled lines, response boxes, or clean question sheet) configured dynamically by the teacher.
+    """
+    answer_space_mode = config.get("answer_space_mode", "ruled_lines") # ruled_lines, response_box, none
+    line_style = config.get("line_style", "solid") # solid, dotted
+    default_short_lines = int(config.get("default_short_lines", 4))
+    default_long_lines = int(config.get("default_long_lines", 8))
+    box_height_mm = int(config.get("box_height_mm", 35))
+    box_height_pt = int(box_height_mm * 2.83465) # mm to pt
+    include_student_header = config.get("include_student_header", True)
+    font_size_mode = config.get("font_size_mode", "standard")
+    theme_name = config.get("theme_name", "cbse")
+    school_name = assignment.get("school_name", "DEVGYA GLOBAL ACADEMY")
+    school_logo = config.get("school_logo")
+
+    THEME_COLORS = {
+        "cbse": {
+            "primary": colors.HexColor("#1E3A8A"),      # Navy 900
+            "secondary": colors.HexColor("#2563EB"),    # Blue 600
+            "border": colors.HexColor("#BFDBFE"),       # Blue 200
+            "line_color": colors.HexColor("#93C5FD"),   # Blue 300
+            "bg_meta": colors.HexColor("#EFF6FF"),      # Light Sky
+            "box_bg": colors.HexColor("#F8FAFC")
+        },
+        "modern": {
+            "primary": colors.HexColor("#4338CA"),      # Indigo 700
+            "secondary": colors.HexColor("#6366F1"),    # Indigo 500
+            "border": colors.HexColor("#C7D2FE"),       # Indigo 200
+            "line_color": colors.HexColor("#A5B4FC"),
+            "bg_meta": colors.HexColor("#EEF2FF"),
+            "box_bg": colors.HexColor("#FAFAFA")
+        },
+        "minimalist": {
+            "primary": colors.HexColor("#0F172A"),      # Slate 900
+            "secondary": colors.HexColor("#475569"),    # Slate 600
+            "border": colors.HexColor("#CBD5E1"),       # Slate 300
+            "line_color": colors.HexColor("#94A3B8"),
+            "bg_meta": colors.HexColor("#F8FAFC"),
+            "box_bg": colors.HexColor("#FFFFFF")
+        },
+        "emerald": {
+            "primary": colors.HexColor("#065F46"),      # Emerald 800
+            "secondary": colors.HexColor("#059669"),    # Emerald 600
+            "border": colors.HexColor("#A7F3D0"),       # Emerald 200
+            "line_color": colors.HexColor("#6EE7B7"),
+            "bg_meta": colors.HexColor("#ECFDF5"),
+            "box_bg": colors.HexColor("#F0FDF4")
+        }
+    }
+    th = THEME_COLORS.get(theme_name, THEME_COLORS["cbse"])
+
+    # Font sizing
+    if font_size_mode == "compact":
+        margins = 26
+        base_font = 9
+        base_leading = 12
+        h1_font = 13
+        h2_font = 10.5
+        line_spacing = 15
+    elif font_size_mode == "large":
+        margins = 34
+        base_font = 11
+        base_leading = 16
+        h1_font = 16
+        h2_font = 13
+        line_spacing = 21
+    else:
+        margins = 30
+        base_font = 10
+        base_leading = 14
+        h1_font = 14
+        h2_font = 11.5
+        line_spacing = 18
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=margins,
+        rightMargin=margins,
+        topMargin=margins,
+        bottomMargin=margins
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'AsgSchoolTitle',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=h1_font + 2,
+        leading=h1_font + 6,
+        alignment=1, # Centered
+        textColor=th["primary"]
+    )
+
+    subtitle_style = ParagraphStyle(
+        'AsgSubtitle',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=base_font + 1,
+        leading=base_leading + 3,
+        alignment=1,
+        textColor=th["secondary"]
+    )
+
+    meta_style = ParagraphStyle(
+        'AsgMeta',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=base_font - 1,
+        leading=base_leading - 1,
+        textColor=colors.HexColor("#1E293B")
+    )
+
+    student_header_style = ParagraphStyle(
+        'AsgStudentHeader',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=base_font - 0.5,
+        leading=base_leading + 2,
+        textColor=colors.HexColor("#0F172A")
+    )
+
+    sec_heading_style = ParagraphStyle(
+        'AsgSectionHeading',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=h2_font,
+        leading=h2_font + 4,
+        textColor=th["primary"],
+        spaceBefore=6,
+        spaceAfter=3
+    )
+
+    q_stem_style = ParagraphStyle(
+        'AsgQuestionStem',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=base_font,
+        leading=base_leading,
+        textColor=colors.HexColor("#0F172A"),
+        spaceBefore=4,
+        spaceAfter=3
+    )
+
+    opt_style = ParagraphStyle(
+        'AsgOption',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=base_font - 0.5,
+        leading=base_leading - 1,
+        leftIndent=14,
+        textColor=colors.HexColor("#334155"),
+        spaceBefore=1,
+        spaceAfter=1
+    )
+
+    ans_style = ParagraphStyle(
+        'AsgAnswer',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=base_font - 0.5,
+        leading=base_leading,
+        textColor=colors.HexColor("#047857"),
+        spaceBefore=2,
+        spaceAfter=2
+    )
+
+    expl_style = ParagraphStyle(
+        'AsgExplanation',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=base_font - 1,
+        leading=base_leading - 1,
+        leftIndent=8,
+        textColor=colors.HexColor("#475569"),
+        spaceBefore=1,
+        spaceAfter=4
+    )
+
+    story = []
+
+    # 1. Top School Branding Header
+    page_width = A4[0] - (2 * margins)
+    doc_title = assignment.get("title") or f"{assignment.get('subject')} Assignment"
+    if is_teacher_key:
+        doc_title = f"{doc_title} (TEACHER ANSWER KEY & RUBRIC)"
+
+    story.append(build_safe_paragraph(school_name.upper(), title_style))
+    story.append(Spacer(1, 2))
+    story.append(build_safe_paragraph(doc_title.upper(), subtitle_style))
+    story.append(Spacer(1, 5))
+
+    # 2. Academic Metadata Bar
+    meta_data = [
+        [
+            build_safe_paragraph(assignment.get("class_name", "Class 10"), meta_style, is_bold_prefix="Class:"),
+            build_safe_paragraph(assignment.get("subject", "Mathematics"), meta_style, is_bold_prefix="Subject:"),
+            build_safe_paragraph(assignment.get("chapter_topic", "General"), meta_style, is_bold_prefix="Topic:"),
+            build_safe_paragraph(f"{assignment.get('total_marks', 25)} Marks", meta_style, is_bold_prefix="Max Marks:")
+        ]
+    ]
+    meta_col_w = page_width / 4.0
+    meta_table = Table(meta_data, colWidths=[meta_col_w] * 4)
+    meta_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), th["bg_meta"]),
+        ('BOX', (0,0), (-1,-1), 1, th["border"]),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
+        ('PADDING', (0,0), (-1,-1), 4),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 4))
+
+    # 3. Student Details Blank Header (if not teacher key and enabled)
+    if include_student_header and not is_teacher_key:
+        due_str = assignment.get("due_date") or time.strftime("%d-%m-%Y")
+        student_bar_data = [
+            [
+                build_safe_paragraph("**Student Name:** ____________________________________", student_header_style),
+                build_safe_paragraph("**Roll No:** ____________", student_header_style)
+            ],
+            [
+                build_safe_paragraph(f"**Section / Group:** ___________      **Due Date:** {due_str}", student_header_style),
+                build_safe_paragraph(f"**Marks Obtained:** _______ / {assignment.get('total_marks', 25)}", student_header_style)
+            ]
+        ]
+        student_table = Table(student_bar_data, colWidths=[page_width * 0.65, page_width * 0.35])
+        student_table.setStyle(TableStyle([
+            ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#94A3B8")),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8FAFC")),
+            ('PADDING', (0,0), (-1,-1), 5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ]))
+        story.append(student_table)
+        story.append(Spacer(1, 6))
+
+    # 4. Instructions Divider
+    instructions = assignment.get("instructions") or ["Write your answers clearly in the designated spaces."]
+    inst_text = " • ".join(instructions)
+    inst_style = ParagraphStyle('AsgInst', parent=styles['Normal'], fontName=UNICODE_FONT_NAME, fontSize=8.5, leading=11, textColor=colors.HexColor("#64748B"))
+    story.append(build_safe_paragraph(f"**General Instructions:** {inst_text}", inst_style))
+    story.append(HRFlowable(width="100%", thickness=1.2, color=th["primary"], spaceBefore=3, spaceAfter=8))
+
+    # 5. Group Questions by Section
+    questions = assignment.get("questions") or []
+    current_section = None
+
+    for q in questions:
+        q_sec = q.get("section") or "Section A: Questions"
+        if q_sec != current_section:
+            current_section = q_sec
+            story.append(Spacer(1, 4))
+            # Section Header Bar
+            sec_table = Table([[build_safe_paragraph(f"**{current_section.upper()}**", sec_heading_style)]], colWidths=[page_width])
+            sec_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), th["bg_meta"]),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+                ('TOPPADDING', (0,0), (-1,-1), 3),
+                ('LEFTPADDING', (0,0), (-1,-1), 6),
+                ('LINEBELOW', (0,0), (-1,-1), 1.2, th["primary"])
+            ]))
+            story.append(sec_table)
+            story.append(Spacer(1, 4))
+
+        # Question Stem
+        q_num = q.get("question_number", 1)
+        q_marks = q.get("marks", 1)
+        q_text = str(q.get("question_text", "")).strip()
+        marks_badge = f"**[{q_marks} {'Mark' if q_marks == 1 else 'Marks'}]**"
+        full_q_str = f"**Q{q_num}.** {q_text}   {marks_badge}"
+        story.append(build_safe_paragraph(full_q_str, q_stem_style))
+
+        q_type = str(q.get("question_type", "short")).lower()
+
+        # MCQ Options
+        opts = q.get("options")
+        if q_type == "mcq" and opts and isinstance(opts, list):
+            for opt in opts:
+                story.append(build_safe_paragraph(str(opt).strip(), opt_style))
+            story.append(Spacer(1, 3))
+
+        # Teacher Answer Key Mode: Print Answer and Explanation
+        if is_teacher_key:
+            ans = q.get("answer")
+            if ans:
+                story.append(build_safe_paragraph(f"**Correct Answer / Model Solution:** {ans}", ans_style))
+            expl = q.get("explanation")
+            if expl:
+                story.append(build_safe_paragraph(f"**Marking Scheme & Explanation:** {expl}", expl_style))
+            story.append(Spacer(1, 4))
+
+        # Student Worksheet Mode: Render Answer Space
+        else:
+            if answer_space_mode == "ruled_lines":
+                # Determine number of lines
+                lines_to_draw = q.get("lines_allocated")
+                if not lines_to_draw:
+                    if q_type == "mcq":
+                        lines_to_draw = 1
+                    elif q_type in ["long", "case_study"]:
+                        lines_to_draw = default_long_lines
+                    else:
+                        lines_to_draw = default_short_lines
+
+                if lines_to_draw > 0 and q_type != "mcq":
+                    story.append(Spacer(1, 2))
+                    story.append(RuledLinesFlowable(num_lines=lines_to_draw, line_spacing=line_spacing, style=line_style, stroke_color=th["line_color"]))
+                    story.append(Spacer(1, 6))
+                elif q_type == "mcq":
+                    story.append(Spacer(1, 2))
+                    story.append(build_safe_paragraph("**Selected Option:** [          ]", opt_style))
+                    story.append(Spacer(1, 4))
+
+            elif answer_space_mode == "response_box":
+                if q_type != "mcq":
+                    # Determine box height based on question type
+                    if q_type in ["long", "case_study"]:
+                        box_h = int(box_height_pt * 1.5)
+                    else:
+                        box_h = box_height_pt
+                    story.append(Spacer(1, 3))
+                    story.append(ResponseBoxFlowable(height_pt=box_h, stroke_color=th["border"], bg_color=th["box_bg"]))
+                    story.append(Spacer(1, 6))
+                else:
+                    story.append(Spacer(1, 2))
+                    story.append(build_safe_paragraph("<b>Selected Option:</b> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]", opt_style))
+                    story.append(Spacer(1, 4))
+
+            else:
+                # None / Question Sheet only
+                story.append(Spacer(1, 4))
+
+    doc.build(story, canvasmaker=NumberedCanvas)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes
+
+PDFGeneratorService.generate_assignment_worksheet_pdf = _generate_assignment_worksheet_pdf
 pdf_generator_service = PDFGeneratorService()

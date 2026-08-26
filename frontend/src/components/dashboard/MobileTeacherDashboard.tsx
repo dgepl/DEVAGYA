@@ -31,6 +31,7 @@ export function MobileTeacherDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const allTools = [
+    { name: "AI Assignment Maker", sub: "Homework & Ruled Lines PDF", href: "/dashboard/assignments", icon: FileText, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", type: "Studio" },
     { name: "Teacher Mentor AI", sub: "Pedagogy & Lesson AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "AI Tool" },
     { name: "Question Generator", sub: "NCERT Exam Papers", href: "/dashboard/generator", icon: Sparkles, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Generator" },
     { name: "OCR Scanner", sub: "Book Page to Test", href: "/dashboard/ocr", icon: Scan, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", type: "Vision OCR" },

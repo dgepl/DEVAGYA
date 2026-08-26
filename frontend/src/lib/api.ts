@@ -471,3 +471,94 @@ export async function getAICostAnalytics() {
   if (!res.ok) throw new Error("Failed to fetch cost analytics");
   return res.json();
 }
+
+// 7. Assignment Maker Studio APIs
+export interface GenerateAssignmentPayload {
+  class_name: string;
+  subject: string;
+  chapter_topic: string;
+  title?: string;
+  difficulty: string;
+  mcq_count: number;
+  short_count: number;
+  long_count: number;
+  fill_blanks_count?: number;
+  custom_notes?: string;
+  due_date?: string;
+  school_name?: string;
+}
+
+export interface AssignmentQuestion {
+  id?: number;
+  question_number: number;
+  question_type: string; // mcq, short, long, fill_in_the_blank, etc.
+  section: string;
+  question_text: string;
+  options?: string[] | null;
+  answer?: string | null;
+  explanation?: string | null;
+  marks: number;
+  lines_allocated?: number;
+}
+
+export interface AssignmentData {
+  id?: string;
+  title: string;
+  class_name: string;
+  subject: string;
+  chapter_topic: string;
+  difficulty: string;
+  total_marks: number;
+  due_date?: string;
+  school_name?: string;
+  instructions?: string[];
+  questions: AssignmentQuestion[];
+}
+
+export interface AssignmentPDFConfig {
+  answer_space_mode: "ruled_lines" | "response_box" | "none";
+  line_style: "solid" | "dotted";
+  default_short_lines: number;
+  default_long_lines: number;
+  box_height_mm: number;
+  include_student_header: boolean;
+  columns: number;
+  font_size_mode: "compact" | "standard" | "large";
+  theme_name: "cbse" | "modern" | "minimalist" | "emerald";
+  school_logo?: string;
+}
+
+export async function generateAIAssignment(payload: GenerateAssignmentPayload): Promise<{ status: string; assignment: AssignmentData }> {
+  const res = await fetch(`${getApiBase()}/assignment/generate-ai`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to generate AI assignment"));
+  }
+  return res.json();
+}
+
+export async function downloadAssignmentPDF(
+  assignment: AssignmentData,
+  config: AssignmentPDFConfig,
+  isTeacherKey: boolean = false
+): Promise<Blob> {
+  const res = await fetch(`${getApiBase()}/assignment/generate-pdf`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      assignment,
+      config,
+      is_teacher_key: isTeacherKey
+    })
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to generate assignment PDF"));
+  }
+  return res.blob();
+}
+
