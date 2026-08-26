@@ -40,6 +40,7 @@ import {
   downloadPDF 
 } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
+import Markdown from "@/components/chat/Markdown";
 
 const CLASS_OPTIONS = [
   "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
@@ -491,9 +492,9 @@ export default function GeneratorPage() {
                         />
                       </div>
                     ) : (
-                      <p className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed whitespace-pre-line">
-                        {q.question_text}
-                      </p>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed">
+                        <Markdown content={q.question_text} />
+                      </div>
                     )}
 
                     {/* OPTIONS FOR MCQ */}
@@ -513,9 +514,9 @@ export default function GeneratorPage() {
                                 className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800"
                               />
                             ) : (
-                              <span className="text-xs font-semibold text-slate-700 block bg-white px-3 py-1.5 rounded-lg border border-slate-200">
-                                {opt}
-                              </span>
+                              <div className="text-xs font-semibold text-slate-700 block bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+                                <Markdown content={opt} />
+                              </div>
                             )}
                           </div>
                         ))}
@@ -536,14 +537,17 @@ export default function GeneratorPage() {
                               className="flex-1 bg-white border border-emerald-300 rounded px-2 py-0.5 text-xs font-bold text-slate-900"
                             />
                           ) : (
-                            <span>{q.answer}</span>
+                            <span className="font-bold text-slate-900"><Markdown content={q.answer} /></span>
                           )}
                         </div>
 
                         {q.explanation && (
-                          <p className="text-[11px] text-emerald-700 font-medium italic pt-1">
-                            💡 <b>Explanation:</b> {q.explanation}
-                          </p>
+                          <div className="text-[11px] text-emerald-800 font-medium italic pt-1 flex items-start gap-1">
+                            <span>💡</span>
+                            <div className="flex-1">
+                              <Markdown content={q.explanation} />
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}

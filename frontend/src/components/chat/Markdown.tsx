@@ -130,8 +130,9 @@ function parseTableRow(line: string): string[] {
     .map((c) => c.trim());
 }
 
-export default function Markdown({ text }: { text: string }) {
-  const lines = (text || "").replace(/\r\n/g, "\n").split("\n");
+export default function Markdown({ text, content }: { text?: string; content?: string }) {
+  const rawText = text ?? content ?? "";
+  const lines = (rawText || "").replace(/\r\n/g, "\n").split("\n");
   const blocks: React.ReactNode[] = [];
   let blockKey = 0;
 
