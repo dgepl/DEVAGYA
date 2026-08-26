@@ -46,9 +46,16 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase(), password, role })
       });
-      const data = await res.json();
+      
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(res.ok ? "Server communication error." : "Server temporarily unavailable. Please try again in a few moments.");
+      }
+
       if (!res.ok) {
-        throw new Error(data.detail || "Authentication failed. Invalid email or password.");
+        throw new Error(data.detail || data.message || "Authentication failed. Invalid email or password.");
       }
 
       if (!data.user) {
