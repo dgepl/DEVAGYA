@@ -140,75 +140,128 @@ def strip_emojis_for_pdf(raw: str) -> str:
     )
     return emoji_pattern.sub("", str(raw))
 
-def format_math_for_pdf(raw: str) -> str:
-    if not raw:
+def clean_md_to_reportlab(text: str) -> str:
+    """
+    Transforms raw academic text, LaTeX equations, chemical formulas, and Markdown
+    into crisp, modern ReportLab XML typography.
+    """
+    if not text:
         return ""
-    t = str(raw)
-    # Fractions: \frac{a}{b} -> (a / b)
-    t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1 / \2)', t)
-    # Square root: \sqrt{x} -> √(x)
-    t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
-    # Exponents & Subscripts
-    sup_map = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻', '=': '⁼', 'n': 'ⁿ'}
-    sub_map = {'0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋', '=': '₌', 'a': 'ₐ', 'e': 'ₑ', 'i': 'ᵢ', 'o': 'ₒ', 'r': 'ᵣ', 'u': 'ᵤ', 'v': 'ᵥ', 'x': 'ₓ'}
+    t = str(text)
     
-    t = re.sub(r'\^\{([0-9+\-n]+)\}', lambda m: "".join(sup_map.get(c, c) for c in m.group(1)), t)
-    t = re.sub(r'\^([0-9+\-n])', lambda m: "".join(sup_map.get(c, c) for c in m.group(1)), t)
-    t = re.sub(r'_\{([0-9+\-aeioruvx]+)\}', lambda m: "".join(sub_map.get(c, c) for c in m.group(1)), t)
-    t = re.sub(r'_([0-9+\-aeioruvx])', lambda m: "".join(sub_map.get(c, c) for c in m.group(1)), t)
+    # 1. Strip emojis (prevent black squares)
+    t = strip_emojis_for_pdf(t)
 
-    # Greek symbols & operators
-    symbols = [
-        (r'\\times', '×'),
-        (r'\\div', '÷'),
-        (r'\\pm', '±'),
-        (r'\\mp', '∓'),
-        (r'\\cdot', '·'),
-        (r'\\degree', '°'),
-        (r'\^\\circ', '°'),
-        (r'\\Delta', 'Δ'),
-        (r'\\delta', 'δ'),
-        (r'\\theta', 'θ'),
-        (r'\\Theta', 'Θ'),
-        (r'\\pi', 'π'),
-        (r'\\alpha', 'α'),
-        (r'\\beta', 'β'),
-        (r'\\gamma', 'γ'),
-        (r'\\Gamma', 'Γ'),
-        (r'\\lambda', 'λ'),
-        (r'\\Lambda', 'Λ'),
-        (r'\\mu', 'µ'),
-        (r'\\sigma', 'σ'),
-        (r'\\Sigma', 'Σ'),
-        (r'\\omega', 'ω'),
-        (r'\\Omega', 'Ω'),
-        (r'\\rho', 'ρ'),
-        (r'\\phi', 'φ'),
-        (r'\\Phi', 'Φ'),
-        (r'\\approx', '≈'),
-        (r'\\neq', '≠'),
-        (r'\\leq', '≤'),
-        (r'\\le', '≤'),
-        (r'\\geq', '≥'),
-        (r'\\ge', '≥'),
-        (r'\\rightarrow', '→'),
-        (r'\\to', '→'),
-        (r'\\leftarrow', '←'),
-        (r'\\leftrightarrow', '↔'),
-        (r'\\infty', '∞'),
-        (r'\\text\{([^{}]+)\}', r'\1'),
-        (r'\\mathrm\{([^{}]+)\}', r'\1'),
-        (r'\\mathbf\{([^{}]+)\}', r'<b>\1</b>'),
-        (r'\\mathit\{([^{}]+)\}', r'<i>\1</i>'),
-    ]
-    for pattern_str, repl in symbols:
-        t = re.sub(pattern_str, repl, t)
-    
-    # Clean math delimiters
+    # 2. Normalize smart punctuation and dashes
+    t = t.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
+    t = t.replace("\u201c", '"').replace("\u201d", '"')
+    t = t.replace("\u2018", "'").replace("\u2019", "'")
+    t = t.replace("\u00a0", " ")
+
+    # 3. Escape raw XML special characters (&, <, >) FIRST before inserting ReportLab tags
+    import html
+    t = html.escape(t)
+
+    # 4. Strip math delimiters: $...$, $$...$$, \[...\], \(...\)
     t = re.sub(r'\$\$([^\$]+)\$\$', r'\1', t)
     t = re.sub(r'\$([^\$]+)\$', r'\1', t)
     t = re.sub(r'\\\[(.*?)\\\]', r'\1', t)
     t = re.sub(r'\\\((.*?)\\\)', r'\1', t)
+
+    # 5. Fractions: \frac{a}{b} -> (a / b)
+    t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1 / \2)', t)
+
+    # 6. Square Roots: \sqrt{x} -> √(x), \sqrt[n]{x} -> ⁿ√(x)
+    t = re.sub(r'\\sqrt\[([^{}]+)\]\{([^{}]+)\}', r'<sup>\1</sup>√(\2)', t)
+    t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
+
+    # 7. Exponents / Powers: x^{2} or x^2 -> x<sup>2</sup>
+    t = re.sub(r'\^\{([^{}]+)\}', r'<sup>\1</sup>', t)
+    t = re.sub(r'\^([0-9a-zA-Z+\-]+)', r'<sup>\1</sup>', t)
+
+    # 8. Subscripts / Indices / Chemical formulas: H_{2}O or H_2O -> H<sub>2</sub>O
+    t = re.sub(r'_\{([^{}]+)\}', r'<sub>\1</sub>', t)
+    t = re.sub(r'_([0-9a-zA-Z+\-]+)', r'<sub>\1</sub>', t)
+
+    # 9. LaTeX Text Formatting
+    t = re.sub(r'\\mathbf\{([^{}]+)\}', r'<b>\1</b>', t)
+    t = re.sub(r'\\textbf\{([^{}]+)\}', r'<b>\1</b>', t)
+    t = re.sub(r'\\mathit\{([^{}]+)\}', r'<i>\1</i>', t)
+    t = re.sub(r'\\textit\{([^{}]+)\}', r'<i>\1</i>', t)
+    t = re.sub(r'\\underline\{([^{}]+)\}', r'<u>\1</u>', t)
+    t = re.sub(r'\\text\{([^{}]+)\}', r'\1', t)
+    t = re.sub(r'\\mathrm\{([^{}]+)\}', r'\1', t)
+    t = re.sub(r'\\operatorname\{([^{}]+)\}', r'\1', t)
+
+    # 10. Greek symbols & Mathematical Constants
+    greek_symbols = [
+        (r'\\alpha', 'α'), (r'\\beta', 'β'), (r'\\gamma', 'γ'), (r'\\Gamma', 'Γ'),
+        (r'\\delta', 'δ'), (r'\\Delta', 'Δ'), (r'\\epsilon', 'ε'), (r'\\varepsilon', 'ε'),
+        (r'\\zeta', 'ζ'), (r'\\eta', 'η'), (r'\\theta', 'θ'), (r'\\Theta', 'Θ'),
+        (r'\\lambda', 'λ'), (r'\\Lambda', 'Λ'), (r'\\mu', 'μ'), (r'\\nu', 'ν'),
+        (r'\\xi', 'ξ'), (r'\\pi', 'π'), (r'\\Pi', 'Π'), (r'\\rho', 'ρ'),
+        (r'\\sigma', 'σ'), (r'\\Sigma', 'Σ'), (r'\\tau', 'τ'), (r'\\phi', 'φ'),
+        (r'\\Phi', 'Φ'), (r'\\chi', 'χ'), (r'\\psi', 'ψ'), (r'\\Psi', 'Ψ'),
+        (r'\\omega', 'ω'), (r'\\Omega', 'Ω'),
+        (r'\\degree', '°'), (r'\^\\circ', '°'), (r'\\circ', '°')
+    ]
+    for pattern_str, repl in greek_symbols:
+        t = re.sub(pattern_str, repl, t)
+
+    # 11. Mathematical & Logical Operators
+    math_ops = [
+        (r'\\times', '×'), (r'\\div', '÷'), (r'\\pm', '±'), (r'\\mp', '∓'),
+        (r'\\cdot', '·'), (r'\\bullet', '•'), (r'\\approx', '≈'), (r'\\neq', '≠'),
+        (r'\\leq', '≤'), (r'\\le', '≤'), (r'\\geq', '≥'), (r'\\ge', '≥'),
+        (r'\\equiv', '≡'), (r'\\propto', '∝'), (r'\\sim', '~'),
+        (r'\\rightarrow', '→'), (r'\\to', '→'), (r'\\leftarrow', '←'),
+        (r'\\leftrightarrow', '↔'), (r'\\Rightarrow', '⇒'), (r'\\Leftarrow', '⇐'),
+        (r'\\Leftrightarrow', '⇔'), (r'\\iff', '⇔'),
+        (r'\\infty', '∞'), (r'\\int', '∫'), (r'\\sum', '∑'), (r'\\prod', '∏'),
+        (r'\\partial', '∂'), (r'\\nabla', '∇'), (r'\\angle', '∠'),
+        (r'\\parallel', '∥'), (r'\\perp', '⊥'), (r'\\triangle', '△'),
+        (r'\\in', '∈'), (r'\\notin', '∉'), (r'\\subset', '⊂'), (r'\\subseteq', '⊆'),
+        (r'\\cap', '∩'), (r'\\cup', '∪'), (r'\\forall', '∀'), (r'\\exists', '∃')
+    ]
+    for pattern_str, repl in math_ops:
+        t = re.sub(pattern_str, repl, t)
+
+    # 12. Strip leftover LaTeX layout artifacts
+    t = re.sub(r'\\displaystyle', '', t)
+    t = re.sub(r'\\limits', '', t)
+    t = re.sub(r'\\left\(', '(', t)
+    t = re.sub(r'\\right\)', ')', t)
+    t = re.sub(r'\\left\[', '[', t)
+    t = re.sub(r'\\right\]', ']', t)
+    t = re.sub(r'\\left\{', '{', t)
+    t = re.sub(r'\\right\}', '}', t)
+    t = re.sub(r'\\left\|', '|', t)
+    t = re.sub(r'\\right\|', '|', t)
+    t = re.sub(r'\\left', '', t)
+    t = re.sub(r'\\right', '', t)
+    t = re.sub(r'\\[,\;!]', ' ', t)
+    t = re.sub(r'\\quad', ' &nbsp; ', t)
+    t = re.sub(r'\\qquad', ' &nbsp;&nbsp; ', t)
+
+    # 13. Convert Markdown bold **text** to <b>text</b>
+    t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t)
+
+    # 14. Convert Markdown italic *text* or _text_ to <i>text</i>
+    t = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'<i>\1</i>', t)
+
+    # 15. Convert inline code `text` to Courier font
+    t = re.sub(r'`([^`]+?)`', r'<font face="Courier">\1</font>', t)
+
+    # 16. Convert newlines to HTML breaks
+    t = t.replace("\n", "<br/>")
+
+    # 17. Balance unclosed tags
+    for tag in ["b", "i", "u", "sup", "sub"]:
+        open_t = t.count(f"<{tag}>")
+        close_t = t.count(f"</{tag}>")
+        if open_t > close_t:
+            t += f"</{tag}>" * (open_t - close_t)
+
     return t
 
 class NumberedCanvas(canvas.Canvas):
@@ -448,23 +501,22 @@ class PDFGeneratorService:
             q_elements = []
 
             raw_q = strip_emojis_for_pdf(q.question_text or "")
-            math_q = format_math_for_pdf(raw_q)
-            q_text_formatted = html.escape(math_q).replace("\n", "<br/>")
+            q_text_formatted = clean_md_to_reportlab(raw_q)
             q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_text_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
 
             if q.options:
                 q_elements.append(Spacer(1, 2))
                 for opt in q.options:
-                    formatted_opt = html.escape(format_math_for_pdf(strip_emojis_for_pdf(opt)))
+                    formatted_opt = clean_md_to_reportlab(strip_emojis_for_pdf(opt))
                     q_elements.append(Paragraph(formatted_opt, option_style))
                     q_elements.append(Spacer(1, 1.5))
 
             if include_answers:
                 q_elements.append(Spacer(1, 2))
-                ans_text = html.escape(format_math_for_pdf(strip_emojis_for_pdf(str(q.answer or ""))))
+                ans_text = clean_md_to_reportlab(strip_emojis_for_pdf(str(q.answer or "")))
                 q_elements.append(Paragraph(f"<b>Correct Answer:</b> {ans_text}", answer_style))
                 if q.explanation:
-                    exp_text = html.escape(format_math_for_pdf(strip_emojis_for_pdf(str(q.explanation or ""))))
+                    exp_text = clean_md_to_reportlab(strip_emojis_for_pdf(str(q.explanation or "")))
                     q_elements.append(Paragraph(f"<b>Explanation:</b> {exp_text}", answer_style))
 
             q_elements.append(Spacer(1, 8))
@@ -495,141 +547,6 @@ class PDFGeneratorService:
         Generate a publication-grade A4 PDF Document from AI text/markdown for ANY academic content
         (Notes, Lesson Plans, Worksheets, Study Guides, Overviews, Question Sets, Curriculum).
         """
-        import re
-        import html
-
-        def strip_emojis_for_pdf(raw: str) -> str:
-            if not raw:
-                return ""
-            emoji_pattern = re.compile(
-                "["
-                "\U00010000-\U0010FFFF"
-                "\u2600-\u27BF"
-                "\u2300-\u23FF"
-                "\u2B50\u2B55\u231A\u231B\u2328\u23CF"
-                "\uFE00-\uFE0F"
-                "\u200D"
-                "]+",
-                flags=re.UNICODE
-            )
-            return emoji_pattern.sub("", raw)
-
-        def format_math_for_pdf(raw: str) -> str:
-            if not raw:
-                return ""
-            t = raw
-            # Fractions: \frac{a}{b} -> (a / b)
-            t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1 / \2)', t)
-            # Square root: \sqrt{x} -> √(x)
-            t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
-            # Exponents & Subscripts
-            sup_map = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻', '=': '⁼', 'n': 'ⁿ'}
-            sub_map = {'0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋', '=': '₌', 'a': 'ₐ', 'e': 'ₑ', 'i': 'ᵢ', 'o': 'ₒ', 'r': 'ᵣ', 'u': 'ᵤ', 'v': 'ᵥ', 'x': 'ₓ'}
-            
-            t = re.sub(r'\^\{([0-9+\-n]+)\}', lambda m: "".join(sup_map.get(c, c) for c in m.group(1)), t)
-            t = re.sub(r'\^([0-9+\-n])', lambda m: "".join(sup_map.get(c, c) for c in m.group(1)), t)
-            t = re.sub(r'_\{([0-9+\-aeioruvx]+)\}', lambda m: "".join(sub_map.get(c, c) for c in m.group(1)), t)
-            t = re.sub(r'_([0-9+\-aeioruvx])', lambda m: "".join(sub_map.get(c, c) for c in m.group(1)), t)
-
-            # Greek symbols & operators
-            symbols = [
-                (r'\\times', '×'),
-                (r'\\div', '÷'),
-                (r'\\pm', '±'),
-                (r'\\mp', '∓'),
-                (r'\\cdot', '·'),
-                (r'\\degree', '°'),
-                (r'\^\\circ', '°'),
-                (r'\\Delta', 'Δ'),
-                (r'\\delta', 'δ'),
-                (r'\\theta', 'θ'),
-                (r'\\Theta', 'Θ'),
-                (r'\\pi', 'π'),
-                (r'\\alpha', 'α'),
-                (r'\\beta', 'β'),
-                (r'\\gamma', 'γ'),
-                (r'\\Gamma', 'Γ'),
-                (r'\\lambda', 'λ'),
-                (r'\\Lambda', 'Λ'),
-                (r'\\mu', 'µ'),
-                (r'\\sigma', 'σ'),
-                (r'\\Sigma', 'Σ'),
-                (r'\\omega', 'ω'),
-                (r'\\Omega', 'Ω'),
-                (r'\\rho', 'ρ'),
-                (r'\\phi', 'φ'),
-                (r'\\Phi', 'Φ'),
-                (r'\\approx', '≈'),
-                (r'\\neq', '≠'),
-                (r'\\leq', '≤'),
-                (r'\\le', '≤'),
-                (r'\\geq', '≥'),
-                (r'\\ge', '≥'),
-                (r'\\rightarrow', '→'),
-                (r'\\to', '→'),
-                (r'\\leftarrow', '←'),
-                (r'\\leftrightarrow', '↔'),
-                (r'\\infty', '∞'),
-                (r'\\text\{([^{}]+)\}', r'\1'),
-                (r'\\mathrm\{([^{}]+)\}', r'\1'),
-                (r'\\mathbf\{([^{}]+)\}', r'<b>\1</b>'),
-                (r'\\mathit\{([^{}]+)\}', r'<i>\1</i>'),
-            ]
-            for pattern_str, repl in symbols:
-                t = re.sub(pattern_str, repl, t)
-            
-            # Clean math delimiters
-            t = re.sub(r'\$\$([^\$]+)\$\$', r'\1', t)
-            t = re.sub(r'\$([^\$]+)\$', r'\1', t)
-            t = re.sub(r'\\\[(.*?)\\\]', r'\1', t)
-            t = re.sub(r'\\\((.*?)\\\)', r'\1', t)
-            return t
-
-        def clean_md_to_reportlab(text: str) -> str:
-            if not text:
-                return ""
-            # 1. Strip emojis to prevent black square missing glyphs
-            t = strip_emojis_for_pdf(text)
-
-            # 2. Format LaTeX math & physics formulas
-            t = format_math_for_pdf(t)
-
-            # 3. Normalize unicode characters (smart quotes, dashes, non-breaking spaces)
-            t = t.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
-            t = t.replace("\u201c", '"').replace("\u201d", '"')
-            t = t.replace("\u2018", "'").replace("\u2019", "'")
-            t = t.replace("\u00a0", " ")
-
-            # 4. Escape XML entities (&, <, >)
-            t = html.escape(t)
-
-            # 5. Match and convert markdown bold **text** to <b>text</b>
-            t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t)
-
-            # 6. Match and convert markdown italic *text* or _text_ to <i>text</i>
-            t = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'<i>\1</i>', t)
-            t = re.sub(r'(?<!_)_([^_]+?)_(?!_)', r'<i>\1</i>', t)
-
-            # 7. Convert inline code `text` to font Courier
-            t = re.sub(r'`([^`]+?)`', r'<font face="Courier">\1</font>', t)
-
-            # 8. Balance unclosed tags
-            open_b = t.count("<b>")
-            close_b = t.count("</b>")
-            if open_b > close_b:
-                t += "</b>" * (open_b - close_b)
-            elif close_b > open_b:
-                t = "<b>" * (close_b - open_b) + t
-
-            open_i = t.count("<i>")
-            close_i = t.count("</i>")
-            if open_i > close_i:
-                t += "</i>" * (open_i - close_i)
-            elif close_i > open_i:
-                t = "<i>" * (close_i - open_i) + t
-
-            return t.strip()
-
         def build_safe_paragraph(raw_text: str, style, is_bold_prefix: str = "") -> Paragraph:
             clean_raw = strip_emojis_for_pdf(raw_text)
             formatted = clean_md_to_reportlab(clean_raw)
