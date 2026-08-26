@@ -80,16 +80,16 @@ export default function GeneratorPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Active Paper & History Modal State
+  // Active Paper, History Modal & Mobile View State
   const [paper, setPaper] = useState<GeneratedPaperResponse | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showMobilePaperModal, setShowMobilePaperModal] = useState(false);
   const [isEditingHeader, setIsEditingHeader] = useState(false);
 
   // Execution State
   const [loading, setLoading] = useState(false);
   const [downloadingStudent, setDownloadingStudent] = useState(false);
   const [downloadingTeacher, setDownloadingTeacher] = useState(false);
-  const [downloadingWorksheet, setDownloadingWorksheet] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
 
@@ -143,37 +143,39 @@ export default function GeneratorPage() {
     setTimeMins("");
     setCustomPrompt("");
     removeFile();
-    setError(null);
+    setShowMobilePaperModal(false);
   };
 
   const handleGenerate = async () => {
-    setError(null);
     setLoading(true);
+    setError(null);
+
+    const targetSchoolName = schoolName.trim() || user.schoolName || "DEVGYA GLOBAL ACADEMY";
+    const targetTitle = title.trim() || `${className || user.classes || "Class 10"} ${subject || user.subject || "General"} Periodic Assessment`;
+    const targetClass = className.trim() || user.classes || "Class 10";
+    const targetSubject = subject.trim() || user.subject || "General Science";
+    const targetChapter = chapter.trim() || "Full Syllabus / Comprehensive";
+    const finalMarks = requestedTotal > 0 ? requestedTotal : (calculatedTotal > 0 ? calculatedTotal : 25);
+    const finalTime = parseInt(timeMins) || (finalMarks <= 25 ? 45 : (finalMarks <= 50 ? 90 : 180));
 
     try {
       let res: GeneratedPaperResponse;
-      const targetSchoolName = schoolName.trim() || user.schoolName || "DEVGYA GLOBAL ACADEMY";
-      const targetTitle = title.trim() || `${subject.trim() || "Periodic Assessment"} Exam`;
-      const targetClass = className || user.classes || "Class 10";
-      const targetSubject = subject.trim() || user.subject || "General";
-      const targetChapter = chapter.trim() || "NCERT Core Syllabus";
-      const finalMarks = requestedTotal || calculatedTotal || 40;
-      const finalTime = parseInt(timeMins) || 90;
 
       if (selectedFile) {
         const formData = new FormData();
         formData.append("file", selectedFile);
         formData.append("school_name", targetSchoolName);
+        formData.append("school_logo", user.schoolLogo || "");
         formData.append("title", targetTitle);
         formData.append("class_name", targetClass);
         formData.append("subject", targetSubject);
         formData.append("chapter", targetChapter);
         formData.append("difficulty", difficulty);
-        formData.append("total_marks", String(finalMarks));
-        formData.append("time_allowed_mins", String(finalTime));
-        formData.append("num_mcqs", String(parsedMcqs));
-        formData.append("num_short", String(parsedShort));
-        formData.append("num_long", String(parsedLong));
+        formData.append("total_marks", finalMarks.toString());
+        formData.append("time_allowed_mins", finalTime.toString());
+        formData.append("num_mcqs", parsedMcqs.toString());
+        formData.append("num_short", parsedShort.toString());
+        formData.append("num_long", parsedLong.toString());
         formData.append("custom_instructions", customPrompt);
         formData.append("user_email", user.email || "");
 
@@ -202,6 +204,7 @@ export default function GeneratorPage() {
       }
       setPaper(res);
       savePaper(res);
+      setShowMobilePaperModal(true);
     } catch (err: any) {
       console.error("Generation error:", err);
       setError(err.message || "Failed to generate AI paper. Please check connection.");
@@ -266,6 +269,7 @@ export default function GeneratorPage() {
   const handleSelectFromHistory = (selected: GeneratedPaperResponse) => {
     setPaper(selected);
     setShowHistory(false);
+    setShowMobilePaperModal(true);
   };
 
   const handleDownloadStudentPDF = async () => {
@@ -304,8 +308,278 @@ export default function GeneratorPage() {
     }
   };
 
+  // Reusable Paper Studio Content Component
+  const renderPaperStudioContent = (isModal: boolean = false) => {
+    if (!paper) return null;
+
+    return (
+      <div className={`bg-white rounded-3xl border border-slate-200 shadow-xl p-5 sm:p-7 space-y-6 animate-in fade-in ${isModal ? "h-full overflow-y-auto" : ""}`}>
+        
+        {/* EDITABLE PAPER HEADER */}
+        <div className="border-b border-slate-200 pb-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-md text-[10px] font-black uppercase">
+                {paper.class_name || "Class 10"} • {paper.subject || "General"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => setIsEditingHeader(!isEditingHeader)}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-colors cursor-pointer"
+                title="Edit Paper Details & Total Marks"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
+                <span>{isEditingHeader ? "Save Details" : "Edit Details"}</span>
+              </button>
+
+              <button
+                onClick={() => setShowAnswerKey(!showAnswerKey)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                  showAnswerKey ? "bg-emerald-50 text-emerald-700 border-emerald-300" : "bg-slate-100 text-slate-600 border-slate-200"
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>{showAnswerKey ? "Hide Solutions" : "Show Solutions"}</span>
+              </button>
+
+              <button
+                onClick={handleAddQuestion}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1 transition-colors shadow-sm cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Question</span>
+              </button>
+            </div>
+          </div>
+
+          {/* DISPLAY OR EDIT HEADER DETAILS */}
+          {isEditingHeader ? (
+            <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Exam Title</label>
+                  <input
+                    type="text"
+                    value={paper.title}
+                    onChange={(e) => handleUpdatePaperHeader({ title: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">School Name</label>
+                  <input
+                    type="text"
+                    value={paper.school_name}
+                    onChange={(e) => handleUpdatePaperHeader({ school_name: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Total Marks (Editable)</label>
+                  <input
+                    type="number"
+                    value={paper.total_marks}
+                    onChange={(e) => handleUpdatePaperHeader({ total_marks: Number(e.target.value) || 0 })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Time Allowed (Mins)</label>
+                  <input
+                    type="number"
+                    value={paper.time_allowed_mins}
+                    onChange={(e) => handleUpdatePaperHeader({ time_allowed_mins: Number(e.target.value) || 0 })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-lg sm:text-xl font-black text-slate-900">{paper.title}</h2>
+              <p className="text-xs text-slate-600 font-bold mt-0.5">
+                {paper.school_name} • <span className="text-indigo-700 font-extrabold">{paper.total_marks} Total Marks</span> • {paper.time_allowed_mins} Mins
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* PDF DOWNLOAD QUICK BAR */}
+        <div className="flex flex-wrap items-center gap-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+          <span className="text-[11px] font-black text-slate-700 flex items-center gap-1.5 mr-auto">
+            <Download className="w-3.5 h-3.5 text-indigo-600" />
+            PDF Exports:
+          </span>
+
+          <button
+            onClick={handleDownloadStudentPDF}
+            disabled={downloadingStudent}
+            className="flex-1 sm:flex-initial px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>{downloadingStudent ? "Building..." : "Student PDF"}</span>
+          </button>
+
+          <button
+            onClick={handleDownloadTeacherPDF}
+            disabled={downloadingTeacher}
+            className="flex-1 sm:flex-initial px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
+          >
+            <FileCheck className="w-3.5 h-3.5" />
+            <span>{downloadingTeacher ? "Building..." : "Teacher Key PDF"}</span>
+          </button>
+        </div>
+
+        {/* QUESTIONS LIST WITH INLINE EDITING */}
+        <div className="space-y-4">
+          {paper.questions.map((q, index) => {
+            const isEditing = editingQuestionId === q.id;
+            return (
+              <div
+                key={q.id}
+                className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                  isEditing ? "bg-amber-50/60 border-amber-300 ring-2 ring-amber-400" : "bg-slate-50/70 border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-black text-indigo-700">
+                      <span>Q{index + 1}. ({q.question_type.toUpperCase()})</span>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          value={q.marks}
+                          onChange={(e) => handleUpdateQuestion(q.id, { marks: Number(e.target.value) || 1 })}
+                          className="w-14 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-xs font-bold text-slate-900"
+                          title="Edit Question Marks"
+                        />
+                      ) : (
+                        <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md text-[10px]">
+                          {q.marks} Mark{q.marks > 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* QUESTION TEXT */}
+                    {isEditing ? (
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Question Text</label>
+                        <textarea
+                          rows={3}
+                          value={q.question_text}
+                          onChange={(e) => handleUpdateQuestion(q.id, { question_text: e.target.value })}
+                          className="w-full bg-white border border-amber-300 rounded-xl p-3 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed whitespace-pre-line">
+                        {q.question_text}
+                      </p>
+                    )}
+
+                    {/* OPTIONS FOR MCQ */}
+                    {q.options && q.options.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                        {q.options.map((opt, optIdx) => (
+                          <div key={optIdx}>
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={opt}
+                                onChange={(e) => {
+                                  const newOpts = [...q.options!];
+                                  newOpts[optIdx] = e.target.value;
+                                  handleUpdateQuestion(q.id, { options: newOpts });
+                                }}
+                                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800"
+                              />
+                            ) : (
+                              <span className="text-xs font-semibold text-slate-700 block bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+                                {opt}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ANSWER & EXPLANATION */}
+                    {showAnswerKey && (
+                      <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1">
+                        <div className="flex items-center gap-1.5 font-extrabold text-emerald-800 flex-wrap">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Correct Answer:</span>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={q.answer}
+                              onChange={(e) => handleUpdateQuestion(q.id, { answer: e.target.value })}
+                              className="flex-1 bg-white border border-emerald-300 rounded px-2 py-0.5 text-xs font-bold text-slate-900"
+                            />
+                          ) : (
+                            <span>{q.answer}</span>
+                          )}
+                        </div>
+
+                        {q.explanation && (
+                          <p className="text-[11px] text-emerald-700 font-medium italic pt-1">
+                            💡 <b>Explanation:</b> {q.explanation}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* ACTIONS */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {isEditing ? (
+                      <button
+                        onClick={() => setEditingQuestionId(null)}
+                        className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer"
+                        title="Done Editing"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setEditingQuestionId(q.id)}
+                        className="p-2 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-colors cursor-pointer"
+                        title="Edit Question"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => handleDeleteQuestion(q.id)}
+                      className="p-2 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors cursor-pointer"
+                      title="Delete Question"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 relative">
+    <div className="space-y-8 animate-in fade-in duration-500 relative pb-24 sm:pb-8">
       
       {/* HEADER BAR */}
       <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 border border-indigo-700/50">
@@ -325,10 +599,10 @@ export default function GeneratorPage() {
 
         <div className="flex items-center gap-3 shrink-0 flex-wrap">
           
-          {/* PAPER HISTORY BUTTON (CLOCK SIGN 🕒) */}
+          {/* PAPER HISTORY BUTTON */}
           <button
             onClick={() => setShowHistory(true)}
-            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 border border-white/20 text-white font-extrabold text-xs rounded-2xl backdrop-blur-md transition-all flex items-center gap-2"
+            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 border border-white/20 text-white font-extrabold text-xs rounded-2xl backdrop-blur-md transition-all flex items-center gap-2 cursor-pointer"
             title="View Paper History"
           >
             <Clock className="w-4 h-4 text-amber-300" />
@@ -344,35 +618,39 @@ export default function GeneratorPage() {
             <>
               <button
                 onClick={handleStartNewPaper}
-                className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold text-xs rounded-2xl transition-all flex items-center gap-1.5"
+                className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>New Paper</span>
               </button>
 
               <button
-                onClick={handleDownloadStudentPDF}
-                disabled={downloadingStudent}
-                className="px-4 py-2.5 bg-white text-indigo-950 font-black text-xs rounded-2xl hover:bg-slate-100 transition-all flex items-center gap-2 shadow-lg"
-                title="Download Clean Question Paper PDF (No Watermark)"
+                onClick={() => setShowMobilePaperModal(true)}
+                className="lg:hidden px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-2 shadow-lg cursor-pointer"
               >
-                <Download className="w-4 h-4 text-indigo-600" />
-                <span>{downloadingStudent ? "Building..." : "Student PDF"}</span>
-              </button>
-
-              <button
-                onClick={handleDownloadTeacherPDF}
-                disabled={downloadingTeacher}
-                className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-2 shadow-lg"
-                title="Download Teacher Answer Key PDF (No Watermark)"
-              >
-                <FileCheck className="w-4 h-4" />
-                <span>{downloadingTeacher ? "Building..." : "Teacher Key PDF"}</span>
+                <Eye className="w-4 h-4 text-amber-300" />
+                <span>View Paper Studio</span>
               </button>
             </>
           )}
         </div>
       </div>
+
+      {/* STICKY BOTTOM BAR FOR MOBILE WHEN A PAPER IS ACTIVE */}
+      {paper && (
+        <div className="lg:hidden fixed bottom-18 left-4 right-4 z-40 animate-in slide-in-from-bottom-5">
+          <button
+            onClick={() => setShowMobilePaperModal(true)}
+            className="w-full py-3.5 px-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-xs sm:text-sm rounded-2xl shadow-2xl shadow-indigo-600/40 flex items-center justify-between border border-white/20 cursor-pointer"
+          >
+            <span className="flex items-center gap-2 truncate">
+              <FileText className="w-4 h-4 text-amber-300 shrink-0" />
+              <span className="truncate">View Paper: {paper.title}</span>
+            </span>
+            <span className="bg-white/20 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase shrink-0">Open Pop-up ↗</span>
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
@@ -411,60 +689,53 @@ export default function GeneratorPage() {
                 </p>
               </div>
             </div>
-
             <button
-              type="button"
               onClick={() => router.push("/dashboard/profile")}
-              className="px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-indigo-200 text-indigo-700 font-extrabold text-[10px] rounded-xl shrink-0 transition-all cursor-pointer shadow-xs"
+              className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 underline shrink-0 cursor-pointer"
             >
-              Edit Logo / Profile
+              Change
             </button>
           </div>
 
-          {/* 1. School & Title */}
+          {/* 1. School Name & Title */}
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                <Building className="w-4 h-4 text-indigo-500" /> School / Institute Name
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Custom Institution Name
               </label>
               <input
                 type="text"
                 value={schoolName}
                 onChange={(e) => setSchoolName(e.target.value)}
-                placeholder="e.g. DEVGYA GLOBAL ACADEMY"
+                placeholder="e.g. St. Xavier's Senior Secondary School"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-purple-500" /> Exam / Assessment Title
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Assessment Title
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Mid-Term Examination 2026"
+                placeholder="e.g. Term-1 Periodic Unit Test"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
 
-          {/* 2. Class & Subject (OPTIONAL) */}
+          {/* 2. Class & Subject */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <GraduationCap className="w-4 h-4 text-emerald-500" /> Target Class
-                </span>
-                <span className="text-[10px] text-slate-400 font-semibold">(Optional)</span>
-              </label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Grade / Class</label>
               <select
                 value={className}
                 onChange={(e) => setClassName(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="">Select Class (Optional)</option>
+                <option value="">Select Class</option>
                 {CLASS_OPTIONS.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -472,29 +743,21 @@ export default function GeneratorPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <BookOpen className="w-4 h-4 text-blue-500" /> Subject
-                </span>
-                <span className="text-[10px] text-slate-400 font-semibold">(Optional)</span>
-              </label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Subject</label>
               <input
                 type="text"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g. Science, Mathematics"
+                placeholder="e.g. Science / Mathematics"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
 
-          {/* 3. Chapter & Difficulty (OPTIONAL) */}
+          {/* 3. Chapter & Difficulty */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                <span>Chapter / Topic</span>
-                <span className="text-[10px] text-slate-400 font-semibold">(Optional)</span>
-              </label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Topic / Chapter</label>
               <input
                 type="text"
                 value={chapter}
@@ -518,7 +781,7 @@ export default function GeneratorPage() {
             </div>
           </div>
 
-          {/* 4. Marks & Time (EDITABLE BEFORE GENERATION) */}
+          {/* 4. Marks & Time */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
@@ -594,58 +857,58 @@ export default function GeneratorPage() {
             </div>
           </div>
 
-          {/* 6. File Attachment Upload (OPTIONAL) */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-slate-900">
-                <Upload className="w-4 h-4 text-indigo-600" /> Attach Reference PDF / Worksheet / Photo <span className="text-slate-400 font-bold text-[11px]">(Optional)</span>
+          {/* 6. Custom File Attachment (OCR / Syllabus Extract) */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-700 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Upload className="w-4 h-4 text-indigo-600" /> Attach Reference Image or Document (Optional)
               </span>
-              <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">PDF, DOCX, PNG, JPG</span>
+              {selectedFile && (
+                <button
+                  type="button"
+                  onClick={removeFile}
+                  className="text-[10px] text-rose-600 font-extrabold hover:underline flex items-center gap-0.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" /> Remove
+                </button>
+              )}
             </label>
 
-            {ocrDraftText && (
-              <div className="mb-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-emerald-800 text-xs font-bold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Textbook extract loaded from OCR Scanner. File upload is not required!</span>
-              </div>
-            )}
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.doc,.txt,image/*"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-
             {!selectedFile ? (
-              <button
-                type="button"
+              <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-3.5 px-4 bg-slate-50 hover:bg-indigo-50/50 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-2xl text-xs font-bold text-slate-700 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/30 rounded-2xl p-4 text-center cursor-pointer transition-all"
               >
-                <Upload className="w-4 h-4 text-indigo-500 group-hover:scale-110 transition-transform" />
-                <span>Upload reference document or textbook photo (Optional)</span>
-              </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept="image/*,.pdf,.docx,.txt"
+                  className="hidden"
+                />
+                <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
+                <p className="text-xs font-bold text-slate-700">Click to upload textbook photo or PDF</p>
+                <p className="text-[10px] text-slate-400 font-medium">Supports PNG, JPG, PDF (Up to 15MB)</p>
+              </div>
             ) : (
-              <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-2xl">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-2xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   {previewUrl ? (
-                    <img src={previewUrl} alt="Preview" className="w-10 h-10 object-cover rounded-xl border border-indigo-300 shrink-0" />
+                    <img src={previewUrl} alt="Preview" className="w-10 h-10 object-cover rounded-lg border border-indigo-200 shrink-0" />
                   ) : (
-                    <div className="w-10 h-10 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center shrink-0">
-                      <FileText className="w-5 h-5 text-red-600" />
+                    <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                      <FileText className="w-5 h-5" />
                     </div>
                   )}
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 truncate">{selectedFile.name}</p>
-                    <p className="text-[10px] text-slate-500 font-medium">Attached to paper prompt</p>
+                    <p className="text-[10px] text-slate-500 font-medium">{(selectedFile.size / 1024).toFixed(1)} KB</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={removeFile}
-                  className="p-1.5 hover:bg-indigo-200 text-indigo-800 rounded-xl transition-colors shrink-0"
+                  className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -678,7 +941,7 @@ export default function GeneratorPage() {
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
+            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
             {loading ? (
               <>
@@ -695,9 +958,8 @@ export default function GeneratorPage() {
 
         </div>
 
-        {/* PAPER PREVIEW & EDIT STUDIO (RIGHT) */}
-        <div className="lg:col-span-7 space-y-6">
-          
+        {/* PAPER PREVIEW & EDIT STUDIO (RIGHT - DESKTOP ONLY) */}
+        <div className="hidden lg:block lg:col-span-7 space-y-6">
           {!paper ? (
             <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4 shadow-sm flex flex-col items-center justify-center min-h-[500px]">
               <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -709,247 +971,48 @@ export default function GeneratorPage() {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6 animate-in fade-in">
-              
-              {/* EDITABLE PAPER HEADER (EDIT MARKS / TITLE AFTER GENERATION) */}
-              <div className="border-b border-slate-200 pb-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-md text-[10px] font-black uppercase">
-                      {paper.class_name || "Class 10"} • {paper.subject || "General"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsEditingHeader(!isEditingHeader)}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-colors"
-                      title="Edit Paper Details & Total Marks"
-                    >
-                      <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>{isEditingHeader ? "Save Details" : "Edit Marks & Header"}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setShowAnswerKey(!showAnswerKey)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all border flex items-center gap-1.5 ${
-                        showAnswerKey ? "bg-emerald-50 text-emerald-700 border-emerald-300" : "bg-slate-100 text-slate-600 border-slate-200"
-                      }`}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>{showAnswerKey ? "Hide Solutions" : "Show Solutions"}</span>
-                    </button>
-
-                    <button
-                      onClick={handleAddQuestion}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1 transition-colors shadow-sm"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Question</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* DISPLAY OR EDIT HEADER DETAILS */}
-                {isEditingHeader ? (
-                  <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Exam Title</label>
-                        <input
-                          type="text"
-                          value={paper.title}
-                          onChange={(e) => handleUpdatePaperHeader({ title: e.target.value })}
-                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-0.5">School Name</label>
-                        <input
-                          type="text"
-                          value={paper.school_name}
-                          onChange={(e) => handleUpdatePaperHeader({ school_name: e.target.value })}
-                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Total Marks (Editable)</label>
-                        <input
-                          type="number"
-                          value={paper.total_marks}
-                          onChange={(e) => handleUpdatePaperHeader({ total_marks: Number(e.target.value) || 0 })}
-                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Time Allowed (Mins)</label>
-                        <input
-                          type="number"
-                          value={paper.time_allowed_mins}
-                          onChange={(e) => handleUpdatePaperHeader({ time_allowed_mins: Number(e.target.value) || 0 })}
-                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <h2 className="text-xl font-black text-slate-900">{paper.title}</h2>
-                    <p className="text-xs text-slate-600 font-bold mt-0.5">
-                      {paper.school_name} • <span className="text-indigo-700 font-extrabold">{paper.total_marks} Total Marks</span> • {paper.time_allowed_mins} Mins
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* QUESTIONS LIST WITH INLINE EDITING */}
-              <div className="space-y-4">
-                {paper.questions.map((q, index) => {
-                  const isEditing = editingQuestionId === q.id;
-                  return (
-                    <div
-                      key={q.id}
-                      className={`p-5 rounded-2xl border transition-all ${
-                        isEditing ? "bg-amber-50/60 border-amber-300 ring-2 ring-amber-400" : "bg-slate-50/70 border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2 text-xs font-black text-indigo-700">
-                            <span>Q{index + 1}. ({q.question_type.toUpperCase()})</span>
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                value={q.marks}
-                                onChange={(e) => handleUpdateQuestion(q.id, { marks: Number(e.target.value) || 1 })}
-                                className="w-14 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-xs font-bold text-slate-900"
-                                title="Edit Question Marks"
-                              />
-                            ) : (
-                              <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md text-[10px]">
-                                {q.marks} Mark{q.marks > 1 ? "s" : ""}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* QUESTION TEXT (DISPLAY OR EDIT) */}
-                          {isEditing ? (
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 mb-1">Question Text</label>
-                              <textarea
-                                rows={3}
-                                value={q.question_text}
-                                onChange={(e) => handleUpdateQuestion(q.id, { question_text: e.target.value })}
-                                className="w-full bg-white border border-amber-300 rounded-xl p-3 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                              />
-                            </div>
-                          ) : (
-                            <p className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed whitespace-pre-line">
-                              {q.question_text}
-                            </p>
-                          )}
-
-                          {/* OPTIONS FOR MCQ */}
-                          {q.options && q.options.length > 0 && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-                              {q.options.map((opt, optIdx) => (
-                                <div key={optIdx}>
-                                  {isEditing ? (
-                                    <input
-                                      type="text"
-                                      value={opt}
-                                      onChange={(e) => {
-                                        const newOpts = [...q.options!];
-                                        newOpts[optIdx] = e.target.value;
-                                        handleUpdateQuestion(q.id, { options: newOpts });
-                                      }}
-                                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800"
-                                    />
-                                  ) : (
-                                    <span className="text-xs font-semibold text-slate-700 block bg-white px-3 py-1.5 rounded-lg border border-slate-200">
-                                      {opt}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* ANSWER & EXPLANATION (EDITABLE) */}
-                          {showAnswerKey && (
-                            <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1">
-                              <div className="flex items-center gap-1.5 font-extrabold text-emerald-800">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Correct Answer:</span>
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={q.answer}
-                                    onChange={(e) => handleUpdateQuestion(q.id, { answer: e.target.value })}
-                                    className="flex-1 bg-white border border-emerald-300 rounded px-2 py-0.5 text-xs font-bold text-slate-900"
-                                  />
-                                ) : (
-                                  <span>{q.answer}</span>
-                                )}
-                              </div>
-
-                              {q.explanation && (
-                                <p className="text-[11px] text-emerald-700 font-medium italic pt-1">
-                                  💡 <b>Explanation:</b> {q.explanation}
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                        </div>
-
-                        {/* ACTIONS (EDIT / DELETE) */}
-                        <div className="flex items-center gap-1 shrink-0">
-                          {isEditing ? (
-                            <button
-                              onClick={() => setEditingQuestionId(null)}
-                              className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-sm"
-                              title="Done Editing"
-                            >
-                              <Save className="w-3.5 h-3.5" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => setEditingQuestionId(q.id)}
-                              className="p-2 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-colors"
-                              title="Edit Question"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => handleDeleteQuestion(q.id)}
-                            className="p-2 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors"
-                            title="Delete Question"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-            </div>
+            renderPaperStudioContent(false)
           )}
-
         </div>
 
       </div>
+
+      {/* FULL-SCREEN MOBILE PAPER STUDIO POP-UP MODAL */}
+      {showMobilePaperModal && paper && (
+        <div className="lg:hidden fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex flex-col p-2 sm:p-4 pb-24 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl flex flex-col h-full overflow-hidden max-w-2xl mx-auto w-full animate-in zoom-in-95 duration-200">
+            
+            {/* MODAL TOP BAR */}
+            <div className="p-4 bg-gradient-to-r from-indigo-900 to-purple-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5 text-amber-300" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black truncate">{paper.title}</h3>
+                  <p className="text-[11px] text-indigo-200 font-medium truncate">
+                    {paper.class_name} • {paper.subject} • {paper.total_marks} Marks
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowMobilePaperModal(false)}
+                className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors cursor-pointer shrink-0"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* MODAL BODY (PAPER STUDIO) */}
+            <div className="flex-1 overflow-y-auto p-2 sm:p-4">
+              {renderPaperStudioContent(true)}
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* PAPER HISTORY DRAWER / MODAL (CLOCK ICON 🕒) */}
       {showHistory && (
@@ -970,7 +1033,7 @@ export default function GeneratorPage() {
 
               <button
                 onClick={() => setShowHistory(false)}
-                className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors"
+                className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -991,7 +1054,7 @@ export default function GeneratorPage() {
                   >
                     <button
                       onClick={() => handleSelectFromHistory(saved)}
-                      className="text-left flex-1 space-y-1 min-w-0"
+                      className="text-left flex-1 space-y-1 min-w-0 cursor-pointer"
                     >
                       <h4 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
                         {saved.title}
@@ -1007,13 +1070,13 @@ export default function GeneratorPage() {
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => handleSelectFromHistory(saved)}
-                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-colors"
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-colors cursor-pointer"
                       >
                         Load
                       </button>
                       <button
                         onClick={() => deleteSavedPaper(idx)}
-                        className="p-1.5 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors"
+                        className="p-1.5 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors cursor-pointer"
                         title="Delete from history"
                       >
                         <Trash2 className="w-4 h-4" />
