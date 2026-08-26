@@ -318,46 +318,62 @@ STRICT REQUIREMENTS:
         from services.olympiad_service import generate_100_practice_mock_questions
         base_100 = generate_100_practice_mock_questions(subject=subject)
 
-        # Attempt a single fast AI batch to enrich subject questions if available (< 2.5s)
-        ai_enriched_qs = []
+        # Attempt dynamic AI generation for Part-B (40 MCQs strictly for selected subject)
+        ai_part_b_qs = []
         try:
-            prompt = f"""Generate 10 advanced CBSE/NCERT Multiple Choice Questions (MCQs) for teachers in subject '{subject}'.
-Focus: High Order Thinking Skills (HOTS), Pedagogical Content Knowledge (PCK), and core {subject} concepts.
-Format JSON: {{"questions": [{{"question_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "correct_answer": 0, "explanation": "..."}}]}}"""
+            prompt = f"""You are the Chief Examination Controller for the National Teacher Skills Olympiad (TSO).
+Generate 40 Advanced Multiple Choice Questions (MCQs) for teachers strictly in subject '{subject}'.
+Structure:
+- Module 4: Core {subject} Knowledge & Theoretical/Numerical Concepts (20 MCQs)
+- Module 5: {subject} Pedagogical Content Knowledge & TLM/Labs/Simulations (10 MCQs)
+- Module 6: {subject} Common Student Cognitive Misconceptions & HOTS Remediation (10 MCQs)
+
+STRICT REQUIREMENTS:
+1. All 40 questions MUST be 100% focused on {subject}. (e.g. if Mathematics: Algebra/Geometry/Calculus/Trigonometry; if Social Science: History/Civics/Geography/Economics; if English: Grammar/Poetics/Literature; if Hindi: Vyakaran/Sahitya; if Computer Science: Python/SQL/Algorithms).
+2. Every question must have 4 options: ["(A) ...", "(B) ...", "(C) ...", "(D) ..."]
+3. "correct_answer" must be 0, 1, 2, or 3.
+4. Return strictly valid JSON matching:
+{{"questions": [{{"module": "Core Subject Knowledge", "question_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "correct_answer": 0, "explanation": "..."}}]}}"""
 
             raw = await asyncio.wait_for(
                 ai_provider.chat_completion(
                     messages=[
-                        {"role": "system", "content": "You are the Chief Examination Controller for the National Teacher Skills Olympiad."},
+                        {"role": "system", "content": f"You are an expert CBSE/NCERT curriculum and examination designer specialized in {subject}. Respond ONLY in valid JSON."},
                         {"role": "user", "content": prompt}
                     ],
                     temperature=0.7,
-                    max_tokens=2000,
+                    max_tokens=4000,
                     response_format_json=True
                 ),
-                timeout=2.5
+                timeout=12.0
             )
             parsed = json.loads(raw)
             ai_list = parsed.get("questions") or parsed.get("mcqs") or []
             for item in ai_list:
                 if isinstance(item, dict) and item.get("question_text") and len(item.get("options", [])) >= 4:
-                    ai_enriched_qs.append({
+                    corr = item.get("correct_answer", 0)
+                    if isinstance(corr, str) and corr.isdigit(): corr = int(corr)
+                    elif isinstance(corr, str) and corr.strip().upper() in ["A", "B", "C", "D"]: corr = ord(corr.strip().upper()) - 65
+                    else: corr = int(corr) if isinstance(corr, (int, float)) else 0
+                    
+                    mod_name = item.get("module") or f"{subject} Mastery"
+                    ai_part_b_qs.append({
                         "section": f"Part-B: Subject Depth & Discipline Mastery (40% Weightage) — {subject}",
-                        "module": f"{subject} Core Discipline Mastery",
+                        "module": mod_name,
                         "question_text": re.sub(r'^\s*\[.*?\]\s*', '', str(item["question_text"])).strip(),
                         "options": item["options"][:4],
-                        "correct_answer": int(item.get("correct_answer", 0)) % 4,
-                        "explanation": item.get("explanation", f"Core pedagogical principle in {subject}.")
+                        "correct_answer": corr % 4,
+                        "explanation": item.get("explanation", f"Core pedagogical and conceptual principle in {subject}.")
                     })
         except Exception as ai_err:
-            logger.info(f"[TSO Synthesis] Using domain-verified 100-MCQ standard pool: {ai_err}")
+            logger.info(f"[TSO Synthesis] AI generation fallback to domain-verified {subject} bank: {ai_err}")
 
-        # Assemble unified 100 questions with numbers and IDs, ensuring no bracketed prefixes
+        # Assemble unified 100 questions: Part-A (1..60 Pedagogy) + Part-B (61..100 Subject)
         final_questions = []
         for idx in range(100):
             q_num = idx + 1
-            if idx < len(ai_enriched_qs) and 60 <= idx < 60 + len(ai_enriched_qs):
-                q = ai_enriched_qs[idx - 60]
+            if idx >= 60 and (idx - 60) < len(ai_part_b_qs):
+                q = ai_part_b_qs[idx - 60]
                 corr = q["correct_answer"]
                 opts = q["options"]
                 cleaned_stem = q["question_text"]
@@ -365,12 +381,12 @@ Format JSON: {{"questions": [{{"question_text": "...", "options": ["(A)...", "(B
                 mod = q["module"]
                 expl = q.get("explanation", "")
             else:
-                base_q = base_100[idx % len(base_100)]
+                base_q = base_100[idx] if idx < len(base_100) else base_100[idx % len(base_100)]
                 cleaned_stem = re.sub(r'^\s*\[.*?\]\s*', '', str(base_q.get("question_text", ""))).strip()
                 opts = base_q.get("options", ["(A)", "(B)", "(C)", "(D)"])
                 corr = int(base_q.get("correct_answer", 0)) % len(opts)
-                sec = base_q.get("section", "Part-A" if q_num <= 60 else "Part-B")
-                mod = base_q.get("module", "General Pedagogy" if q_num <= 60 else f"{subject} Mastery")
+                sec = base_q.get("section", "Part-A" if q_num <= 60 else f"Part-B: Subject Depth — {subject}")
+                mod = base_q.get("module", "General Pedagogy" if q_num <= 60 else f"{subject} Core Mastery")
                 expl = base_q.get("explanation", "")
 
             final_questions.append({

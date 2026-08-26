@@ -22,10 +22,9 @@ TSO_REGISTRATIONS_FILE = DATA_DIR / "tso_registrations.json"
 # 100 AUTHENTIC DISTINCT PRACTICE MOCK QUESTIONS (60/40 MASTER BLUEPRINT)
 # ============================================================================
 
-def generate_100_practice_mock_questions(subject: str = "Science") -> List[Dict[str, Any]]:
-    """Returns 100 completely unique, authentic pedagogical & subject questions strictly mapped to the 6 modules."""
-    
-    questions: List[Dict[str, Any]] = [
+def get_part_a_pedagogy_60_questions() -> List[Dict[str, Any]]:
+    """Returns the 60 universal pedagogical questions for Part-A (Modules 1, 2, and 3)."""
+    return [
         # ====================================================================
         # PART-A: MODULE 1 — CBSE CPD MODULES & NEP GUIDELINES (20 MCQs)
         # ====================================================================
@@ -876,8 +875,12 @@ def generate_100_practice_mock_questions(subject: str = "Science") -> List[Dict[
             ],
             "correct_answer": 0,
             "explanation": "Modern pedagogy shifts the teacher from the 'sage on the stage' to the 'guide on the side' who architects active discovery and critical inquiry."
-        },
+        }
+    ]
 
+def get_science_part_b_questions() -> List[Dict[str, Any]]:
+    """Returns the 40 Science (Physics, Chemistry, Biology) questions for Part-B."""
+    return [
         # ====================================================================
         # PART-B: MODULE 1 — CORE SUBJECT KNOWLEDGE (20 MCQs)
         # ====================================================================
@@ -1451,6 +1454,16 @@ def generate_100_practice_mock_questions(subject: str = "Science") -> List[Dict[
         }
     ]
 
+def generate_100_practice_mock_questions(subject: str = "Science") -> List[Dict[str, Any]]:
+    """Returns 100 authentic questions: 60 Part-A Pedagogy + 40 Part-B strictly tailored to chosen subject."""
+    questions = list(get_part_a_pedagogy_60_questions())
+    
+    from services.olympiad_subject_banks import get_part_b_questions_for_subject
+    part_b_qs = get_part_b_questions_for_subject(subject)
+    if not part_b_qs or len(part_b_qs) < 40:
+        part_b_qs = get_science_part_b_questions()
+        
+    questions.extend(part_b_qs[:40])
     return questions
 
 class OlympiadService:
