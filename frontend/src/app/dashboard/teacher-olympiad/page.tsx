@@ -254,167 +254,92 @@ export default function TeacherOlympiadPage() {
     }
   }, [mediaStream, examStarted]);
 
-  // Trigger Instant Proctoring Alert & Auto-Submit at 3 Warnings
+  // Trigger Proctoring Incident with 5-warning threshold and clear explanation
   const triggerProctorIncident = (reason: string) => {
     if (examSubmitted) return;
     setTabSwitches((prev) => {
       const count = prev + 1;
       const timeStr = new Date().toLocaleTimeString();
-      const log = `[${timeStr}] Incident #${count}: ${reason}`;
+      const log = `[${timeStr}] Warning #${count}: ${reason}`;
       setProctorLogs((prevLogs) => [...prevLogs, log]);
 
-      if (count >= 3) {
-        const termMsg = `Maximum Proctoring Violations Exceeded (3/3 Warnings): ${reason}. Your assessment was automatically terminated and submitted to the evaluation committee.`;
+      if (count >= 5) {
+        const termMsg = `Maximum Proctoring Violations Reached (5/5 Warnings): ${reason}. Assessment automatically submitted.`;
         setAutoTerminatedReason(termMsg);
-        setProctorWarningMsg(`🚨 MAXIMUM VIOLATIONS REACHED (3/3 Warnings): Assessment Auto-Terminated & Submitted!`);
+        setProctorWarningMsg(`🚨 MAXIMUM VIOLATIONS REACHED (5/5 Warnings): Assessment Auto-Submitted.`);
         setTimeout(() => {
           processSubmission(true, termMsg);
-        }, 500);
+        }, 800);
       } else {
-        setProctorWarningMsg(`⚠️ INTEGRITY ALERT (Warning #${count}/3): ${reason}! (At 3 warnings, your paper will be automatically submitted).`);
+        setProctorWarningMsg(`⚠️ INTEGRITY NOTICE (Warning #${count}/5): ${reason}. Please stay on this screen.`);
         if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
         warningTimeoutRef.current = setTimeout(() => {
           setProctorWarningMsg(null);
-        }, 6000);
+        }, 5000);
       }
 
       return count;
     });
   };
 
-  // Anti-Cheating: Tab Switch, Window Blur & Visibility Detection
+  // Anti-Cheating: Reliable Tab Switch & Fullscreen Monitoring (No false window blur triggers)
   useEffect(() => {
     if (!examStarted || examSubmitted) return;
 
+    let hiddenTimeout: NodeJS.Timeout | null = null;
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        triggerProctorIncident("Tab switched or minimized");
+        // Debounce 1.5s to prevent brief OS touch gestures or mobile notifications from firing false alerts
+        hiddenTimeout = setTimeout(() => {
+          if (document.hidden) {
+            triggerProctorIncident("Tab switched or minimized");
+          }
+        }, 1500);
+      } else {
+        if (hiddenTimeout) clearTimeout(hiddenTimeout);
       }
-    };
-
-    const handleWindowBlur = () => {
-      triggerProctorIncident("Browser window lost focus");
     };
 
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
         setFullscreenExits((prev) => prev + 1);
-        triggerProctorIncident("Exited fullscreen mode");
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", handleWindowBlur);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      if (hiddenTimeout) clearTimeout(hiddenTimeout);
     };
   }, [examStarted, examSubmitted]);
 
-  // Real-time AI Face Presence, Missing Face & Gaze Tracking Loop
+  // Real-time AI Camera Presence & Stream Verification Loop
   useEffect(() => {
     if (!examStarted || examSubmitted || !mediaStream) return;
 
-    let missingFaceTicks = 0;
-    let lookingAwayTicks = 0;
-    const canvas = document.createElement("canvas");
-    canvas.width = 160;
-    canvas.height = 120;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    let cameraOffTicks = 0;
 
-    const detector = typeof window !== "undefined" && "FaceDetector" in window 
-      ? new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 3 })
-      : null;
+    const visionTimer = setInterval(() => {
+      if (!videoRef.current || examSubmitted) return;
 
-    const visionTimer = setInterval(async () => {
-      if (!videoRef.current || videoRef.current.readyState < 2 || !ctx || examSubmitted) return;
+      // Verify that mediaStream video track is live and enabled
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      const isLive = videoTrack && videoTrack.readyState === "live" && videoTrack.enabled;
 
-      ctx.drawImage(videoRef.current, 0, 0, 160, 120);
-
-      // 1. Native Hardware Face Detector if supported
-      if (detector) {
-        try {
-          const faces = await detector.detect(canvas);
-          if (!faces || faces.length === 0) {
-            missingFaceTicks += 1;
-            lookingAwayTicks = 0;
-            if (missingFaceTicks >= 3) {
-              triggerProctorIncident("Candidate face missing from camera view");
-              missingFaceTicks = 0;
-            }
-          } else if (faces.length > 1) {
-            triggerProctorIncident(`Multiple people detected in camera (${faces.length} faces visible)`);
-          } else {
-            missingFaceTicks = 0;
-            const box = faces[0].boundingBox;
-            const centerX = box.x + box.width / 2;
-            if (centerX < 30 || centerX > 130) {
-              lookingAwayTicks += 1;
-              if (lookingAwayTicks >= 3) {
-                triggerProctorIncident("Candidate looking away from screen / Gaze deviation");
-                lookingAwayTicks = 0;
-              }
-            } else {
-              lookingAwayTicks = 0;
-            }
-          }
-          return;
-        } catch {}
+      if (!isLive) {
+        cameraOffTicks += 1;
+        if (cameraOffTicks >= 5) {
+          triggerProctorIncident("Camera stream disconnected or disabled");
+          cameraOffTicks = 0;
+        }
+      } else {
+        cameraOffTicks = 0;
       }
-
-      // 2. Optical Vision Fallback: Pixel Luminance & Gaze Mass Distribution
-      try {
-        const frameData = ctx.getImageData(0, 0, 160, 120).data;
-        let totalBrightness = 0;
-        let leftLum = 0;
-        let rightLum = 0;
-        let centerLum = 0;
-        let pixelCount = 0;
-
-        for (let y = 20; y < 100; y += 3) {
-          for (let x = 20; x < 140; x += 3) {
-            const idx = (y * 160 + x) * 4;
-            const lum = 0.299 * frameData[idx] + 0.587 * frameData[idx + 1] + 0.114 * frameData[idx + 2];
-            totalBrightness += lum;
-            pixelCount++;
-
-            if (x < 60) leftLum += lum;
-            else if (x > 100) rightLum += lum;
-            else centerLum += lum;
-          }
-        }
-
-        const avgBrightness = totalBrightness / (pixelCount || 1);
-        
-        // Camera covered, pitch black or user missing from frame
-        if (avgBrightness < 12) {
-          missingFaceTicks += 1;
-          if (missingFaceTicks >= 3) {
-            triggerProctorIncident("Camera obscured / Candidate face missing from frame");
-            missingFaceTicks = 0;
-          }
-        } else {
-          missingFaceTicks = 0;
-
-          // Head turned / Gaze shift to side
-          const leftRatio = leftLum / (centerLum + 1);
-          const rightRatio = rightLum / (centerLum + 1);
-
-          if (leftRatio > 2.3 || rightRatio > 2.3) {
-            lookingAwayTicks += 1;
-            if (lookingAwayTicks >= 3) {
-              triggerProctorIncident("Candidate looking away from screen / Head turned");
-              lookingAwayTicks = 0;
-            }
-          } else {
-            lookingAwayTicks = 0;
-          }
-        }
-      } catch {}
-    }, 1000);
+    }, 2000);
 
     return () => clearInterval(visionTimer);
   }, [examStarted, examSubmitted, mediaStream]);
