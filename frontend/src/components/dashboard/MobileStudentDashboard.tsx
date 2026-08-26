@@ -36,10 +36,11 @@ export function MobileStudentDashboard() {
     { name: "Active Flashcards", sub: "Spaced Repetition & Recall", href: "/dashboard/student/flashcards", icon: Layers, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", category: "practice", badge: "Smart Study" },
     { name: "Board Exam Prep", sub: "CBSE Questions & Strategy", href: "/dashboard/student/exam-prep", icon: Trophy, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", category: "exam", badge: "High Yield" },
     { name: "Quiz & Practice", sub: "Untimed Chapter Mocks", href: "/dashboard/student/practice", icon: Target, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", category: "practice", badge: "Chapter Tests" },
-    { name: "Live Video Room", sub: "Speak 1-on-1 with AI Tutor", href: "/dashboard/video-consultation", icon: Video, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", category: "ai", badge: "Face & Voice" },
-    { name: "Pomodoro Study Timer", sub: "Focus Sessions & Streaks", href: "/dashboard/student/timer", icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", category: "tools", badge: "Productivity" },
-    { name: "Study Planner AI", sub: "Personalized Daily Routine", href: "/dashboard/agents?agent=study_planner", icon: Sparkles, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", category: "tools", badge: "AI Routine" },
-    { name: "English Coach", sub: "Grammar & Speaking Polish", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100", category: "ai", badge: "Language AI" },
+    { name: "Live Room Call", sub: "Speak 1-on-1 with AI Tutor", href: "/dashboard/video-consultation", icon: Video, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", category: "ai", badge: "Face & Voice" },
+    { name: "Pomodoro Timer", sub: "Focus Sessions & Streaks", href: "/dashboard/student/timer", icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", category: "tools", badge: "Focus" },
+    { name: "Study Planner AI", sub: "Personalized Daily Routine", href: "/dashboard/student/planner", icon: Sparkles, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", category: "tools", badge: "AI Routine" },
+    { name: "Notion Smart Notes", sub: "AI Organized Class Notes", href: "/dashboard/student/notes", icon: BookOpen, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100", category: "tools", badge: "Smart Notes" },
+    { name: "English Coach", sub: "Grammar & Speaking Polish", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-100", category: "ai", badge: "Language AI" },
     { name: "Career Counselor AI", sub: "Stream & College Pathways", href: "/dashboard/agents?agent=career_counselor", icon: Compass, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100", category: "tools", badge: "Guidance" },
   ];
 

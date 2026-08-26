@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ShieldCheck
 } from "lucide-react";
+import { PublicMobileDock } from "@/components/layout/PublicMobileDock";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -184,6 +185,9 @@ export function Navbar() {
 
         </div>
       )}
+
+      {/* PERSISTENT GLOBAL PUBLIC MOBILE BOTTOM DOCK */}
+      <PublicMobileDock />
     </header>
   );
 }
