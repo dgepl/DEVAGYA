@@ -541,14 +541,16 @@ export default function SuperAdminPage() {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (res.ok) {
-        setActionMsg(`Olympiad Submission ${selectedSub.id} updated & ${publishing ? "Published!" : "Saved as Evaluated."}`);
+      if (res.ok && data.status === "success") {
+        setActionMsg(`Olympiad Submission #${selectedSub.id} updated & ${publishing ? "Published to Live Leaderboard!" : "Saved as Evaluated."}`);
         setSelectedSub(null);
-        fetchAdminData();
+        await fetchAdminData();
         setTimeout(() => setActionMsg(null), 4000);
+      } else {
+        alert(data.detail || data.message || "Failed to update Olympiad submission.");
       }
-    } catch (e) {
-      alert("Failed to update Olympiad submission.");
+    } catch (e: any) {
+      alert(`Failed to update Olympiad submission: ${e.message || e}`);
     }
   };
 
@@ -563,18 +565,19 @@ export default function SuperAdminPage() {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
       const query = targetId ? `?paper_id=${encodeURIComponent(targetId)}` : "";
       const res = await fetch(`${baseUrl}/admin/olympiad/publish-all${query}`, {
-        method: "POST"
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
       });
       const data = await res.json();
-      if (res.ok) {
+      if (res.ok && data.status === "success") {
         setActionMsg(`1-Click Publish Success! Published results for ${data.published_count || "all"} candidate(s) to Live Leaderboard! 🚀`);
-        fetchAdminData();
+        await fetchAdminData();
         setTimeout(() => setActionMsg(null), 5000);
       } else {
-        alert(data.detail || "Failed to bulk publish results.");
+        alert(data.detail || data.message || "Failed to bulk publish results.");
       }
-    } catch (e) {
-      alert("Error executing bulk publish.");
+    } catch (e: any) {
+      alert(`Error executing bulk publish: ${e.message || e}`);
     } finally {
       setBulkPublishing(false);
     }

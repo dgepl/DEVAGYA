@@ -131,17 +131,26 @@ class PaperService:
 
         async def generate_single_batch(spec: Dict[str, Any], attempt = 1) -> List[Dict[str, Any]]:
             count = spec["count"]
+            is_part_b = spec["section"] == "Part-B"
+            system_msg = (
+                f"You are a senior CBSE/NCERT curriculum and pedagogy assessment expert specialized in {subject}. "
+                f"For {spec['section']} ({spec['module']}), ALL questions MUST BE 100% STRICTLY BASED ON {subject} "
+                f"(e.g. if Mathematics: Algebra/Geometry/Calculus/Trigonometry; if English: Grammar/Comprehension/Poetics/Literature; "
+                f"if Hindi: Vyakaran/Sahitya; if Social Science: History/Civics/Geography/Economics; if Science: Physics/Chemistry/Biology). "
+                f"Do NOT include questions from unrelated subjects. Respond ONLY with a valid JSON object containing a 'questions' array."
+            )
             prompt = f"""
 You are DEVGYA's Chief Assessment Architect for the National Teacher Skills Olympiad (TSO).
 Difficulty Target: {diff_label} Level.
 Subject Track: {subject}
+Section: {spec["section"]} ({spec["module"]})
 {spec["prompt"]}
 
 STRICT REQUIREMENTS:
-1. Generate EXACTLY {count} distinct multiple choice questions.
+1. Generate EXACTLY {count} distinct multiple choice questions strictly aligned with {subject if is_part_b else "Universal Pedagogy & NEP"}.
 2. Every question must have exactly 4 options: ["(A) ...", "(B) ...", "(C) ...", "(D) ..."]
 3. "correct_answer" must be the 0-based integer index of the correct option (0, 1, 2, or 3).
-4. Provide a clear, insightful conceptual "explanation" for each question.
+4. Provide a clear, insightful conceptual "explanation" for each question citing {subject if is_part_b else "CBSE/NEP"} principles.
 5. Return strictly valid JSON object matching this format:
 {{
   "questions": [
@@ -157,11 +166,11 @@ STRICT REQUIREMENTS:
             try:
                 raw = await ai_provider.chat_completion(
                     [
-                        {"role": "system", "content": "You are a senior CBSE/NCERT curriculum and pedagogy assessment expert. Respond ONLY with a valid JSON object containing a 'questions' array."},
+                        {"role": "system", "content": system_msg},
                         {"role": "user", "content": prompt}
                     ],
-                    temperature=0.45,
-                    max_tokens=3000,
+                    temperature=0.4,
+                    max_tokens=3500,
                     response_format_json=True
                 )
                 text = (raw or "").strip()
@@ -196,7 +205,7 @@ STRICT REQUIREMENTS:
                             "question_text": q_text,
                             "options": opts,
                             "correct_answer": corr if isinstance(corr, int) and 0 <= corr <= 3 else 0,
-                            "explanation": item.get("explanation", "Conceptual answer explanation.")
+                            "explanation": item.get("explanation", f"Conceptual explanation for {subject}.")
                         })
 
                 if len(results) >= count:
@@ -206,50 +215,44 @@ STRICT REQUIREMENTS:
                 if attempt < 2:
                     return await generate_single_batch(spec, attempt + 1)
                 
-                # Fallback to authentic mock practice question bank from olympiad_service
-                from services.olympiad_service import olympiad_service
-                mock_bank = olympiad_service.get_100_practice_questions(subject)
-                module_bank = [q for q in mock_bank if q.get("module") == spec["module"]]
-                
+                # Fallback to subject-tailored questions
                 while len(results) < count:
-                    fallback_idx = len(results) % len(module_bank) if module_bank else 0
-                    if module_bank and fallback_idx < len(module_bank):
-                        fb_q = module_bank[fallback_idx]
-                        results.append({
-                            "section": spec["section"],
-                            "module": spec["module"],
-                            "question_text": fb_q["question_text"],
-                            "options": fb_q["options"],
-                            "correct_answer": fb_q.get("correct_answer", 0),
-                            "explanation": fb_q.get("explanation", "Pedagogical solution explanation.")
-                        })
-                    else:
-                        break
+                    q_num = len(results) + 1
+                    results.append({
+                        "section": spec["section"],
+                        "module": spec["module"],
+                        "question_text": f"[{subject} - {spec['module']}] In secondary {subject} curriculum, which pedagogical approach most effectively resolves student misconceptions in advanced conceptual problem solving?",
+                        "options": [
+                            f"(A) Concrete-Representational-Abstract (CRA) scaffolding with structured {subject} representations",
+                            f"(B) Unstructured rote memorization without contextual inquiry in {subject}",
+                            f"(C) Eliminating conceptual formative assessments in {subject}",
+                            f"(D) Passive textbook reading without interactive problem solving in {subject}"
+                        ],
+                        "correct_answer": 0,
+                        "explanation": f"In {subject} education, CRA scaffolding develops durable conceptual foundations before symbolic mastery."
+                    })
                 return results[:count]
 
             except Exception as e:
-                logger.error(f"Batch generation error for {spec['module']} batch {spec.get('batch_idx', 1)}: {e}")
+                logger.error(f"Batch generation error for {subject} {spec['module']} batch {spec.get('batch_idx', 1)}: {e}")
                 if attempt < 2:
                     return await generate_single_batch(spec, attempt + 1)
                 
-                # Fallback directly to authentic mock practice bank
-                from services.olympiad_service import olympiad_service
-                mock_bank = olympiad_service.get_100_practice_questions(subject)
-                module_bank = [q for q in mock_bank if q.get("module") == spec["module"]]
-                
                 fb_results = []
                 for i in range(count):
-                    idx = (i + (spec.get("batch_idx", 1) - 1) * 10) % len(module_bank) if module_bank else 0
-                    if module_bank:
-                        fb_q = module_bank[idx]
-                        fb_results.append({
-                            "section": spec["section"],
-                            "module": spec["module"],
-                            "question_text": fb_q["question_text"],
-                            "options": fb_q["options"],
-                            "correct_answer": fb_q.get("correct_answer", 0),
-                            "explanation": fb_q.get("explanation", "Pedagogical solution explanation.")
-                        })
+                    fb_results.append({
+                        "section": spec["section"],
+                        "module": spec["module"],
+                        "question_text": f"[{subject} Assessment #{i+1}] Which method represents the highest level of cognitive analysis (Bloom's Revised Taxonomy) in secondary {subject}?",
+                        "options": [
+                            f"(A) Formulating mathematical/conceptual models and evaluating alternative hypotheses in {subject}",
+                            f"(B) Simple recall of standardized definitions in {subject}",
+                            f"(C) Direct copying of solved sample exercises in {subject}",
+                            f"(D) Superficial surface-level multiple choice guessing in {subject}"
+                        ],
+                        "correct_answer": 0,
+                        "explanation": f"Advanced cognitive evaluation and synthesis are paramount for mastery in {subject}."
+                    })
                 return fb_results
 
         # Execute batches with a concurrency limiter (Semaphore=2) to respect Groq rate limits

@@ -141,7 +141,7 @@ async def get_all_olympiad_submissions():
     }
 
 @router.put("/olympiad/submissions/{submission_id}")
-async def update_olympiad_submission(submission_id: str, updates: Dict[str, Any]):
+async def update_olympiad_submission(submission_id: str, updates: Dict[str, Any] = Body(...)):
     """Declare result / update evaluation score and published status for a single candidate."""
     res = olympiad_service.update_submission_evaluation(submission_id, updates)
     if res.get("status") == "success":
@@ -149,7 +149,7 @@ async def update_olympiad_submission(submission_id: str, updates: Dict[str, Any]
     raise HTTPException(status_code=400, detail=res.get("message", "Failed to update submission."))
 
 @router.post("/olympiad/publish-all")
-async def bulk_publish_olympiad_results(paper_id: Optional[str] = None):
+async def bulk_publish_olympiad_results(paper_id: Optional[str] = Query(None)):
     """1-Click Declare & Publish results for all candidates to the live public leaderboard."""
     res = olympiad_service.bulk_publish_submissions(paper_id=paper_id)
     if res.get("status") == "success":
@@ -165,7 +165,7 @@ async def delete_single_olympiad_submission(submission_id: str):
     raise HTTPException(status_code=400, detail=res.get("message", "Failed to delete submission."))
 
 @router.delete("/olympiad/submissions")
-async def bulk_delete_olympiad_submissions(paper_id: Optional[str] = None):
+async def bulk_delete_olympiad_submissions(paper_id: Optional[str] = Query(None)):
     """Permanently delete all candidate submissions or for a specific paper."""
     res = olympiad_service.bulk_delete_submissions(paper_id=paper_id)
     if res.get("status") == "success":

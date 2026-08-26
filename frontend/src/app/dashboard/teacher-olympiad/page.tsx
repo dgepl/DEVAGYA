@@ -66,6 +66,10 @@ export default function TeacherOlympiadPage() {
   const [tabSwitches, setTabSwitches] = useState<number>(0);
   const [fullscreenExits, setFullscreenExits] = useState<number>(0);
   const [webcamEnabled, setWebcamEnabled] = useState<boolean>(false);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [proctorWarningMsg, setProctorWarningMsg] = useState<string | null>(null);
+  const [proctorLogs, setProctorLogs] = useState<string[]>([]);
+  const warningTimeoutRef = useRef<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Admin Declared Results & Detailed Answer Review State
@@ -176,18 +180,101 @@ export default function TeacherOlympiadPage() {
     return () => clearInterval(interval);
   }, [examStarted, examSubmitted, timeLeft]);
 
-  // Anti-Cheating: Tab Switch & Visibility Detection
+  // Dedicated Real-time Camera Lifecycle Stream
+  useEffect(() => {
+    let streamInstance: MediaStream | null = null;
+    if (examStarted && !examSubmitted) {
+      const initCamera = async () => {
+        try {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const s = await navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+              audio: false
+            });
+            streamInstance = s;
+            setMediaStream(s);
+            setWebcamEnabled(true);
+            if (videoRef.current) {
+              videoRef.current.srcObject = s;
+              try { await videoRef.current.play(); } catch (e) {}
+            }
+          }
+        } catch (e) {
+          console.warn("Webcam access restricted or unavailable:", e);
+        }
+      };
+      initCamera();
+    } else {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+        setMediaStream(null);
+      }
+    }
+
+    return () => {
+      if (streamInstance) {
+        streamInstance.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [examStarted, examSubmitted]);
+
+  // Re-attach video stream if element re-mounts
+  useEffect(() => {
+    if (videoRef.current && mediaStream) {
+      videoRef.current.srcObject = mediaStream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [mediaStream, examStarted]);
+
+  // Trigger Instant Proctoring Alert & Incident Logger
+  const triggerProctorIncident = (reason: string) => {
+    setTabSwitches((prev) => {
+      const count = prev + 1;
+      const timeStr = new Date().toLocaleTimeString();
+      const log = `[${timeStr}] Incident #${count}: ${reason}`;
+      setProctorLogs((prevLogs) => [...prevLogs, log]);
+
+      setProctorWarningMsg(`⚠️ INTEGRITY ALERT (Warning #${count}): ${reason}! Please keep exam tab focused.`);
+      
+      if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+      warningTimeoutRef.current = setTimeout(() => {
+        setProctorWarningMsg(null);
+      }, 6000);
+
+      return count;
+    });
+  };
+
+  // Anti-Cheating: Tab Switch, Window Blur & Visibility Detection
   useEffect(() => {
     if (!examStarted || examSubmitted) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setTabSwitches((prev) => prev + 1);
+        triggerProctorIncident("Tab switched or minimized");
+      }
+    };
+
+    const handleWindowBlur = () => {
+      triggerProctorIncident("Browser window lost focus");
+    };
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setFullscreenExits((prev) => prev + 1);
+        triggerProctorIncident("Exited fullscreen mode");
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
   }, [examStarted, examSubmitted]);
 
   // Format MM:SS
@@ -197,19 +284,12 @@ export default function TeacherOlympiadPage() {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }, [timeLeft]);
 
-  // Start Real 60-Minute Exam
+  // Start Real 60-Minute Exam with Re-Attempt Lock Guard
   const handleStartExam = async () => {
-    // Request webcam if available
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-        setWebcamEnabled(true);
-      }
-    } catch (e) {
-      console.warn("Webcam optional notice:", e);
+    if (hasAttempted || userSubmission) {
+      alert("🔒 Assessment Already Completed: Each educator is permitted exactly 1 official Olympiad attempt. You can view your scorecard and review questions in the Results tab.");
+      setActiveTab("results");
+      return;
     }
 
     // Try requesting fullscreen
@@ -514,13 +594,17 @@ export default function TeacherOlympiadPage() {
 
           {/* LAUNCH EXAM ACTION PANEL */}
           <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 rounded-3xl p-6 border border-indigo-100 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
-            <div className="space-y-1 text-center sm:text-left">
-              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">LIVE TIMED ASSESSMENT</span>
+            <div className="space-y-1 text-center sm:text-left flex-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                {hasAttempted || userSubmission ? "ASSESSMENT RECORD PERMANENTLY ARCHIVED" : "LIVE TIMED ASSESSMENT"}
+              </span>
               <h3 className="text-base font-black text-slate-900">
-                Ready to take the 100-MCQ National Olympiad?
+                {hasAttempted || userSubmission ? "Official Assessment Completed (Locked)" : "Ready to take the 100-MCQ National Olympiad?"}
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                Make sure you have 60 uninterrupted minutes and a stable internet connection.
+                {hasAttempted || userSubmission 
+                  ? "You have already completed your official assessment. Re-attempts are restricted to preserve national benchmarking integrity."
+                  : "Make sure you have 60 uninterrupted minutes and a stable internet connection with webcam enabled."}
               </p>
             </div>
 
@@ -533,16 +617,27 @@ export default function TeacherOlympiadPage() {
                 <span>Practice Mock Tests</span>
               </Link>
 
-              <button
-                type="button"
-                disabled={!scheduleStatus.isOpen}
-                onClick={handleStartExam}
-                className="flex-1 sm:flex-none px-7 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
-              >
-                <Trophy className="w-4 h-4 text-amber-300" />
-                <span>{scheduleStatus.isOpen ? "Start 60-Min 100-MCQ Exam" : scheduleStatus.message}</span>
-                {scheduleStatus.isOpen && <ArrowRight className="w-4 h-4" />}
-              </button>
+              {hasAttempted || userSubmission ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("results")}
+                  className="flex-1 sm:flex-none px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>View Scorecard & Answers →</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!scheduleStatus.isOpen}
+                  onClick={handleStartExam}
+                  className="flex-1 sm:flex-none px-7 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Trophy className="w-4 h-4 text-amber-300" />
+                  <span>{scheduleStatus.isOpen ? "Start 60-Min 100-MCQ Exam" : scheduleStatus.message}</span>
+                  {scheduleStatus.isOpen && <ArrowRight className="w-4 h-4" />}
+                </button>
+              )}
             </div>
           </div>
 
@@ -552,6 +647,22 @@ export default function TeacherOlympiadPage() {
       {/* 3. LIVE 100-MCQ EXAM HALL ENVIRONMENT */}
       {examStarted && !examSubmitted && (
         <div className="space-y-5">
+          
+          {/* REAL-TIME ANTI-CHEATING WARNING BANNER */}
+          {proctorWarningMsg && (
+            <div className="p-4 rounded-2xl bg-rose-600 text-white font-bold text-xs shadow-lg shadow-rose-600/30 flex items-center justify-between gap-3 animate-bounce">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
+                <span>{proctorWarningMsg}</span>
+              </div>
+              <button 
+                onClick={() => setProctorWarningMsg(null)}
+                className="text-white/80 hover:text-white font-black text-sm px-2 py-0.5"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           
           {/* EXAM HALL HEADER: TIMER & SECTION SWITCHER */}
           <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-xl rounded-2xl p-4 border border-slate-200 shadow-md flex flex-wrap items-center justify-between gap-4">
@@ -763,13 +874,27 @@ export default function TeacherOlympiadPage() {
                   <span className="font-black text-indigo-600">{Object.keys(answers).length} / 100</span>
                 </div>
                 
-                {/* Webcam Preview if active */}
-                <div className="relative w-full h-24 bg-slate-950 rounded-xl overflow-hidden border border-slate-200">
-                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                  <div className="absolute top-1 left-1 bg-black/60 backdrop-blur-xs text-white text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    AI Proctor Active
+                {/* Webcam Preview & Live Proctoring Widget */}
+                <div className="relative w-full h-28 bg-slate-950 rounded-2xl overflow-hidden border border-slate-300 shadow-inner">
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    muted 
+                    className="w-full h-full object-cover mirror scale-x-[-1]" 
+                  />
+                  
+                  {/* Status Overlay Badges */}
+                  <div className="absolute top-1.5 left-1.5 bg-black/75 backdrop-blur-xs text-white text-[9px] font-black px-2 py-0.5 rounded-md flex items-center gap-1.5 shadow-xs">
+                    <span className={`w-2 h-2 rounded-full ${webcamEnabled ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+                    <span>{webcamEnabled ? "Live Camera Monitored" : "Camera Initializing..."}</span>
                   </div>
+
+                  {tabSwitches > 0 && (
+                    <div className="absolute bottom-1.5 right-1.5 bg-rose-600/90 backdrop-blur-xs text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs animate-pulse">
+                      {tabSwitches} Warning(s)
+                    </div>
+                  )}
                 </div>
               </div>
 
