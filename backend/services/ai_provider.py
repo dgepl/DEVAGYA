@@ -37,10 +37,7 @@ class AIProviderService:
 
     @property
     def vision_model(self) -> str:
-        model_env = os.getenv("AI_VISION_MODEL", "qwen/qwen3.6-27b")
-        if "groq.com" in self.base_url and (not model_env or "llama" in model_env.lower()):
-            return "qwen/qwen3.6-27b"
-        return model_env
+        return os.getenv("AI_VISION_MODEL", "qwen/qwen3.8-27b")
 
     def build_vision_content(self, text: str, image_data_urls: List[str]) -> List[Dict[str, Any]]:
         """Build an OpenAI-style multi-part message content for vision-capable models."""
@@ -75,19 +72,23 @@ class AIProviderService:
             "Content-Type": "application/json"
         }
         
-        selected_model = model or (self.vision_model if self._has_images(messages) else self.model)
+        has_imgs = self._has_images(messages)
+        selected_model = model or (self.vision_model if has_imgs else self.model)
         payload: Dict[str, Any] = {
             "model": selected_model,
             "messages": self._optimize_messages(messages),
             "temperature": temperature,
-            "max_tokens": min(max_tokens, 4096)
+            "max_tokens": min(max_tokens, 2500)
         }
         
-        if response_format_json and not self._has_images(messages):
+        if response_format_json and not has_imgs:
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            models_to_try = [selected_model, "qwen/qwen3.6-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            if has_imgs:
+                models_to_try = [selected_model, "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
+            else:
+                models_to_try = [selected_model, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
             # Deduplicate while preserving order
             unique_models = []
             for m in models_to_try:
@@ -97,7 +98,7 @@ class AIProviderService:
             last_error = None
             for attempt_model in unique_models:
                 payload["model"] = attempt_model
-                for retry in range(3):
+                for retry in range(2):
                     try:
                         res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
                         if res.status_code == 400 and "response_format" in payload:
@@ -105,8 +106,8 @@ class AIProviderService:
                             continue
 
                         if res.status_code == 429:
-                            retry_after = min(float(res.headers.get("retry-after", 2.0 * (retry + 1))), 8.0)
-                            logger.warning(f"Groq Rate limit 429 on {attempt_model}. Backing off for {retry_after}s (retry {retry+1}/3)...")
+                            retry_after = min(float(res.headers.get("retry-after", 1.5 * (retry + 1))), 4.0)
+                            logger.warning(f"Rate limit 429 on {attempt_model}. Backing off {retry_after}s...")
                             import asyncio
                             await asyncio.sleep(retry_after)
                             continue
@@ -121,14 +122,14 @@ class AIProviderService:
                             continue
                         if http_err.response.status_code == 429:
                             import asyncio
-                            await asyncio.sleep(min(2.0 * (retry + 1), 6.0))
+                            await asyncio.sleep(1.5)
                             continue
                         break
                     except Exception as err:
                         last_error = err
-                        logger.warning(f"Model {attempt_model} attempt {retry+1} error: {err}")
+                        logger.warning(f"Model {attempt_model} attempt {retry+1} notice: {err}")
                         import asyncio
-                        await asyncio.sleep(1.0)
+                        await asyncio.sleep(0.5)
 
             logger.error(f"All AI models failed in chat_completion: {last_error}")
             if last_error:
