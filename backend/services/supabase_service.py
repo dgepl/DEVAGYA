@@ -441,18 +441,49 @@ class SupabaseService:
                 except Exception as e:
                     logger.error(f"Error fetching all Supabase profiles: {e}")
 
-        # Enrich every profile with teacher store metadata
+        # Enrich every profile with unpacked metadata and teacher store metadata
         for p in profiles:
             email_clean = (p.get("email") or "").strip().lower()
+
+            # 1. Unpack JSON metadata stored in Supabase avatar_url
+            raw_avatar = p.get("avatar_url")
+            if raw_avatar and isinstance(raw_avatar, str) and raw_avatar.startswith("{") and raw_avatar.endswith("}"):
+                try:
+                    unpacked = json.loads(raw_avatar)
+                    if isinstance(unpacked, dict):
+                        inner_avatar = unpacked.get("avatar_url", "")
+                        if isinstance(inner_avatar, str) and (inner_avatar.startswith("http") or inner_avatar.startswith("data:image")):
+                            p["avatar_url"] = inner_avatar
+                        else:
+                            p["avatar_url"] = ""
+                        for k, v in unpacked.items():
+                            if k != "avatar_url" and v:
+                                p[k] = v
+                except Exception:
+                    p["avatar_url"] = ""
+            elif not raw_avatar or not (isinstance(raw_avatar, str) and (raw_avatar.startswith("http") or raw_avatar.startswith("data:image"))):
+                p["avatar_url"] = ""
+
+            # 2. Merge local persistent teacher profile store
             extra = _teacher_profiles_store.get(email_clean, {})
-            if extra.get("full_name"):
-                p["full_name"] = extra["full_name"]
-            p["school_name"] = extra.get("school_name", p.get("school_name", ""))
-            p["board"] = extra.get("board", p.get("board", "CBSE"))
-            p["subject"] = extra.get("subject", p.get("subject", ""))
-            p["classes"] = extra.get("classes", p.get("classes", "Class 10"))
-            p["school_logo"] = extra.get("school_logo", p.get("school_logo", ""))
-            p["is_profile_complete"] = extra.get("is_profile_complete", bool(p.get("school_name") and p.get("subject")))
+            for k, v in extra.items():
+                if v and (k not in p or not p[k]):
+                    p[k] = v
+
+            # 3. Final default fallbacks and complete flag
+            p["full_name"] = p.get("full_name") or email_clean.split('@')[0].capitalize()
+            p["board"] = p.get("board") or "CBSE"
+            p["classes"] = p.get("classes") or p.get("child_class") or "Class 10"
+            p["school_name"] = p.get("school_name") or p.get("child_school") or ""
+            
+            is_complete = bool(
+                p.get("school_name") or 
+                p.get("subject") or 
+                p.get("target_exam") or 
+                p.get("child_name") or 
+                extra.get("is_profile_complete")
+            )
+            p["is_profile_complete"] = is_complete
 
         return profiles
 

@@ -2159,7 +2159,7 @@ export default function SuperAdminPage() {
                             )}
                           </div>
                           <span className="font-bold text-slate-800 text-[11px] max-w-[180px] truncate block">
-                            {u.school_name || "Not Specified"}
+                            {u.school_name || u.child_school || (u.role === "student" ? "Self Study / Online" : "Not Specified")}
                           </span>
                         </div>
                       </td>
@@ -2167,10 +2167,10 @@ export default function SuperAdminPage() {
                       <td className="p-3.5">
                         <div className="space-y-0.5">
                           <div className="font-extrabold text-slate-800 text-[11px]">
-                            {u.subject || (u.role === "teacher" ? "General" : "N/A")} {u.classes ? `• ${u.classes}` : ""}
+                            {u.subject || u.target_exam || (u.role === "parent" ? (u.child_name ? `Child: ${u.child_name}` : "Parent Guidance") : "General")} {u.classes ? `• ${u.classes}` : (u.child_class ? `• ${u.child_class}` : "")}
                           </div>
                           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                            {u.board || "CBSE"} Board
+                            {u.board || u.child_board || "CBSE"} Board
                           </div>
                         </div>
                       </td>
@@ -2186,7 +2186,7 @@ export default function SuperAdminPage() {
                       </td>
 
                       <td className="p-3.5">
-                        {u.is_profile_complete || (u.school_name && u.subject) ? (
+                        {u.is_profile_complete || u.school_name || u.subject || u.target_exam || u.child_name ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                             Complete
@@ -2261,14 +2261,14 @@ export default function SuperAdminPage() {
                 </div>
                 <div>
                   <span className="text-[10px] font-black uppercase text-indigo-600 block">Affiliated Institution</span>
-                  <div className="text-sm font-black text-slate-900">{selectedUserDetail.school_name || "DEVGYA GLOBAL EDUTECH"}</div>
-                  <div className="text-[11px] text-slate-500 font-semibold">{selectedUserDetail.board || "CBSE"} Board</div>
+                  <div className="text-sm font-black text-slate-900">{selectedUserDetail.school_name || selectedUserDetail.child_school || "DEVGYA GLOBAL EDUTECH"}</div>
+                  <div className="text-[11px] text-slate-500 font-semibold">{selectedUserDetail.board || selectedUserDetail.child_board || "CBSE"} Board</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <div className="text-[10px] font-extrabold uppercase text-slate-500">Educator Name</div>
+                  <div className="text-[10px] font-extrabold uppercase text-slate-500">Full Name</div>
                   <div className="font-bold text-slate-900">{selectedUserDetail.full_name || "Registered Account"}</div>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
@@ -2276,12 +2276,20 @@ export default function SuperAdminPage() {
                   <div className="font-bold text-slate-900 uppercase">{selectedUserDetail.role}</div>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <div className="text-[10px] font-extrabold uppercase text-slate-500">Teaching Subject</div>
-                  <div className="font-bold text-slate-900">{selectedUserDetail.subject || "Not Specified"}</div>
+                  <div className="text-[10px] font-extrabold uppercase text-slate-500">
+                    {selectedUserDetail.role === "student" ? "Target Exam" : selectedUserDetail.role === "parent" ? "Parenting Focus" : "Teaching Subject"}
+                  </div>
+                  <div className="font-bold text-slate-900">
+                    {selectedUserDetail.subject || selectedUserDetail.target_exam || selectedUserDetail.parenting_focus || "General"}
+                  </div>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <div className="text-[10px] font-extrabold uppercase text-slate-500">Class / Grade</div>
-                  <div className="font-bold text-slate-900">{selectedUserDetail.classes || "Not Specified"}</div>
+                  <div className="text-[10px] font-extrabold uppercase text-slate-500">
+                    {selectedUserDetail.role === "parent" ? "Child Details" : "Class / Grade"}
+                  </div>
+                  <div className="font-bold text-slate-900">
+                    {selectedUserDetail.classes || (selectedUserDetail.child_name ? `${selectedUserDetail.child_name} (${selectedUserDetail.child_class || "Class 10"})` : "Class 10")}
+                  </div>
                 </div>
               </div>
             </div>
