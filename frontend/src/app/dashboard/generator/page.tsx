@@ -146,15 +146,20 @@ export default function GeneratorPage() {
     setShowMobilePaperModal(false);
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (forceSyllabus: boolean = false) => {
+    setError(null);
     const hasOcrContext = Boolean(ocrDraftText || (customPrompt && customPrompt.includes("Based on OCR scanned textbook extract:")));
 
-    // Reference Document is compulsory unless context was already provided via OCR Scanner
-    if (!hasOcrContext && !selectedFile) {
-      setError("Reference Document Required: Please attach a textbook photo, syllabus PDF, or worksheet document to generate the question paper (or use the OCR Scanner to scan textbook pages).");
-      setLoading(false);
+    // If no file and no OCR context, and user hasn't explicitly chosen direct syllabus generation
+    if (!hasOcrContext && !selectedFile && !forceSyllabus) {
+      setError("Reference Document Recommended: Please attach a textbook photo or PDF above, or click 'Generate from CBSE Syllabus' to synthesize directly from curriculum.");
+      if (fileInputRef.current?.parentElement) {
+        fileInputRef.current.parentElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
       return;
     }
+
+    setLoading(true);
 
     const targetSchoolName = schoolName.trim() || user.schoolName || "DEVGYA GLOBAL ACADEMY";
     const targetTitle = title.trim() || `${className || user.classes || "Class 10"} ${subject || user.subject || "General"} Periodic Assessment`;
@@ -951,16 +956,39 @@ export default function GeneratorPage() {
             />
           </div>
 
-          {/* ERROR DISPLAY */}
+          {/* ERROR & ACTION DISPLAY */}
           {error && (
-            <p className="text-xs text-rose-600 font-bold bg-rose-50 p-3 rounded-xl border border-rose-200">
-              ⚠️ {error}
-            </p>
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2.5">
+              <p className="text-xs text-rose-700 font-bold flex items-start gap-1.5">
+                <span>⚠️</span>
+                <span>{error}</span>
+              </p>
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100/50 text-rose-800 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Upload className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Attach Document / Photo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleGenerate(true)}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Generate from CBSE Syllabus Directly</span>
+                </button>
+              </div>
+            </div>
           )}
 
           {/* GENERATE BUTTON */}
           <button
-            onClick={handleGenerate}
+            type="button"
+            onClick={() => handleGenerate()}
             disabled={loading}
             className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
