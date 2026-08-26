@@ -1465,24 +1465,13 @@ class OlympiadService:
             with open(TSO_REGISTRATIONS_FILE, "w", encoding="utf-8") as f:
                 json.dump({}, f)
 
-    def get_active_exam_paper(self, subject: str = "Science", level: str = "Secondary") -> Dict[str, Any]:
-        admin_paper = paper_service.get_active_olympiad_paper()
-        if admin_paper and admin_paper.get("questions"):
+    def get_active_exam_paper(self, subject: str = "Science", level: str = "Secondary") -> Optional[Dict[str, Any]]:
+        admin_paper = paper_service.get_active_olympiad_paper(subject=subject)
+        if admin_paper and admin_paper.get("questions") and len(admin_paper.get("questions", [])) > 0 and admin_paper.get("published") is True:
             return admin_paper
 
-        return {
-            "id": f"tso-national-2026-{subject.lower()}",
-            "title": f"National Teacher Skills Olympiad (TSO) 2026 — {subject.upper()}",
-            "subject": subject,
-            "category_level": level,
-            "duration_minutes": 60,
-            "total_questions": 100,
-            "total_marks": 100,
-            "start_time": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "end_time": "2026-12-31 23:59:59",
-            "published": True,
-            "questions": generate_100_practice_mock_questions(subject=subject)
-        }
+        # If no published paper exists in repository, return None (locks the assessment)
+        return None
 
     def get_100_practice_questions(self, subject: str = "Science", module: Optional[str] = None) -> List[Dict[str, Any]]:
         all_qs = generate_100_practice_mock_questions(subject=subject)

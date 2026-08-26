@@ -404,8 +404,13 @@ export default function TeacherOlympiadPage() {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }, [timeLeft]);
 
-  // Start Real 60-Minute Exam with Re-Attempt Lock Guard
+  // Start Real 60-Minute Exam with Re-Attempt & Active Paper Lock Guard
   const handleStartExam = async () => {
+    if (!paperData || !questions || questions.length === 0) {
+      alert("🔒 Assessment Hall Inactive: No official question paper has been published by the administration yet for this subject. Please check back when the exam window is activated.");
+      return;
+    }
+
     if (hasAttempted || userSubmission) {
       alert("🔒 Assessment Already Completed: Each educator is permitted exactly 1 official Olympiad attempt. You can view your scorecard and review questions in the Results tab.");
       setActiveTab("results");
@@ -721,53 +726,89 @@ export default function TeacherOlympiadPage() {
           </div>
 
           {/* LAUNCH EXAM ACTION PANEL */}
-          <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 rounded-3xl p-6 border border-indigo-100 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
-            <div className="space-y-1 text-center sm:text-left flex-1">
-              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
-                {hasAttempted || userSubmission ? "ASSESSMENT RECORD PERMANENTLY ARCHIVED" : "LIVE TIMED ASSESSMENT"}
-              </span>
-              <h3 className="text-base font-black text-slate-900">
-                {hasAttempted || userSubmission ? "Official Assessment Completed (Locked)" : "Ready to take the 100-MCQ National Olympiad?"}
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                {hasAttempted || userSubmission 
-                  ? "You have already completed your official assessment. Re-attempts are restricted to preserve national benchmarking integrity."
-                  : "Make sure you have 60 uninterrupted minutes and a stable internet connection with webcam enabled."}
-              </p>
-            </div>
+          {!paperData || !questions || questions.length === 0 ? (
+            <div className="bg-amber-50/90 rounded-3xl p-6 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
+              <div className="space-y-1 text-center sm:text-left flex-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 flex items-center gap-1.5 justify-center sm:justify-start">
+                  <Lock className="w-3.5 h-3.5 text-amber-600" />
+                  EXAMINATION HALL INACTIVE • ASSESSMENT LOCKED
+                </span>
+                <h3 className="text-base font-black text-slate-900">
+                  No Official Assessment Paper Published Yet
+                </h3>
+                <p className="text-xs text-slate-600 font-medium">
+                  The examination committee has not published an active assessment paper for {selectedSubject} yet. Please check back when the official examination window is activated by the administration.
+                </p>
+              </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <Link
-                href="/dashboard/teacher-olympiad/practice"
-                className="flex-1 sm:flex-none px-5 py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                <BookOpen className="w-4 h-4 text-slate-500" />
-                <span>Practice Mock Tests</span>
-              </Link>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Link
+                  href="/dashboard/teacher-olympiad/practice"
+                  className="flex-1 sm:flex-none px-5 py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <BookOpen className="w-4 h-4 text-slate-500" />
+                  <span>Practice Mock Tests</span>
+                </Link>
 
-              {hasAttempted || userSubmission ? (
                 <button
                   type="button"
-                  onClick={() => setActiveTab("results")}
-                  className="flex-1 sm:flex-none px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                  disabled
+                  className="flex-1 sm:flex-none px-6 py-3.5 bg-slate-200 text-slate-500 font-extrabold text-xs rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  <FileCheck className="w-4 h-4" />
-                  <span>View Scorecard & Answers →</span>
+                  <Lock className="w-4 h-4" />
+                  <span>Assessment Locked</span>
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!scheduleStatus.isOpen}
-                  onClick={handleStartExam}
-                  className="flex-1 sm:flex-none px-7 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
-                >
-                  <Trophy className="w-4 h-4 text-amber-300" />
-                  <span>{scheduleStatus.isOpen ? "Start 60-Min 100-MCQ Exam" : scheduleStatus.message}</span>
-                  {scheduleStatus.isOpen && <ArrowRight className="w-4 h-4" />}
-                </button>
-              )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 rounded-3xl p-6 border border-indigo-100 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
+              <div className="space-y-1 text-center sm:text-left flex-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                  {hasAttempted || userSubmission ? "ASSESSMENT RECORD PERMANENTLY ARCHIVED" : "LIVE TIMED ASSESSMENT"}
+                </span>
+                <h3 className="text-base font-black text-slate-900">
+                  {hasAttempted || userSubmission ? "Official Assessment Completed (Locked)" : "Ready to take the 100-MCQ National Olympiad?"}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {hasAttempted || userSubmission 
+                    ? "You have already completed your official assessment. Re-attempts are restricted to preserve national benchmarking integrity."
+                    : "Make sure you have 60 uninterrupted minutes and a stable internet connection with webcam enabled."}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Link
+                  href="/dashboard/teacher-olympiad/practice"
+                  className="flex-1 sm:flex-none px-5 py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <BookOpen className="w-4 h-4 text-slate-500" />
+                  <span>Practice Mock Tests</span>
+                </Link>
+
+                {hasAttempted || userSubmission ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("results")}
+                    className="flex-1 sm:flex-none px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <FileCheck className="w-4 h-4" />
+                    <span>View Scorecard & Answers →</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!scheduleStatus.isOpen}
+                    onClick={handleStartExam}
+                    className="flex-1 sm:flex-none px-7 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Trophy className="w-4 h-4 text-amber-300" />
+                    <span>{scheduleStatus.isOpen ? "Start 60-Min 100-MCQ Exam" : scheduleStatus.message}</span>
+                    {scheduleStatus.isOpen && <ArrowRight className="w-4 h-4" />}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
         </div>
       )}
