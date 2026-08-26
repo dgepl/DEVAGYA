@@ -163,16 +163,18 @@ export default function AssignmentMakerPage() {
     setAssignment({ ...assignment, questions: renumbered, total_marks: newTotal });
   };
 
-  const handleAddQuestion = (type: "mcq" | "short" | "long" = "short") => {
+  const handleAddQuestion = (type: "mcq" | "short" | "long" | "fill_in_the_blank" = "short") => {
     if (!assignment) return;
     const nextNum = assignment.questions.length + 1;
-    const marks = type === "mcq" ? 1 : type === "long" ? 5 : 3;
-    const lines = type === "mcq" ? 1 : type === "long" ? 8 : 4;
+    const marks = type === "mcq" || type === "fill_in_the_blank" ? 1 : type === "long" ? 5 : 3;
+    const lines = type === "mcq" ? 0 : type === "long" ? 8 : type === "fill_in_the_blank" ? 1 : 4;
     const sec =
       type === "mcq"
         ? "Section A: Multiple Choice Questions"
         : type === "long"
         ? "Section C: Long Answer Questions"
+        : type === "fill_in_the_blank"
+        ? "Section A: Fill in the Blanks"
         : "Section B: Short Answer Questions";
 
     const newQ: AssignmentQuestion = {
@@ -180,10 +182,14 @@ export default function AssignmentMakerPage() {
       question_number: nextNum,
       question_type: type,
       section: sec,
-      question_text: "New question prompt (LaTeX supported: $x^2 + 5x = 0$)...",
+      question_text: type === "mcq" 
+        ? "Enter your multiple choice question prompt (LaTeX supported: $x^2 + 5x = 0$)..."
+        : type === "fill_in_the_blank"
+        ? "The process of ______ is responsible for converting glucose into energy in cells."
+        : "Enter your custom question prompt (LaTeX supported: $x^2 - 5x + 6 = 0$)...",
       options: type === "mcq" ? ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"] : null,
-      answer: type === "mcq" ? "(A) Option 1" : "Model solution here...",
-      explanation: "Marking breakdown and evaluation rubric.",
+      answer: type === "mcq" ? "(A) Option 1" : "Model solution and answer key here...",
+      explanation: "Marking breakdown, step-by-step scoring rubric, and explanation.",
       marks,
       lines_allocated: lines
     };
@@ -192,6 +198,38 @@ export default function AssignmentMakerPage() {
     const newTotal = updated.reduce((acc, q) => acc + (Number(q.marks) || 0), 0);
     setAssignment({ ...assignment, questions: updated, total_marks: newTotal });
     setEditingQNum(nextNum);
+  };
+
+  const handleUpdateQuestionType = (qNum: number, newType: "mcq" | "short" | "long" | "fill_in_the_blank") => {
+    if (!assignment) return;
+    const marks = newType === "mcq" || newType === "fill_in_the_blank" ? 1 : newType === "long" ? 5 : 3;
+    const lines = newType === "mcq" ? 0 : newType === "long" ? 8 : newType === "fill_in_the_blank" ? 1 : 4;
+    const sec =
+      newType === "mcq"
+        ? "Section A: Multiple Choice Questions"
+        : newType === "long"
+        ? "Section C: Long Answer Questions"
+        : newType === "fill_in_the_blank"
+        ? "Section A: Fill in the Blanks"
+        : "Section B: Short Answer Questions";
+
+    const updatedQs = assignment.questions.map((q) => {
+      if (q.question_number === qNum) {
+        return {
+          ...q,
+          question_type: newType,
+          section: sec,
+          marks,
+          lines_allocated: lines,
+          options: newType === "mcq" ? (q.options && q.options.length === 4 ? q.options : ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"]) : null,
+          answer: newType === "mcq" ? (q.options?.[0] || "(A) Option 1") : q.answer
+        };
+      }
+      return q;
+    });
+
+    const newTotal = updatedQs.reduce((acc, q) => acc + (Number(q.marks) || 0), 0);
+    setAssignment({ ...assignment, questions: updatedQs, total_marks: newTotal });
   };
 
   // --- PDF Export Handler ---
@@ -514,7 +552,7 @@ export default function AssignmentMakerPage() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setShowSolutions(!showSolutions)}
@@ -527,13 +565,35 @@ export default function AssignmentMakerPage() {
                   {showSolutions ? "Hide Answers" : "Show Answers"}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleAddQuestion("short")}
-                  className="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-3 h-3" /> Add Question
-                </button>
+                {/* Quick Add Buttons */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleAddQuestion("mcq")}
+                    className="text-xs font-bold px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition flex items-center gap-1 cursor-pointer"
+                    title="Add Multiple Choice Question (1 Mark)"
+                  >
+                    <Plus className="w-3 h-3" /> MCQ
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAddQuestion("short")}
+                    className="text-xs font-bold px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition flex items-center gap-1 cursor-pointer"
+                    title="Add Short Answer Question (3 Marks)"
+                  >
+                    <Plus className="w-3 h-3" /> Short (3M)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAddQuestion("long")}
+                    className="text-xs font-bold px-2 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 transition flex items-center gap-1 cursor-pointer"
+                    title="Add Long Answer Question (5 Marks)"
+                  >
+                    <Plus className="w-3 h-3" /> Long (5M)
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -597,6 +657,59 @@ export default function AssignmentMakerPage() {
                     {isEditing ? (
                       /* Inline Edit Mode */
                       <div className="space-y-3 pt-1">
+                        {/* Question Type & Marks Configuration Row */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                              Question Type:
+                            </label>
+                            <select
+                              value={q.question_type}
+                              onChange={(e) => handleUpdateQuestionType(q.question_number, e.target.value as any)}
+                              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800"
+                            >
+                              <option value="mcq">Multiple Choice (MCQ - 1M)</option>
+                              <option value="short">Short Answer (3 Marks)</option>
+                              <option value="long">Long Answer (5 Marks)</option>
+                              <option value="fill_in_the_blank">Fill in the Blank (1M)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Marks:</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="20"
+                              value={q.marks}
+                              onChange={(e) =>
+                                handleUpdateQuestion(q.question_number, "marks", parseInt(e.target.value) || 1)
+                              }
+                              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800"
+                            />
+                          </div>
+
+                          {q.question_type !== "mcq" && (
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Answer Lines:</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                value={q.lines_allocated ?? 4}
+                                onChange={(e) =>
+                                  handleUpdateQuestion(
+                                    q.question_number,
+                                    "lines_allocated",
+                                    parseInt(e.target.value) || 0
+                                  )
+                                }
+                                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800"
+                              />
+                            </div>
+                          )}
+                        </div>
+
                         <div>
                           <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
                             Question Stem (LaTeX supported: $x^2 + 5x = 0$)
@@ -849,11 +962,7 @@ export default function AssignmentMakerPage() {
                             <div key={lIdx} className="h-3.5 border-b border-dashed border-blue-300 w-full" />
                           ))}
                         </div>
-                      ) : (
-                        <div className="text-[11px] font-bold text-slate-500 pt-1">
-                          Selected Option: [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]
-                        </div>
-                      )
+                      ) : null
                     ) : (
                       <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-0.5">
                         <div className="font-bold text-emerald-900">

@@ -1347,13 +1347,14 @@ def _generate_assignment_worksheet_pdf(self, assignment: Dict[str, Any], config:
             story.append(Spacer(1, 4))
 
         # Student Worksheet Mode: Render Answer Space
+        # Student Worksheet Mode: Render Answer Space
         else:
             if answer_space_mode == "ruled_lines":
                 # Determine number of lines
                 lines_to_draw = q.get("lines_allocated")
                 if not lines_to_draw:
                     if q_type == "mcq":
-                        lines_to_draw = 1
+                        lines_to_draw = 0
                     elif q_type in ["long", "case_study"]:
                         lines_to_draw = default_long_lines
                     else:
@@ -1363,10 +1364,8 @@ def _generate_assignment_worksheet_pdf(self, assignment: Dict[str, Any], config:
                     story.append(Spacer(1, 2))
                     story.append(RuledLinesFlowable(num_lines=lines_to_draw, line_spacing=line_spacing, style=line_style, stroke_color=th["line_color"]))
                     story.append(Spacer(1, 6))
-                elif q_type == "mcq":
-                    story.append(Spacer(1, 2))
-                    story.append(build_safe_paragraph("**Selected Option:** [          ]", opt_style))
-                    story.append(Spacer(1, 4))
+                else:
+                    story.append(Spacer(1, 3))
 
             elif answer_space_mode == "response_box":
                 if q_type != "mcq":
@@ -1379,13 +1378,11 @@ def _generate_assignment_worksheet_pdf(self, assignment: Dict[str, Any], config:
                     story.append(ResponseBoxFlowable(height_pt=box_h, stroke_color=th["border"], bg_color=th["box_bg"]))
                     story.append(Spacer(1, 6))
                 else:
-                    story.append(Spacer(1, 2))
-                    story.append(build_safe_paragraph("<b>Selected Option:</b> [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]", opt_style))
-                    story.append(Spacer(1, 4))
+                    story.append(Spacer(1, 3))
 
             else:
                 # None / Question Sheet only
-                story.append(Spacer(1, 4))
+                story.append(Spacer(1, 3))
 
     doc.build(story, canvasmaker=NumberedCanvas)
     pdf_bytes = buffer.getvalue()
