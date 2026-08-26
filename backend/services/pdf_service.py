@@ -182,7 +182,39 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\\(([\s\S]*?)\\\)', r'\1', t)
     t = re.sub(r'\\\[|\\\]|\\\(|\\\)', '', t)
 
-    # 5. Calculus Integrals & Summations (replace BEFORE frac/subscripts)
+    # 5. Greek symbols & Mathematical Constants (replace early)
+    greek_symbols = [
+        (r'\\alpha', 'α'), (r'\\beta', 'β'), (r'\\gamma', 'γ'), (r'\\Gamma', 'Γ'),
+        (r'\\delta', 'δ'), (r'\\Delta', 'Δ'), (r'\\epsilon', 'ε'), (r'\\varepsilon', 'ε'),
+        (r'\\zeta', 'ζ'), (r'\\eta', 'η'), (r'\\theta', 'θ'), (r'\\Theta', 'Θ'),
+        (r'\\lambda', 'λ'), (r'\\Lambda', 'Λ'), (r'\\mu', 'μ'), (r'\\nu', 'ν'),
+        (r'\\xi', 'ξ'), (r'\\pi', 'π'), (r'\\Pi', 'Π'), (r'\\rho', 'ρ'),
+        (r'\\sigma', 'σ'), (r'\\Sigma', 'Σ'), (r'\\tau', 'τ'), (r'\\phi', 'φ'),
+        (r'\\Phi', 'Φ'), (r'\\chi', 'χ'), (r'\\psi', 'ψ'), (r'\\Psi', 'Ψ'),
+        (r'\\omega', 'ω'), (r'\\Omega', 'Ω'),
+        (r'\\degree', '°'), (r'\^\\circ', '°'), (r'\\circ', '°')
+    ]
+    for pattern_str, repl in greek_symbols:
+        t = re.sub(pattern_str, repl, t)
+
+    # 6. Mathematical & Logical Operators
+    math_ops = [
+        (r'\\times', '×'), (r'\\div', '÷'), (r'\\pm', '±'), (r'\\mp', '∓'),
+        (r'\\cdot', '·'), (r'\\bullet', '•'), (r'\\approx', '≈'), (r'\\neq', '≠'),
+        (r'\\leq', '≤'), (r'\\le', '≤'), (r'\\geq', '≥'), (r'\\ge', '≥'),
+        (r'\\equiv', '≡'), (r'\\propto', '∝'), (r'\\sim', '~'),
+        (r'\\rightarrow', '→'), (r'\\to', '→'), (r'\\leftarrow', '←'),
+        (r'\\leftrightarrow', '↔'), (r'\\Rightarrow', '⇒'), (r'\\Leftarrow', '⇐'),
+        (r'\\Leftrightarrow', '⇔'), (r'\\iff', '⇔'),
+        (r'\\infty', '∞'), (r'\\partial', '∂'), (r'\\nabla', '∇'), (r'\\angle', '∠'),
+        (r'\\parallel', '∥'), (r'\\perp', '⊥'), (r'\\triangle', '△'),
+        (r'\\in', '∈'), (r'\\notin', '∉'), (r'\\subset', '⊂'), (r'\\subseteq', '⊆'),
+        (r'\\cap', '∩'), (r'\\cup', '∪'), (r'\\forall', '∀'), (r'\\exists', '∃')
+    ]
+    for pattern_str, repl in math_ops:
+        t = re.sub(pattern_str, repl, t)
+
+    # 7. Calculus Integrals & Summations
     t = re.sub(r'\\iint', '∬', t)
     t = re.sub(r'\\iiint', '∭', t)
     t = re.sub(r'\\oint', '∮', t)
@@ -190,24 +222,58 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\sum', '∑', t)
     t = re.sub(r'\\prod', '∏', t)
 
-    # 6. Fractions (iterative for nested braces): \frac{a}{b} -> (a / b)
-    for _ in range(3):
-        t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1 / \2)', t)
-
-    # 7. Square Roots (iterative for nested braces): \sqrt{x} -> √(x), \sqrt[n]{x} -> ⁿ√(x)
-    for _ in range(3):
+    # 8. Square Roots (iterative for nested braces): \sqrt{x} -> √(x), \sqrt[n]{x} -> ⁿ√(x)
+    for _ in range(4):
         t = re.sub(r'\\sqrt\[([^{}]+)\]\{([^{}]+)\}', r'<sup>\1</sup>√(\2)', t)
         t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
 
-    # 8. Exponents / Powers: x^{2} or x^2 -> x<sup>2</sup>
-    for _ in range(3):
-        t = re.sub(r'\^\{([^{}]+)\}', r'<sup>\1</sup>', t)
-    t = re.sub(r'\^([0-9a-zA-Z+\-]+)', r'<sup>\1</sup>', t)
+    # 9. Fractions: Format simple numerical/symbolic fractions cleanly (e.g. \frac{7}{2} -> 7/2)
+    def _format_fraction_match(m):
+        num = m.group(1).strip()
+        den = m.group(2).strip()
+        # If simple integer, signed number, or single variable term: 7/2, -5/2, x/y
+        if re.match(r'^[+-]?[0-9a-zA-Z]+$', num) and re.match(r'^[+-]?[0-9a-zA-Z]+$', den):
+            return f"{num}/{den}"
+        return f"({num}) / ({den})"
 
-    # 9. Subscripts / Indices / Chemical formulas: H_{2}O or H_2O -> H<sub>2</sub>O
+    for _ in range(4):
+        t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', _format_fraction_match, t)
+
+    # 10. Unicode Superscript mapping for common mathematical exponents (e.g. x^2 -> x²)
+    SUPERSCRIPT_MAP = {
+        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+        '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
+        'n': 'ⁿ', 'i': 'ⁱ', 'x': 'ˣ', 'y': 'ʸ'
+    }
+
+    def _replace_super(m):
+        content = m.group(1)
+        if all(c in SUPERSCRIPT_MAP for c in content):
+            return ''.join(SUPERSCRIPT_MAP[c] for c in content)
+        return f"<sup>{content}</sup>"
+
+    t = re.sub(r'\^\{([^{}]+)\}', _replace_super, t)
+    t = re.sub(r'\^([0-9a-zA-Z+\-]+)', _replace_super, t)
+
+    # 11. Subscripts / Indices / Chemical formulas: H_2O -> H₂O
+    SUBSCRIPT_MAP = {
+        '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+        '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+        '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎',
+        'a': 'ₐ', 'e': 'ₑ', 'o': 'ₒ', 'x': 'ₓ', 'h': 'ₕ', 'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'p': 'ₚ', 's': 'ₛ', 't': 'ₜ'
+    }
+
+    def _replace_sub(m):
+        content = m.group(1)
+        if all(c in SUBSCRIPT_MAP for c in content):
+            return ''.join(SUBSCRIPT_MAP[c] for c in content)
+        return f"<sub>{content}</sub>"
+
     for _ in range(3):
-        t = re.sub(r'_\{([^{}]+)\}', r'<sub>\1</sub>', t)
-    t = re.sub(r'_([0-9a-zA-Z+\-]+)', r'<sub>\1</sub>', t)
+        t = re.sub(r'_\{([^{}]+)\}', _replace_sub, t)
+    t = re.sub(r'_([0-9]+)', _replace_sub, t)
+    t = re.sub(r'_([a-zA-Z])', _replace_sub, t)
 
     # 10. LaTeX Text Formatting
     t = re.sub(r'\\mathbf\{([^{}]+)\}', r'<b>\1</b>', t)

@@ -727,11 +727,16 @@ export default function AssignmentMakerPage() {
 
                       {/* Live Math Preview Box */}
                       {isMathPreview && q.question_text && (
-                        <div className="p-3 bg-slate-900 text-white rounded-2xl text-xs border border-slate-800">
-                          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block mb-1">
-                            Formula & Math Rendering:
-                          </span>
-                          <Markdown content={q.question_text} />
+                        <div className="p-3.5 bg-indigo-50/80 border border-indigo-200/90 rounded-2xl text-xs shadow-xs">
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                            <span className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">
+                              Formula & Math Preview (KaTeX Rendered):
+                            </span>
+                          </div>
+                          <div className="text-xs font-bold text-slate-900 bg-white p-3 rounded-xl border border-indigo-100/90 shadow-2xs">
+                            <Markdown content={q.question_text} />
+                          </div>
                         </div>
                       )}
                     </div>
