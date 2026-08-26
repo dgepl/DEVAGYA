@@ -453,10 +453,11 @@ class PDFGeneratorService:
             q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_text_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
 
             if q.options:
-                escaped_opts = [html.escape(format_math_for_pdf(strip_emojis_for_pdf(opt))) for opt in q.options]
-                opt_str = "&nbsp;&nbsp;&nbsp;&nbsp;".join(escaped_opts)
-                q_elements.append(Spacer(1, 3))
-                q_elements.append(Paragraph(opt_str, option_style))
+                q_elements.append(Spacer(1, 2))
+                for opt in q.options:
+                    formatted_opt = html.escape(format_math_for_pdf(strip_emojis_for_pdf(opt)))
+                    q_elements.append(Paragraph(formatted_opt, option_style))
+                    q_elements.append(Spacer(1, 1.5))
 
             if include_answers:
                 q_elements.append(Spacer(1, 2))
