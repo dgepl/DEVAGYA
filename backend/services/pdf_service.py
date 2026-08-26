@@ -332,21 +332,23 @@ class PDFGeneratorService:
         def render_question_block(q):
             q_elements = []
 
-            q_text_formatted = html.escape(q.question_text or "").replace("\n", "<br/>")
+            raw_q = strip_emojis_for_pdf(q.question_text or "")
+            math_q = format_math_for_pdf(raw_q)
+            q_text_formatted = html.escape(math_q).replace("\n", "<br/>")
             q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_text_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
 
             if q.options:
-                escaped_opts = [html.escape(opt) for opt in q.options]
+                escaped_opts = [html.escape(format_math_for_pdf(strip_emojis_for_pdf(opt))) for opt in q.options]
                 opt_str = "&nbsp;&nbsp;&nbsp;&nbsp;".join(escaped_opts)
                 q_elements.append(Spacer(1, 3))
                 q_elements.append(Paragraph(opt_str, option_style))
 
             if include_answers:
                 q_elements.append(Spacer(1, 2))
-                ans_text = html.escape(str(q.answer or ""))
+                ans_text = html.escape(format_math_for_pdf(strip_emojis_for_pdf(str(q.answer or ""))))
                 q_elements.append(Paragraph(f"<b>Correct Answer:</b> {ans_text}", answer_style))
                 if q.explanation:
-                    exp_text = html.escape(str(q.explanation or ""))
+                    exp_text = html.escape(format_math_for_pdf(strip_emojis_for_pdf(str(q.explanation or ""))))
                     q_elements.append(Paragraph(f"<b>Explanation:</b> {exp_text}", answer_style))
 
             q_elements.append(Spacer(1, 8))
@@ -380,29 +382,122 @@ class PDFGeneratorService:
         import re
         import html
 
+        def strip_emojis_for_pdf(raw: str) -> str:
+            if not raw:
+                return ""
+            emoji_pattern = re.compile(
+                "["
+                "\U00010000-\U0010FFFF"
+                "\u2600-\u27BF"
+                "\u2300-\u23FF"
+                "\u2B50\u2B55\u231A\u231B\u2328\u23CF"
+                "\uFE00-\uFE0F"
+                "\u200D"
+                "]+",
+                flags=re.UNICODE
+            )
+            return emoji_pattern.sub("", raw)
+
+        def format_math_for_pdf(raw: str) -> str:
+            if not raw:
+                return ""
+            t = raw
+            # Fractions: \frac{a}{b} -> (a / b)
+            t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1 / \2)', t)
+            # Square root: \sqrt{x} -> √(x)
+            t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
+            # Exponents & Subscripts
+            sup_map = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻', '=': '⁼', 'n': 'ⁿ'}
+            sub_map = {'0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋', '=': '₌', 'a': 'ₐ', 'e': 'ₑ', 'i': 'ᵢ', 'o': 'ₒ', 'r': 'ᵣ', 'u': 'ᵤ', 'v': 'ᵥ', 'x': 'ₓ'}
+            
+            t = re.sub(r'\^\{([0-9+\-n]+)\}', lambda m: "".join(sup_map.get(c, c) for c in m.group(1)), t)
+            t = re.sub(r'\^([0-9+\-n])', lambda m: "".join(sup_map.get(c, c) for c in m.group(1)), t)
+            t = re.sub(r'_\{([0-9+\-aeioruvx]+)\}', lambda m: "".join(sub_map.get(c, c) for c in m.group(1)), t)
+            t = re.sub(r'_([0-9+\-aeioruvx])', lambda m: "".join(sub_map.get(c, c) for c in m.group(1)), t)
+
+            # Greek symbols & operators
+            symbols = [
+                (r'\\times', '×'),
+                (r'\\div', '÷'),
+                (r'\\pm', '±'),
+                (r'\\mp', '∓'),
+                (r'\\cdot', '·'),
+                (r'\\degree', '°'),
+                (r'\^\\circ', '°'),
+                (r'\\Delta', 'Δ'),
+                (r'\\delta', 'δ'),
+                (r'\\theta', 'θ'),
+                (r'\\Theta', 'Θ'),
+                (r'\\pi', 'π'),
+                (r'\\alpha', 'α'),
+                (r'\\beta', 'β'),
+                (r'\\gamma', 'γ'),
+                (r'\\Gamma', 'Γ'),
+                (r'\\lambda', 'λ'),
+                (r'\\Lambda', 'Λ'),
+                (r'\\mu', 'µ'),
+                (r'\\sigma', 'σ'),
+                (r'\\Sigma', 'Σ'),
+                (r'\\omega', 'ω'),
+                (r'\\Omega', 'Ω'),
+                (r'\\rho', 'ρ'),
+                (r'\\phi', 'φ'),
+                (r'\\Phi', 'Φ'),
+                (r'\\approx', '≈'),
+                (r'\\neq', '≠'),
+                (r'\\leq', '≤'),
+                (r'\\le', '≤'),
+                (r'\\geq', '≥'),
+                (r'\\ge', '≥'),
+                (r'\\rightarrow', '→'),
+                (r'\\to', '→'),
+                (r'\\leftarrow', '←'),
+                (r'\\leftrightarrow', '↔'),
+                (r'\\infty', '∞'),
+                (r'\\text\{([^{}]+)\}', r'\1'),
+                (r'\\mathrm\{([^{}]+)\}', r'\1'),
+                (r'\\mathbf\{([^{}]+)\}', r'<b>\1</b>'),
+                (r'\\mathit\{([^{}]+)\}', r'<i>\1</i>'),
+            ]
+            for pattern_str, repl in symbols:
+                t = re.sub(pattern_str, repl, t)
+            
+            # Clean math delimiters
+            t = re.sub(r'\$\$([^\$]+)\$\$', r'\1', t)
+            t = re.sub(r'\$([^\$]+)\$', r'\1', t)
+            t = re.sub(r'\\\[(.*?)\\\]', r'\1', t)
+            t = re.sub(r'\\\((.*?)\\\)', r'\1', t)
+            return t
+
         def clean_md_to_reportlab(text: str) -> str:
             if not text:
                 return ""
-            # 1. Normalize unicode characters (smart quotes, dashes, non-breaking spaces)
-            t = text.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
+            # 1. Strip emojis to prevent black square missing glyphs
+            t = strip_emojis_for_pdf(text)
+
+            # 2. Format LaTeX math & physics formulas
+            t = format_math_for_pdf(t)
+
+            # 3. Normalize unicode characters (smart quotes, dashes, non-breaking spaces)
+            t = t.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
             t = t.replace("\u201c", '"').replace("\u201d", '"')
             t = t.replace("\u2018", "'").replace("\u2019", "'")
             t = t.replace("\u00a0", " ")
 
-            # 2. Escape XML entities (&, <, >)
+            # 4. Escape XML entities (&, <, >)
             t = html.escape(t)
 
-            # 3. Match and convert markdown bold **text** to <b>text</b>
+            # 5. Match and convert markdown bold **text** to <b>text</b>
             t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t)
 
-            # 4. Match and convert markdown italic *text* or _text_ to <i>text</i>
+            # 6. Match and convert markdown italic *text* or _text_ to <i>text</i>
             t = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'<i>\1</i>', t)
             t = re.sub(r'(?<!_)_([^_]+?)_(?!_)', r'<i>\1</i>', t)
 
-            # 5. Convert inline code `text` to font Courier
+            # 7. Convert inline code `text` to font Courier
             t = re.sub(r'`([^`]+?)`', r'<font face="Courier">\1</font>', t)
 
-            # 6. Balance unclosed tags
+            # 8. Balance unclosed tags
             open_b = t.count("<b>")
             close_b = t.count("</b>")
             if open_b > close_b:
@@ -417,17 +512,18 @@ class PDFGeneratorService:
             elif close_i > open_i:
                 t = "<i>" * (close_i - open_i) + t
 
-            return t
+            return t.strip()
 
         def build_safe_paragraph(raw_text: str, style, is_bold_prefix: str = "") -> Paragraph:
-            formatted = clean_md_to_reportlab(raw_text)
+            clean_raw = strip_emojis_for_pdf(raw_text)
+            formatted = clean_md_to_reportlab(clean_raw)
             if is_bold_prefix:
                 formatted = f"<b>{html.escape(is_bold_prefix)}</b> {formatted}"
             try:
                 return Paragraph(formatted, style)
             except Exception:
                 # Guaranteed fallback without any formatting tags
-                plain = html.escape(raw_text).replace("\u2011", "-").replace("\u201c", '"').replace("\u201d", '"')
+                plain = html.escape(clean_raw).replace("\u2011", "-").replace("\u201c", '"').replace("\u201d", '"')
                 return Paragraph(plain, style)
 
         title = str(payload.get("title") or "Academic Document")

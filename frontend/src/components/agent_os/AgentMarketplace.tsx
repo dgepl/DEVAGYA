@@ -760,132 +760,84 @@ export function AgentMarketplace() {
 
       {/* FULL-WIDTH AGENT WORKSPACE */}
       <div className="flex flex-col h-[calc(100vh-8.5rem)] min-h-[520px]">
-          {/* 2. AGENT DETAIL BANNER + 3D ROBOT + 5 QUICK TOOLS (LIGHT THEME HERO CARD) */}
+          {/* COMPACT & SLEEK AI AGENT HEADER (Maximizes chat space on mobile & desktop) */}
           {selectedAgent && (
-            <div className="bg-gradient-to-br from-[#F6F4FE] via-[#EDE9FE]/60 to-[#F0F4FF] p-4 sm:p-5 rounded-3xl border border-indigo-200/80 shadow-xs mb-3 relative overflow-hidden shrink-0">
-              <div className="flex items-start justify-between gap-3">
-                {/* Left: Avatar, Title, Active Badge, Subtitle & Controls */}
-                <div className="space-y-2.5 flex-1 min-w-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/25 shrink-0 border border-white/40">
-                      <Bot className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-sm sm:text-base font-black text-slate-900 truncate">
-                          {selectedAgent.name}
-                        </h2>
-                        <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-300 shrink-0">
-                          ACTIVE
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5 mt-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0 animate-pulse" />
-                        <span className="truncate">Your all-in-one AI teaching companion that understands your classroom.</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* CONTROLS ROW: Language + History + New Chat */}
-                  <div className="flex items-center gap-2 pt-0.5">
-                    {/* LANGUAGE SELECTOR */}
-                    <div className="relative" ref={langDropdownRef}>
-                      <button
-                        onClick={() => setLangDropdownOpen((v) => !v)}
-                        className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                        title="Select AI reply language"
-                      >
-                        <Globe className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>{currentLang.label} ({currentLang.code === "english" ? "GB" : currentLang.code.toUpperCase()})</span>
-                      </button>
-
-                      {langDropdownOpen && (
-                        <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1 min-w-[160px]">
-                          {LANGUAGES.map((lang) => (
-                            <button
-                              key={lang.code}
-                              onClick={() => {
-                                setLanguage(lang.code);
-                                setLangDropdownOpen(false);
-                              }}
-                              className={`w-full text-left px-3 py-2 text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer ${
-                                language === lang.code
-                                  ? "bg-violet-50 text-violet-700"
-                                  : "text-slate-700 hover:bg-slate-50"
-                              }`}
-                            >
-                              <span className="text-sm">{lang.flag}</span>
-                              <span>{lang.label}</span>
-                              {language === lang.code && (
-                                <Check className="w-3.5 h-3.5 text-violet-600 ml-auto" />
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* HISTORY BUTTON (Reverse Clock) */}
-                    <button
-                      onClick={() => setHistoryOpen((v) => !v)}
-                      className="p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl shadow-2xs transition-all cursor-pointer"
-                      title="Chat history"
-                    >
-                      <History className="w-4 h-4 text-slate-600" />
-                    </button>
-
-                    {/* NEW CHAT BUTTON */}
-                    <button
-                      onClick={newChat}
-                      className="p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl shadow-2xs transition-all cursor-pointer"
-                      title="New chat"
-                    >
-                      <Plus className="w-4 h-4 text-slate-600" />
-                    </button>
-                  </div>
+            <div className="bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-2xs mb-2 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                  <Bot className="w-4 h-4" />
                 </div>
-
-                {/* Right: 3D Cute AI Robot Avatar Illustration */}
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-rose-500/10 rounded-3xl border border-indigo-200/70 p-1 flex items-center justify-center shrink-0 shadow-inner">
-                  <div className="w-full h-full bg-white/95 rounded-2xl flex flex-col items-center justify-center shadow-md border border-white">
-                    <Bot className="w-8 h-8 text-indigo-600" />
-                    <span className="text-[8px] font-black text-indigo-700 uppercase tracking-tighter mt-0.5">DEVGYA AI</span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
+                      {selectedAgent.name}
+                    </h2>
+                    <span className="text-[8px] font-black uppercase text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                      ACTIVE
+                    </span>
                   </div>
+                  <p className="text-[10px] text-slate-400 font-semibold truncate hidden sm:block">
+                    {selectedAgent.description || "Interactive AI Teaching & Learning Companion"}
+                  </p>
                 </div>
               </div>
 
-              {/* 5 QUICK ACTIONS TOOL CHIPS (2-COLUMN GRID MATCHING SCREENSHOT) */}
-              <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-indigo-200/60">
-                {(AGENT_CUSTOM_WELCOME[selectedAgentCode] || AGENT_CUSTOM_WELCOME["teacher_mentor"]).chips.slice(0, 5).map((chip, idx) => (
+              {/* CONTROLS: Language + History + New Chat */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* LANGUAGE SELECTOR */}
+                <div className="relative" ref={langDropdownRef}>
                   <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setInput(chip.prompt);
-                      setTimeout(() => inputRef.current?.focus(), 100);
-                    }}
-                    className={`p-2.5 bg-white/90 hover:bg-white border border-indigo-100/90 hover:border-indigo-300 rounded-2xl text-left transition-all shadow-xs flex items-center gap-2 group active:scale-95 cursor-pointer ${
-                      idx === 4 ? "col-span-1" : ""
-                    }`}
+                    onClick={() => setLangDropdownOpen((v) => !v)}
+                    className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Select AI reply language"
                   >
-                    <span className="text-sm shrink-0">{chip.icon}</span>
-                    <span className="text-[11px] font-bold text-slate-800 group-hover:text-indigo-700 truncate leading-tight">{chip.label}</span>
+                    <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="text-[11px] font-bold">{currentLang.label}</span>
                   </button>
-                ))}
 
-                {/* View all tools link */}
-                <div className="flex items-center justify-end pr-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInput("List all pedagogical tools, CBSE exam strategies, and document extraction actions for " + selectedAgent.name);
-                      setTimeout(() => inputRef.current?.focus(), 100);
-                    }}
-                    className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    View all tools <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  {langDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1 min-w-[150px]">
+                      {LANGUAGES.map((lang) => (
+                        <button
+                          key={lang.code}
+                          onClick={() => {
+                            setLanguage(lang.code);
+                            setLangDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer ${
+                            language === lang.code
+                              ? "bg-indigo-50 text-indigo-700"
+                              : "text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          <span className="text-sm">{lang.flag}</span>
+                          <span>{lang.label}</span>
+                          {language === lang.code && (
+                            <Check className="w-3.5 h-3.5 text-indigo-600 ml-auto" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                {/* HISTORY BUTTON */}
+                <button
+                  onClick={() => setHistoryOpen((v) => !v)}
+                  className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl transition-all cursor-pointer"
+                  title="Chat history"
+                >
+                  <History className="w-4 h-4" />
+                </button>
+
+                {/* NEW CHAT BUTTON */}
+                <button
+                  onClick={newChat}
+                  className="p-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl transition-all cursor-pointer"
+                  title="New chat"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}

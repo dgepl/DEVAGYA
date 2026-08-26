@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { ReactQueryProvider } from "@/components/providers/ReactQueryProvider";
 
 const plusJakarta = Plus_Jakarta_Sans({

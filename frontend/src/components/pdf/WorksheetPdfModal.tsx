@@ -109,8 +109,8 @@ export function WorksheetPdfModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 pb-24 sm:pb-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[80vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         
         {/* MODAL HEADER */}
         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50/80 via-white to-slate-50">

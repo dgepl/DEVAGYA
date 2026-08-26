@@ -1,15 +1,51 @@
 import React from "react";
+import katex from "katex";
 
 const INLINE_CODE = /(`[^`\n]+`)/g;
 const BOLD = /(\*\*[^*\n]+\*\*)/g;
 const ITALIC = /(\*[^*\n]+\*)/g;
 const LINK = /(\[[^\]]+\]\([^)]+\))/g;
+const INLINE_MATH = /(\$[^$\n]+\$|\\\([^\n\\]+\\\))/g;
 const HEADING = /^(#{1,4})\s+(.*)$/;
 const HR = /^(-{3,}|\*{3,})$/;
 const BLOCKQUOTE = /^>\s?(.*)$/;
 const UL_ITEM = /^\s*[-*+]\s+(.*)$/;
 const OL_ITEM = /^\s*(\d+)\.\s+(.*)$/;
 const TABLE_SEP = /^\|?[\s:|-]+\|?$/;
+
+function renderKatexMath(mathStr: string, isBlock: boolean = false): React.ReactNode {
+  // Strip enclosing $ or \( \) or \[ \]
+  let clean = mathStr.trim();
+  if (clean.startsWith("$$") && clean.endsWith("$$")) {
+    clean = clean.slice(2, -2).trim();
+  } else if (clean.startsWith("$") && clean.endsWith("$")) {
+    clean = clean.slice(1, -1).trim();
+  } else if (clean.startsWith("\\[") && clean.endsWith("\\]")) {
+    clean = clean.slice(2, -2).trim();
+  } else if (clean.startsWith("\\(") && clean.endsWith("\\)")) {
+    clean = clean.slice(2, -2).trim();
+  }
+
+  try {
+    const html = katex.renderToString(clean, {
+      displayMode: isBlock,
+      throwOnError: false,
+      output: "htmlAndMathml",
+    });
+    return (
+      <span
+        className={
+          isBlock
+            ? "block my-2.5 text-center overflow-x-auto py-2 px-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-indigo-950 font-serif"
+            : "inline-block px-1 align-baseline text-indigo-950 font-serif"
+        }
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  } catch {
+    return <code className="font-mono text-xs text-indigo-700">{clean}</code>;
+  }
+}
 
 function renderItalic(text: string, keyPrefix: string): React.ReactNode {
   return text.split(ITALIC).map((seg, k) => {
@@ -49,6 +85,16 @@ function renderBoldItalic(text: string, keyPrefix: string): React.ReactNode {
   });
 }
 
+function renderMathAndText(text: string, keyPrefix: string): React.ReactNode {
+  return text.split(INLINE_MATH).map((part, i) => {
+    const key = `${keyPrefix}-m${i}`;
+    if ((part.startsWith("$") && part.endsWith("$") && part.length > 2) || (part.startsWith("\\(") && part.endsWith("\\)"))) {
+      return <React.Fragment key={key}>{renderKatexMath(part, false)}</React.Fragment>;
+    }
+    return <React.Fragment key={key}>{renderBoldItalic(part, key)}</React.Fragment>;
+  });
+}
+
 function renderInline(text: string, keyPrefix: string): React.ReactNode {
   return text.split(LINK).map((part, i) => {
     const key = `${keyPrefix}-l${i}`;
@@ -68,7 +114,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode {
         );
       }
     }
-    return renderBoldItalic(part, key);
+    return renderMathAndText(part, key);
   });
 }
 
@@ -125,7 +171,7 @@ export default function Markdown({ text }: { text: string }) {
     const headers = tableRows[0];
     const body = tableRows.slice(1);
     blocks.push(
-      <div key={key} className="overflow-x-auto my-2 rounded-xl border border-slate-200">
+      <div key={key} className="overflow-x-auto my-2 rounded-xl border border-slate-200 shadow-xs">
         <table className="w-full text-xs border-collapse bg-white">
           <thead>
             <tr className="bg-slate-100">
@@ -156,14 +202,22 @@ export default function Markdown({ text }: { text: string }) {
   const flushFence = () => {
     if (fenceLines.length === 0) return;
     const key = `code-${blockKey++}`;
-    blocks.push(
-      <pre
-        key={key}
-        className="bg-slate-900 text-slate-100 rounded-xl p-4 text-[11px] font-mono overflow-x-auto my-2 leading-relaxed"
-      >
-        <code className={fenceLang ? `language-${fenceLang}` : ""}>{fenceLines.join("\n")}</code>
-      </pre>
-    );
+    if (fenceLang === "math" || fenceLang === "latex" || fenceLang === "katex") {
+      blocks.push(
+        <div key={key}>
+          {renderKatexMath(fenceLines.join("\n"), true)}
+        </div>
+      );
+    } else {
+      blocks.push(
+        <pre
+          key={key}
+          className="bg-slate-900 text-slate-100 rounded-xl p-4 text-[11px] font-mono overflow-x-auto my-2 leading-relaxed"
+        >
+          <code className={fenceLang ? `language-${fenceLang}` : ""}>{fenceLines.join("\n")}</code>
+        </pre>
+      );
+    }
     fenceLines.length = 0;
   };
 
@@ -191,6 +245,21 @@ export default function Markdown({ text }: { text: string }) {
       flushParagraph();
       inFence = true;
       fenceLang = trimmed.replace(/```/g, "").trim();
+      continue;
+    }
+
+    // Display math block $$...$$ or \[...\]
+    if (trimmed.startsWith("$$") && trimmed.endsWith("$$") && trimmed.length > 2) {
+      flushParagraph();
+      const key = `mathblock-${blockKey++}`;
+      blocks.push(<div key={key}>{renderKatexMath(trimmed, true)}</div>);
+      continue;
+    }
+
+    if (trimmed.startsWith("\\[") && trimmed.endsWith("\\]")) {
+      flushParagraph();
+      const key = `mathblock-${blockKey++}`;
+      blocks.push(<div key={key}>{renderKatexMath(trimmed, true)}</div>);
       continue;
     }
 
@@ -275,7 +344,19 @@ export default function Markdown({ text }: { text: string }) {
     const para: string[] = [trimmed];
     while (idx + 1 < lines.length) {
       const nx = lines[idx + 1].trim();
-      if (!nx || nx.startsWith("#") || nx.startsWith("```") || nx.startsWith("|") || nx.startsWith(">") || nx.match(HR) || nx.match(UL_ITEM) || nx.match(OL_ITEM)) break;
+      if (
+        !nx ||
+        nx.startsWith("#") ||
+        nx.startsWith("```") ||
+        nx.startsWith("|") ||
+        nx.startsWith(">") ||
+        nx.startsWith("$$") ||
+        nx.startsWith("\\[") ||
+        nx.match(HR) ||
+        nx.match(UL_ITEM) ||
+        nx.match(OL_ITEM)
+      )
+        break;
       para.push(nx);
       idx++;
     }
@@ -295,5 +376,5 @@ export default function Markdown({ text }: { text: string }) {
   flushFence();
   flushParagraph();
 
-  return <div className="text-slate-800">{blocks}</div>;
+  return <div className="text-slate-800 text-xs sm:text-sm">{blocks}</div>;
 }
