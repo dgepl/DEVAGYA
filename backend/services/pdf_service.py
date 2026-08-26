@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import html
 import zipfile
 import xml.etree.ElementTree as ET
 from reportlab.lib.pagesizes import letter, A4
