@@ -152,14 +152,16 @@ async def handle_notes_ai_action(payload: NoteActionPayload):
     """Perform AI Summarize, AI Rewrite, or AI Quiz creation from student notes."""
     prompt = f"Perform '{payload.action}' on the following student note:\n\n{payload.content}"
     messages = [
-        {"role": "system", "content": "You are a helpful AI Note Assistant. Return concise markdown output."},
+        {"role": "system", "content": "You are a helpful AI Note Assistant. Return clean, natural text. Do NOT use asterisks (**) for bolding or italics. Use plain headings and clean hyphen bullet points (-) without asterisks."},
         {"role": "user", "content": prompt}
     ]
     try:
         res = await ai_provider.chat_completion(messages, temperature=0.5)
-        return {"action": payload.action, "result": res}
+        # Strip any accidental double/single asterisks
+        clean_res = res.replace("**", "").replace("*", "")
+        return {"action": payload.action, "result": clean_res}
     except Exception as e:
-        return {"action": payload.action, "result": f"**{payload.action.upper()} Result**:\n\nKey concepts summarized cleanly from note content."}
+        return {"action": payload.action, "result": f"{payload.action.upper()} Result:\n\nKey concepts summarized cleanly from note content."}
 
 @router.post("/pomodoro/log")
 async def log_pomodoro_session(payload: PomodoroLogPayload):

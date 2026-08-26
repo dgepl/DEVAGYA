@@ -71,10 +71,7 @@ class StudentService:
                 {"code": "quiz_master", "title": "Quiz Master", "icon": "Trophy", "description": "Scored 100% on 5 quizzes"},
                 {"code": "socratic_thinker", "title": "Socratic Thinker", "icon": "Brain", "description": "Used AI Tutor for 10 problems"}
             ],
-            "recent_notes": [
-                {"id": "n1", "title": "Light Reflection & Ray Diagram Formulae", "subject": "Science", "updated_at": "Today"},
-                {"id": "n2", "title": "Quadratic Formula & Discriminant Derivation", "subject": "Mathematics", "updated_at": "Yesterday"}
-            ]
+            "recent_notes": []
         }
 
     async def generate_study_plan(self, payload: StudyPlanGeneratePayload) -> Dict[str, Any]:
