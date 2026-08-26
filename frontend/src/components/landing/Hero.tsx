@@ -34,6 +34,32 @@ export function Hero() {
 
   const slides = [
     {
+      badge: "Teacher & Educator Empowerment",
+      headline: <>AI Workspace for <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-teal-400">Master Teachers</span> 🎓</>,
+      subtitle: "Instant NCERT Question Paper Generator, OCR Book Scanner, AI Assignment Studio & 15 Specialized AI Employees.",
+      pills: [
+        { icon: Sparkles, label: "5-Set Paper AI" },
+        { icon: BookOpen, label: "NCERT Catalog" },
+        { icon: ScanText, label: "OCR Book Scanner" },
+        { icon: FileText, label: "PDF Ruled Lines" },
+        { icon: ShieldCheck, label: "CBSE Compliance" }
+      ],
+      ctaText: "Create Paper Now",
+      ctaLink: "/login",
+      mockupTitle: "Teacher Portal • Paper Generator",
+      mockupHeader: "Welcome Prof. Ananya Roy 👩‍🏫",
+      mockupSub: "Generate NCERT Question Papers & Ruled Worksheets",
+      card1Title: "Papers Created",
+      card1Val: "128 Papers",
+      card2Title: "Time Saved",
+      card2Val: "98% Saved",
+      card3Title: "Active Subject",
+      card3Val: "Science & Math",
+      progressTitle: "Class 10 Science Paper • Answer Key Included",
+      progressPct: "94%",
+      tutorMsg: "Question Paper & Assignment ready! Export ReportLab PDF with school watermark."
+    },
+    {
       badge: "AI-Powered Education Platform",
       headline: <>The Future of <br />Education is <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-indigo-300 to-pink-400">AI</span> ✨</>,
       subtitle: "Empowering Teachers, Students & Parents with AI Agents, Smart Tools and Personalized Learning.",
@@ -58,32 +84,6 @@ export function Hero() {
       progressTitle: "Physics • Chapter 4: Motion in a Plane",
       progressPct: "75%",
       tutorMsg: "Hi Ananya! 👋 How can I help you learn today?"
-    },
-    {
-      badge: "Teacher & Educator Empowerment",
-      headline: <>AI Workspace for <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-cyan-300 to-emerald-400">Master Teachers</span> 🎓</>,
-      subtitle: "Instant NCERT Question Paper Generator, OCR Book Scanner, Lesson Planner & 15 Specialized AI Employees.",
-      pills: [
-        { icon: Sparkles, label: "5-Sec Paper AI" },
-        { icon: BookOpen, label: "NCERT Catalog" },
-        { icon: ScanText, label: "OCR Book Scanner" },
-        { icon: FileText, label: "PDF Watermark" },
-        { icon: ShieldCheck, label: "CBSE Compliance" }
-      ],
-      ctaText: "Create Paper Now",
-      ctaLink: "/login",
-      mockupTitle: "Teacher Portal • Paper Generator",
-      mockupHeader: "Welcome Prof. Ananya Roy 👩‍🏫",
-      mockupSub: "Generate NCERT Question Papers & 45-Min Lesson Plans",
-      card1Title: "Papers Created",
-      card1Val: "48 Papers",
-      card2Title: "Time Saved",
-      card2Val: "98% Saved",
-      card3Title: "Active Subject",
-      card3Val: "Science & Math",
-      progressTitle: "CBSE Class 10 Science Paper • Answer Key Included",
-      progressPct: "100%",
-      tutorMsg: "Question Paper ready! Export ReportLab PDF with school watermark."
     },
     {
       badge: "Gamified Self-Study Corner",
