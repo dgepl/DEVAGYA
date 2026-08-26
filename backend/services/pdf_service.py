@@ -13,28 +13,39 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from schemas.question import GeneratedPaperResponse
 
-# Register Unicode font for Hindi / Devanagari / English multi-script rendering
+# Register Unicode & Math fonts for multi-script and mathematical rendering
 UNICODE_FONT_NAME = "Helvetica"
 UNICODE_BOLD_FONT_NAME = "Helvetica-Bold"
+MATH_FONT_NAME = "Helvetica"
 
 try:
-    font_paths = [
+    # 1. Register Academic Math & Latin Font (with full calculus glyphs: ∫, ∑, ∏, √, θ, Ω, ±)
+    math_font_candidates = [
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/tahoma.ttf",
+        "C:/Windows/Fonts/calibri.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSerif.ttf"
+    ]
+    for mfp in math_font_candidates:
+        if os.path.exists(mfp):
+            pdfmetrics.registerFont(TTFont("AcademicMathFont", mfp))
+            MATH_FONT_NAME = "AcademicMathFont"
+            UNICODE_FONT_NAME = "AcademicMathFont"
+            UNICODE_BOLD_FONT_NAME = "AcademicMathFont"
+            break
+
+    # 2. Register Devanagari Font (Hindi / Sanskrit)
+    devanagari_candidates = [
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "NotoSansDevanagari.ttf")),
         "C:/Windows/Fonts/Nirmala.ttf",
         "C:/Windows/Fonts/mangal.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"
     ]
-    for fp in font_paths:
-        if os.path.exists(fp):
-            pdfmetrics.registerFont(TTFont("DevanagariUnicode", fp))
-            pdfmetrics.registerFont(TTFont("DevanagariUnicode-Bold", fp))
-            try:
-                pdfmetrics.registerFontFamily("DevanagariUnicode", normal="DevanagariUnicode", bold="DevanagariUnicode-Bold", italic="DevanagariUnicode", boldItalic="DevanagariUnicode-Bold")
-            except Exception:
-                pass
-            UNICODE_FONT_NAME = "DevanagariUnicode"
-            UNICODE_BOLD_FONT_NAME = "DevanagariUnicode-Bold"
+    for dfp in devanagari_candidates:
+        if os.path.exists(dfp):
+            pdfmetrics.registerFont(TTFont("DevanagariFont", dfp))
             break
 except Exception as e:
     pass
@@ -163,28 +174,42 @@ def clean_md_to_reportlab(text: str) -> str:
     import html
     t = html.escape(t)
 
-    # 4. Strip math delimiters: $...$, $$...$$, \[...\], \(...\)
-    t = re.sub(r'\$\$([^\$]+)\$\$', r'\1', t)
+    # 4. Strip math delimiters across multiple lines: $...$, $$...$$, \[...\], \(...\)
+    t = re.sub(r'\\r\\n|\\n', '\n', t)
+    t = re.sub(r'\$\$([\s\S]*?)\$\$', r'\1', t)
     t = re.sub(r'\$([^\$]+)\$', r'\1', t)
-    t = re.sub(r'\\\[(.*?)\\\]', r'\1', t)
-    t = re.sub(r'\\\((.*?)\\\)', r'\1', t)
+    t = re.sub(r'\\\[([\s\S]*?)\\\]', r'\1', t)
+    t = re.sub(r'\\\(([\s\S]*?)\\\)', r'\1', t)
+    t = re.sub(r'\\\[|\\\]|\\\(|\\\)', '', t)
 
-    # 5. Fractions: \frac{a}{b} -> (a / b)
-    t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1 / \2)', t)
+    # 5. Calculus Integrals & Summations (replace BEFORE frac/subscripts)
+    t = re.sub(r'\\iint', '∬', t)
+    t = re.sub(r'\\iiint', '∭', t)
+    t = re.sub(r'\\oint', '∮', t)
+    t = re.sub(r'\\int', '∫', t)
+    t = re.sub(r'\\sum', '∑', t)
+    t = re.sub(r'\\prod', '∏', t)
 
-    # 6. Square Roots: \sqrt{x} -> √(x), \sqrt[n]{x} -> ⁿ√(x)
-    t = re.sub(r'\\sqrt\[([^{}]+)\]\{([^{}]+)\}', r'<sup>\1</sup>√(\2)', t)
-    t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
+    # 6. Fractions (iterative for nested braces): \frac{a}{b} -> (a / b)
+    for _ in range(3):
+        t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1 / \2)', t)
 
-    # 7. Exponents / Powers: x^{2} or x^2 -> x<sup>2</sup>
-    t = re.sub(r'\^\{([^{}]+)\}', r'<sup>\1</sup>', t)
+    # 7. Square Roots (iterative for nested braces): \sqrt{x} -> √(x), \sqrt[n]{x} -> ⁿ√(x)
+    for _ in range(3):
+        t = re.sub(r'\\sqrt\[([^{}]+)\]\{([^{}]+)\}', r'<sup>\1</sup>√(\2)', t)
+        t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
+
+    # 8. Exponents / Powers: x^{2} or x^2 -> x<sup>2</sup>
+    for _ in range(3):
+        t = re.sub(r'\^\{([^{}]+)\}', r'<sup>\1</sup>', t)
     t = re.sub(r'\^([0-9a-zA-Z+\-]+)', r'<sup>\1</sup>', t)
 
-    # 8. Subscripts / Indices / Chemical formulas: H_{2}O or H_2O -> H<sub>2</sub>O
-    t = re.sub(r'_\{([^{}]+)\}', r'<sub>\1</sub>', t)
+    # 9. Subscripts / Indices / Chemical formulas: H_{2}O or H_2O -> H<sub>2</sub>O
+    for _ in range(3):
+        t = re.sub(r'_\{([^{}]+)\}', r'<sub>\1</sub>', t)
     t = re.sub(r'_([0-9a-zA-Z+\-]+)', r'<sub>\1</sub>', t)
 
-    # 9. LaTeX Text Formatting
+    # 10. LaTeX Text Formatting
     t = re.sub(r'\\mathbf\{([^{}]+)\}', r'<b>\1</b>', t)
     t = re.sub(r'\\textbf\{([^{}]+)\}', r'<b>\1</b>', t)
     t = re.sub(r'\\mathit\{([^{}]+)\}', r'<i>\1</i>', t)
@@ -194,7 +219,7 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\mathrm\{([^{}]+)\}', r'\1', t)
     t = re.sub(r'\\operatorname\{([^{}]+)\}', r'\1', t)
 
-    # 10. Greek symbols & Mathematical Constants
+    # 11. Greek symbols & Mathematical Constants
     greek_symbols = [
         (r'\\alpha', 'α'), (r'\\beta', 'β'), (r'\\gamma', 'γ'), (r'\\Gamma', 'Γ'),
         (r'\\delta', 'δ'), (r'\\Delta', 'Δ'), (r'\\epsilon', 'ε'), (r'\\varepsilon', 'ε'),
@@ -209,7 +234,7 @@ def clean_md_to_reportlab(text: str) -> str:
     for pattern_str, repl in greek_symbols:
         t = re.sub(pattern_str, repl, t)
 
-    # 11. Mathematical & Logical Operators
+    # 12. Mathematical & Logical Operators
     math_ops = [
         (r'\\times', '×'), (r'\\div', '÷'), (r'\\pm', '±'), (r'\\mp', '∓'),
         (r'\\cdot', '·'), (r'\\bullet', '•'), (r'\\approx', '≈'), (r'\\neq', '≠'),
@@ -218,8 +243,7 @@ def clean_md_to_reportlab(text: str) -> str:
         (r'\\rightarrow', '→'), (r'\\to', '→'), (r'\\leftarrow', '←'),
         (r'\\leftrightarrow', '↔'), (r'\\Rightarrow', '⇒'), (r'\\Leftarrow', '⇐'),
         (r'\\Leftrightarrow', '⇔'), (r'\\iff', '⇔'),
-        (r'\\infty', '∞'), (r'\\int', '∫'), (r'\\sum', '∑'), (r'\\prod', '∏'),
-        (r'\\partial', '∂'), (r'\\nabla', '∇'), (r'\\angle', '∠'),
+        (r'\\infty', '∞'), (r'\\partial', '∂'), (r'\\nabla', '∇'), (r'\\angle', '∠'),
         (r'\\parallel', '∥'), (r'\\perp', '⊥'), (r'\\triangle', '△'),
         (r'\\in', '∈'), (r'\\notin', '∉'), (r'\\subset', '⊂'), (r'\\subseteq', '⊆'),
         (r'\\cap', '∩'), (r'\\cup', '∪'), (r'\\forall', '∀'), (r'\\exists', '∃')
@@ -227,7 +251,7 @@ def clean_md_to_reportlab(text: str) -> str:
     for pattern_str, repl in math_ops:
         t = re.sub(pattern_str, repl, t)
 
-    # 12. Strip leftover LaTeX layout artifacts
+    # 13. Strip leftover LaTeX layout artifacts
     t = re.sub(r'\\displaystyle', '', t)
     t = re.sub(r'\\limits', '', t)
     t = re.sub(r'\\left\(', '(', t)
@@ -243,27 +267,28 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\[,\;!]', ' ', t)
     t = re.sub(r'\\quad', ' &nbsp; ', t)
     t = re.sub(r'\\qquad', ' &nbsp;&nbsp; ', t)
+    t = re.sub(r'\\\s+', ' ', t)
 
-    # 13. Convert Markdown bold **text** to <b>text</b>
+    # 14. Convert Markdown bold **text** to <b>text</b>
     t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t)
 
-    # 14. Convert Markdown italic *text* or _text_ to <i>text</i>
+    # 15. Convert Markdown italic *text* or _text_ to <i>text</i>
     t = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'<i>\1</i>', t)
 
-    # 15. Convert inline code `text` to Courier font
+    # 16. Convert inline code `text` to Courier font
     t = re.sub(r'`([^`]+?)`', r'<font face="Courier">\1</font>', t)
 
-    # 16. Convert newlines to HTML breaks
-    t = t.replace("\n", "<br/>")
+    # 17. Convert newlines to HTML breaks
+    t = re.sub(r'\n+', '<br/>', t.strip())
 
-    # 17. Balance unclosed tags
+    # 18. Balance unclosed tags
     for tag in ["b", "i", "u", "sup", "sub"]:
         open_t = t.count(f"<{tag}>")
         close_t = t.count(f"</{tag}>")
         if open_t > close_t:
             t += f"</{tag}>" * (open_t - close_t)
 
-    return t
+    return t.strip()
 
 class NumberedCanvas(canvas.Canvas):
     """Custom canvas for adding page numbers and subtle watermark."""
