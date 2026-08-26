@@ -25,7 +25,9 @@ import {
   FileSpreadsheet, 
   User, 
   Award,
-  Video
+  Video,
+  Info,
+  HelpCircle
 } from "lucide-react";
 
 export function MobileLandingView() {
@@ -558,46 +560,46 @@ export function MobileLandingView() {
         </div>
       </div>
 
-      {/* 9. MOBILE BOTTOM NAVIGATION DOCK (MATCHING THE REFERENCE IMAGE) */}
-      <div className="fixed bottom-2 left-2 right-2 z-50 bg-white/95 backdrop-blur-2xl border border-slate-200/90 px-3 py-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-full md:hidden">
+      {/* 9. MOBILE BOTTOM NAVIGATION DOCK (HOME, ABOUT US, LOGIN, WHY CHOOSE US, FAQ) */}
+      <div className="fixed bottom-2 left-2 right-2 z-50 bg-white/95 backdrop-blur-2xl border border-slate-200/90 px-2 py-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-full md:hidden">
         <div className="flex items-center justify-around max-w-md mx-auto relative">
           
           {/* Tab 1: Home */}
-          <Link href="/" className="flex flex-col items-center py-1 px-3 text-indigo-600 font-extrabold active:scale-95 transition">
+          <Link href="/" className="flex flex-col items-center py-1 px-2 text-indigo-600 font-extrabold active:scale-95 transition">
             <Home className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight mt-0.5 font-bold">Home</span>
+            <span className="text-[9px] tracking-tight mt-0.5 font-bold">Home</span>
             <span className="w-1 h-1 rounded-full bg-indigo-600 mt-0.5" />
           </Link>
 
-          {/* Tab 2: AI Tools */}
-          <Link href="/login" className="flex flex-col items-center py-1 px-3 text-slate-500 font-medium hover:text-slate-900 active:scale-95 transition">
-            <Sparkles className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight mt-0.5 font-bold">AI Tools</span>
+          {/* Tab 2: About Us */}
+          <Link href="/about" className="flex flex-col items-center py-1 px-2 text-slate-500 font-medium hover:text-slate-900 active:scale-95 transition">
+            <Info className="w-5 h-5" />
+            <span className="text-[9px] tracking-tight mt-0.5 font-bold">About Us</span>
           </Link>
 
-          {/* Central Glowing Button: Generate */}
+          {/* Central Glowing Button: Login */}
           <Link
             href="/login"
             className="relative -top-5 flex flex-col items-center group shrink-0"
           >
             <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/35 border-2 border-white group-active:scale-90 transition-transform">
-              <Zap className="w-6 h-6 animate-pulse" />
+              <Sparkles className="w-6 h-6 animate-pulse text-amber-300" />
             </div>
             <span className="text-[10px] font-black text-indigo-700 tracking-tight mt-0.5 uppercase">
-              Generate
+              Log In
             </span>
           </Link>
 
-          {/* Tab 4: Resources */}
-          <Link href="/why-choose-us" className="flex flex-col items-center py-1 px-3 text-slate-500 font-medium hover:text-slate-900 active:scale-95 transition">
-            <BookOpen className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight mt-0.5 font-bold">Resources</span>
+          {/* Tab 4: Why Choose Us */}
+          <Link href="/why-choose-us" className="flex flex-col items-center py-1 px-2 text-slate-500 font-medium hover:text-slate-900 active:scale-95 transition">
+            <CheckCircle2 className="w-5 h-5" />
+            <span className="text-[9px] tracking-tight mt-0.5 font-bold text-center leading-tight">Why Us</span>
           </Link>
 
-          {/* Tab 5: Profile / Login */}
-          <Link href="/login" className="flex flex-col items-center py-1 px-3 text-slate-500 font-medium hover:text-slate-900 active:scale-95 transition">
-            <User className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight mt-0.5 font-bold">Profile</span>
+          {/* Tab 5: FAQ */}
+          <Link href="/faq" className="flex flex-col items-center py-1 px-2 text-slate-500 font-medium hover:text-slate-900 active:scale-95 transition">
+            <HelpCircle className="w-5 h-5" />
+            <span className="text-[9px] tracking-tight mt-0.5 font-bold">FAQ</span>
           </Link>
 
         </div>
