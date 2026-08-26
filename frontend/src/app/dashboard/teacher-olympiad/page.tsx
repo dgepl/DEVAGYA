@@ -25,7 +25,12 @@ import {
   Camera,
   Activity,
   Layers,
-  HelpCircle
+  HelpCircle,
+  FileCheck,
+  XCircle,
+  CheckCircle,
+  FileText,
+  Filter
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -63,9 +68,12 @@ export default function TeacherOlympiadPage() {
   const [webcamEnabled, setWebcamEnabled] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Admin Declared Results State
+  // Admin Declared Results & Detailed Answer Review State
   const [publishedResults, setPublishedResults] = useState<any[]>([]);
   const [hasAttempted, setHasAttempted] = useState<boolean>(false);
+  const [userSubmission, setUserSubmission] = useState<any | null>(null);
+  const [showAnswerReviewModal, setShowAnswerReviewModal] = useState<boolean>(false);
+  const [reviewFilter, setReviewFilter] = useState<"all" | "correct" | "wrong" | "unattempted" | "Part-A" | "Part-B">("all");
 
   // 1. Fetch 100-MCQ Assessment Paper from Backend
   const loadExamPaper = async () => {
@@ -85,7 +93,7 @@ export default function TeacherOlympiadPage() {
     }
   };
 
-  // 2. Check Candidate's Attempt Status
+  // 2. Check Candidate's Attempt Status & Load Submitted Evaluations
   const checkAttemptStatus = async () => {
     if (!user?.email) return;
     try {
@@ -94,6 +102,9 @@ export default function TeacherOlympiadPage() {
       const data = await res.json();
       if (data.status === "success") {
         setHasAttempted(data.has_attempted);
+        if (data.submission) {
+          setUserSubmission(data.submission);
+        }
       }
     } catch (e) {
       console.warn("Attempt status check notice:", e);
@@ -109,6 +120,9 @@ export default function TeacherOlympiadPage() {
       const data = await res.json();
       if (data.status === "success") {
         setPublishedResults(data.results || []);
+        if (data.results && data.results.length > 0 && !userSubmission) {
+          setUserSubmission(data.results[0]);
+        }
       }
     } catch (e) {}
   };
@@ -828,54 +842,416 @@ export default function TeacherOlympiadPage() {
         </div>
       )}
 
-      {/* 5. ADMIN DECLARED RESULTS TAB */}
+      {/* 5. ADMIN DECLARED RESULTS TAB & PERFORMANCE SCORECARD */}
       {!examStarted && activeTab === "results" && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h2 className="text-lg font-black text-slate-900">
-                Official Olympiad Merit Rankings & Verified Badges
-              </h2>
-              <p className="text-xs text-slate-500 font-medium">
-                Published upon administrative evaluation and national committee review.
-              </p>
-            </div>
-          </div>
+        <div className="space-y-6">
 
-          {publishedResults.length === 0 ? (
-            <div className="text-center py-16 px-4 bg-slate-50 rounded-3xl border border-dashed border-slate-200 space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
-                <Clock className="w-7 h-7" />
+          {/* CANDIDATE'S PERSONAL SCORECARD & REVIEW BANNER (IF ATTEMPTED) */}
+          {userSubmission ? (
+            <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-purple-950 text-white rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-xl space-y-6">
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-black">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>{userSubmission.published ? "OFFICIALLY DECLARED MERIT SCORECARD" : "ASSESSMENT RECORD & SUBMISSION SCRIPT"}</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+                    {userSubmission.teacher_name} &bull; {userSubmission.subject} Assessment
+                  </h2>
+                  <p className="text-xs text-slate-300 font-medium">
+                    National Teacher Skills Olympiad 2026 &bull; Submitted {userSubmission.submitted_at}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowAnswerReviewModal(true)}
+                    className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95 uppercase tracking-wider"
+                  >
+                    <FileCheck className="w-4 h-4" />
+                    <span>Check Right & Wrong Answers</span>
+                  </button>
+                </div>
               </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-black text-slate-800">
-                  Assessment Evaluations Under Administration Review
-                </h3>
-                <p className="text-xs text-slate-500 max-w-md mx-auto font-medium">
-                  Official scorecards and merit ranks are published according to the administration timeline (10–15 days post-assessment).
-                </p>
+
+              {/* 4-METRIC STATS GRID */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Official Score</span>
+                  <div className="text-2xl sm:text-3xl font-black text-amber-300">
+                    {userSubmission.score_percentage}%
+                  </div>
+                  <p className="text-[11px] text-slate-300 font-medium">
+                    {userSubmission.correct_count ?? 0}/100 Marks Scored
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">National Merit Rank</span>
+                  <div className="text-2xl sm:text-3xl font-black text-white">
+                    #{userSubmission.merit_rank ?? 1}
+                  </div>
+                  <p className="text-[11px] text-emerald-400 font-medium">
+                    State Rank: #{userSubmission.state_rank ?? 1}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Accuracy Breakdown</span>
+                  <div className="flex items-center gap-2 text-xs font-bold pt-1">
+                    <span className="text-emerald-400 font-black">✓ {userSubmission.correct_count ?? 0} Correct</span>
+                    <span className="text-rose-400 font-black">✗ {userSubmission.wrong_count ?? 0} Wrong</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 font-medium">
+                    ⚪ {userSubmission.unanswered_count ?? 0} Unattempted
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Proctor Integrity</span>
+                  <div className="text-lg font-black text-emerald-300 pt-1 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{Number(userSubmission.tab_switch_count ?? userSubmission.proctor_incidents ?? 0) === 0 ? "100% Clean Audit" : `${userSubmission.tab_switch_count} Tab Warnings`}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-300">
+                    {userSubmission.published ? "Officially Benchmarked" : "Under Final Board Audit"}
+                  </p>
+                </div>
+
               </div>
+
+              {/* BADGES ROW */}
+              {userSubmission.badges_awarded && userSubmission.badges_awarded.length > 0 && (
+                <div className="pt-2 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-slate-300">Awarded Distinctions:</span>
+                  {userSubmission.badges_awarded.map((badge: string, bIdx: number) => (
+                    <span key={bIdx} className="px-3 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full text-xs font-black flex items-center gap-1.5">
+                      <Award className="w-3.5 h-3.5 text-amber-300" />
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+              )}
+
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {publishedResults.map((r, idx) => (
-                <div key={idx} className="p-5 bg-gradient-to-br from-indigo-50/50 to-white rounded-2xl border border-indigo-100 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-                      VERIFIED MERIT CARD
-                    </span>
-                    <span className="text-xs font-black text-indigo-600">
-                      Score: {r.official_score || 85}%
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900">{r.teacher_name}</h4>
-                    <p className="text-xs text-slate-500">{r.subject} • {r.district}, {r.state}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto">
+                <Trophy className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-black text-slate-900">
+                You Have Not Attempted The Olympiad Yet
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto font-medium">
+                Take the official 60-minute assessment to earn your National Merit Ranking, scorecard, and CBSE/CPD pedagogy badges.
+              </p>
+              <button
+                onClick={() => setActiveTab("overview")}
+                className="px-6 py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer hover:bg-indigo-700"
+              >
+                Go to Exam Hall
+              </button>
             </div>
           )}
+
+          {/* NATIONAL MERIT BENCHMARK LIST */}
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  National Published Merit Standings & Distinction Cards
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Verified educators across CBSE/NCERT schools recognized for subject and pedagogical excellence.
+                </p>
+              </div>
+
+              <Link
+                href="/dashboard/teacher-olympiad/leaderboard"
+                className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-xs rounded-xl border border-indigo-200 transition-colors flex items-center gap-1.5"
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                <span>View Full National Leaderboard</span>
+              </Link>
+            </div>
+
+            {publishedResults.length === 0 ? (
+              <div className="text-center py-12 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                <Clock className="w-6 h-6 text-slate-400 mx-auto" />
+                <p className="text-xs text-slate-500 font-semibold">
+                  National leaderboard declarations are refreshed periodically by the evaluation committee.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {publishedResults.map((r, idx) => (
+                  <div key={idx} className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 space-y-3 shadow-2xs hover:shadow-sm transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                        RANK #{r.merit_rank || idx + 1}
+                      </span>
+                      <span className="text-xs font-black text-indigo-600 font-mono">
+                        {r.score_percentage || r.official_score || 85}%
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900">{r.teacher_name}</h4>
+                      <p className="text-xs text-slate-500">{r.subject} &bull; {r.district}, {r.state}</p>
+                    </div>
+
+                    <div className="text-[10px] text-slate-400 font-medium pt-1 border-t border-slate-100">
+                      Declared: {r.declared_at || r.submitted_at}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
+
+      {/* 6. FULL 100-QUESTION PAPER ANSWER REVIEW MODAL (CHECK RIGHT & WRONG ANSWERS) */}
+      {showAnswerReviewModal && userSubmission && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-4xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 max-h-[90vh] flex flex-col font-sans">
+            
+            {/* MODAL HEADER */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 shrink-0">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                    COMPLETE 100-QUESTION SCRIPT REVIEW
+                  </span>
+                  <span className="text-xs font-bold text-slate-500">
+                    {userSubmission.subject} Assessment
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900">
+                  Question Paper & Pedagogical Solution Review
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-sm font-black text-indigo-600">Score: {userSubmission.score_percentage}%</div>
+                  <div className="text-[10px] text-slate-500 font-semibold">
+                    ✓ {userSubmission.correct_count ?? 0} Correct &bull; ✗ {userSubmission.wrong_count ?? 0} Incorrect &bull; ⚪ {userSubmission.unanswered_count ?? 0} Unattempted
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAnswerReviewModal(false)}
+                  className="text-slate-400 hover:text-slate-700 font-black text-lg p-2 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* FILTER TABS */}
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              <button
+                onClick={() => setReviewFilter("all")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors cursor-pointer ${
+                  reviewFilter === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                All Questions (100)
+              </button>
+
+              <button
+                onClick={() => setReviewFilter("correct")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center gap-1 ${
+                  reviewFilter === "correct" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                }`}
+              >
+                <span>✓ Correct Only</span>
+                <span className="text-[10px] bg-black/10 px-1.5 py-0.5 rounded-full">{userSubmission.correct_count ?? 0}</span>
+              </button>
+
+              <button
+                onClick={() => setReviewFilter("wrong")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center gap-1 ${
+                  reviewFilter === "wrong" ? "bg-rose-600 text-white" : "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                }`}
+              >
+                <span>✗ Incorrect Only</span>
+                <span className="text-[10px] bg-black/10 px-1.5 py-0.5 rounded-full">{userSubmission.wrong_count ?? 0}</span>
+              </button>
+
+              <button
+                onClick={() => setReviewFilter("unattempted")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center gap-1 ${
+                  reviewFilter === "unattempted" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <span>⚪ Unattempted</span>
+                <span className="text-[10px] bg-black/10 px-1.5 py-0.5 rounded-full">{userSubmission.unanswered_count ?? 0}</span>
+              </button>
+
+              <button
+                onClick={() => setReviewFilter("Part-A")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors cursor-pointer ${
+                  reviewFilter === "Part-A" ? "bg-purple-600 text-white" : "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200"
+                }`}
+              >
+                Part-A: Pedagogy (60)
+              </button>
+
+              <button
+                onClick={() => setReviewFilter("Part-B")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors cursor-pointer ${
+                  reviewFilter === "Part-B" ? "bg-indigo-600 text-white" : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                }`}
+              >
+                Part-B: Subject (40)
+              </button>
+            </div>
+
+            {/* SCROLLABLE QUESTION REVIEW LIST */}
+            <div className="overflow-y-auto space-y-5 pr-2 flex-1">
+              {(() => {
+                const evaluations = userSubmission.question_evaluations || [];
+                const filtered = evaluations.filter((q: any) => {
+                  if (reviewFilter === "correct") return q.is_correct;
+                  if (reviewFilter === "wrong") return q.is_attempted && !q.is_correct;
+                  if (reviewFilter === "unattempted") return !q.is_attempted;
+                  if (reviewFilter === "Part-A") return q.section === "Part-A";
+                  if (reviewFilter === "Part-B") return q.section === "Part-B";
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-12 text-slate-400 font-semibold text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      No questions match the selected filter.
+                    </div>
+                  );
+                }
+
+                return filtered.map((q: any, idx: number) => {
+                  const isCorr = q.is_correct;
+                  const isAttempted = q.is_attempted;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-5 sm:p-6 rounded-3xl border-2 space-y-4 shadow-2xs ${
+                        !isAttempted
+                          ? "bg-slate-50/70 border-slate-200"
+                          : isCorr
+                          ? "bg-emerald-50/40 border-emerald-300"
+                          : "bg-rose-50/40 border-rose-300"
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-7 h-7 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                            {q.question_number}
+                          </span>
+                          <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                            {q.section} &bull; {q.module}
+                          </span>
+                        </div>
+
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider self-start sm:self-auto ${
+                          !isAttempted
+                            ? "bg-slate-200 text-slate-700"
+                            : isCorr
+                            ? "bg-emerald-600 text-white shadow-xs"
+                            : "bg-rose-600 text-white shadow-xs"
+                        }`}>
+                          {!isAttempted ? "⚪ Not Attempted (0 Marks)" : isCorr ? "✓ Correct (+1 Mark)" : "✗ Incorrect (0 Marks)"}
+                        </span>
+                      </div>
+
+                      <p className="text-sm font-bold text-slate-900 leading-relaxed">
+                        {q.question_text}
+                      </p>
+
+                      {/* 4 Options Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                        {(q.options || []).map((opt: string, optIdx: number) => {
+                          const isCorrectAnswer = optIdx === q.correct_answer;
+                          const isSelectedByCandidate = optIdx === q.selected_option;
+
+                          let containerStyle = "bg-white border-slate-200 text-slate-700";
+                          if (isCorrectAnswer) {
+                            containerStyle = "bg-emerald-100/90 border-emerald-500 text-emerald-950 font-bold ring-2 ring-emerald-500/20";
+                          } else if (isSelectedByCandidate && !isCorr) {
+                            containerStyle = "bg-rose-100/90 border-rose-500 text-rose-950 font-bold ring-2 ring-rose-500/20";
+                          }
+
+                          return (
+                            <div
+                              key={optIdx}
+                              className={`p-3.5 rounded-2xl border-2 flex items-center justify-between gap-2.5 transition-all ${containerStyle}`}
+                            >
+                              <div className="flex items-center gap-2 font-medium">
+                                <span className={`w-5 h-5 rounded-md text-[10px] font-black flex items-center justify-center ${
+                                  isCorrectAnswer
+                                    ? "bg-emerald-600 text-white"
+                                    : isSelectedByCandidate && !isCorr
+                                    ? "bg-rose-600 text-white"
+                                    : "bg-slate-100 text-slate-600"
+                                }`}>
+                                  {String.fromCharCode(65 + optIdx)}
+                                </span>
+                                <span>{opt.replace(/^\([A-D]\)\s*/, "")}</span>
+                              </div>
+
+                              {isCorrectAnswer && (
+                                <span className="text-[10px] font-black text-emerald-800 uppercase px-2 py-0.5 rounded-md bg-emerald-200/80 shrink-0">
+                                  ✓ Correct Answer
+                                </span>
+                              )}
+
+                              {isSelectedByCandidate && !isCorr && (
+                                <span className="text-[10px] font-black text-rose-800 uppercase px-2 py-0.5 rounded-md bg-rose-200/80 shrink-0">
+                                  ✗ Your Choice
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Explanation Callout */}
+                      {q.explanation && (
+                        <div className="p-4 bg-white/90 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1 shadow-2xs">
+                          <span className="font-black text-indigo-700 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            Pedagogical Solution & NCERT/CBSE Reference:
+                          </span>
+                          <p className="leading-relaxed font-medium text-slate-600 pl-5">
+                            {q.explanation}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 shrink-0">
+              <div className="text-xs text-slate-500 font-medium">
+                National Teacher Skills Olympiad 2026 Assessment Analysis
+              </div>
+
+              <button
+                onClick={() => setShowAnswerReviewModal(false)}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Close Review
+              </button>
+            </div>
+
+          </div>
         </div>
       )}
 

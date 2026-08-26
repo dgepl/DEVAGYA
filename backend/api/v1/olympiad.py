@@ -117,6 +117,7 @@ async def get_user_attempt_status(email: str = Query(...)):
     }
 
 @router.get("/results")
+@router.get("/results/published")
 async def get_published_results(email: Optional[str] = Query(None)):
     """Fetch officially published results and merit rankings (Admin declared)."""
     results = olympiad_service.get_published_results(teacher_email=email)
@@ -125,3 +126,15 @@ async def get_published_results(email: Optional[str] = Query(None)):
         "count": len(results),
         "results": results
     }
+
+@router.get("/submissions/{submission_id}")
+async def get_submission_detail(submission_id: str):
+    """Fetch a single submission record with complete question-by-question evaluations for review."""
+    submissions = olympiad_service.get_all_submissions()
+    sub = next((s for s in submissions if str(s.get("id")) == str(submission_id)), None)
+    if sub:
+        return {
+            "status": "success",
+            "submission": sub
+        }
+    raise HTTPException(status_code=404, detail="Submission not found")

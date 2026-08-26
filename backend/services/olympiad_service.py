@@ -1536,6 +1536,89 @@ class OlympiadService:
 
         return {"status": "success", "registration": record}
 
+    def evaluate_answers_for_paper(self, subject: str, paper_id: str, user_answers: Dict[str, Any]) -> Dict[str, Any]:
+        """Grade a candidate's 100 answers against the question paper and build question-by-question review analysis."""
+        from services.paper_service import paper_service
+        paper = paper_service.get_paper_by_id(paper_id)
+        questions = []
+        if paper and isinstance(paper.get("questions"), list) and len(paper["questions"]) > 0:
+            questions = paper["questions"]
+        else:
+            questions = self.get_100_practice_questions(subject=subject)
+
+        correct_count = 0
+        wrong_count = 0
+        unanswered_count = 0
+        question_evaluations = []
+
+        for idx, q in enumerate(questions[:100]):
+            q_id = q.get("id") or (idx + 1)
+            q_num = q.get("question_number") or (idx + 1)
+            
+            corr_val = q.get("correct_answer", 0)
+            if isinstance(corr_val, str) and corr_val.isdigit():
+                correct_ans_idx = int(corr_val)
+            elif isinstance(corr_val, str) and corr_val.strip().upper() in ["A", "B", "C", "D"]:
+                correct_ans_idx = ord(corr_val.strip().upper()) - 65
+            elif isinstance(corr_val, int) and 0 <= corr_val <= 3:
+                correct_ans_idx = corr_val
+            else:
+                correct_ans_idx = 0
+
+            user_val = user_answers.get(str(q_id))
+            if user_val is None: user_val = user_answers.get(q_id)
+            if user_val is None: user_val = user_answers.get(str(q_num))
+            if user_val is None: user_val = user_answers.get(q_num)
+
+            is_attempted = user_val is not None
+            user_opt_idx = None
+            if is_attempted:
+                try:
+                    user_opt_idx = int(user_val)
+                except (ValueError, TypeError):
+                    user_opt_idx = None
+                    is_attempted = False
+
+            is_correct = bool(is_attempted and user_opt_idx == correct_ans_idx)
+            if is_attempted:
+                if is_correct:
+                    correct_count += 1
+                else:
+                    wrong_count += 1
+            else:
+                unanswered_count += 1
+
+            opts = q.get("options") or ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"]
+            explanation = q.get("explanation") or "Standard CBSE/NCERT pedagogical solution & curriculum benchmark."
+
+            question_evaluations.append({
+                "id": q_id,
+                "question_number": q_num,
+                "section": q.get("section", "Part-A" if q_num <= 60 else "Part-B"),
+                "module": q.get("module", "General Pedagogy"),
+                "question_text": q.get("question_text", ""),
+                "options": opts,
+                "selected_option": user_opt_idx,
+                "correct_answer": correct_ans_idx,
+                "is_correct": is_correct,
+                "is_attempted": is_attempted,
+                "explanation": explanation
+            })
+
+        total_qs = max(1, len(question_evaluations))
+        score_pct = round((correct_count / total_qs) * 100, 1)
+
+        return {
+            "total_questions": total_qs,
+            "correct_count": correct_count,
+            "wrong_count": wrong_count,
+            "unanswered_count": unanswered_count,
+            "answered_count": correct_count + wrong_count,
+            "score_percentage": score_pct,
+            "official_score": correct_count,
+            "question_evaluations": question_evaluations
+        }
+
     def submit_100_exam(self, submission_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
             sub_id = f"tso-sub-{int(time.time()*1000)}"
@@ -1543,38 +1626,42 @@ class OlympiadService:
             teacher_name = submission_data.get("teacher_name", "Educator")
             subject = submission_data.get("subject", "Science")
             user_answers = submission_data.get("answers", {})
+            paper_id = submission_data.get("paper_id", f"tso-national-2026-{subject.lower()}")
+            proctor_count = int(submission_data.get("proctor_incidents") or submission_data.get("tab_switch_count") or 0)
+
+            # Auto-calculate score and question evaluations
+            eval_res = self.evaluate_answers_for_paper(subject, paper_id, user_answers)
 
             submission_record = {
                 "id": sub_id,
-                "paper_id": submission_data.get("paper_id", f"tso-national-2026-{subject.lower()}"),
+                "paper_id": paper_id,
                 "teacher_email": teacher_email,
                 "teacher_name": teacher_name,
                 "subject": subject,
-                "state": submission_data.get("state", ""),
-                "district": submission_data.get("district", ""),
+                "state": submission_data.get("state", "National"),
+                "district": submission_data.get("district", "Central"),
                 "submitted_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "answers": user_answers,
-                "total_questions": 100,
-                "answered_count": len(user_answers),
+                "total_questions": eval_res["total_questions"],
+                "answered_count": eval_res["answered_count"],
+                "correct_count": eval_res["correct_count"],
+                "wrong_count": eval_res["wrong_count"],
+                "unanswered_count": eval_res["unanswered_count"],
+                "score_percentage": eval_res["score_percentage"],
+                "official_score": eval_res["official_score"],
                 "review_status": "pending_admin_review",
                 "published": False,
-                "official_score": None,
                 "merit_rank": None,
                 "district_rank": None,
                 "state_rank": None,
                 "badges_awarded": [],
-                "proctor_incidents": submission_data.get("proctor_incidents", 0),
-                "time_taken_seconds": submission_data.get("time_taken_seconds", 3600)
+                "proctor_incidents": proctor_count,
+                "tab_switch_count": proctor_count,
+                "time_taken_seconds": submission_data.get("time_taken_seconds", 3600),
+                "question_evaluations": eval_res["question_evaluations"]
             }
 
-            submissions = []
-            if SUBMISSIONS_FILE.exists():
-                try:
-                    with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
-                        submissions = json.load(f)
-                except Exception:
-                    submissions = []
-
+            submissions = self.get_all_submissions()
             submissions.insert(0, submission_record)
             with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
                 json.dump(submissions, f, indent=2)
@@ -1583,27 +1670,61 @@ class OlympiadService:
                 "status": "success",
                 "message": "Your 100-MCQ assessment has been submitted successfully and archived securely. Official merit rankings and scorecards will be declared by the administration committee.",
                 "submission_id": sub_id,
-                "review_status": "pending_admin_review"
+                "review_status": "pending_admin_review",
+                "score_percentage": eval_res["score_percentage"]
             }
         except Exception as e:
             logger.error(f"Error saving 100 exam submission: {e}")
             return {"status": "error", "message": str(e)}
 
     def get_all_submissions(self) -> List[Dict[str, Any]]:
+        submissions = []
         if SUBMISSIONS_FILE.exists():
             try:
                 with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    submissions = json.load(f)
             except Exception as e:
                 logger.error(f"Error reading submissions: {e}")
-        return []
+                submissions = []
+
+        # Auto-migrate/repair any legacy submissions with missing scores or evaluations
+        dirty = False
+        for sub in submissions:
+            if sub.get("score_percentage") is None or not sub.get("question_evaluations"):
+                eval_res = self.evaluate_answers_for_paper(
+                    subject=sub.get("subject", "Science"),
+                    paper_id=sub.get("paper_id", "tso-national-2026-science"),
+                    user_answers=sub.get("answers", {})
+                )
+                sub["total_questions"] = eval_res["total_questions"]
+                sub["answered_count"] = eval_res["answered_count"]
+                sub["correct_count"] = eval_res["correct_count"]
+                sub["wrong_count"] = eval_res["wrong_count"]
+                sub["unanswered_count"] = eval_res["unanswered_count"]
+                sub["score_percentage"] = eval_res["score_percentage"]
+                sub["official_score"] = eval_res["official_score"]
+                sub["question_evaluations"] = eval_res["question_evaluations"]
+                dirty = True
+
+            if sub.get("tab_switch_count") is None:
+                sub["tab_switch_count"] = sub.get("proctor_incidents", 0)
+                dirty = True
+
+        if dirty:
+            try:
+                with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(submissions, f, indent=2)
+            except Exception:
+                pass
+
+        return submissions
 
     def get_published_results(self, teacher_email: Optional[str] = None) -> List[Dict[str, Any]]:
         submissions = self.get_all_submissions()
         published = [s for s in submissions if s.get("published") is True]
         if teacher_email:
             clean = teacher_email.strip().lower()
-            return [s for s in published if s.get("teacher_email") == clean]
+            return [s for s in published if (s.get("teacher_email") or "").strip().lower() == clean]
         return published
 
     def update_submission_evaluation(self, submission_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
@@ -1663,20 +1784,19 @@ class OlympiadService:
         submissions = self.get_all_submissions()
         published_count = 0
 
-        # Sort by answered count / existing score for ranking
-        for idx, sub in enumerate(submissions):
-            if not paper_id or str(sub.get("paper_id")) == str(paper_id):
+        # Sort by score for ranking
+        sorted_subs = sorted(submissions, key=lambda s: s.get("score_percentage") or s.get("official_score") or 0, reverse=True)
+
+        for idx, sub in enumerate(sorted_subs):
+            # Check match for paper_id, wildcards, or empty
+            clean_paper_id = (paper_id or "").strip()
+            match = not clean_paper_id or clean_paper_id == "all" or str(sub.get("paper_id")) == clean_paper_id
+            
+            if match:
                 sub["published"] = True
                 sub["review_status"] = "published"
                 
-                # Auto-assign score if not manually graded yet
-                if sub.get("official_score") is None:
-                    ans_count = sub.get("answered_count", 0)
-                    auto_score = max(50, min(98, int((ans_count / 100) * 88) + 10))
-                    sub["official_score"] = auto_score
-                    sub["score_percentage"] = auto_score
-
-                score = sub.get("official_score", 75)
+                score = sub.get("score_percentage") or sub.get("official_score") or 75
                 sub["merit_rank"] = idx + 1
                 sub["state_rank"] = max(1, (idx // 3) + 1)
                 sub["district_rank"] = max(1, (idx // 5) + 1)
@@ -1694,7 +1814,7 @@ class OlympiadService:
         try:
             with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
                 json.dump(submissions, f, indent=2)
-            return {"status": "success", "published_count": published_count, "message": f"Successfully declared results for {published_count} submission(s)."}
+            return {"status": "success", "published_count": published_count, "message": f"Successfully declared and published results for {published_count} submission(s)."}
         except Exception as e:
             logger.error(f"Error bulk publishing submissions: {e}")
             return {"status": "error", "message": str(e)}
@@ -1719,10 +1839,11 @@ class OlympiadService:
     def bulk_delete_submissions(self, paper_id: Optional[str] = None) -> Dict[str, Any]:
         """Delete all submissions or submissions for a specific paper."""
         submissions = self.get_all_submissions()
-        if not paper_id or paper_id == "all":
+        clean_paper_id = (paper_id or "").strip()
+        if not clean_paper_id or clean_paper_id == "all":
             remaining = []
         else:
-            remaining = [s for s in submissions if str(s.get("paper_id")) != str(paper_id)]
+            remaining = [s for s in submissions if str(s.get("paper_id")) != clean_paper_id]
 
         deleted_count = len(submissions) - len(remaining)
         try:

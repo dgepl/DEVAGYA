@@ -86,6 +86,7 @@ export default function SuperAdminPage() {
   const [bulkPublishing, setBulkPublishing] = useState<boolean>(false);
   const [deletingSubId, setDeletingSubId] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState<boolean>(false);
+  const [reviewingSubScript, setReviewingSubScript] = useState<any | null>(null);
 
   // AI Prompt Generator Form State
   const [aiPromptText, setAiPromptText] = useState("Generate an official Class 10 CBSE Science Olympiad Assessment focusing on Light, Electricity, and Chemical Reactions. ALL QUESTIONS MUST BE MCQs ONLY.");
@@ -1796,6 +1797,9 @@ export default function SuperAdminPage() {
                     return currentSubs.map((sub) => {
                       const matchedPaper = papersList.find(p => p.id === (sub.paper_id || "paper-101"));
 
+                      const tabCount = Number(sub.tab_switch_count ?? sub.proctor_incidents ?? 0);
+                      const displayScore = sub.score_percentage != null ? `${sub.score_percentage}%` : (sub.official_score != null ? `${sub.official_score}%` : "Pending");
+
                       return (
                         <tr key={sub.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="p-3.5 font-bold text-slate-900">
@@ -1809,15 +1813,15 @@ export default function SuperAdminPage() {
                           <td className="p-3.5 text-slate-600 font-mono text-[11px]">{sub.submitted_at}</td>
                           <td className="p-3.5">
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              sub.tab_switch_count === 0 
+                              tabCount === 0 
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                 : "bg-rose-50 text-rose-700 border border-rose-200"
                             }`}>
-                              {sub.tab_switch_count === 0 ? "Clean Proctor" : `${sub.tab_switch_count} Tab Warnings`}
+                              {tabCount === 0 ? "Clean Proctor" : `${tabCount} Tab Warnings`}
                             </span>
                           </td>
                           <td className="p-3.5 font-black text-slate-900 text-sm">
-                            {sub.score_percentage}%
+                            {displayScore}
                           </td>
                           <td className="p-3.5">
                             <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
@@ -1828,10 +1832,21 @@ export default function SuperAdminPage() {
                           </td>
                           <td className="p-3.5 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              {sub.question_evaluations && sub.question_evaluations.length > 0 && (
+                                <button
+                                  onClick={() => setReviewingSubScript(sub)}
+                                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                                  title="Inspect Candidate's 100-Question Answers"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>Review Script</span>
+                                </button>
+                              )}
+
                               <button
                                 onClick={() => {
                                   setSelectedSub(sub);
-                                  setEditScore(sub.score_percentage);
+                                  setEditScore(sub.score_percentage ?? sub.official_score ?? 85);
                                   setEditFeedback(sub.official_feedback || "");
                                   setPublishing(sub.published || false);
                                 }}
@@ -1940,6 +1955,130 @@ export default function SuperAdminPage() {
                 <button onClick={handleSaveSubmissionEvaluation} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider">Save & Update Result</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANDIDATE TEST SCRIPT & QUESTION EVALUATION REVIEW MODAL */}
+      {reviewingSubScript && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-4xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-in zoom-in-95 max-h-[90vh] flex flex-col font-sans">
+            
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-purple-100 text-purple-800">
+                    CANDIDATE SCRIPT INSPECTOR
+                  </span>
+                  <span className="text-xs font-bold text-slate-500">
+                    Submission #{reviewingSubScript.id}
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900">
+                  {reviewingSubScript.teacher_name} &bull; {reviewingSubScript.subject}
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-xs font-black text-indigo-600">Score: {reviewingSubScript.score_percentage}%</div>
+                  <div className="text-[10px] text-slate-400 font-semibold">{reviewingSubScript.correct_count ?? 0} Correct &bull; {reviewingSubScript.wrong_count ?? 0} Wrong</div>
+                </div>
+                <button
+                  onClick={() => setReviewingSubScript(null)}
+                  className="text-slate-400 hover:text-slate-700 font-black text-lg p-2 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* SCROLLABLE QUESTION LIST */}
+            <div className="overflow-y-auto space-y-4 pr-2 flex-1">
+              {(reviewingSubScript.question_evaluations || []).map((q: any, qIdx: number) => {
+                const isCorr = q.is_correct;
+                const isAttempted = q.is_attempted;
+
+                return (
+                  <div
+                    key={qIdx}
+                    className={`p-5 rounded-2xl border-2 space-y-3 ${
+                      !isAttempted
+                        ? "bg-slate-50 border-slate-200"
+                        : isCorr
+                        ? "bg-emerald-50/40 border-emerald-300"
+                        : "bg-rose-50/40 border-rose-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-slate-900 text-white font-black text-xs flex items-center justify-center">
+                          {q.question_number || qIdx + 1}
+                        </span>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
+                          {q.section} &bull; {q.module}
+                        </span>
+                      </div>
+
+                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                        !isAttempted
+                          ? "bg-slate-200 text-slate-700"
+                          : isCorr
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "bg-rose-600 text-white shadow-xs"
+                      }`}>
+                        {!isAttempted ? "⚪ Unattempted" : isCorr ? "✓ Correct (+1 Mark)" : "✗ Incorrect (0 Marks)"}
+                      </span>
+                    </div>
+
+                    <p className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed">
+                      {q.question_text}
+                    </p>
+
+                    {/* Options Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {(q.options || []).map((opt: string, optIdx: number) => {
+                        const isCorrectAnswer = optIdx === q.correct_answer;
+                        const isSelectedByCandidate = optIdx === q.selected_option;
+
+                        let style = "bg-white border-slate-200 text-slate-700";
+                        if (isCorrectAnswer) {
+                          style = "bg-emerald-100/90 border-emerald-500 text-emerald-950 font-bold ring-1 ring-emerald-500";
+                        } else if (isSelectedByCandidate && !isCorr) {
+                          style = "bg-rose-100/90 border-rose-500 text-rose-950 font-bold ring-1 ring-rose-500";
+                        }
+
+                        return (
+                          <div key={optIdx} className={`p-3 rounded-xl border flex items-center justify-between gap-2 ${style}`}>
+                            <span>{opt}</span>
+                            {isCorrectAnswer && <span className="text-[10px] font-black text-emerald-800 uppercase shrink-0">✓ Correct</span>}
+                            {isSelectedByCandidate && !isCorr && <span className="text-[10px] font-black text-rose-800 uppercase shrink-0">✗ Candidate Pick</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Explanation */}
+                    {q.explanation && (
+                      <div className="p-3 bg-white/80 rounded-xl border border-slate-200/80 text-[11px] text-slate-700 space-y-1">
+                        <span className="font-extrabold text-indigo-700 block">💡 Pedagogical Explanation:</span>
+                        <p>{q.explanation}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100 shrink-0">
+              <button
+                onClick={() => setReviewingSubScript(null)}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Close Review
+              </button>
+            </div>
+
           </div>
         </div>
       )}
