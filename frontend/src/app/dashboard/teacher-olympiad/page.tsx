@@ -30,14 +30,18 @@ import {
   XCircle,
   CheckCircle,
   FileText,
-  Filter
+  Filter,
+  Grid,
+  X
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import Markdown from "@/components/chat/Markdown";
 
 export default function TeacherOlympiadPage() {
   const { user } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<"overview" | "exam" | "results">("overview");
+  const [showMobilePalette, setShowMobilePalette] = useState<boolean>(false);
 
   // Candidate Assessment Preferences
   const userSubject = user?.subject || "Science";
@@ -863,49 +867,59 @@ export default function TeacherOlympiadPage() {
             </div>
           )}
           
-          {/* EXAM HALL HEADER: TIMER & SECTION SWITCHER */}
-          <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-xl rounded-2xl p-4 border border-slate-200 shadow-md flex flex-wrap items-center justify-between gap-4">
+          {/* EXAM HALL HEADER: TIMER, SECTION SWITCHER & MOBILE PALETTE BUTTON */}
+          <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 border border-slate-200 shadow-md flex flex-wrap items-center justify-between gap-3">
             
             {/* Section Switcher Tabs */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => setActiveSection("Part-A")}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
                   activeSection === "Part-A"
                     ? "bg-purple-600 text-white shadow-md shadow-purple-600/25"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                <span>Part-A: Pedagogy (60 Qs)</span>
+                <span>Part-A: Pedagogy</span>
                 <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full">{partAAnsweredCount}/60</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveSection("Part-B")}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
                   activeSection === "Part-B"
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                <span>Part-B: {selectedSubject} (40 Qs)</span>
+                <span>Part-B: {selectedSubject}</span>
                 <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full">{partBAnsweredCount}/40</span>
+              </button>
+
+              {/* Mobile Question Palette Opener */}
+              <button
+                type="button"
+                onClick={() => setShowMobilePalette(true)}
+                className="lg:hidden px-3 py-2 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-800 font-extrabold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <Grid className="w-3.5 h-3.5 text-indigo-600" />
+                <span>100 Grid ({Object.keys(answers).length}/100)</span>
               </button>
             </div>
 
             {/* Countdown Clock & Submit Button */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl border border-slate-800 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-900 text-white px-3 sm:px-4 py-2 rounded-xl border border-slate-800 shadow-xs">
                 <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
-                <span className="font-mono text-sm font-black text-amber-300">{formattedTime}</span>
+                <span className="font-mono text-xs sm:text-sm font-black text-amber-300">{formattedTime}</span>
               </div>
 
               <button
                 type="button"
                 onClick={handleSubmitExam}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                className="px-4 sm:px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Submit Exam</span>
@@ -950,11 +964,9 @@ export default function TeacherOlympiadPage() {
                     </button>
                   </div>
 
-                  {/* QUESTION TEXT */}
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80">
-                    <p className="text-sm font-bold text-slate-800 leading-relaxed">
-                      {cleanQuestionText(currentQ.question_text)}
-                    </p>
+                  {/* QUESTION TEXT (WITH KATEX MATHEMATICS & SCIENTIFIC FORMULA SUPPORT) */}
+                  <div className="p-4 sm:p-5 bg-slate-50 rounded-2xl border border-slate-200/80 text-sm font-bold text-slate-800 leading-relaxed">
+                    <Markdown content={cleanQuestionText(currentQ.question_text)} />
                   </div>
 
                   {/* OPTIONS LIST */}
@@ -978,16 +990,16 @@ export default function TeacherOlympiadPage() {
                           }`}>
                             {String.fromCharCode(65 + optIdx)}
                           </div>
-                          <span className="text-xs font-semibold text-slate-800 leading-relaxed">
-                            {opt}
-                          </span>
+                          <div className="text-xs font-semibold text-slate-800 leading-relaxed flex-1">
+                            <Markdown content={opt} />
+                          </div>
                         </div>
                       );
                     })}
                   </div>
 
                   {/* BOTTOM ACTION BUTTONS */}
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-4 flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -1025,8 +1037,8 @@ export default function TeacherOlympiadPage() {
 
             </div>
 
-            {/* QUESTION PALETTE GRID (1 COL) */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4 h-fit">
+            {/* DESKTOP QUESTION PALETTE GRID (1 COL) */}
+            <div className="hidden lg:block bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4 h-fit sticky top-36">
               <div className="space-y-1">
                 <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
                   Question Palette (100 MCQs)
@@ -1040,7 +1052,7 @@ export default function TeacherOlympiadPage() {
               </div>
 
               {/* 100 Grid Cells */}
-              <div className="grid grid-cols-5 gap-1.5 max-h-[360px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-5 gap-1.5 max-h-[340px] overflow-y-auto pr-1">
                 {questions.map((q, idx) => {
                   const isCurrent = currentIdx === idx;
                   const isAnswered = answers[q.id] !== undefined;
@@ -1074,7 +1086,7 @@ export default function TeacherOlympiadPage() {
                 </div>
                 
                 {/* Webcam Preview & Live Proctoring Widget */}
-                <div className="relative w-full h-28 bg-slate-950 rounded-2xl overflow-hidden border border-slate-300 shadow-inner">
+                <div className="relative w-full h-24 bg-slate-950 rounded-2xl overflow-hidden border border-slate-300 shadow-inner">
                   <video 
                     ref={videoRef} 
                     autoPlay 
@@ -1086,7 +1098,7 @@ export default function TeacherOlympiadPage() {
                   {/* Status Overlay Badges */}
                   <div className="absolute top-1.5 left-1.5 bg-black/75 backdrop-blur-xs text-white text-[9px] font-black px-2 py-0.5 rounded-md flex items-center gap-1.5 shadow-xs">
                     <span className={`w-2 h-2 rounded-full ${webcamEnabled ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
-                    <span>{webcamEnabled ? "Live Camera Monitored" : "Camera Initializing..."}</span>
+                    <span>{webcamEnabled ? "Camera Monitored" : "Camera Initializing..."}</span>
                   </div>
 
                   {tabSwitches > 0 && (
@@ -1100,6 +1112,70 @@ export default function TeacherOlympiadPage() {
             </div>
 
           </div>
+
+          {/* MOBILE SLIDE-UP QUESTION PALETTE DRAWER */}
+          {showMobilePalette && (
+            <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-end justify-center p-0 lg:hidden animate-in fade-in duration-200">
+              <div className="w-full bg-white rounded-t-3xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">100-MCQ Question Palette</h3>
+                    <p className="text-[10px] font-bold text-slate-500">{Object.keys(answers).length} of 100 Answered</p>
+                  </div>
+                  <button
+                    onClick={() => setShowMobilePalette(false)}
+                    className="p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 text-[10px] font-bold text-slate-600 shrink-0">
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" /> Answered</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0" /> Review</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-200 shrink-0" /> Blank</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-indigo-600 shrink-0" /> Current</span>
+                </div>
+
+                <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 overflow-y-auto flex-1 p-1">
+                  {questions.map((q, idx) => {
+                    const isCurrent = currentIdx === idx;
+                    const isAnswered = answers[q.id] !== undefined;
+                    const isReview = markedForReview[q.id];
+
+                    let bg = "bg-slate-100 text-slate-700 font-bold";
+                    if (isCurrent) bg = "bg-indigo-600 text-white ring-2 ring-indigo-600 ring-offset-1 font-black shadow-sm";
+                    else if (isReview) bg = "bg-purple-500 text-white font-bold";
+                    else if (isAnswered) bg = "bg-emerald-500 text-white font-bold";
+
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => {
+                          setCurrentIdx(idx);
+                          setActiveSection(q.section);
+                          setShowMobilePalette(false);
+                        }}
+                        className={`h-10 rounded-xl text-xs flex items-center justify-center transition-all cursor-pointer ${bg}`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 shrink-0">
+                  <button
+                    onClick={() => setShowMobilePalette(false)}
+                    className="w-full py-3 bg-slate-900 text-white font-black text-xs rounded-xl"
+                  >
+                    Close Palette
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       )}
@@ -1529,9 +1605,9 @@ export default function TeacherOlympiadPage() {
                         </span>
                       </div>
 
-                      <p className="text-sm font-bold text-slate-900 leading-relaxed">
-                        {cleanQuestionText(q.question_text)}
-                      </p>
+                      <div className="text-sm font-bold text-slate-900 leading-relaxed">
+                        <Markdown content={cleanQuestionText(q.question_text)} />
+                      </div>
 
                       {/* 4 Options Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
@@ -1551,8 +1627,8 @@ export default function TeacherOlympiadPage() {
                               key={optIdx}
                               className={`p-3.5 rounded-2xl border-2 flex items-center justify-between gap-2.5 transition-all ${containerStyle}`}
                             >
-                              <div className="flex items-center gap-2 font-medium">
-                                <span className={`w-5 h-5 rounded-md text-[10px] font-black flex items-center justify-center ${
+                              <div className="flex items-center gap-2 font-medium flex-1">
+                                <span className={`w-5 h-5 rounded-md text-[10px] font-black flex items-center justify-center shrink-0 ${
                                   isCorrectAnswer
                                     ? "bg-emerald-600 text-white"
                                     : isSelectedByCandidate && !isCorr
@@ -1561,12 +1637,14 @@ export default function TeacherOlympiadPage() {
                                 }`}>
                                   {String.fromCharCode(65 + optIdx)}
                                 </span>
-                                <span>{opt.replace(/^\([A-D]\)\s*/, "")}</span>
+                                <div className="flex-1 text-xs">
+                                  <Markdown content={opt.replace(/^\([A-D]\)\s*/, "")} />
+                                </div>
                               </div>
 
                               {isCorrectAnswer && (
                                 <span className="text-[10px] font-black text-emerald-800 uppercase px-2 py-0.5 rounded-md bg-emerald-200/80 shrink-0">
-                                  ✓ Correct Answer
+                                  ✓ Correct
                                 </span>
                               )}
 
@@ -1584,12 +1662,12 @@ export default function TeacherOlympiadPage() {
                       {q.explanation && (
                         <div className="p-4 bg-white/90 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1 shadow-2xs">
                           <span className="font-black text-indigo-700 flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                             Pedagogical Solution & NCERT/CBSE Reference:
                           </span>
-                          <p className="leading-relaxed font-medium text-slate-600 pl-5">
-                            {q.explanation}
-                          </p>
+                          <div className="leading-relaxed font-medium text-slate-700 pl-5">
+                            <Markdown content={q.explanation} />
+                          </div>
                         </div>
                       )}
                     </div>

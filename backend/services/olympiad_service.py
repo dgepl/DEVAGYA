@@ -1538,11 +1538,21 @@ class OlympiadService:
         correct_count = 0
         wrong_count = 0
         unanswered_count = 0
+        part_a_correct = 0
+        part_b_correct = 0
+        part_a_total = 0
+        part_b_total = 0
         question_evaluations = []
 
+        import re
         for idx, q in enumerate(questions[:100]):
             q_id = q.get("id") or (idx + 1)
             q_num = q.get("question_number") or (idx + 1)
+            section = q.get("section", "Part-A" if q_num <= 60 else "Part-B")
+            if section == "Part-A":
+                part_a_total += 1
+            else:
+                part_b_total += 1
             
             corr_val = q.get("correct_answer", 0)
             if isinstance(corr_val, str) and corr_val.isdigit():
@@ -1572,20 +1582,25 @@ class OlympiadService:
             if is_attempted:
                 if is_correct:
                     correct_count += 1
+                    if section == "Part-A":
+                        part_a_correct += 1
+                    else:
+                        part_b_correct += 1
                 else:
                     wrong_count += 1
             else:
                 unanswered_count += 1
 
+            clean_q_stem = re.sub(r'^\s*\[.*?\]\s*', '', str(q.get("question_text", ""))).strip()
             opts = q.get("options") or ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"]
             explanation = q.get("explanation") or "Standard CBSE/NCERT pedagogical solution & curriculum benchmark."
 
             question_evaluations.append({
                 "id": q_id,
                 "question_number": q_num,
-                "section": q.get("section", "Part-A" if q_num <= 60 else "Part-B"),
+                "section": section,
                 "module": q.get("module", "General Pedagogy"),
-                "question_text": q.get("question_text", ""),
+                "question_text": clean_q_stem,
                 "options": opts,
                 "selected_option": user_opt_idx,
                 "correct_answer": correct_ans_idx,
@@ -1605,6 +1620,10 @@ class OlympiadService:
             "answered_count": correct_count + wrong_count,
             "score_percentage": score_pct,
             "official_score": correct_count,
+            "part_a_correct": part_a_correct,
+            "part_a_total": part_a_total or 60,
+            "part_b_correct": part_b_correct,
+            "part_b_total": part_b_total or 40,
             "question_evaluations": question_evaluations
         }
 
@@ -1638,6 +1657,10 @@ class OlympiadService:
                 "unanswered_count": eval_res["unanswered_count"],
                 "score_percentage": eval_res["score_percentage"],
                 "official_score": eval_res["official_score"],
+                "part_a_correct": eval_res.get("part_a_correct", 0),
+                "part_a_total": eval_res.get("part_a_total", 60),
+                "part_b_correct": eval_res.get("part_b_correct", 0),
+                "part_b_total": eval_res.get("part_b_total", 40),
                 "review_status": "pending_admin_review",
                 "published": False,
                 "merit_rank": None,

@@ -21,6 +21,7 @@ import {
   Filter
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import Markdown from "@/components/chat/Markdown";
 
 export default function OlympiadPracticePage() {
   const { user } = useAppStore();
@@ -279,9 +280,9 @@ export default function OlympiadPracticePage() {
                   )}
                 </div>
 
-                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-relaxed">
-                  {cleanQuestionText(q.question_text)}
-                </h3>
+                <div className="text-sm sm:text-base font-extrabold text-slate-900 leading-relaxed">
+                  <Markdown content={cleanQuestionText(q.question_text)} />
+                </div>
 
                 {/* 4 OPTIONS */}
                 <div className="space-y-2.5">
@@ -312,9 +313,9 @@ export default function OlympiadPracticePage() {
                         }`}>
                           {String.fromCharCode(65 + optIdx)}
                         </div>
-                        <span className="text-xs font-semibold leading-relaxed">
-                          {opt}
-                        </span>
+                        <div className="text-xs font-semibold leading-relaxed flex-1">
+                          <Markdown content={opt} />
+                        </div>
                       </div>
                     );
                   })}
@@ -322,14 +323,14 @@ export default function OlympiadPracticePage() {
 
                 {/* EXPLANATION ACCORDION ONCE ANSWERED */}
                 {evalResult && (
-                  <div className="p-4 bg-indigo-50/70 rounded-2xl border border-indigo-100 space-y-1 animate-in fade-in duration-200">
+                  <div className="p-4 bg-indigo-50/70 rounded-2xl border border-indigo-100 space-y-1.5 animate-in fade-in duration-200">
                     <div className="flex items-center gap-1.5 text-xs font-black text-indigo-900">
-                      <HelpCircle className="w-4 h-4 text-indigo-600" />
+                      <HelpCircle className="w-4 h-4 text-indigo-600 shrink-0" />
                       <span>Pedagogical Analysis & Explanation:</span>
                     </div>
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      {evalResult.explanation || q.explanation}
-                    </p>
+                    <div className="text-xs text-slate-800 leading-relaxed font-medium">
+                      <Markdown content={evalResult.explanation || q.explanation} />
+                    </div>
                   </div>
                 )}
 
