@@ -246,22 +246,31 @@ export default function SuperAdminPage() {
         school_name: "DEVGYA GLOBAL EDUTECH"
       };
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
       const res = await fetch(`${baseUrl}/admin/tso/generate-100-ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       
       let data: any = {};
       try {
         data = await res.json();
-      } catch {
-        throw new Error(res.ok ? "Server communication error." : "AI Paper generation took longer than expected. Please try again.");
+      } catch (jsonErr) {
+        if (!res.ok) {
+          throw new Error(`Server returned HTTP ${res.status}. Please check your connection and retry.`);
+        }
+        throw new Error("Unable to parse server response.");
       }
 
-      if (res.ok && data.paper) {
-        setTsoDraftPaper(data.paper);
-        setActionMsg(`100-MCQ National TSO Paper for "${data.paper.subject}" synthesized by AI with 60/40 Hybrid Structure!`);
+      if (res.ok && (data.paper || data.status === "success")) {
+        const generatedPaper = data.paper || data;
+        setTsoDraftPaper(generatedPaper);
+        setActionMsg(`100-MCQ National TSO Paper for "${generatedPaper.subject || tsoSubject}" synthesized with 60/40 Hybrid Structure!`);
         fetchAdminData();
         setTimeout(() => setActionMsg(null), 5000);
       } else {
@@ -269,7 +278,8 @@ export default function SuperAdminPage() {
       }
     } catch (err: any) {
       console.error("TSO AI Generator error:", err);
-      alert(err?.message ? `Failed to synthesize TSO paper: ${err.message}` : "Failed to synthesize TSO paper. Please try again.");
+      const isAbort = err?.name === "AbortError";
+      alert(isAbort ? "Paper generation took longer than expected. Please try again." : (err?.message ? `Failed to synthesize TSO paper: ${err.message}` : "Failed to synthesize TSO paper. Please try again."));
     } finally {
       setGeneratingTso100(false);
     }
