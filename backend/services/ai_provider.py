@@ -86,24 +86,52 @@ class AIProviderService:
         if response_format_json and not self._has_images(messages):
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            try:
-                res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
-                res.raise_for_status()
-                data = res.json()
-                return data["choices"][0]["message"]["content"]
-            except Exception as e:
-                logger.warning(f"Primary model {selected_model} error: {e}. Retrying with fallback model openai/gpt-oss-20b...")
-                try:
-                    payload["model"] = "openai/gpt-oss-20b"
-                    payload["max_tokens"] = min(max_tokens, 3500)
-                    res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
-                    res.raise_for_status()
-                    data = res.json()
-                    return data["choices"][0]["message"]["content"]
-                except Exception as fallback_err:
-                    logger.error(f"Fallback model error: {fallback_err}")
-                    raise e
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            models_to_try = [selected_model, "qwen/qwen3.6-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+            # Deduplicate while preserving order
+            unique_models = []
+            for m in models_to_try:
+                if m and m not in unique_models:
+                    unique_models.append(m)
+
+            last_error = None
+            for attempt_model in unique_models:
+                payload["model"] = attempt_model
+                for retry in range(3):
+                    try:
+                        res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
+                        if res.status_code == 429:
+                            retry_after = 2.0 * (retry + 1)
+                            try:
+                                if "retry-after" in res.headers:
+                                    retry_after = float(res.headers["retry-after"])
+                            except Exception:
+                                pass
+                            logger.warning(f"Groq Rate limit 429 on {attempt_model}. Backing off for {retry_after}s (retry {retry+1}/3)...")
+                            import asyncio
+                            await asyncio.sleep(retry_after)
+                            continue
+                        
+                        res.raise_for_status()
+                        data = res.json()
+                        return data["choices"][0]["message"]["content"]
+                    except httpx.HTTPStatusError as http_err:
+                        last_error = http_err
+                        if http_err.response.status_code == 429:
+                            import asyncio
+                            await asyncio.sleep(2.5 * (retry + 1))
+                            continue
+                        break
+                    except Exception as err:
+                        last_error = err
+                        logger.warning(f"Model {attempt_model} attempt {retry+1} error: {err}")
+                        import asyncio
+                        await asyncio.sleep(1.0)
+
+            logger.error(f"All AI models failed in chat_completion: {last_error}")
+            if last_error:
+                raise last_error
+            return ""
 
     def _optimize_messages(self, messages: List[Dict[str, Any]], max_turns: int = 6) -> List[Dict[str, Any]]:
         """
