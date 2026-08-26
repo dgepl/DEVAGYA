@@ -138,39 +138,42 @@ async def generate_ai_assignment(req: GenerateAssignmentRequest):
             "hots": "High Order Thinking Skills (HOTS) & Creative Synthesis"
         }.get(req.difficulty.lower(), "Application & Conceptual Understanding")
 
-        # Build precise structured prompt
-        type_breakdown = []
+        # Build detailed distribution checklist
+        breakdown_items = []
+        q_idx = 1
         if req.mcq_count > 0:
-            type_breakdown.append(f"- {req.mcq_count} Multiple Choice Questions (MCQs, 1 Mark each, exactly 4 distinct options)")
+            breakdown_items.append(f"- Questions {q_idx} to {q_idx + req.mcq_count - 1}: EXACTLY {req.mcq_count} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...']).")
+            q_idx += req.mcq_count
         if req.fill_blanks_count > 0:
-            type_breakdown.append(f"- {req.fill_blanks_count} Fill-in-the-Blanks / True-False Questions (1 Mark each)")
+            breakdown_items.append(f"- Questions {q_idx} to {q_idx + req.fill_blanks_count - 1}: EXACTLY {req.fill_blanks_count} Fill-in-the-Blanks Questions (labeled 'question_type': 'fill_in_the_blank', 'marks': 1).")
+            q_idx += req.fill_blanks_count
         if req.short_count > 0:
-            type_breakdown.append(f"- {req.short_count} Short Answer Questions (2–3 Marks each, needing 3–5 written lines)")
+            breakdown_items.append(f"- Questions {q_idx} to {q_idx + req.short_count - 1}: EXACTLY {req.short_count} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, 'lines_allocated': 4).")
+            q_idx += req.short_count
         if req.long_count > 0:
-            type_breakdown.append(f"- {req.long_count} Long Answer / Case-Study Questions (4–5 Marks each, multi-step explanation, needing 7–10 lines)")
+            breakdown_items.append(f"- Questions {q_idx} to {q_idx + req.long_count - 1}: EXACTLY {req.long_count} Long Answer / HOTS Questions (labeled 'question_type': 'long', 'marks': 5, 'lines_allocated': 8).")
+            q_idx += req.long_count
 
-        breakdown_text = "\n".join(type_breakdown)
-
-        notes_context = f"\nTeacher's Reference Notes / Special Focus:\n{req.custom_notes.strip()}\n" if req.custom_notes and req.custom_notes.strip() else ""
+        breakdown_text = "\n".join(breakdown_items)
+        notes_context = f"\nTeacher's Reference Notes / Focus:\n{req.custom_notes.strip()}\n" if req.custom_notes and req.custom_notes.strip() else ""
 
         system_prompt = (
             f"You are DEVGYA's Master CBSE/NCERT Curriculum Architect and Senior Teacher Assessment Synthesizer for {req.class_name} {req.subject}. "
-            f"Generate 100% original, academically rigorous questions strictly tailored to the topic '{req.chapter_topic}'. "
-            f"Use formal LaTeX notation for mathematical and scientific formulas (e.g. $x^2 + 5x + 6 = 0$, $\\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$, $H_2SO_4$). "
-            f"IMPORTANT: Ensure valid, well-formed JSON output. Escape all quotes and backslashes properly. Respond ONLY with the JSON object."
+            f"You MUST generate a complete assignment with EXACTLY {total_q_count} unique, authentic questions for '{req.chapter_topic}'. "
+            f"Use formal LaTeX notation ($...$) for mathematical and scientific formulas (e.g. $x^2 + 5x + 6 = 0$, $\\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$, $H_2SO_4$). "
+            f"IMPORTANT: Respond ONLY with a valid JSON object matching the requested schema. You MUST generate ALL {total_q_count} questions."
         )
 
-        user_prompt = f"""
-Create a comprehensive homework/classroom assignment worksheet for {req.class_name} — {req.subject}.
+        user_prompt = f"""Create an authentic homework/classroom worksheet for {req.class_name} — {req.subject}.
 Chapter / Topic: {req.chapter_topic}
-Difficulty Level: {diff_str}
+Cognitive Difficulty: {diff_str}
 {notes_context}
 
-EXACT QUESTION DISTRIBUTION REQUIRED:
+MANDATORY QUESTION COUNT CHECKLIST:
+You MUST generate ALL {total_q_count} questions in the 'questions' array:
 {breakdown_text}
 
-STRICT JSON SCHEMA REQUIREMENTS:
-Return a JSON object matching this exact structure:
+JSON OUTPUT STRUCTURE:
 {{
   "title": "{req.title or f'{req.subject} Assignment: {req.chapter_topic}'}",
   "instructions": [
@@ -182,38 +185,17 @@ Return a JSON object matching this exact structure:
     {{
       "question_number": 1,
       "question_type": "mcq",
-      "section": "Section A: Objective Questions",
-      "question_text": "Detailed question stem...",
-      "options": ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"],
-      "answer": "(A) Option 1",
-      "explanation": "Step-by-step conceptual explanation and marking criteria.",
+      "section": "Section A: Multiple Choice Questions",
+      "question_text": "...",
+      "options": ["(A)...", "(B)...", "(C)...", "(D)..."],
+      "answer": "(A)...",
+      "explanation": "...",
       "marks": 1,
       "lines_allocated": 1
-    }},
-    {{
-      "question_number": 2,
-      "question_type": "short",
-      "section": "Section B: Short Answer Questions",
-      "question_text": "Short answer question prompt...",
-      "options": null,
-      "answer": "Complete standard model solution.",
-      "explanation": "Marking breakdown (e.g. 1 mark for formula + 1 mark for answer).",
-      "marks": 3,
-      "lines_allocated": 4
-    }},
-    {{
-      "question_number": 3,
-      "question_type": "long",
-      "section": "Section C: Long Answer Questions",
-      "question_text": "Detailed long answer / case study problem...",
-      "options": null,
-      "answer": "Comprehensive multi-step solution.",
-      "explanation": "Detailed step-by-step evaluation rubric.",
-      "marks": 5,
-      "lines_allocated": 8
     }}
   ]
 }}
+Ensure the 'questions' array contains ALL {total_q_count} items without stopping early.
 """
 
         raw_response = await ai_provider.chat_completion(
@@ -221,13 +203,48 @@ Return a JSON object matching this exact structure:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.4,
+            temperature=0.3,
             max_tokens=4000,
             response_format_json=True
         )
 
         parsed = robust_json_parser(raw_response)
         raw_questions = parsed.get("questions") or []
+
+        # Check if any question types were missed by the model and generate supplement if needed
+        parsed_mcqs = [q for q in raw_questions if "mcq" in str(q.get("question_type", "")).lower()]
+        parsed_shorts = [q for q in raw_questions if "short" in str(q.get("question_type", "")).lower()]
+        parsed_longs = [q for q in raw_questions if "long" in str(q.get("question_type", "")).lower() or "hots" in str(q.get("question_type", "")).lower()]
+
+        # If model missed short or long questions, fetch supplement
+        missing_short = max(0, req.short_count - len(parsed_shorts))
+        missing_long = max(0, req.long_count - len(parsed_longs))
+        missing_mcq = max(0, req.mcq_count - len(parsed_mcqs))
+
+        if (missing_short > 0 or missing_long > 0 or missing_mcq > 0) and len(raw_questions) < total_q_count:
+            try:
+                supp_prompt = f"""Generate the missing questions for {req.class_name} {req.subject} topic '{req.chapter_topic}':
+- {missing_mcq} MCQs (1 Mark each, 4 options)
+- {missing_short} Short Answer Questions (3 Marks each)
+- {missing_long} Long Answer Questions (5 Marks each)
+Respond in JSON: {{"questions": [{{"question_type": "...", "section": "...", "question_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "answer": "...", "explanation": "...", "marks": 3, "lines_allocated": 4}}]}}"""
+                supp_raw = await asyncio.wait_for(
+                    ai_provider.chat_completion(
+                        messages=[
+                            {"role": "system", "content": f"You are CBSE {req.subject} question generator. Return JSON."},
+                            {"role": "user", "content": supp_prompt}
+                        ],
+                        temperature=0.3,
+                        max_tokens=2500,
+                        response_format_json=True
+                    ),
+                    timeout=8.0
+                )
+                supp_parsed = robust_json_parser(supp_raw)
+                supp_qs = supp_parsed.get("questions") or []
+                raw_questions.extend(supp_qs)
+            except Exception as supp_err:
+                logger.info(f"[Assignment Supplement] Notice: {supp_err}")
 
         # Clean and standardize questions
         cleaned_questions = []

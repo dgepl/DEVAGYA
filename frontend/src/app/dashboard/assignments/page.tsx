@@ -36,7 +36,9 @@ import {
   AlignLeft,
   Columns,
   Type,
-  X
+  X,
+  Printer,
+  FileSpreadsheet
 } from "lucide-react";
 
 export default function AssignmentMakerPage() {
@@ -46,9 +48,9 @@ export default function AssignmentMakerPage() {
   const [chapterTopic, setChapterTopic] = useState("Quadratic Equations & Polynomials");
   const [title, setTitle] = useState("Classroom Assignment 1");
   const [difficulty, setDifficulty] = useState("medium");
-  const [mcqCount, setMcqCount] = useState(5);
-  const [shortCount, setShortCount] = useState(3);
-  const [longCount, setLongCount] = useState(2);
+  const [mcqCount, setMcqCount] = useState(4);
+  const [shortCount, setShortCount] = useState(2);
+  const [longCount, setLongCount] = useState(1);
   const [fillBlanksCount, setFillBlanksCount] = useState(0);
   const [dueDate, setDueDate] = useState("");
   const [schoolName, setSchoolName] = useState("DEVGYA GLOBAL ACADEMY");
@@ -61,6 +63,8 @@ export default function AssignmentMakerPage() {
   // --- Active Assignment Workspace State ---
   const [assignment, setAssignment] = useState<AssignmentData | null>(null);
   const [previewMath, setPreviewMath] = useState<Record<number, boolean>>({});
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewTab, setPreviewTab] = useState<"worksheet" | "answers">("worksheet");
 
   // --- PDF Customizer Modal State ---
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
@@ -93,7 +97,8 @@ export default function AssignmentMakerPage() {
     setError(null);
     setSuccessMsg(null);
 
-    if (mcqCount + shortCount + longCount + fillBlanksCount <= 0) {
+    const totalCount = mcqCount + shortCount + longCount + fillBlanksCount;
+    if (totalCount <= 0) {
       setError("Please select at least 1 question to generate.");
       return;
     }
@@ -121,11 +126,11 @@ export default function AssignmentMakerPage() {
       };
 
       const res = await generateAIAssignment(payload);
-      if (res && res.assignment) {
+      if (res && res.assignment && res.assignment.questions?.length > 0) {
         setAssignment(res.assignment);
-        setSuccessMsg("✨ 100% Original AI Assignment generated successfully!");
+        setSuccessMsg(`✨ Successfully generated all ${res.assignment.questions.length} original AI questions!`);
       } else {
-        throw new Error("No assignment data returned by AI.");
+        throw new Error("No assignment questions returned by AI. Please try again.");
       }
     } catch (err: any) {
       setError(err.message || "Failed to generate AI assignment. Please try again.");
@@ -143,7 +148,6 @@ export default function AssignmentMakerPage() {
       }
       return q;
     });
-    // Recalculate total marks
     const newTotal = updatedQs.reduce((acc, q) => acc + (Number(q.marks) || 0), 0);
     setAssignment({ ...assignment, questions: updatedQs, total_marks: newTotal });
   };
@@ -164,7 +168,6 @@ export default function AssignmentMakerPage() {
   const handleDeleteQuestion = (qNum: number) => {
     if (!assignment) return;
     const filtered = assignment.questions.filter((q) => q.question_number !== qNum);
-    // Renumber questions
     const renumbered = filtered.map((q, idx) => ({ ...q, question_number: idx + 1 }));
     const newTotal = renumbered.reduce((acc, q) => acc + (Number(q.marks) || 0), 0);
     setAssignment({ ...assignment, questions: renumbered, total_marks: newTotal });
@@ -187,10 +190,10 @@ export default function AssignmentMakerPage() {
       question_number: nextNum,
       question_type: type,
       section: sec,
-      question_text: "New customized question stem...",
+      question_text: "New customized question prompt...",
       options: type === "mcq" ? ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"] : null,
       answer: type === "mcq" ? "(A) Option 1" : "Model solution here...",
-      explanation: "Evaluation rubric and marking scheme.",
+      explanation: "Evaluation rubric and step-by-step marking scheme.",
       marks,
       lines_allocated: lines
     };
@@ -225,42 +228,48 @@ export default function AssignmentMakerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 sm:pb-16">
       {/* Top Banner Header */}
       <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white border-b border-indigo-800 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                  <Sparkles className="w-3.5 h-3.5" /> 100% Original AI Synthesizer
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                  <Sparkles className="w-3 h-3" /> 100% Original AI
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-200 border border-blue-400/30">
-                  CBSE / NCERT Mapped
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                  CBSE / NCERT
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-2 flex items-center gap-2">
-                <Edit3 className="w-7 h-7 text-amber-400" />
-                AI Assignment & Worksheet Studio
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight mt-1.5 flex items-center gap-2">
+                <Edit3 className="w-6 h-6 sm:w-7 sm:h-7 text-amber-400" />
+                AI Assignment & Worksheet Maker
               </h1>
-              <p className="text-sm text-slate-300 mt-1 max-w-2xl">
-                Generate authentic, syllabus-accurate homework, assignments, and test worksheets with exact question breakdowns, custom answer lines, and printable layout styling.
+              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
+                Create homework worksheets with custom answer lines, response boxes, and printable layout options.
               </p>
             </div>
 
             {assignment && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  onClick={() => setShowPreviewModal(true)}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white border border-indigo-500 transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <Eye className="w-3.5 h-3.5" /> Preview Paper
+                </button>
                 <button
                   onClick={() => setAssignment(null)}
-                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5 shadow-sm"
+                  className="px-3 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1 shadow-sm"
                 >
-                  <RotateCcw className="w-4 h-4" /> Create New
+                  <RotateCcw className="w-3.5 h-3.5" /> New
                 </button>
                 <button
                   onClick={() => setIsPdfModalOpen(true)}
-                  className="px-5 py-2.5 text-sm font-bold rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 transition flex items-center gap-2 shadow-lg shadow-amber-500/20"
+                  className="px-4 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-amber-500/20"
                 >
-                  <Download className="w-4 h-4" /> Download Assignment PDF
+                  <Download className="w-3.5 h-3.5" /> Download PDF
                 </button>
               </div>
             )}
@@ -271,10 +280,10 @@ export default function AssignmentMakerPage() {
       {/* Notifications */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
         {error && (
-          <div className="mb-4 p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 flex items-start gap-3 shadow-sm">
+          <div className="mb-4 p-3.5 sm:p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 flex items-start gap-3 shadow-sm">
             <AlertCircle className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
-              <h4 className="font-bold text-sm">Action Notice</h4>
+              <h4 className="font-bold text-xs sm:text-sm">Action Notice</h4>
               <p className="text-xs text-rose-700 mt-0.5">{error}</p>
             </div>
             <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-600">
@@ -283,10 +292,10 @@ export default function AssignmentMakerPage() {
           </div>
         )}
         {successMsg && (
-          <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 flex items-center justify-between shadow-sm">
+          <div className="mb-4 p-3.5 sm:p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-              <p className="text-sm font-semibold">{successMsg}</p>
+              <p className="text-xs sm:text-sm font-semibold">{successMsg}</p>
             </div>
             <button onClick={() => setSuccessMsg(null)} className="text-emerald-500 hover:text-emerald-700">
               <X className="w-4 h-4" />
@@ -296,30 +305,30 @@ export default function AssignmentMakerPage() {
       </div>
 
       {/* MAIN CONTAINER */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
         {!assignment ? (
           /* ====================================================================
-             1. PRE-GENERATION CONFIGURATION FORM
+             1. CLEAN, STREAMLINED PRE-GENERATION FORM
              ==================================================================== */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-                <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100">
+              <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-sm">
+                <div className="flex items-center gap-2 mb-5 pb-3 border-b border-slate-100">
                   <Sliders className="w-5 h-5 text-indigo-600" />
-                  <h2 className="text-lg font-black text-slate-900">Assignment Parameters & Topic Details</h2>
+                  <h2 className="text-base sm:text-lg font-black text-slate-900">Assignment Topic & Question Setup</h2>
                 </div>
 
-                <form onSubmit={handleGenerate} className="space-y-6">
+                <form onSubmit={handleGenerate} className="space-y-5">
                   {/* Class & Subject */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                        Target Class
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Class
                       </label>
                       <select
                         value={className}
                         onChange={(e) => setClassName(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
                       >
                         {[
                           "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
@@ -332,13 +341,13 @@ export default function AssignmentMakerPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
                         Subject
                       </label>
                       <select
                         value={subject}
                         onChange={(e) => setSubject(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
                       >
                         {[
                           "Mathematics", "Science", "Physics", "Chemistry", "Biology",
@@ -353,73 +362,43 @@ export default function AssignmentMakerPage() {
 
                   {/* Chapter / Topic */}
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                      Chapter, Topic or Learning Objectives <span className="text-rose-500">*</span>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                      Chapter, Topic or Learning Unit <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={chapterTopic}
                       onChange={(e) => setChapterTopic(e.target.value)}
-                      placeholder="e.g. Electricity, Ohm's Law & Circuit Numericals"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                      placeholder="e.g. Electricity, Ohm's Law & Resistor Numericals"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
                       required
                     />
-                    <p className="text-xs text-slate-500 mt-1">
-                      Our AI will ground all generated questions strictly into this topic's official CBSE/NCERT curriculum.
-                    </p>
-                  </div>
-
-                  {/* Assignment Title & Due Date */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                        Assignment Title
-                      </label>
-                      <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder="e.g. Unit 3 Homework Assignment"
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                        Submission Due Date
-                      </label>
-                      <input
-                        type="date"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-                      />
-                    </div>
                   </div>
 
                   {/* QUESTION DISTRIBUTION COUNTERS */}
-                  <div className="pt-2">
-                    <div className="flex items-center justify-between mb-3">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                        <Hash className="w-4 h-4 text-indigo-600" />
-                        Exact Question Breakdown Required
+                  <div className="pt-1">
+                    <div className="flex items-center justify-between mb-2.5 flex-wrap gap-1">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                        <Hash className="w-3.5 h-3.5 text-indigo-600" />
+                        Question Breakdown Required
                       </label>
-                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                        Total Qs: {mcqCount + shortCount + longCount + fillBlanksCount} | Total Marks: {estimatedMarks}
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        Total: {mcqCount + shortCount + longCount + fillBlanksCount} Qs ({estimatedMarks} Marks)
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {/* MCQs */}
-                      <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl">
-                        <div className="flex items-center justify-between mb-2">
+                      <div className="p-3 sm:p-4 bg-blue-50/50 border border-blue-200 rounded-2xl">
+                        <div className="flex items-center justify-between mb-1.5">
                           <span className="text-xs font-bold text-blue-900">MCQs (1 Mark)</span>
-                          <span className="text-[11px] font-semibold text-blue-600">Section A</span>
+                          <span className="text-[10px] font-semibold text-blue-600">4 options</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setMcqCount(Math.max(0, mcqCount - 1))}
-                            className="w-8 h-8 rounded-lg bg-white border border-blue-200 hover:bg-blue-100 font-bold text-blue-900 transition flex items-center justify-center"
+                            className="w-8 h-8 rounded-lg bg-white border border-blue-200 hover:bg-blue-100 font-black text-blue-900 transition flex items-center justify-center text-sm"
                           >
                             -
                           </button>
@@ -429,30 +408,29 @@ export default function AssignmentMakerPage() {
                             max="30"
                             value={mcqCount}
                             onChange={(e) => setMcqCount(Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-full text-center bg-white border border-blue-200 rounded-lg py-1 font-bold text-blue-950"
+                            className="w-full text-center bg-white border border-blue-200 rounded-lg py-1 font-black text-blue-950 text-xs sm:text-sm"
                           />
                           <button
                             type="button"
                             onClick={() => setMcqCount(mcqCount + 1)}
-                            className="w-8 h-8 rounded-lg bg-white border border-blue-200 hover:bg-blue-100 font-bold text-blue-900 transition flex items-center justify-center"
+                            className="w-8 h-8 rounded-lg bg-white border border-blue-200 hover:bg-blue-100 font-black text-blue-900 transition flex items-center justify-center text-sm"
                           >
                             +
                           </button>
                         </div>
-                        <p className="text-[11px] text-blue-700 mt-2">4 options per question</p>
                       </div>
 
                       {/* Short Answer */}
-                      <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-emerald-900">Short Answer (3 Marks)</span>
-                          <span className="text-[11px] font-semibold text-emerald-600">Section B</span>
+                      <div className="p-3 sm:p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-bold text-emerald-900">Short (3 Marks)</span>
+                          <span className="text-[10px] font-semibold text-emerald-600">3–4 lines</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setShortCount(Math.max(0, shortCount - 1))}
-                            className="w-8 h-8 rounded-lg bg-white border border-emerald-200 hover:bg-emerald-100 font-bold text-emerald-900 transition flex items-center justify-center"
+                            className="w-8 h-8 rounded-lg bg-white border border-emerald-200 hover:bg-emerald-100 font-black text-emerald-900 transition flex items-center justify-center text-sm"
                           >
                             -
                           </button>
@@ -462,30 +440,29 @@ export default function AssignmentMakerPage() {
                             max="20"
                             value={shortCount}
                             onChange={(e) => setShortCount(Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-full text-center bg-white border border-emerald-200 rounded-lg py-1 font-bold text-emerald-950"
+                            className="w-full text-center bg-white border border-emerald-200 rounded-lg py-1 font-black text-emerald-950 text-xs sm:text-sm"
                           />
                           <button
                             type="button"
                             onClick={() => setShortCount(shortCount + 1)}
-                            className="w-8 h-8 rounded-lg bg-white border border-emerald-200 hover:bg-emerald-100 font-bold text-emerald-900 transition flex items-center justify-center"
+                            className="w-8 h-8 rounded-lg bg-white border border-emerald-200 hover:bg-emerald-100 font-black text-emerald-900 transition flex items-center justify-center text-sm"
                           >
                             +
                           </button>
                         </div>
-                        <p className="text-[11px] text-emerald-700 mt-2">3–4 writing lines</p>
                       </div>
 
                       {/* Long Answer */}
-                      <div className="p-4 bg-purple-50/50 border border-purple-200 rounded-xl">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-purple-900">Long / HOTS (5 Marks)</span>
-                          <span className="text-[11px] font-semibold text-purple-600">Section C</span>
+                      <div className="p-3 sm:p-4 bg-purple-50/50 border border-purple-200 rounded-2xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-bold text-purple-900">Long / HOTS (5M)</span>
+                          <span className="text-[10px] font-semibold text-purple-600">7–8 lines</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setLongCount(Math.max(0, longCount - 1))}
-                            className="w-8 h-8 rounded-lg bg-white border border-purple-200 hover:bg-purple-100 font-bold text-purple-900 transition flex items-center justify-center"
+                            className="w-8 h-8 rounded-lg bg-white border border-purple-200 hover:bg-purple-100 font-black text-purple-900 transition flex items-center justify-center text-sm"
                           >
                             -
                           </button>
@@ -495,65 +472,49 @@ export default function AssignmentMakerPage() {
                             max="10"
                             value={longCount}
                             onChange={(e) => setLongCount(Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-full text-center bg-white border border-purple-200 rounded-lg py-1 font-bold text-purple-950"
+                            className="w-full text-center bg-white border border-purple-200 rounded-lg py-1 font-black text-purple-950 text-xs sm:text-sm"
                           />
                           <button
                             type="button"
                             onClick={() => setLongCount(longCount + 1)}
-                            className="w-8 h-8 rounded-lg bg-white border border-purple-200 hover:bg-purple-100 font-bold text-purple-900 transition flex items-center justify-center"
+                            className="w-8 h-8 rounded-lg bg-white border border-purple-200 hover:bg-purple-100 font-black text-purple-900 transition flex items-center justify-center text-sm"
                           >
                             +
                           </button>
                         </div>
-                        <p className="text-[11px] text-purple-700 mt-2">7–8 writing lines</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Difficulty & School Branding */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  {/* Difficulty & Due Date */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                        Difficulty & Cognitive Level
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Difficulty
                       </label>
                       <select
                         value={difficulty}
                         onChange={(e) => setDifficulty(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
                       >
-                        <option value="easy">Foundational (Direct Recall & Definitions)</option>
+                        <option value="easy">Foundational (Direct Recall)</option>
                         <option value="medium">Standard (Application & Numericals)</option>
-                        <option value="hard">Advanced (Multi-step Problem Solving)</option>
+                        <option value="hard">Advanced (Complex Multi-step)</option>
                         <option value="hots">HOTS (Critical Thinking & Case Study)</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                        School / Institute Name
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Due Date
                       </label>
                       <input
-                        type="text"
-                        value={schoolName}
-                        onChange={(e) => setSchoolName(e.target.value)}
-                        placeholder="e.g. DEVGYA GLOBAL ACADEMY"
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
                       />
                     </div>
-                  </div>
-
-                  {/* Optional Custom Notes / Teacher Focus */}
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                      Optional Teacher Notes or Focus Areas (Paste excerpt / formulas)
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={customNotes}
-                      onChange={(e) => setCustomNotes(e.target.value)}
-                      placeholder="e.g. Focus on word problems involving speed/distance and discriminant tests."
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-                    />
                   </div>
 
                   {/* SUBMIT BUTTON */}
@@ -561,16 +522,16 @@ export default function AssignmentMakerPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-base shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-3 disabled:opacity-50"
+                      className="w-full py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2.5 disabled:opacity-50 active:scale-98"
                     >
                       {loading ? (
                         <>
                           <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Synthesizing 100% Original AI Questions...</span>
+                          <span>Generating 100% Original AI Questions...</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-5 h-5 text-amber-300" />
+                          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
                           <span>Generate 100% Original AI Assignment</span>
                         </>
                       )}
@@ -580,57 +541,47 @@ export default function AssignmentMakerPage() {
               </div>
             </div>
 
-            {/* Sidebar Guide & Live Blueprint */}
-            <div className="space-y-6">
-              <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl p-6 border border-indigo-800 shadow-md">
-                <h3 className="text-base font-black text-amber-400 flex items-center gap-2 mb-3">
-                  <Award className="w-5 h-5" />
+            {/* Sidebar Guide — Hidden on Mobile for clean, user-friendly mobile experience */}
+            <div className="hidden lg:block space-y-6">
+              <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-3xl p-6 border border-indigo-800 shadow-md">
+                <h3 className="text-sm font-black text-amber-400 flex items-center gap-2 mb-3">
+                  <Award className="w-4 h-4" />
                   What Makes DEVGYA Assignments Special?
                 </h3>
                 <ul className="space-y-3 text-xs text-slate-300 leading-relaxed">
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <span><b>Zero Mock / Zero Templates:</b> Every single question is generated in real time directly from CBSE/NCERT curriculum benchmarks.</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                    <span><b>Zero Mock / Zero Templates:</b> Real-time curriculum generation strictly tailored to your topic.</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <span><b>Calculus & Math Notation:</b> Native LaTeX formatting for fractions, powers, roots, vectors, and chemical equations.</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                    <span><b>LaTeX Math:</b> High-resolution formula typography for calculus, polynomials & physics.</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <span><b>Configurable Answer Lines:</b> Choose ruled lines or response boxes so students can fill answers directly on the printed sheet.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <span><b>Teacher Key & Rubrics:</b> Export a companion PDF with complete step-by-step marking schemes.</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                    <span><b>Ruled Lines & Boxes:</b> Customizable student writing lines on the final PDF.</span>
                   </li>
                 </ul>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Assignment Summary</h4>
-                <div className="space-y-2.5 text-xs text-slate-700">
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Selected Subject:</span>
+                <div className="space-y-2 text-xs text-slate-700">
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-500">Subject:</span>
                     <span className="font-bold text-slate-900">{subject}</span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Class & Grade:</span>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-500">Class:</span>
                     <span className="font-bold text-slate-900">{className}</span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <div className="flex justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-500">Total Questions:</span>
                     <span className="font-bold text-slate-900">{mcqCount + shortCount + longCount + fillBlanksCount} Qs</span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <div className="flex justify-between py-1">
                     <span className="text-slate-500">Total Marks:</span>
-                    <span className="font-black text-indigo-700 text-sm">{estimatedMarks} Marks</span>
-                  </div>
-                  <div className="flex justify-between py-1.5">
-                    <span className="text-slate-500">Estimated Pages:</span>
-                    <span className="font-bold text-slate-900">
-                      {Math.max(1, Math.ceil((mcqCount * 0.2 + shortCount * 0.4 + longCount * 0.7)))} Pages
-                    </span>
+                    <span className="font-black text-indigo-700">{estimatedMarks} Marks</span>
                   </div>
                 </div>
               </div>
@@ -640,44 +591,50 @@ export default function AssignmentMakerPage() {
           /* ====================================================================
              2. INTERACTIVE ASSIGNMENT WORKSPACE & QUESTION EDITOR
              ==================================================================== */
-          <div className="space-y-6">
+          <div className="space-y-5">
             {/* Top Workspace Header Bar */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
                     {assignment.class_name}
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
                     {assignment.subject}
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                     {assignment.questions.length} Questions
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    Max Marks: {assignment.total_marks}
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    {assignment.total_marks} Marks
                   </span>
                 </div>
                 <input
                   type="text"
                   value={assignment.title}
                   onChange={(e) => setAssignment({ ...assignment, title: e.target.value })}
-                  className="text-lg sm:text-xl font-black text-slate-900 bg-transparent border-b border-dashed border-slate-300 hover:border-indigo-500 focus:border-indigo-600 focus:outline-none w-full max-w-xl transition"
+                  className="text-base sm:text-xl font-black text-slate-900 bg-transparent border-b border-dashed border-slate-300 hover:border-indigo-500 focus:border-indigo-600 focus:outline-none w-full max-w-xl transition"
                 />
               </div>
 
-              <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowPreviewModal(true)}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <Eye className="w-3.5 h-3.5" /> Preview Paper
+                </button>
                 <button
                   onClick={() => handleAddQuestion("short")}
-                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition flex items-center gap-1.5"
+                  className="px-3 py-2 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition flex items-center gap-1"
                 >
-                  <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Question
+                  <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Q
                 </button>
                 <button
                   onClick={() => setIsPdfModalOpen(true)}
-                  className="px-5 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white transition flex items-center gap-2 shadow-md shadow-indigo-600/20"
+                  className="px-4 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white transition flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
                 >
-                  <Download className="w-4 h-4" /> Download PDF Configurator
+                  <Download className="w-3.5 h-3.5" /> Download PDF
                 </button>
               </div>
             </div>
@@ -689,27 +646,27 @@ export default function AssignmentMakerPage() {
                 return (
                   <div
                     key={q.question_number}
-                    className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition"
+                    className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition"
                   >
                     {/* Question Card Header */}
                     <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 flex-wrap gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center">
+                        <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center">
                           Q{q.question_number}
                         </span>
                         <input
                           type="text"
                           value={q.section}
                           onChange={(e) => handleUpdateQuestion(q.question_number, "section", e.target.value)}
-                          className="text-xs font-bold text-indigo-800 bg-indigo-50/50 px-2 py-1 rounded-md border border-indigo-100"
+                          className="text-xs font-bold text-indigo-800 bg-indigo-50/50 px-2 py-0.5 rounded-md border border-indigo-100 max-w-[200px]"
                         />
-                        <span className="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                           {q.question_type}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5 text-xs">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex items-center gap-1 text-xs">
                           <label className="font-bold text-slate-600">Marks:</label>
                           <input
                             type="number"
@@ -717,13 +674,13 @@ export default function AssignmentMakerPage() {
                             max="20"
                             value={q.marks}
                             onChange={(e) => handleUpdateQuestion(q.question_number, "marks", parseInt(e.target.value) || 1)}
-                            className="w-14 text-center font-bold bg-slate-50 border border-slate-300 rounded-lg py-0.5 text-xs text-slate-900"
+                            className="w-12 text-center font-bold bg-slate-50 border border-slate-300 rounded-lg py-0.5 text-xs text-slate-900"
                           />
                         </div>
 
                         {q.question_type !== "mcq" && (
-                          <div className="flex items-center gap-1.5 text-xs">
-                            <label className="font-bold text-slate-600">Answer Lines:</label>
+                          <div className="flex items-center gap-1 text-xs">
+                            <label className="font-bold text-slate-600">Lines:</label>
                             <input
                               type="number"
                               min="1"
@@ -732,7 +689,7 @@ export default function AssignmentMakerPage() {
                               onChange={(e) =>
                                 handleUpdateQuestion(q.question_number, "lines_allocated", parseInt(e.target.value) || 4)
                               }
-                              className="w-14 text-center font-bold bg-slate-50 border border-slate-300 rounded-lg py-0.5 text-xs text-slate-900"
+                              className="w-12 text-center font-bold bg-slate-50 border border-slate-300 rounded-lg py-0.5 text-xs text-slate-900"
                             />
                           </div>
                         )}
@@ -761,21 +718,18 @@ export default function AssignmentMakerPage() {
 
                     {/* Question Stem Edit & Preview */}
                     <div className="space-y-2">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Question Stem (Supports LaTeX $...$ & $$...$$)
-                      </label>
                       <textarea
                         rows={2}
                         value={q.question_text}
                         onChange={(e) => handleUpdateQuestion(q.question_number, "question_text", e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs sm:text-sm font-medium text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
                       />
 
                       {/* Live Math Preview Box */}
                       {isMathPreview && q.question_text && (
-                        <div className="p-3 bg-slate-900 text-white rounded-xl text-xs border border-slate-800">
+                        <div className="p-3 bg-slate-900 text-white rounded-2xl text-xs border border-slate-800">
                           <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block mb-1">
-                            Live Formula & Math Preview:
+                            Formula & Math Rendering:
                           </span>
                           <Markdown content={q.question_text} />
                         </div>
@@ -784,11 +738,11 @@ export default function AssignmentMakerPage() {
 
                     {/* MCQ Options (If MCQ) */}
                     {q.question_type === "mcq" && q.options && (
-                      <div className="mt-4 pt-3 border-t border-slate-100">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                      <div className="mt-3.5 pt-3 border-t border-slate-100">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
                           Options & Correct Answer Selection
                         </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {q.options.map((opt, oIdx) => {
                             const isCorrect = q.answer === opt;
                             return (
@@ -818,11 +772,11 @@ export default function AssignmentMakerPage() {
                       </div>
                     )}
 
-                    {/* Model Answer & Explanation (For Teacher Key) */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Model Answer & Explanation */}
+                    <div className="mt-3.5 pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-emerald-700 mb-1">
-                          Model Solution / Correct Answer
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1">
+                          Model Solution
                         </label>
                         <textarea
                           rows={2}
@@ -834,8 +788,8 @@ export default function AssignmentMakerPage() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                          Marking Scheme & Rubric
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                          Marking Scheme / Rubric
                         </label>
                         <textarea
                           rows={2}
@@ -851,25 +805,25 @@ export default function AssignmentMakerPage() {
               })}
             </div>
 
-            {/* Bottom Floating Add Controls */}
-            <div className="flex items-center justify-center gap-3 pt-4">
+            {/* Bottom Add Controls */}
+            <div className="flex items-center justify-center gap-2 pt-3 flex-wrap">
               <button
                 onClick={() => handleAddQuestion("mcq")}
-                className="px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-900 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                className="px-3.5 py-2 rounded-xl bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-900 text-xs font-bold transition flex items-center gap-1 shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" /> Add MCQ
               </button>
               <button
                 onClick={() => handleAddQuestion("short")}
-                className="px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-900 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-900 text-xs font-bold transition flex items-center gap-1 shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Short Answer
               </button>
               <button
                 onClick={() => handleAddQuestion("long")}
-                className="px-4 py-2.5 rounded-xl bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-900 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                className="px-3.5 py-2 rounded-xl bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-900 text-xs font-bold transition flex items-center gap-1 shadow-xs"
               >
-                <Plus className="w-3.5 h-3.5" /> Add Long Answer / Case Study
+                <Plus className="w-3.5 h-3.5" /> Add Long Answer
               </button>
             </div>
           </div>
@@ -877,20 +831,175 @@ export default function AssignmentMakerPage() {
       </div>
 
       {/* ====================================================================
-         3. INTERACTIVE PDF CUSTOMIZER MODAL ("ASK EACH AND EVERYTHING")
+         3. FULL PAPER POP-UP PREVIEW MODAL (LIKE QUESTION GENERATOR)
+         ==================================================================== */}
+      {showPreviewModal && assignment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-150">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Eye className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black truncate max-w-xs sm:max-w-md">{assignment.title}</h3>
+                  <p className="text-[11px] text-slate-300">
+                    {assignment.class_name} • {assignment.subject} • {assignment.questions.length} Questions ({assignment.total_marks} Marks)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowPreviewModal(false);
+                    setIsPdfModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition flex items-center gap-1"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download
+                </button>
+                <button
+                  onClick={() => setShowPreviewModal(false)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* View Mode Switcher */}
+            <div className="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPreviewTab("worksheet")}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition ${
+                    previewTab === "worksheet"
+                      ? "bg-white text-indigo-700 shadow-xs border border-slate-200"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Student Worksheet View
+                </button>
+                <button
+                  onClick={() => setPreviewTab("answers")}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition ${
+                    previewTab === "answers"
+                      ? "bg-white text-indigo-700 shadow-xs border border-slate-200"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Teacher Solution Key
+                </button>
+              </div>
+
+              <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
+                Due: {assignment.due_date || "Open"}
+              </span>
+            </div>
+
+            {/* Scrollable Printable Paper Body */}
+            <div className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6 bg-slate-50 font-sans">
+              {/* Paper Top Branding */}
+              <div className="text-center pb-4 border-b-2 border-slate-800 space-y-1">
+                <h2 className="text-lg sm:text-xl font-black text-slate-900 uppercase tracking-wide">
+                  {assignment.school_name || "DEVGYA GLOBAL ACADEMY"}
+                </h2>
+                <p className="text-xs sm:text-sm font-bold text-indigo-800 uppercase">
+                  {assignment.title}
+                </p>
+                <div className="flex justify-center gap-4 text-xs font-semibold text-slate-600 pt-1">
+                  <span>Class: <b>{assignment.class_name}</b></span>
+                  <span>Subject: <b>{assignment.subject}</b></span>
+                  <span>Max Marks: <b>{assignment.total_marks}</b></span>
+                </div>
+              </div>
+
+              {/* Student Header Bar */}
+              {previewTab === "worksheet" && (
+                <div className="p-3.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div><b>Student Name:</b> ______________________________</div>
+                  <div><b>Roll No:</b> __________________</div>
+                  <div><b>Section / Group:</b> ___________________________</div>
+                  <div><b>Marks Obtained:</b> _______ / {assignment.total_marks}</div>
+                </div>
+              )}
+
+              {/* Questions List */}
+              <div className="space-y-6">
+                {assignment.questions.map((q) => (
+                  <div key={q.question_number} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 flex-1 leading-relaxed">
+                        <span className="text-indigo-600 font-black mr-1.5">Q{q.question_number}.</span>
+                        <Markdown content={q.question_text} />
+                      </div>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">
+                        [{q.marks} {q.marks === 1 ? "Mark" : "Marks"}]
+                      </span>
+                    </div>
+
+                    {/* MCQ Options */}
+                    {q.options && q.options.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        {q.options.map((opt, oIdx) => (
+                          <div key={oIdx} className="text-xs font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                            <Markdown content={opt} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Student Worksheet View: Ruled Lines / Box Simulation */}
+                    {previewTab === "worksheet" ? (
+                      q.question_type !== "mcq" ? (
+                        <div className="pt-2 space-y-2">
+                          {Array.from({ length: Math.min(6, q.lines_allocated || 4) }).map((_, lIdx) => (
+                            <div key={lIdx} className="h-4 border-b border-dashed border-blue-300 w-full" />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-[11px] font-bold text-slate-500 pt-1">
+                          Selected Option: [ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ]
+                        </div>
+                      )
+                    ) : (
+                      /* Teacher Solution Key View */
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-1">
+                        <div className="font-bold text-emerald-900">
+                          <b>Correct Answer:</b> <Markdown content={q.answer || "N/A"} />
+                        </div>
+                        {q.explanation && (
+                          <div className="text-[11px] text-emerald-800 italic pt-0.5">
+                            <b>Rubric & Explanation:</b> <Markdown content={q.explanation} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+         4. INTERACTIVE PDF CUSTOMIZER MODAL ("DOWNLOAD CONFIGURATOR")
          ==================================================================== */}
       {isPdfModalOpen && assignment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl space-y-6 my-8 animate-in fade-in zoom-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-5 sm:p-8 shadow-2xl space-y-5 my-6 animate-in fade-in zoom-in duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
                   <Sliders className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900">Customize PDF Layout & Appearance</h3>
-                  <p className="text-xs text-slate-500">Configure how student writing spaces and page styling appear in the downloaded PDF.</p>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900">Customize PDF Layout</h3>
+                  <p className="text-[11px] text-slate-500">Configure student writing spaces and page styling.</p>
                 </div>
               </div>
               <button
@@ -902,82 +1011,82 @@ export default function AssignmentMakerPage() {
             </div>
 
             {/* Customization Options */}
-            <div className="space-y-5 text-xs text-slate-800">
+            <div className="space-y-4 text-xs text-slate-800">
               {/* Option 1: Student Answer Area Mode */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
                   Student Response Space Style
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setPdfConfig({ ...pdfConfig, answer_space_mode: "ruled_lines" })}
-                    className={`p-3.5 rounded-2xl border text-left transition ${
+                    className={`p-3 rounded-2xl border text-left transition ${
                       pdfConfig.answer_space_mode === "ruled_lines"
                         ? "bg-indigo-50 border-indigo-600 ring-2 ring-indigo-500/20 text-indigo-950 font-bold"
                         : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-0.5">
                       <span className="font-black text-xs">✍️ Ruled Lines</span>
-                      {pdfConfig.answer_space_mode === "ruled_lines" && <Check className="w-4 h-4 text-indigo-600" />}
+                      {pdfConfig.answer_space_mode === "ruled_lines" && <Check className="w-3.5 h-3.5 text-indigo-600" />}
                     </div>
-                    <p className="text-[11px] text-slate-500 font-normal">Draws ruled handwriting lines after each question for direct answering.</p>
+                    <p className="text-[10px] text-slate-500 font-normal">Ruled writing lines for students to answer directly.</p>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setPdfConfig({ ...pdfConfig, answer_space_mode: "response_box" })}
-                    className={`p-3.5 rounded-2xl border text-left transition ${
+                    className={`p-3 rounded-2xl border text-left transition ${
                       pdfConfig.answer_space_mode === "response_box"
                         ? "bg-indigo-50 border-indigo-600 ring-2 ring-indigo-500/20 text-indigo-950 font-bold"
                         : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-0.5">
                       <span className="font-black text-xs">📦 Response Box</span>
-                      {pdfConfig.answer_space_mode === "response_box" && <Check className="w-4 h-4 text-indigo-600" />}
+                      {pdfConfig.answer_space_mode === "response_box" && <Check className="w-3.5 h-3.5 text-indigo-600" />}
                     </div>
-                    <p className="text-[11px] text-slate-500 font-normal">Renders framed response boxes for student writing & diagrams.</p>
+                    <p className="text-[10px] text-slate-500 font-normal">Framed boxes for written solutions & diagrams.</p>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setPdfConfig({ ...pdfConfig, answer_space_mode: "none" })}
-                    className={`p-3.5 rounded-2xl border text-left transition ${
+                    className={`p-3 rounded-2xl border text-left transition ${
                       pdfConfig.answer_space_mode === "none"
                         ? "bg-indigo-50 border-indigo-600 ring-2 ring-indigo-500/20 text-indigo-950 font-bold"
                         : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-0.5">
                       <span className="font-black text-xs">📄 Question Sheet</span>
-                      {pdfConfig.answer_space_mode === "none" && <Check className="w-4 h-4 text-indigo-600" />}
+                      {pdfConfig.answer_space_mode === "none" && <Check className="w-3.5 h-3.5 text-indigo-600" />}
                     </div>
-                    <p className="text-[11px] text-slate-500 font-normal">Compact question paper with zero blank answer spaces (saves paper).</p>
+                    <p className="text-[10px] text-slate-500 font-normal">Compact question paper without blank spaces.</p>
                   </button>
                 </div>
               </div>
 
               {/* Option 2: Fine-Tuning Answer Lines & Box Size */}
               {pdfConfig.answer_space_mode === "ruled_lines" && (
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
                       Line Stroke Style
                     </label>
                     <select
                       value={pdfConfig.line_style}
                       onChange={(e) => setPdfConfig({ ...pdfConfig, line_style: e.target.value as any })}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold"
                     >
                       <option value="solid">Solid Crisp Lines</option>
                       <option value="dotted">Dotted Writing Lines</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                      Default Lines for Short Questions
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                      Default Lines for Short Qs
                     </label>
                     <input
                       type="number"
@@ -987,37 +1096,17 @@ export default function AssignmentMakerPage() {
                       onChange={(e) =>
                         setPdfConfig({ ...pdfConfig, default_short_lines: parseInt(e.target.value) || 4 })
                       }
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold"
                     />
                   </div>
                 </div>
               )}
 
-              {pdfConfig.answer_space_mode === "response_box" && (
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                      Response Box Height
-                    </label>
-                    <span className="font-bold text-indigo-600">{pdfConfig.box_height_mm} mm</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="20"
-                    max="60"
-                    step="5"
-                    value={pdfConfig.box_height_mm}
-                    onChange={(e) => setPdfConfig({ ...pdfConfig, box_height_mm: parseInt(e.target.value) || 35 })}
-                    className="w-full accent-indigo-600"
-                  />
-                </div>
-              )}
-
               {/* Option 3: Student Details Header */}
-              <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
                 <div>
-                  <h4 className="font-bold text-xs text-slate-900">Include Student Submission Details Box</h4>
-                  <p className="text-[11px] text-slate-500">Adds Student Name, Roll No, Section, and Marks blanks at top.</p>
+                  <h4 className="font-bold text-xs text-slate-900">Include Student Details Header Box</h4>
+                  <p className="text-[10px] text-slate-500">Name, Roll No, Section, and Marks blanks at top.</p>
                 </div>
                 <input
                   type="checkbox"
@@ -1028,10 +1117,10 @@ export default function AssignmentMakerPage() {
               </div>
 
               {/* Option 4: Color Theme & Font Sizing */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                    Academic Color Theme
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Theme
                   </label>
                   <select
                     value={pdfConfig.theme_name}
@@ -1040,45 +1129,45 @@ export default function AssignmentMakerPage() {
                   >
                     <option value="cbse">CBSE Classic Navy & Blue</option>
                     <option value="modern">Modern Indigo & Cyan</option>
-                    <option value="minimalist">Minimalist Charcoal & Slate</option>
+                    <option value="minimalist">Minimalist Slate</option>
                     <option value="emerald">Forest Emerald</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                    Font Sizing & Spacing
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Font Sizing
                   </label>
                   <select
                     value={pdfConfig.font_size_mode}
                     onChange={(e) => setPdfConfig({ ...pdfConfig, font_size_mode: e.target.value as any })}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold"
                   >
-                    <option value="standard">Standard (Recommended)</option>
-                    <option value="compact">Compact (Saves Paper & Lines)</option>
-                    <option value="large">Large (Dyslexia & Primary Friendly)</option>
+                    <option value="standard">Standard</option>
+                    <option value="compact">Compact (Paper Saver)</option>
+                    <option value="large">Large (Dyslexia Friendly)</option>
                   </select>
                 </div>
               </div>
             </div>
 
             {/* Modal Actions */}
-            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-3">
+            <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => handleDownloadPDF(true)}
                 disabled={pdfDownloading}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5"
               >
                 <Award className="w-3.5 h-3.5 text-amber-600" />
-                <span>Download Teacher Key & Rubric PDF</span>
+                <span>Teacher Key PDF</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleDownloadPDF(false)}
                 disabled={pdfDownloading}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2"
               >
                 {pdfDownloading ? (
                   <>
@@ -1088,7 +1177,7 @@ export default function AssignmentMakerPage() {
                 ) : (
                   <>
                     <Download className="w-4 h-4" />
-                    <span>Download Student Worksheet PDF</span>
+                    <span>Download Worksheet PDF</span>
                   </>
                 )}
               </button>
