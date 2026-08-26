@@ -100,13 +100,12 @@ class AIProviderService:
                 for retry in range(3):
                     try:
                         res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
+                        if res.status_code == 400 and "response_format" in payload:
+                            payload.pop("response_format", None)
+                            continue
+
                         if res.status_code == 429:
-                            retry_after = 2.0 * (retry + 1)
-                            try:
-                                if "retry-after" in res.headers:
-                                    retry_after = float(res.headers["retry-after"])
-                            except Exception:
-                                pass
+                            retry_after = min(float(res.headers.get("retry-after", 2.0 * (retry + 1))), 8.0)
                             logger.warning(f"Groq Rate limit 429 on {attempt_model}. Backing off for {retry_after}s (retry {retry+1}/3)...")
                             import asyncio
                             await asyncio.sleep(retry_after)
@@ -117,9 +116,12 @@ class AIProviderService:
                         return data["choices"][0]["message"]["content"]
                     except httpx.HTTPStatusError as http_err:
                         last_error = http_err
+                        if http_err.response.status_code == 400 and "response_format" in payload:
+                            payload.pop("response_format", None)
+                            continue
                         if http_err.response.status_code == 429:
                             import asyncio
-                            await asyncio.sleep(2.5 * (retry + 1))
+                            await asyncio.sleep(min(2.0 * (retry + 1), 6.0))
                             continue
                         break
                     except Exception as err:

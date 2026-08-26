@@ -251,7 +251,14 @@ export default function SuperAdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
+      
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(res.ok ? "Server communication error." : "AI Paper generation took longer than expected. Please try again.");
+      }
+
       if (res.ok && data.paper) {
         setTsoDraftPaper(data.paper);
         setActionMsg(`100-MCQ National TSO Paper for "${data.paper.subject}" synthesized by AI with 60/40 Hybrid Structure!`);
@@ -1775,7 +1782,6 @@ export default function SuperAdminPage() {
                     <th className="p-3.5">Candidate Teacher</th>
                     <th className="p-3.5">Paper / Subject</th>
                     <th className="p-3.5">Submitted At</th>
-                    <th className="p-3.5">Proctoring Log</th>
                     <th className="p-3.5">Score</th>
                     <th className="p-3.5">Review Status</th>
                     <th className="p-3.5 text-right">Action</th>
@@ -1790,7 +1796,7 @@ export default function SuperAdminPage() {
                     if (currentSubs.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400 font-semibold">
+                          <td colSpan={6} className="p-8 text-center text-slate-400 font-semibold">
                             No teacher Olympiad submissions found for the selected paper.
                           </td>
                         </tr>
@@ -1800,7 +1806,6 @@ export default function SuperAdminPage() {
                     return currentSubs.map((sub) => {
                       const matchedPaper = papersList.find(p => p.id === (sub.paper_id || "paper-101"));
 
-                      const tabCount = Number(sub.tab_switch_count ?? sub.proctor_incidents ?? 0);
                       const displayScore = sub.score_percentage != null ? `${sub.score_percentage}%` : (sub.official_score != null ? `${sub.official_score}%` : "Pending");
 
                       return (
@@ -1814,15 +1819,6 @@ export default function SuperAdminPage() {
                             <div className="text-[10px] text-slate-500 font-semibold">{matchedPaper?.class_name || "Class 10"} &bull; {matchedPaper?.subject || "Science"}</div>
                           </td>
                           <td className="p-3.5 text-slate-600 font-mono text-[11px]">{sub.submitted_at}</td>
-                          <td className="p-3.5">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              tabCount === 0 
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-rose-50 text-rose-700 border border-rose-200"
-                            }`}>
-                              {tabCount === 0 ? "Clean Proctor" : `${tabCount} Tab Warnings`}
-                            </span>
-                          </td>
                           <td className="p-3.5 font-black text-slate-900 text-sm">
                             {displayScore}
                           </td>
@@ -1894,17 +1890,6 @@ export default function SuperAdminPage() {
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
               <div className="font-extrabold text-slate-900">{selectedSub.teacher_name} ({selectedSub.teacher_email})</div>
               <div className="text-slate-500">Auto Computed Score: <span className="font-bold text-indigo-600">{selectedSub.score_percentage}% ({selectedSub.correct_count}/{selectedSub.total_questions} correct)</span></div>
-              <div className="text-slate-500">Anti-Cheating Proctor Status: <span className="font-bold text-rose-600">{selectedSub.proctor_status}</span></div>
-              {selectedSub.proctor_logs && selectedSub.proctor_logs.length > 0 && (
-                <div className="pt-2 border-t border-slate-200 space-y-1">
-                  <div className="font-black text-[10px] uppercase text-rose-700">Detailed AI Proctor Incident Logs ({selectedSub.proctor_logs.length} Events):</div>
-                  <div className="max-h-24 overflow-y-auto space-y-1 pr-1 font-mono text-[10px] text-slate-700">
-                    {selectedSub.proctor_logs.map((log: string, lIdx: number) => (
-                      <div key={lIdx} className="p-1 rounded bg-white border border-slate-200">{log}</div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="space-y-4">
