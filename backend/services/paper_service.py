@@ -118,210 +118,18 @@ class PaperService:
         school_name: str = "DEVGYA GLOBAL EDUTECH"
     ) -> Dict[str, Any]:
         """
-        AI-Powered Generator for the Master 100-MCQ 60/40 Hybrid Structure:
-        - Part-A: Universal Pedagogy (60 MCQs)
-          * Module 1: CBSE CPD Modules & NEP Guidelines (20 MCQs)
-          * Module 2: Personal Classroom Experience & Scenarios (20 MCQs)
-          * Module 3: Modern Pedagogy & Critical Thinking (20 MCQs)
-        - Part-B: Subject Content & Pedagogy (40 MCQs)
-          * Module 1: Core Subject Knowledge (20 MCQs)
-          * Module 2: Subject Pedagogical Knowledge & TLM (10 MCQs)
-          * Module 3: Misconceptions & HOTS (10 MCQs)
+        AI-Powered Generator for the Master 100-MCQ 60/40 Hybrid Structure.
         """
-        paper_title = title or f"National Teacher Skills Olympiad 2026 — {subject.upper()}"
-        diff_label = difficulty.title() if difficulty else "Medium"
-        
-        # Split the 100 questions into 10 focused batches of 10 questions each
-        # This prevents token-limit truncation and ensures 100% authentic, high-depth AI questions
-        batches_spec = [
-            # Part-A Module 1 (20 Qs -> 2 batches of 10)
-            {"section": "Part-A", "module": "CBSE CPD Modules & NEP Guidelines", "batch_idx": 1, "count": 10, "prompt": f"Generate 10 authentic, distinct MCQs at {diff_label} level testing CBSE 50-hour Continuous Professional Development (CPD), NEP 2020 pedagogical reforms, Competency-Based Education (CBE), PARAKH guidelines, 360-degree Holistic Progress Card (HPC), and NIPUN Bharat Foundational Literacy and Numeracy (FLN)."},
-            {"section": "Part-A", "module": "CBSE CPD Modules & NEP Guidelines", "batch_idx": 2, "count": 10, "prompt": f"Generate 10 authentic, distinct MCQs at {diff_label} level on Inclusive Education (RPwD Act 2016 accommodations), 10 Bagless Days, SAFAL diagnostic assessments, Art-Integrated Learning (AIL), and DIKSHA/NISHTHA digital pedagogy standards."},
-
-            # Part-A Module 2 (20 Qs -> 2 batches of 10)
-            {"section": "Part-A", "module": "Personal Classroom Experience & Scenarios", "batch_idx": 1, "count": 10, "prompt": f"Generate 10 practical scenario-based MCQs at {diff_label} level testing real classroom dilemma handling, managing diverse student behavioral disruptions, mitigating test anxiety, Think-Pair-Share active listening, and mixed-ability tiered pacing."},
-            {"section": "Part-A", "module": "Personal Classroom Experience & Scenarios", "batch_idx": 2, "count": 10, "prompt": f"Generate 10 practical scenario-based MCQs at {diff_label} level on resolving student peer conflicts, handling AI-generated homework ethically as a teachable moment, Parent-Teacher de-escalation meetings, impulse control wait-time, and student safeguarding policies."},
-
-            # Part-A Module 3 (20 Qs -> 2 batches of 10)
-            {"section": "Part-A", "module": "Modern Pedagogy & Critical Thinking", "batch_idx": 1, "count": 10, "prompt": f"Generate 10 MCQs at {diff_label} level testing Bloom's Revised Taxonomy (Analyze/Evaluate/Create), Socratic questioning, 5E Inquiry Model (Engage-Explore-Explain-Elaborate-Evaluate), Vygotsky's ZPD scaffolding, and Flipped Classroom dynamics."},
-            {"section": "Part-A", "module": "Modern Pedagogy & Critical Thinking", "count": 10, "batch_idx": 2, "prompt": f"Generate 10 MCQs at {diff_label} level on formative assessment tools (Exit Tickets, Concept Maps), Tomlinson's Differentiated Instruction, Mazur's Peer Instruction, Problem-Based Learning (PBL), and Harvard Visible Thinking routines (See-Think-Wonder)."},
-
-            # Part-B Module 1 (20 Qs -> 2 batches of 10)
-            {"section": "Part-B", "module": "Core Subject Knowledge", "batch_idx": 1, "count": 10, "prompt": f"Generate 10 rigorous, conceptual MCQs at {diff_label} level testing core fundamental subject depth and CBSE/NCERT syllabus mastery in {subject} for secondary educators."},
-            {"section": "Part-B", "module": "Core Subject Knowledge", "batch_idx": 2, "count": 10, "prompt": f"Generate 10 advanced multi-step application MCQs at {diff_label} level testing numerical, theoretical, and analytical depth in {subject} for secondary educators."},
-
-            # Part-B Module 2 (10 Qs -> 1 batch of 10)
-            {"section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "batch_idx": 1, "count": 10, "prompt": f"Generate 10 MCQs at {diff_label} level on subject-specific pedagogical methodologies, Teaching-Learning Material (TLM) utilization, digital simulations (e.g. PhET, GeoGebra), and experiential lab activities in {subject}."},
-
-            # Part-B Module 3 (10 Qs -> 1 batch of 10)
-            {"section": "Part-B", "module": "Misconceptions & HOTS", "batch_idx": 1, "count": 10, "prompt": f"Generate 10 MCQs at {diff_label} level focusing on diagnosing common student cognitive misconceptions in {subject} and formulating diagnostic Higher Order Thinking Skills (HOTS) remediation."}
-        ]
-
-        async def generate_single_batch(spec: Dict[str, Any], attempt = 1) -> List[Dict[str, Any]]:
-            count = spec["count"]
-            is_part_b = spec["section"] == "Part-B"
-            system_msg = (
-                f"You are a senior CBSE/NCERT curriculum and pedagogy assessment expert specialized in {subject}. "
-                f"For {spec['section']} ({spec['module']}), ALL questions MUST BE 100% STRICTLY BASED ON {subject} "
-                f"(e.g. if Mathematics: Algebra/Geometry/Calculus/Trigonometry; if English: Grammar/Comprehension/Poetics/Literature; "
-                f"if Hindi: Vyakaran/Sahitya; if Social Science: History/Civics/Geography/Economics; if Science: Physics/Chemistry/Biology). "
-                f"Do NOT include questions from unrelated subjects. Respond ONLY with a valid JSON object containing a 'questions' array."
-            )
-            prompt = f"""
-You are DEVGYA's Chief Assessment Architect for the National Teacher Skills Olympiad (TSO).
-Difficulty Target: {diff_label} Level.
-Subject Track: {subject}
-Section: {spec["section"]} ({spec["module"]})
-{spec["prompt"]}
-
-STRICT REQUIREMENTS:
-1. Generate EXACTLY {count} distinct multiple choice questions strictly aligned with {subject if is_part_b else "Universal Pedagogy & NEP"}.
-2. Every question must have exactly 4 options: ["(A) ...", "(B) ...", "(C) ...", "(D) ..."]
-3. "correct_answer" must be the 0-based integer index of the correct option (0, 1, 2, or 3).
-4. Provide a clear, insightful conceptual "explanation" for each question citing {subject if is_part_b else "CBSE/NEP"} principles.
-5. Return strictly valid JSON object matching this format:
-{{
-  "questions": [
-    {{
-      "question_text": "Detailed question text...",
-      "options": ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"],
-      "correct_answer": 0,
-      "explanation": "Detailed explanation why this option is correct."
-    }}
-  ]
-}}
-"""
-            try:
-                raw = await ai_provider.chat_completion(
-                    [
-                        {"role": "system", "content": system_msg},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.4,
-                    max_tokens=3500,
-                    response_format_json=True
-                )
-                text = (raw or "").strip()
-                if "```json" in text:
-                    text = text.split("```json", 1)[1].split("```", 1)[0].strip()
-                elif "```" in text:
-                    text = text.split("```", 1)[1].split("```", 1)[0].strip()
-                if "{" in text and "}" in text:
-                    text = text[text.find("{"):text.rfind("}") + 1].strip()
-
-                parsed = json.loads(text)
-                if isinstance(parsed, dict) and "questions" in parsed:
-                    parsed = parsed["questions"]
-                elif isinstance(parsed, list):
-                    pass
-                else:
-                    parsed = []
-                
-                results = []
-                for item in parsed[:count]:
-                    corr = item.get("correct_answer", 0)
-                    if isinstance(corr, str) and corr.isdigit(): corr = int(corr)
-                    elif isinstance(corr, str) and corr.strip().upper() in ["A", "B", "C", "D"]: corr = ord(corr.strip().upper()) - 65
-                    
-                    q_text = str(item.get("question_text", "")).strip()
-                    opts = item.get("options", ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"])
-                    
-                    if q_text and len(opts) == 4:
-                        results.append({
-                            "section": spec["section"],
-                            "module": spec["module"],
-                            "question_text": q_text,
-                            "options": opts,
-                            "correct_answer": corr if isinstance(corr, int) and 0 <= corr <= 3 else 0,
-                            "explanation": item.get("explanation", f"Conceptual explanation for {subject}.")
-                        })
-
-                if len(results) >= count:
-                    return results[:count]
-                
-                # If we got partial questions, retry once
-                if attempt < 2:
-                    return await generate_single_batch(spec, attempt + 1)
-                
-                # Fallback to subject-tailored questions
-                while len(results) < count:
-                    q_num = len(results) + 1
-                    results.append({
-                        "section": spec["section"],
-                        "module": spec["module"],
-                        "question_text": f"[{subject} - {spec['module']}] In secondary {subject} curriculum, which pedagogical approach most effectively resolves student misconceptions in advanced conceptual problem solving?",
-                        "options": [
-                            f"(A) Concrete-Representational-Abstract (CRA) scaffolding with structured {subject} representations",
-                            f"(B) Unstructured rote memorization without contextual inquiry in {subject}",
-                            f"(C) Eliminating conceptual formative assessments in {subject}",
-                            f"(D) Passive textbook reading without interactive problem solving in {subject}"
-                        ],
-                        "correct_answer": 0,
-                        "explanation": f"In {subject} education, CRA scaffolding develops durable conceptual foundations before symbolic mastery."
-                    })
-                return results[:count]
-
-            except Exception as e:
-                logger.error(f"Batch generation error for {subject} {spec['module']} batch {spec.get('batch_idx', 1)}: {e}")
-                if attempt < 3:
-                    await asyncio.sleep(2.0)
-                    return await generate_single_batch(spec, attempt + 1)
-                
-                # Subject-Specific Knowledge & Pedagogy Bank to guarantee 100% unique questions
-                subject_lower = subject.lower()
-                cs_topics = [
-                    ("Python Data Structures", "Which Python data structure provides O(1) average time complexity for lookup and key insertion?", ["(A) Hash Map / Dictionary (dict)", "(B) Singly Linked List", "(C) Sorted Array with linear scan", "(D) Binary Tree with unbalanced nodes"], 0, "Python dictionaries use optimized open addressing hash tables offering average O(1) lookup."),
-                    ("SQL Database Normalization", "In Relational Database Design (RDBMS), what is the primary objective of converting a schema to Third Normal Form (3NF)?", ["(A) Eliminating transitive functional dependencies on the Primary Key", "(B) Allowing multiple repeating groups in a single column", "(C) Duplicating non-key attributes across tables", "(D) Disabling foreign key referential integrity constraints"], 0, "3NF requires the schema to be in 2NF and have zero transitive dependencies on any candidate key."),
-                    ("Algorithm Complexity", "What is the worst-case time complexity of standard QuickSort algorithm when the pivot chosen is always the smallest element?", ["(A) O(n^2)", "(B) O(n log n)", "(C) O(n)", "(D) O(log n)"], 0, "When an extreme element is consistently chosen as pivot in QuickSort, recursion tree degenerates to depth n leading to O(n^2)."),
-                    ("Object-Oriented Design", "Which OOP principle enables a child class to override a parent method and provide a specialized implementation called at runtime?", ["(A) Dynamic Polymorphism (Method Overriding)", "(B) Data Encapsulation", "(C) Multiple Inheritance only", "(D) Static Type Casting"], 0, "Polymorphism enables dynamic method dispatch where overridden methods are bound at execution time."),
-                    ("Computer Networks (OSI)", "At which layer of the OSI reference model does the Transport Control Protocol (TCP) establish end-to-end reliable connections via 3-way handshake?", ["(A) Transport Layer (Layer 4)", "(B) Network Layer (Layer 3)", "(C) Data Link Layer (Layer 2)", "(D) Application Layer (Layer 7)"], 0, "TCP is a core Transport Layer protocol responsible for flow control, segmentation, and reliability."),
-                    ("Cybersecurity & Ethics", "In CBSE Cyber Safety curriculum, what is the best security practice against Man-in-the-Middle (MITM) attacks during data transit?", ["(A) Enforcing HTTPS with TLS 1.3 encryption and certificate pinning", "(B) Transmitting passwords in base64 plain text", "(C) Disabling firewall port filtering", "(D) Using default router admin credentials"], 0, "TLS encryption ensures cryptographic authenticity and end-to-end data confidentiality."),
-                    ("Recursion & Call Stack", "What occurs if a recursive function in Python fails to reach its base condition due to incorrect termination logic?", ["(A) RecursionError (maximum recursion depth exceeded / Stack Overflow)", "(B) Silent compilation ignoring the function", "(C) Automatic conversion to iterative while loop", "(D) Immediate hardware memory reallocation without error"], 0, "Python guards against stack overflow by raising RecursionError when max depth (default 1000) is exceeded."),
-                    ("Binary Trees & Traversals", "Which tree traversal order on a Binary Search Tree (BST) visits nodes in strictly ascending sorted order?", ["(A) In-Order Traversal (Left, Root, Right)", "(B) Pre-Order Traversal (Root, Left, Right)", "(C) Post-Order Traversal (Left, Right, Root)", "(D) Level-Order Traversal (Breadth-First)"], 0, "In-order traversal on a valid BST always yields keys in monotonically non-decreasing order."),
-                    ("Computational Thinking Pedagogy", "When introducing decomposition in Computational Thinking to secondary students, which instructional strategy is most effective?", ["(A) Breaking complex problems into manageable, modular sub-tasks before coding", "(B) Writing monolithic 500-line scripts without functions", "(C) Skipping algorithmic pseudocode design", "(D) Focusing exclusively on syntax memorization"], 0, "Decomposition enables students to break down intractable problems into independently solvable modular components."),
-                    ("CS Misconceptions & Debugging", "Which misconception is most common among novice programmers regarding the assignment operator '=' versus equality '==' in Python?", ["(A) Confusing variable value assignment with mathematical equality comparison", "(B) Assuming all integers are floating point numbers", "(C) Believing indentation has zero semantic meaning in Python", "(D) Treating all string variables as immutable arrays of integers"], 0, "Novice learners frequently confuse assignment (=) which mutates state with relational comparison (==) which returns a boolean.")
-                ]
-
-                math_topics = [
-                    ("Quadratic Equations", "What condition guarantees that the quadratic equation ax^2 + bx + c = 0 has two distinct real roots?", ["(A) Discriminant b^2 - 4ac > 0", "(B) Discriminant b^2 - 4ac = 0", "(C) Discriminant b^2 - 4ac < 0", "(D) Coefficient a = 0"], 0, "A positive discriminant ensures two distinct real intersections with the x-axis."),
-                    ("Trigonometric Identities", "What is the value of (sin^2 θ + cos^2 θ) / (1 + tan^2 θ) in terms of trigonometric functions?", ["(A) cos^2 θ", "(B) sin^2 θ", "(C) sec^2 θ", "(D) tan^2 θ"], 0, "sin^2 θ + cos^2 θ = 1, and 1 + tan^2 θ = sec^2 θ. Hence 1 / sec^2 θ = cos^2 θ."),
-                    ("Coordinate Geometry", "What is the slope of a line perpendicular to 3x - 4y + 12 = 0?", ["(A) -4/3", "(B) 3/4", "(C) -3/4", "(D) 4/3"], 0, "Slope m1 = 3/4. Perpendicular line has slope m2 = -1/m1 = -4/3."),
-                    ("Calculus & Limits", "What is the limit of (sin x) / x as x approaches 0?", ["(A) 1", "(B) 0", "(C) Infinity", "(D) Undefined"], 0, "By L'Hopital's rule or geometric unit circle proof, lim (x->0) sin(x)/x = 1."),
-                    ("Probability Theory", "If two events A and B are mutually exclusive with P(A)=0.3 and P(B)=0.5, what is P(A ∩ B)?", ["(A) 0", "(B) 0.15", "(C) 0.8", "(D) 0.2"], 0, "Mutually exclusive events cannot occur simultaneously, so P(A ∩ B) = 0.")
-                ]
-
-                pedagogy_topics = [
-                    ("NEP 2020 Foundational Literacy", "According to NEP 2020, what is the highest priority for the entire school education system under NIPUN Bharat?", ["(A) Achieving universal Foundational Literacy and Numeracy (FLN) by Grade 3", "(B) Introducing 3 mandatory foreign languages in primary school", "(C) Replacing all formative assessments with annual board exams", "(D) Privatizing primary school teacher recruitment"], 0, "NEP 2020 explicitly identifies foundational literacy and numeracy as an urgent national prerequisite."),
-                    ("CBSE 50-Hour CPD Policy", "Under CBSE affiliation bye-laws aligned with NEP 2020, every teacher is mandated to undergo how many hours of Continuous Professional Development (CPD) annually?", ["(A) At least 50 hours per academic year", "(B) 10 hours per year", "(C) 100 hours per semester", "(D) CPD is optional for confirmed teachers"], 0, "CBSE mandates a minimum of 50 hours of structured CPD annually for every educator."),
-                    ("Inclusive Education & RPwD Act", "Under the RPwD Act 2016 and CBSE guidelines, which accommodation is mandatory for students with verified dyscalculia during mathematics examinations?", ["(A) Provision of basic calculator / compensatory extra time and alternative evaluation", "(B) Mandatory exemption from all schooling", "(C) Separate isolated examination room without invigilation", "(D) Awarding 100% grace marks without assessment"], 0, "CBSE allows compensatory time, scribe/reader, and computational aids for certified learning disabilities."),
-                    ("Formative Assessment Techniques", "Which classroom strategy provides the most actionable real-time feedback loop before concluding a lesson?", ["(A) 2-minute Exit Tickets evaluating specific conceptual grasp", "(B) Surprise punitive end-of-term grading", "(C) Asking 'Is everyone clear?' without diagnostic checks", "(D) Assigning 50 unmonitored drill problems as punishment"], 0, "Exit tickets provide immediate diagnostic data to modify the subsequent lesson plan."),
-                    ("Differentiated Instruction", "According to Carol Ann Tomlinson's differentiated instruction model, teachers differentiate according to student readiness, interest, and profile across which three classroom elements?", ["(A) Content, Process, and Product", "(B) Homework, Punishment, and Detention", "(C) Textbooks, Stationery, and Seating chart only", "(D) School fees, Transport, and Uniform"], 0, "Tomlinson's framework focuses on differentiating Content (what), Process (how), and Product (demonstration).")
-                ]
-
-                fb_results = []
-                pool = cs_topics if "computer" in subject_lower or "it" in subject_lower else (math_topics if "math" in subject_lower else pedagogy_topics)
-
-                for i in range(count):
-                    topic_data = pool[i % len(pool)]
-                    topic_title, q_stem, opts, corr, expl = topic_data
-                    batch_offset = spec.get("batch_idx", 1) * 10 + i
-                    fb_results.append({
-                        "section": spec["section"],
-                        "module": spec["module"],
-                        "question_text": f"[{spec['module']} • Item #{batch_offset}] {q_stem}",
-                        "options": opts,
-                        "correct_answer": corr,
-                        "explanation": f"Official Curriculum Rationale: {expl}"
-                    })
-                return fb_results
-
-        from services.olympiad_service import generate_100_practice_mock_questions
-        base_100 = generate_100_practice_mock_questions(subject=subject)
-
-        # Attempt dynamic AI generation for Part-B (40 MCQs strictly for selected subject)
-        ai_part_b_qs = []
         try:
-            prompt = f"""You are the Chief Examination Controller for the National Teacher Skills Olympiad (TSO).
+            paper_title = title or f"National Teacher Skills Olympiad 2026 — {subject.upper()}"
+            
+            from services.olympiad_service import generate_100_practice_mock_questions
+            base_100 = generate_100_practice_mock_questions(subject=subject)
+
+            # Attempt dynamic AI generation for Part-B (40 MCQs strictly for selected subject)
+            ai_part_b_qs = []
+            try:
+                prompt = f"""You are the Chief Examination Controller for the National Teacher Skills Olympiad (TSO).
 Generate 40 Advanced Multiple Choice Questions (MCQs) for teachers strictly in subject '{subject}'.
 Structure:
 - Module 4: Core {subject} Knowledge & Theoretical/Numerical Concepts (20 MCQs)
@@ -329,115 +137,117 @@ Structure:
 - Module 6: {subject} Common Student Cognitive Misconceptions & HOTS Remediation (10 MCQs)
 
 STRICT REQUIREMENTS:
-1. All 40 questions MUST be 100% focused on {subject}. (e.g. if Mathematics: Algebra/Geometry/Calculus/Trigonometry; if Social Science: History/Civics/Geography/Economics; if English: Grammar/Poetics/Literature; if Hindi: Vyakaran/Sahitya; if Computer Science: Python/SQL/Algorithms).
+1. All 40 questions MUST be 100% focused on {subject}.
 2. Every question must have 4 options: ["(A) ...", "(B) ...", "(C) ...", "(D) ..."]
 3. "correct_answer" must be 0, 1, 2, or 3.
 4. Return strictly valid JSON matching:
 {{"questions": [{{"module": "Core Subject Knowledge", "question_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "correct_answer": 0, "explanation": "..."}}]}}"""
 
-            raw = await asyncio.wait_for(
-                ai_provider.chat_completion(
-                    messages=[
-                        {"role": "system", "content": f"You are an expert CBSE/NCERT curriculum and examination designer specialized in {subject}. Respond ONLY in valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.7,
-                    max_tokens=4000,
-                    response_format_json=True
-                ),
-                timeout=12.0
-            )
-            parsed = json.loads(raw)
-            ai_list = parsed.get("questions") or parsed.get("mcqs") or []
-            for item in ai_list:
-                if isinstance(item, dict) and item.get("question_text") and len(item.get("options", [])) >= 4:
-                    corr = item.get("correct_answer", 0)
-                    if isinstance(corr, str) and corr.isdigit(): corr = int(corr)
-                    elif isinstance(corr, str) and corr.strip().upper() in ["A", "B", "C", "D"]: corr = ord(corr.strip().upper()) - 65
-                    else: corr = int(corr) if isinstance(corr, (int, float)) else 0
-                    
-                    mod_name = item.get("module") or f"{subject} Mastery"
-                    ai_part_b_qs.append({
-                        "section": f"Part-B: Subject Depth & Discipline Mastery (40% Weightage) — {subject}",
-                        "module": mod_name,
-                        "question_text": re.sub(r'^\s*\[.*?\]\s*', '', str(item["question_text"])).strip(),
-                        "options": item["options"][:4],
-                        "correct_answer": corr % 4,
-                        "explanation": item.get("explanation", f"Core pedagogical and conceptual principle in {subject}.")
-                    })
-        except Exception as ai_err:
-            logger.info(f"[TSO Synthesis] AI generation fallback to domain-verified {subject} bank: {ai_err}")
+                raw = await asyncio.wait_for(
+                    ai_provider.chat_completion(
+                        messages=[
+                            {"role": "system", "content": f"You are an expert CBSE/NCERT curriculum and examination designer specialized in {subject}. Respond ONLY in valid JSON."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=4000,
+                        response_format_json=True
+                    ),
+                    timeout=10.0
+                )
+                parsed = json.loads(raw)
+                ai_list = parsed.get("questions") or parsed.get("mcqs") or []
+                for item in ai_list:
+                    if isinstance(item, dict) and item.get("question_text") and len(item.get("options", [])) >= 4:
+                        corr = item.get("correct_answer", 0)
+                        if isinstance(corr, str) and corr.isdigit(): corr = int(corr)
+                        elif isinstance(corr, str) and corr.strip().upper() in ["A", "B", "C", "D"]: corr = ord(corr.strip().upper()) - 65
+                        else: corr = int(corr) if isinstance(corr, (int, float)) else 0
+                        
+                        mod_name = item.get("module") or f"{subject} Mastery"
+                        ai_part_b_qs.append({
+                            "section": f"Part-B: Subject Depth & Discipline Mastery (40% Weightage) — {subject}",
+                            "module": mod_name,
+                            "question_text": re.sub(r'^\s*\[.*?\]\s*', '', str(item["question_text"])).strip(),
+                            "options": item["options"][:4],
+                            "correct_answer": corr % 4,
+                            "explanation": item.get("explanation", f"Core pedagogical and conceptual principle in {subject}.")
+                        })
+            except Exception as ai_err:
+                logger.info(f"[TSO Synthesis] AI generation fallback to domain-verified {subject} bank: {ai_err}")
 
-        # Assemble unified 100 questions: Part-A (1..60 Pedagogy) + Part-B (61..100 Subject)
-        final_questions = []
-        for idx in range(100):
-            q_num = idx + 1
-            if idx >= 60 and (idx - 60) < len(ai_part_b_qs):
-                q = ai_part_b_qs[idx - 60]
-                corr = q["correct_answer"]
-                opts = q["options"]
-                cleaned_stem = q["question_text"]
-                sec = q["section"]
-                mod = q["module"]
-                expl = q.get("explanation", "")
-            else:
-                base_q = base_100[idx] if idx < len(base_100) else base_100[idx % len(base_100)]
-                cleaned_stem = re.sub(r'^\s*\[.*?\]\s*', '', str(base_q.get("question_text", ""))).strip()
-                opts = base_q.get("options", ["(A)", "(B)", "(C)", "(D)"])
-                corr = int(base_q.get("correct_answer", 0)) % len(opts)
-                sec = base_q.get("section", "Part-A" if q_num <= 60 else f"Part-B: Subject Depth — {subject}")
-                mod = base_q.get("module", "General Pedagogy" if q_num <= 60 else f"{subject} Core Mastery")
-                expl = base_q.get("explanation", "")
+            # Assemble unified 100 questions: Part-A (1..60 Pedagogy) + Part-B (61..100 Subject)
+            final_questions = []
+            for idx in range(100):
+                q_num = idx + 1
+                if idx >= 60 and (idx - 60) < len(ai_part_b_qs):
+                    q = ai_part_b_qs[idx - 60]
+                    corr = q["correct_answer"]
+                    opts = q["options"]
+                    cleaned_stem = q["question_text"]
+                    sec = q["section"]
+                    mod = q["module"]
+                    expl = q.get("explanation", "")
+                else:
+                    base_q = base_100[idx] if idx < len(base_100) else base_100[idx % len(base_100)]
+                    cleaned_stem = re.sub(r'^\s*\[.*?\]\s*', '', str(base_q.get("question_text", ""))).strip()
+                    opts = base_q.get("options", ["(A)", "(B)", "(C)", "(D)"])
+                    corr = int(base_q.get("correct_answer", 0)) % len(opts)
+                    sec = base_q.get("section", "Part-A" if q_num <= 60 else f"Part-B: Subject Depth — {subject}")
+                    mod = base_q.get("module", "General Pedagogy" if q_num <= 60 else f"{subject} Core Mastery")
+                    expl = base_q.get("explanation", "")
 
-            final_questions.append({
-                "id": q_num,
-                "question_number": q_num,
-                "question_type": "mcq",
-                "section": sec,
-                "module": mod,
-                "question_text": cleaned_stem,
-                "options": opts,
-                "answer": opts[corr] if 0 <= corr < len(opts) else opts[0],
-                "explanation": expl,
-                "marks": 1
-            })
+                final_questions.append({
+                    "id": q_num,
+                    "question_number": q_num,
+                    "question_type": "mcq",
+                    "section": sec,
+                    "module": mod,
+                    "question_text": cleaned_stem,
+                    "options": opts,
+                    "answer": opts[corr] if 0 <= corr < len(opts) else opts[0],
+                    "explanation": expl,
+                    "marks": 1
+                })
 
-        new_id = f"tso-ai-{int(time.time() * 1000) % 1000000:06d}"
-        created_paper = {
-            "id": new_id,
-            "title": paper_title,
-            "class_name": class_name,
-            "subject": subject,
-            "board": "CBSE / National Standard",
-            "chapter": "60/40 Hybrid Structure (Pedagogy + Subject Mastery)",
-            "difficulty": "Advanced",
-            "total_marks": 100,
-            "time_allowed_mins": 60,
-            "school_name": school_name,
-            "source": "tso_ai_synthesizer",
-            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "start_time": start_time or time.strftime("%Y-%m-%d %H:%M:%S"),
-            "end_time": end_time or "2026-12-31 23:59:59",
-            "published": True,  # Auto-activate for Olympiad
-            "instructions": [
-                "Total 100 Multiple Choice Questions (1 Mark Each • No Negative Marking).",
-                "Part-A carries 60% weightage (60 Questions) covering CBSE CPD, Scenarios & Modern Pedagogy.",
-                "Part-B carries 40% weightage (40 Questions) covering Core Subject Depth, TLM & HOTS.",
-                "Total Duration: 60 Minutes."
-            ],
-            "questions": final_questions
-        }
+            new_id = f"tso-ai-{int(time.time() * 1000) % 1000000:06d}"
+            created_paper = {
+                "id": new_id,
+                "title": paper_title,
+                "class_name": class_name,
+                "subject": subject,
+                "board": "CBSE / National Standard",
+                "chapter": "60/40 Hybrid Structure (Pedagogy + Subject Mastery)",
+                "difficulty": "Advanced",
+                "total_marks": 100,
+                "time_allowed_mins": 60,
+                "school_name": school_name,
+                "source": "tso_ai_synthesizer",
+                "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "start_time": start_time or time.strftime("%Y-%m-%d %H:%M:%S"),
+                "end_time": end_time or "2026-12-31 23:59:59",
+                "published": True,  # Auto-activate for Olympiad
+                "instructions": [
+                    "Total 100 Multiple Choice Questions (1 Mark Each • No Negative Marking).",
+                    "Part-A carries 60% weightage (60 Questions) covering CBSE CPD, Scenarios & Modern Pedagogy.",
+                    "Part-B carries 40% weightage (40 Questions) covering Core Subject Depth, TLM & HOTS.",
+                    "Total Duration: 60 Minutes."
+                ],
+                "questions": final_questions
+            }
 
-        papers = self.get_all_papers()
-        # Mark other papers as unpublished if this is published
-        for p in papers:
-            p["published"] = False
-        papers.insert(0, created_paper)
+            papers = self.get_all_papers()
+            for p in papers:
+                p["published"] = False
+            papers.insert(0, created_paper)
 
-        with open(PAPERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(papers, f, indent=2)
+            with open(PAPERS_FILE, "w", encoding="utf-8") as f:
+                json.dump(papers, f, indent=2)
 
-        return {"status": "success", "paper": created_paper}
+            return {"status": "success", "paper": created_paper}
+        except Exception as e:
+            logger.error(f"[TSO Generation Error]: {e}", exc_info=True)
+            return {"status": "error", "message": f"TSO Synthesis Error: {str(e)}"}
 
     def update_paper_question(self, paper_id: str, q_id: int, q_data: Dict[str, Any]) -> Dict[str, Any]:
         """Allows Super Admin to edit any question text, options, answer, or explanation."""

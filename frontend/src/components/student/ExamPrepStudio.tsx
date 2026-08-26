@@ -129,82 +129,82 @@ export function ExamPrepStudio() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-12">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-12 px-1 sm:px-0">
       
       {/* HEADER BAR */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-200">
-            <Trophy className="w-6 h-6" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-200 shrink-0">
+            <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900">AI Exam Preparation Suite</h1>
-            <p className="text-xs text-slate-500">Custom revision roadmap & expected questions. <span className="font-bold text-rose-600">Click any topic to view instant AI explanation!</span></p>
+            <h1 className="text-base sm:text-xl font-extrabold text-slate-900">AI Exam Preparation Suite</h1>
+            <p className="text-[11px] sm:text-xs text-slate-500">Custom revision roadmap & expected questions. <span className="font-bold text-rose-600">Click any topic for AI explanation!</span></p>
           </div>
         </div>
 
         <button
           onClick={handleGenerate}
           disabled={loading}
-          className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+          className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
         >
           {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-300" />}
-          <span>Build AI Strategy</span>
+          <span>{loading ? "Generating..." : "Build Strategy"}</span>
         </button>
       </div>
 
       {/* INPUT CONTROLS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
         <div>
-          <label className="text-xs font-bold text-slate-700 block mb-1">Target Exam</label>
+          <label className="text-[11px] font-bold text-slate-700 block mb-1">Target Exam</label>
           <input 
             type="text" 
             value={examName} 
             onChange={(e) => setExamName(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
           />
         </div>
         <div>
-          <label className="text-xs font-bold text-slate-700 block mb-1">Subject</label>
+          <label className="text-[11px] font-bold text-slate-700 block mb-1">Subject</label>
           <input 
             type="text" 
             value={subject} 
             onChange={(e) => setSubject(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
           />
         </div>
         <div>
-          <label className="text-xs font-bold text-slate-700 block mb-1">Days Remaining</label>
+          <label className="text-[11px] font-bold text-slate-700 block mb-1">Days Remaining</label>
           <input 
             type="number" 
             value={daysRemaining} 
             onChange={(e) => setDaysRemaining(parseInt(e.target.value) || 7)}
-            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
           />
         </div>
       </div>
 
       {/* CONFIDENCE SCORE METER */}
-      <div className="bg-gradient-to-r from-rose-900 via-rose-800 to-indigo-900 text-white p-6 sm:p-8 rounded-3xl border border-rose-700/50 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-rose-200 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+      <div className="bg-gradient-to-r from-rose-900 via-rose-800 to-indigo-900 text-white p-5 sm:p-7 rounded-3xl border border-rose-700/50 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-200 bg-white/10 px-3 py-1 rounded-full border border-white/10">
             AI Exam Readiness Index
           </span>
-          <h2 className="text-2xl font-extrabold">{examData.exam_name} Strategy</h2>
+          <h2 className="text-xl sm:text-2xl font-extrabold">{examData.exam_name} Strategy</h2>
           <p className="text-xs text-rose-100 max-w-lg">
-            Click on any topic or day in your roadmap below to open a brief AI concept explanation page!
+            Click on any topic or expected question below to open an instant AI concept guide!
           </p>
         </div>
 
-        <div className="bg-black/30 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-center shrink-0 min-w-[200px]">
-          <div className="text-xs text-rose-200 font-bold uppercase tracking-wider">Confidence Score</div>
-          <div className="text-4xl font-black text-amber-300 mt-1">{examData.confidence_score}%</div>
-          <span className="text-[10px] text-emerald-400 font-extrabold mt-1 block">Ready for High Distinction</span>
+        <div className="bg-black/30 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/10 text-center shrink-0 min-w-[160px]">
+          <div className="text-[10px] text-rose-200 font-bold uppercase tracking-wider">Confidence Score</div>
+          <div className="text-3xl font-black text-amber-300 mt-0.5">{examData.confidence_score}%</div>
+          <span className="text-[10px] text-emerald-400 font-extrabold block">High Distinction Ready</span>
         </div>
       </div>
 
       {/* TWO COLUMN CONTENT LAYOUT */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         
         {/* HIGH YIELD TOPICS & EXPECTED QUESTIONS */}
         <div className="space-y-6">

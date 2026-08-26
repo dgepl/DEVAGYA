@@ -138,24 +138,12 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   if (user.role === "student") {
     navItems = [
       { label: "Student Home", href: "/dashboard/student", icon: LayoutDashboard },
-      // Student AI Agents
       { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain },
-      { label: "AI Flashcards", href: "/dashboard/student/flashcards", icon: Layers },
-      { label: "Exam Strategist", href: "/dashboard/agents?agent=exam_strategist", icon: Trophy },
-      { label: "Revision Assistant", href: "/dashboard/agents?agent=revision_assistant", icon: GitFork },
-      { label: "Study Planner", href: "/dashboard/agents?agent=study_planner", icon: Clock },
-      { label: "Career Counselor", href: "/dashboard/agents?agent=career_counselor", icon: Compass },
-      { label: "Motivation Coach", href: "/dashboard/agents?agent=motivation_coach", icon: Flame },
-      // General AI Agents
-      { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
-      { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
-      { label: "Document AI", href: "/dashboard/agents?agent=document_assistant", icon: Layers },
-      // Other tools
-      { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
       { label: "AI Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy },
       { label: "Practice & Quizzes", href: "/dashboard/student/practice", icon: Target },
       { label: "Notion Smart Notes", href: "/dashboard/student/notes", icon: FileText },
       { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock },
+      { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
       { label: "Leaderboard", href: "/dashboard/student/leaderboard", icon: Trophy },
     ];
   } else if (user.role === "parent") {

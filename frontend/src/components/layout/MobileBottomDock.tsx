@@ -13,7 +13,8 @@ import {
   Layers,
   GraduationCap,
   ScanText,
-  Bot
+  Bot,
+  Target
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -31,7 +32,7 @@ export function MobileBottomDock() {
         { label: "Home", href: "/dashboard/student", icon: Home },
         { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain, agentCode: "student_tutor" },
         { label: "Ask AI", href: "/dashboard/agents?agent=student_tutor", icon: Sparkles, central: true, agentCode: "student_tutor" },
-        { label: "Flashcards", href: "/dashboard/student/flashcards", icon: Layers },
+        { label: "Quiz", href: "/dashboard/student/practice", icon: Target },
         { label: "Profile", href: "/dashboard/profile", icon: User },
       ];
     }
