@@ -113,27 +113,33 @@ async def get_user_attempt_status(
     """Check if candidate has already submitted the current active 100-MCQ Olympiad assessment."""
     submissions = olympiad_service.get_all_submissions()
     clean = email.strip().lower()
+    clean_subj = (subject or "").strip().lower()
 
-    # Identify the current active paper
-    active_paper = olympiad_service.get_active_exam_paper(subject=subject or "Science")
-    active_paper_id = paper_id or (active_paper.get("id") if active_paper else None)
-
-    if active_paper_id:
-        user_sub = next((
-            s for s in submissions 
-            if s.get("teacher_email") == clean and (
-                str(s.get("paper_id", "")).strip().lower() == str(active_paper_id).strip().lower()
-                or str(active_paper_id).strip().lower() in str(s.get("paper_id", "")).strip().lower()
-            )
-        ), None)
-    else:
-        user_sub = next((s for s in submissions if s.get("teacher_email") == clean), None)
+    # Match by candidate email and subject/paper_id
+    user_sub = None
+    for s in submissions:
+        s_email = str(s.get("teacher_email") or s.get("email") or s.get("user_email") or "").strip().lower()
+        if s_email != clean:
+            continue
+        
+        # Match subject or paper_id if specified
+        s_subj = str(s.get("subject") or "").strip().lower()
+        s_pid = str(s.get("paper_id") or s.get("id") or "").strip().lower()
+        
+        if clean_subj and (clean_subj == s_subj or clean_subj in s_subj or s_subj in clean_subj):
+            user_sub = s
+            break
+        if paper_id and (str(paper_id).strip().lower() == s_pid or str(paper_id).strip().lower() in s_pid or s_pid in str(paper_id).strip().lower()):
+            user_sub = s
+            break
+        if not user_sub:
+            user_sub = s
 
     return {
         "status": "success",
         "has_attempted": bool(user_sub),
         "submission": user_sub,
-        "active_paper_id": active_paper_id
+        "active_paper_id": paper_id
     }
 
 @router.get("/results")

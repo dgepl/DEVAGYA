@@ -107,18 +107,31 @@ export default function TeacherOlympiadPage() {
   // 2. Check Candidate's Attempt Status & Load Submitted Evaluations
   const checkAttemptStatus = async (targetPaperId?: string) => {
     if (!user?.email) return;
+    const cleanEmail = user.email.trim().toLowerCase();
+    const localSubjKey = `tso_submitted_${cleanEmail}_${selectedSubject.toLowerCase()}`;
+    const localGeneralKey = `tso_submitted_${cleanEmail}`;
+
+    // Instant local check
+    if (typeof window !== "undefined") {
+      if (localStorage.getItem(localSubjKey) === "true" || localStorage.getItem(localGeneralKey) === "true") {
+        setHasAttempted(true);
+      }
+    }
+
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
       const pId = targetPaperId || paperData?.id || "";
       const pQuery = pId ? `&paper_id=${encodeURIComponent(pId)}` : "";
-      const res = await fetch(`${baseUrl}/olympiad/attempt-status?email=${encodeURIComponent(user.email.trim().toLowerCase())}&subject=${encodeURIComponent(selectedSubject)}${pQuery}`);
+      const res = await fetch(`${baseUrl}/olympiad/attempt-status?email=${encodeURIComponent(cleanEmail)}&subject=${encodeURIComponent(selectedSubject)}${pQuery}`);
       const data = await res.json();
       if (data.status === "success") {
-        setHasAttempted(data.has_attempted);
+        const isAttempted = Boolean(data.has_attempted);
+        setHasAttempted(isAttempted);
+        if (isAttempted && typeof window !== "undefined") {
+          localStorage.setItem(localSubjKey, "true");
+        }
         if (data.submission) {
           setUserSubmission(data.submission);
-        } else {
-          setUserSubmission(null);
         }
       }
     } catch (e) {
@@ -488,16 +501,17 @@ export default function TeacherOlympiadPage() {
         ? [...proctorLogs, `[AUTO-TERMINATION] ${termReason}`] 
         : proctorLogs;
 
+      const cleanEmail = (user?.email || "teacher@school.edu").trim().toLowerCase();
       const res = await fetch(`${baseUrl}/olympiad/submit-100`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          teacher_email: user?.email || "teacher@school.edu",
+          teacher_email: cleanEmail,
           teacher_name: user?.name || "Educator",
           subject: selectedSubject,
           state: user?.state || "National",
           district: user?.district || "Central",
-          paper_id: paperData?.paper_id || `tso-national-2026-${selectedSubject.toLowerCase()}`,
+          paper_id: paperData?.id || paperData?.paper_id || `tso-national-2026-${selectedSubject.toLowerCase()}`,
           answers: answers,
           time_taken_seconds: timeTaken,
           tab_switch_count: tabSwitches,
@@ -507,16 +521,27 @@ export default function TeacherOlympiadPage() {
       });
 
       const data = await res.json();
-      if (res.ok) {
-        setSubmissionId(data.submission_id);
+      if (res.ok || data.status === "success") {
+        setSubmissionId(data.submission_id || data.id);
         setExamSubmitted(true);
         setHasAttempted(true);
+        setExamStarted(false);
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`tso_submitted_${cleanEmail}_${selectedSubject.toLowerCase()}`, "true");
+          localStorage.setItem(`tso_submitted_${cleanEmail}`, "true");
+        }
+
         await checkAttemptStatus();
         await loadPublishedResults();
+        setActiveTab("results");
       }
     } catch (e) {
       console.error("Submission error:", e);
       setExamSubmitted(true);
+      setHasAttempted(true);
+      setExamStarted(false);
+      setActiveTab("results");
     } finally {
       setLoading(false);
       // Stop webcam stream
