@@ -5,7 +5,8 @@ const INLINE_CODE = /(`[^`\n]+`)/g;
 const BOLD = /(\*\*[^*\n]+\*\*)/g;
 const ITALIC = /(\*[^*\n]+\*)/g;
 const LINK = /(\[[^\]]+\]\([^)]+\))/g;
-const INLINE_MATH = /(\$[^$\n]+\$|\\\([^\n\\]+\\\))/g;
+// Supports math with backslashes like \(\displaystyle \iint_{R} (3x + 2y)\,dA\) and $v = u + at$
+const INLINE_MATH = /(\$(?:\\\$|[^\$\n])+\$|\\\([\s\S]*?\\\))/g;
 const HEADING = /^(#{1,4})\s+(.*)$/;
 const HR = /^(-{3,}|\*{3,})$/;
 const BLOCKQUOTE = /^>\s?(.*)$/;
@@ -14,7 +15,6 @@ const OL_ITEM = /^\s*(\d+)\.\s+(.*)$/;
 const TABLE_SEP = /^\|?[\s:|-]+\|?$/;
 
 function renderKatexMath(mathStr: string, isBlock: boolean = false): React.ReactNode {
-  // Strip enclosing $ or \( \) or \[ \]
   let clean = mathStr.trim();
   if (clean.startsWith("$$") && clean.endsWith("$$")) {
     clean = clean.slice(2, -2).trim();
@@ -36,8 +36,8 @@ function renderKatexMath(mathStr: string, isBlock: boolean = false): React.React
       <span
         className={
           isBlock
-            ? "block my-2.5 text-center overflow-x-auto py-2 px-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-indigo-950 font-serif"
-            : "inline-block px-1 align-baseline text-indigo-950 font-serif"
+            ? "block my-3 text-center overflow-x-auto py-2.5 px-3 bg-indigo-50/50 rounded-2xl border border-indigo-100/80 text-indigo-950 shadow-xs"
+            : "inline-block px-1 align-baseline text-indigo-950"
         }
         dangerouslySetInnerHTML={{ __html: html }}
       />
@@ -88,7 +88,10 @@ function renderBoldItalic(text: string, keyPrefix: string): React.ReactNode {
 function renderMathAndText(text: string, keyPrefix: string): React.ReactNode {
   return text.split(INLINE_MATH).map((part, i) => {
     const key = `${keyPrefix}-m${i}`;
-    if ((part.startsWith("$") && part.endsWith("$") && part.length > 2) || (part.startsWith("\\(") && part.endsWith("\\)"))) {
+    if (
+      (part.startsWith("$") && part.endsWith("$") && part.length >= 2) ||
+      (part.startsWith("\\(") && part.endsWith("\\)"))
+    ) {
       return <React.Fragment key={key}>{renderKatexMath(part, false)}</React.Fragment>;
     }
     return <React.Fragment key={key}>{renderBoldItalic(part, key)}</React.Fragment>;
@@ -128,13 +131,17 @@ function parseTableRow(line: string): string[] {
 }
 
 export default function Markdown({ text }: { text: string }) {
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const lines = (text || "").replace(/\r\n/g, "\n").split("\n");
   const blocks: React.ReactNode[] = [];
   let blockKey = 0;
 
   let inFence = false;
   let fenceLang = "";
   const fenceLines: string[] = [];
+
+  let inMathBlock = false;
+  let mathBlockDelim: "\\[" | "$$" | "" = "";
+  const mathBlockLines: string[] = [];
 
   let listItems: { type: "ul" | "ol"; items: string[] } | null = null;
   let tableRows: string[][] | null = null;
@@ -221,6 +228,19 @@ export default function Markdown({ text }: { text: string }) {
     fenceLines.length = 0;
   };
 
+  const flushMathBlock = () => {
+    if (mathBlockLines.length === 0) return;
+    const key = `mathblock-${blockKey++}`;
+    blocks.push(
+      <div key={key}>
+        {renderKatexMath(mathBlockLines.join("\n"), true)}
+      </div>
+    );
+    mathBlockLines.length = 0;
+    inMathBlock = false;
+    mathBlockDelim = "";
+  };
+
   const flushParagraph = () => {
     if (tableRows) flushTable();
     if (listItems) flushList();
@@ -230,6 +250,7 @@ export default function Markdown({ text }: { text: string }) {
     const line = lines[idx];
     const trimmed = line.trim();
 
+    // 1. Code Fence Handling
     if (inFence) {
       if (trimmed.startsWith("```")) {
         flushFence();
@@ -248,15 +269,61 @@ export default function Markdown({ text }: { text: string }) {
       continue;
     }
 
-    // Display math block $$...$$ or \[...\]
-    if (trimmed.startsWith("$$") && trimmed.endsWith("$$") && trimmed.length > 2) {
+    // 2. Multiline Display Math Block Handling (\[ ... \] or $$ ... $$)
+    if (inMathBlock) {
+      if (mathBlockDelim === "\\[" && trimmed.endsWith("\\]")) {
+        const content = trimmed.slice(0, -2).trim();
+        if (content) mathBlockLines.push(content);
+        flushMathBlock();
+      } else if (mathBlockDelim === "$$" && trimmed.endsWith("$$")) {
+        const content = trimmed.slice(0, -2).trim();
+        if (content) mathBlockLines.push(content);
+        flushMathBlock();
+      } else {
+        mathBlockLines.push(line);
+      }
+      continue;
+    }
+
+    if (trimmed === "\\[") {
+      flushParagraph();
+      inMathBlock = true;
+      mathBlockDelim = "\\[";
+      continue;
+    }
+
+    if (trimmed.startsWith("\\[") && !trimmed.endsWith("\\]")) {
+      flushParagraph();
+      inMathBlock = true;
+      mathBlockDelim = "\\[";
+      mathBlockLines.push(trimmed.slice(2).trim());
+      continue;
+    }
+
+    if (trimmed === "$$") {
+      flushParagraph();
+      inMathBlock = true;
+      mathBlockDelim = "$$";
+      continue;
+    }
+
+    if (trimmed.startsWith("$$") && trimmed.length > 2 && !trimmed.slice(2).includes("$$")) {
+      flushParagraph();
+      inMathBlock = true;
+      mathBlockDelim = "$$";
+      mathBlockLines.push(trimmed.slice(2).trim());
+      continue;
+    }
+
+    // Single-line display math block \[ ... \] or $$ ... $$
+    if (trimmed.startsWith("\\[") && trimmed.endsWith("\\]") && trimmed.length > 2) {
       flushParagraph();
       const key = `mathblock-${blockKey++}`;
       blocks.push(<div key={key}>{renderKatexMath(trimmed, true)}</div>);
       continue;
     }
 
-    if (trimmed.startsWith("\\[") && trimmed.endsWith("\\]")) {
+    if (trimmed.startsWith("$$") && trimmed.endsWith("$$") && trimmed.length > 2) {
       flushParagraph();
       const key = `mathblock-${blockKey++}`;
       blocks.push(<div key={key}>{renderKatexMath(trimmed, true)}</div>);
@@ -374,6 +441,7 @@ export default function Markdown({ text }: { text: string }) {
   }
 
   flushFence();
+  flushMathBlock();
   flushParagraph();
 
   return <div className="text-slate-800 text-xs sm:text-sm">{blocks}</div>;
