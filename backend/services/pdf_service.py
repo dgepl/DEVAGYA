@@ -5,10 +5,33 @@ import zipfile
 import xml.etree.ElementTree as ET
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, Image as RLImage
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from schemas.question import GeneratedPaperResponse
+
+# Register Unicode font for Hindi / Devanagari / English multi-script rendering
+UNICODE_FONT_NAME = "Helvetica"
+UNICODE_BOLD_FONT_NAME = "Helvetica-Bold"
+
+try:
+    font_paths = [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "NotoSansDevanagari.ttf")),
+        "C:/Windows/Fonts/Nirmala.ttf",
+        "C:/Windows/Fonts/mangal.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    for fp in font_paths:
+        if os.path.exists(fp):
+            pdfmetrics.registerFont(TTFont("DevanagariUnicode", fp))
+            pdfmetrics.registerFont(TTFont("DevanagariUnicode-Bold", fp))
+            UNICODE_FONT_NAME = "DevanagariUnicode"
+            UNICODE_BOLD_FONT_NAME = "DevanagariUnicode-Bold"
+            break
+except Exception as e:
+    pass
 
 
 def extract_pdf_content(file_bytes: bytes, max_pages: int = 30):
@@ -140,11 +163,11 @@ class PDFGeneratorService:
 
         styles = getSampleStyleSheet()
         
-        # Custom styles
+        # Custom styles with Unicode Multi-Script Font Support
         title_style = ParagraphStyle(
             'SchoolTitle',
             parent=styles['Heading1'],
-            fontName='Helvetica-Bold',
+            fontName=UNICODE_BOLD_FONT_NAME,
             fontSize=18,
             leading=22,
             alignment=1, # Center
@@ -154,7 +177,7 @@ class PDFGeneratorService:
         subtitle_style = ParagraphStyle(
             'SubTitle',
             parent=styles['Normal'],
-            fontName='Helvetica-Bold',
+            fontName=UNICODE_BOLD_FONT_NAME,
             fontSize=12,
             leading=16,
             alignment=1,
@@ -164,7 +187,7 @@ class PDFGeneratorService:
         meta_style = ParagraphStyle(
             'MetaText',
             parent=styles['Normal'],
-            fontName='Helvetica',
+            fontName=UNICODE_FONT_NAME,
             fontSize=10,
             leading=14,
             textColor=colors.HexColor("#1E293B")
@@ -173,7 +196,7 @@ class PDFGeneratorService:
         instruction_style = ParagraphStyle(
             'Instruction',
             parent=styles['Normal'],
-            fontName='Helvetica-Oblique',
+            fontName=UNICODE_FONT_NAME,
             fontSize=9,
             leading=13,
             textColor=colors.HexColor("#475569")
@@ -182,7 +205,7 @@ class PDFGeneratorService:
         section_style = ParagraphStyle(
             'SectionHeader',
             parent=styles['Heading2'],
-            fontName='Helvetica-Bold',
+            fontName=UNICODE_BOLD_FONT_NAME,
             fontSize=12,
             leading=16,
             spaceBefore=10,
@@ -195,7 +218,7 @@ class PDFGeneratorService:
         q_text_style = ParagraphStyle(
             'QuestionText',
             parent=styles['Normal'],
-            fontName='Helvetica-Bold',
+            fontName=UNICODE_BOLD_FONT_NAME,
             fontSize=10,
             leading=14,
             textColor=colors.HexColor("#0F172A")
@@ -204,7 +227,7 @@ class PDFGeneratorService:
         option_style = ParagraphStyle(
             'OptionText',
             parent=styles['Normal'],
-            fontName='Helvetica',
+            fontName=UNICODE_FONT_NAME,
             fontSize=9.5,
             leading=13,
             leftIndent=15,
@@ -214,7 +237,7 @@ class PDFGeneratorService:
         answer_style = ParagraphStyle(
             'AnswerText',
             parent=styles['Normal'],
-            fontName='Helvetica',
+            fontName=UNICODE_FONT_NAME,
             fontSize=9.5,
             leading=13,
             leftIndent=15,
@@ -224,7 +247,7 @@ class PDFGeneratorService:
         worksheet_line_style = ParagraphStyle(
             'WorksheetLine',
             parent=styles['Normal'],
-            fontName='Helvetica-Oblique',
+            fontName=UNICODE_FONT_NAME,
             fontSize=9,
             leading=14,
             leftIndent=15,
@@ -605,7 +628,7 @@ class PDFGeneratorService:
         title_style = ParagraphStyle(
             'WDocTitle',
             parent=styles['Normal'],
-            fontName='Helvetica-Bold',
+            fontName=UNICODE_BOLD_FONT_NAME,
             fontSize=h1_font,
             leading=h1_font + 4,
             alignment=1, # Centered
@@ -615,7 +638,7 @@ class PDFGeneratorService:
         subtitle_style = ParagraphStyle(
             'WDocSubtitle',
             parent=styles['Normal'],
-            fontName='Helvetica-Bold',
+            fontName=UNICODE_BOLD_FONT_NAME,
             fontSize=base_font + 1,
             leading=base_leading + 2,
             alignment=1,
@@ -625,7 +648,7 @@ class PDFGeneratorService:
         meta_style = ParagraphStyle(
             'WDocMeta',
             parent=styles['Normal'],
-            fontName='Helvetica',
+            fontName=UNICODE_FONT_NAME,
             fontSize=base_font - 1,
             leading=base_leading - 2,
             textColor=colors.HexColor("#334155")
@@ -634,7 +657,7 @@ class PDFGeneratorService:
         h1_style = ParagraphStyle(
             'WDocH1',
             parent=styles['Normal'],
-            fontName='Helvetica-Bold',
+            fontName=UNICODE_BOLD_FONT_NAME,
             fontSize=h2_font + 1,
             leading=base_leading + 4,
             textColor=th["primary"],
@@ -645,7 +668,7 @@ class PDFGeneratorService:
         h2_style = ParagraphStyle(
             'WDocH2',
             parent=styles['Normal'],
-            fontName='Helvetica-Bold',
+            fontName=UNICODE_BOLD_FONT_NAME,
             fontSize=h2_font,
             leading=base_leading + 2,
             textColor=th["highlight"],
@@ -656,7 +679,7 @@ class PDFGeneratorService:
         body_style = ParagraphStyle(
             'WDocBody',
             parent=styles['Normal'],
-            fontName='Helvetica',
+            fontName=UNICODE_FONT_NAME,
             fontSize=base_font,
             leading=base_leading,
             textColor=colors.HexColor("#1E293B"),
@@ -667,7 +690,7 @@ class PDFGeneratorService:
         bullet_style = ParagraphStyle(
             'WDocBullet',
             parent=styles['Normal'],
-            fontName='Helvetica',
+            fontName=UNICODE_FONT_NAME,
             fontSize=base_font,
             leading=base_leading,
             leftIndent=14,
@@ -679,7 +702,7 @@ class PDFGeneratorService:
         callout_style = ParagraphStyle(
             'WDocCallout',
             parent=styles['Normal'],
-            fontName='Helvetica-Oblique',
+            fontName=UNICODE_FONT_NAME,
             fontSize=base_font,
             leading=base_leading,
             leftIndent=14,

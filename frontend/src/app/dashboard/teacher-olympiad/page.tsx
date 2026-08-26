@@ -80,6 +80,11 @@ export default function TeacherOlympiadPage() {
   const [showAnswerReviewModal, setShowAnswerReviewModal] = useState<boolean>(false);
   const [reviewFilter, setReviewFilter] = useState<"all" | "correct" | "wrong" | "unattempted" | "Part-A" | "Part-B">("all");
 
+  const cleanQuestionText = (text: string) => {
+    if (!text) return "";
+    return text.replace(/^\s*\[.*?\]\s*/, "").trim();
+  };
+
   // 1. Fetch 100-MCQ Assessment Paper from Backend
   const loadExamPaper = async () => {
     setLoading(true);
@@ -923,7 +928,7 @@ export default function TeacherOlympiadPage() {
                   {/* QUESTION TEXT */}
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80">
                     <p className="text-sm font-bold text-slate-800 leading-relaxed">
-                      {currentQ.question_text}
+                      {cleanQuestionText(currentQ.question_text)}
                     </p>
                   </div>
 
@@ -1500,7 +1505,7 @@ export default function TeacherOlympiadPage() {
                       </div>
 
                       <p className="text-sm font-bold text-slate-900 leading-relaxed">
-                        {q.question_text}
+                        {cleanQuestionText(q.question_text)}
                       </p>
 
                       {/* 4 Options Grid */}

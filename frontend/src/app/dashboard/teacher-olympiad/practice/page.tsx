@@ -34,6 +34,11 @@ export default function OlympiadPracticePage() {
   const [evaluations, setEvaluations] = useState<Record<string, any>>({});
   const [streak, setStreak] = useState(0);
 
+  const cleanQuestionText = (text: string) => {
+    if (!text) return "";
+    return text.replace(/^\s*\[.*?\]\s*/, "").trim();
+  };
+
   const fetchPracticeQuestions = async () => {
     setLoading(true);
     try {
@@ -275,7 +280,7 @@ export default function OlympiadPracticePage() {
                 </div>
 
                 <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-relaxed">
-                  {q.question_text}
+                  {cleanQuestionText(q.question_text)}
                 </h3>
 
                 {/* 4 OPTIONS */}

@@ -424,10 +424,11 @@ Requirements:
             pool = cs_pool if "computer" in subject_lower or "it" in subject_lower else (math_pool if "math" in subject_lower else pedagogy_pool)
             for i in range(count):
                 item = pool[i % len(pool)]
+                clean_q_stem = re.sub(r'^\s*\[.*?\]\s*', '', str(item[1])).strip()
                 fallback_qs.append({
                     "section": spec["section"],
                     "module": spec["module"],
-                    "question_text": f"[{spec['module']} • Item #{i+1}] {item[1]}",
+                    "question_text": clean_q_stem,
                     "options": item[2],
                     "correct_answer": item[3],
                     "explanation": f"Official Curriculum Rationale: {item[4]}"
@@ -440,17 +441,18 @@ Requirements:
         for batch in batch_results:
             all_questions.extend(batch)
 
-        # Assemble unified 100 questions with numbers and IDs
+        # Assemble unified 100 questions with numbers and IDs, ensuring no bracketed prefixes
         final_questions = []
         for idx, q in enumerate(all_questions[:100]):
             q_num = idx + 1
+            cleaned_stem = re.sub(r'^\s*\[.*?\]\s*', '', str(q.get("question_text", ""))).strip()
             final_questions.append({
                 "id": q_num,
                 "question_number": q_num,
                 "question_type": "mcq",
                 "section": q["section"],
                 "module": q["module"],
-                "question_text": q["question_text"],
+                "question_text": cleaned_stem,
                 "options": q["options"],
                 "answer": q["options"][q["correct_answer"]] if 0 <= q["correct_answer"] < len(q["options"]) else q["options"][0],
                 "explanation": q.get("explanation", ""),
