@@ -105,7 +105,7 @@ async def generate_paper_from_file(
     content_type = (file.content_type or "").lower()
     ext = os.path.splitext(filename)[1].lower()
 
-    if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp"):
+    if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
         try:
             img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
             if img.width > 1280:
@@ -115,34 +115,29 @@ async def generate_paper_from_file(
             img.save(buf, format="JPEG", quality=80)
             enc = base64.b64encode(buf.getvalue()).decode("ascii")
             image_data_url = f"data:image/jpeg;base64,{enc}"
-        except Exception:
-            raise HTTPException(
-                status_code=400,
-                detail="Unable to read the attached image file. Please upload a clear JPG, PNG, or WebP image."
-            )
+        except Exception as img_err:
+            print(f"[Generator] Image parsing notice: {img_err}")
     elif ext == ".pdf" or "pdf" in content_type:
         try:
             extracted_text, pdf_img_url = extract_pdf_content(file_bytes)
             if pdf_img_url:
                 image_data_url = pdf_img_url
-        except Exception as ocr_err:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unable to read text or render pages from the attached PDF: {ocr_err}"
-            )
+        except Exception as pdf_err:
+            print(f"[Generator] PDF parsing notice: {pdf_err}")
+            try:
+                extracted_text = extract_document_text(file_bytes, filename, content_type)
+            except Exception:
+                pass
     else:
         try:
             extracted_text = extract_document_text(file_bytes, filename, content_type)
-        except Exception as ocr_err:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unable to read text from the attached document: {ocr_err}"
-            )
+        except Exception as doc_err:
+            print(f"[Generator] Document text extraction notice: {doc_err}")
 
     has_text = bool(extracted_text and len(extracted_text.strip()) >= 10)
     has_image = bool(image_data_url and len(image_data_url) > 100)
 
-    # If file couldn't be parsed, fallback to direct text prompt
+    # If file couldn't be parsed into text/image, generate directly from prompt & syllabus
     if not has_text and not has_image:
         res = await groq_service.generate_question_paper(req)
         if user_email: res.user_email = user_email

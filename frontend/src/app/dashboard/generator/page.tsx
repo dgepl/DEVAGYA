@@ -147,8 +147,14 @@ export default function GeneratorPage() {
   };
 
   const handleGenerate = async () => {
-    setLoading(true);
-    setError(null);
+    const hasOcrContext = Boolean(ocrDraftText || (customPrompt && customPrompt.includes("Based on OCR scanned textbook extract:")));
+
+    // Reference Document is compulsory unless context was already provided via OCR Scanner
+    if (!hasOcrContext && !selectedFile) {
+      setError("Reference Document Required: Please attach a textbook photo, syllabus PDF, or worksheet document to generate the question paper (or use the OCR Scanner to scan textbook pages).");
+      setLoading(false);
+      return;
+    }
 
     const targetSchoolName = schoolName.trim() || user.schoolName || "DEVGYA GLOBAL ACADEMY";
     const targetTitle = title.trim() || `${className || user.classes || "Class 10"} ${subject || user.subject || "General"} Periodic Assessment`;
@@ -859,20 +865,35 @@ export default function GeneratorPage() {
 
           {/* 6. Custom File Attachment (OCR / Syllabus Extract) */}
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-700 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Upload className="w-4 h-4 text-indigo-600" /> Attach Reference Image or Document (Optional)
-              </span>
-              {selectedFile && (
-                <button
-                  type="button"
-                  onClick={removeFile}
-                  className="text-[10px] text-rose-600 font-extrabold hover:underline flex items-center gap-0.5 cursor-pointer"
-                >
-                  <Trash2 className="w-3 h-3" /> Remove
-                </button>
-              )}
-            </label>
+            {(() => {
+              const hasOcr = Boolean(ocrDraftText || (customPrompt && customPrompt.includes("Based on OCR scanned textbook extract:")));
+              return (
+                <label className="block text-xs font-bold text-slate-700 flex flex-wrap items-center justify-between gap-1">
+                  <span className="flex items-center gap-1.5 flex-wrap">
+                    <Upload className="w-4 h-4 text-indigo-600" />
+                    <span>Attach Reference Document / Image</span>
+                    {hasOcr ? (
+                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
+                        ✓ Provided via OCR Scanner (Optional)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black text-amber-850 bg-amber-100 border border-amber-300 text-amber-900 px-2 py-0.5 rounded-md">
+                        Compulsory *
+                      </span>
+                    )}
+                  </span>
+                  {selectedFile && (
+                    <button
+                      type="button"
+                      onClick={removeFile}
+                      className="text-[10px] text-rose-600 font-extrabold hover:underline flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" /> Remove
+                    </button>
+                  )}
+                </label>
+              );
+            })()}
 
             {!selectedFile ? (
               <div 
