@@ -296,7 +296,5 @@ def get_part_b_questions_for_subject(subject: str = "Science") -> List[Dict[str,
         return get_computer_science_part_b_questions()
         
     # Default to Science (Physics / Chemistry / Biology)
-    # The default Science pool is defined in olympiad_service.py
-    from services.olympiad_service import generate_100_practice_mock_questions
-    raw_qs = generate_100_practice_mock_questions(subject="Science")
-    return [q for q in raw_qs if q.get("section") == "Part-B"][:40]
+    from services.olympiad_service import get_science_part_b_questions
+    return get_science_part_b_questions()
