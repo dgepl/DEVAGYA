@@ -12,39 +12,29 @@ import {
   VolumeX,
   Bot,
   User,
-  Smile,
-  Globe,
+  Sparkles,
   Send,
   MessageSquare,
   X,
-  Sparkles,
-  Calendar,
-  Clock,
-  ShieldCheck,
-  Award,
   FileText,
   CheckCircle2,
-  Share2,
-  Maximize2
+  HelpCircle,
+  BookOpen,
+  GraduationCap
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import * as faceapi from "@vladmandic/face-api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
-const LANGUAGES = [
-  { code: "english", label: "English", flag: "🇬🇧", speechLang: "en-IN", ttsLang: "en-IN" },
-  { code: "hindi", label: "हिंदी", flag: "🇮🇳", speechLang: "hi-IN", ttsLang: "hi-IN" },
-  { code: "hinglish", label: "Hinglish", flag: "🔀", speechLang: "hi-IN", ttsLang: "hi-IN" },
+const TOPICS = [
+  { id: "math_science", title: "गणित एवं विज्ञान शंका समाधान", desc: "कठिन सूत्रों, प्रमेयों और संख्यात्मक प्रश्नों की सरल व्याख्या", icon: BookOpen },
+  { id: "exam_strategy", title: "CBSE / बोर्ड परीक्षा तैयारी रणनीति", desc: "समय प्रबंधन, महत्वपूर्ण अध्याय और उच्च अंक प्राप्त करने की तकनीक", icon: GraduationCap },
+  { id: "chapter_revision", title: "त्वरित अध्याय पुनरीक्षण (Revision)", desc: "मुख्य अवधारणाओं का तेजी से अभ्यास और त्वरित प्रश्नोत्तर", icon: Sparkles },
+  { id: "study_guidance", title: "अध्ययन एवं करियर मार्गदर्शन", desc: "पढ़ाई में एकाग्रता और सही विषय चयन हेतु व्यक्तिगत सलाह", icon: HelpCircle }
 ];
 
-const EXPR_EMOJI: Record<string, string> = {
-  happy: "😊", sad: "😢", confused: "😕", surprised: "😮",
-  neutral: "😐", angry: "😠", fearful: "😨",
-};
-
-// Helper: Clean markdown, bullets, code, and emojis so speech sounds 100% natural without reciting symbols
-function cleanTextForSpeech(rawText: string): string {
+// Helper: Clean markdown, LaTeX, and symbols so Hindi speech is natural
+function cleanHindiTextForSpeech(rawText: string): string {
   if (!rawText) return "";
   let clean = rawText;
 
@@ -56,9 +46,9 @@ function cleanTextForSpeech(rawText: string): string {
   // Remove bold/italic markdown asterisks & underscores
   clean = clean.replace(/(\*\*|__)(.*?)\1/g, "$2");
   clean = clean.replace(/(\*|_)(.*?)\1/g, "$2");
-  // Remove markdown headers (# Title -> Title)
+  // Remove markdown headers
   clean = clean.replace(/^#+\s+/gm, "");
-  // Remove list bullets (- item, * item, 1. item -> item)
+  // Remove list bullets
   clean = clean.replace(/^[-*•]\s+/gm, "");
   clean = clean.replace(/^[0-9]+\.\s+/gm, "");
   clean = clean.replace(/>\s+/gm, "");
@@ -67,102 +57,83 @@ function cleanTextForSpeech(rawText: string): string {
   // Remove emojis & decorative icons
   clean = clean.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, "");
 
-  // Normalize whitespace & linebreaks into natural sentence pauses
-  clean = clean.replace(/\n+/g, ". ").replace(/\s{2,}/g, " ").trim();
+  // Clean LaTeX notation $x^2$ -> x squared
+  clean = clean.replace(/\$([^\$]+)\$/g, "$1");
+
+  // Normalize whitespace & linebreaks
+  clean = clean.replace(/\n+/g, "। ").replace(/\s{2,}/g, " ").trim();
   return clean;
 }
 
-// Helper: Pick high-quality Natural/Neural AI voices from browser speechSynthesis
-function getBestNaturalVoice(ttsLang: string, langCode: string): SpeechSynthesisVoice | null {
+// Helper: Pick Indian Hindi natural/neural voice from browser speechSynthesis
+function getHindiVoice(): SpeechSynthesisVoice | null {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
   const voices = window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return null;
 
-  const isHindiOrHinglish = langCode === "hindi" || langCode === "hinglish" || ttsLang.startsWith("hi");
+  // 1. High-priority: Microsoft Swara / Madhur / Kalpana / Online Hindi Natural
+  const hindiNeural = voices.find(v => v.lang.startsWith("hi") && (v.name.includes("Natural") || v.name.includes("Online")));
+  if (hindiNeural) return hindiNeural;
 
-  if (isHindiOrHinglish) {
-    // Top priority: Indian Hindi natural/neural voices (Microsoft Swara/Madhur/Kalpana, Google हिन्दी)
-    const hindiNeural = voices.find(v => v.lang.startsWith("hi") && (v.name.includes("Natural") || v.name.includes("Online")));
-    if (hindiNeural) return hindiNeural;
-    const googleHindi = voices.find(v => v.lang.startsWith("hi") && v.name.includes("Google"));
-    if (googleHindi) return googleHindi;
-    const namedHindi = voices.find(v => v.name.includes("Swara") || v.name.includes("Madhur") || v.name.includes("Kalpana") || v.name.includes("Hemant"));
-    if (namedHindi) return namedHindi;
-    const anyHindi = voices.find(v => v.lang.startsWith("hi"));
-    if (anyHindi) return anyHindi;
-    const indianEngNeural = voices.find(v => (v.lang.includes("en-IN") || v.lang.includes("en_IN")) && (v.name.includes("Natural") || v.name.includes("Online")));
-    if (indianEngNeural) return indianEngNeural;
-  } else {
-    // English priority: Indian English / Natural neural voices
-    const inEngNeural = voices.find(v => (v.lang.includes("en-IN") || v.lang.includes("en_IN")) && (v.name.includes("Natural") || v.name.includes("Online")));
-    if (inEngNeural) return inEngNeural;
-    const inEngGoogle = voices.find(v => (v.lang.includes("en-IN") || v.lang.includes("en_IN")) && v.name.includes("Google"));
-    if (inEngGoogle) return inEngGoogle;
-    const inEngNamed = voices.find(v => v.name.includes("Neerja") || v.name.includes("Prabhat") || v.name.includes("Swara"));
-    if (inEngNamed) return inEngNamed;
-    const anyInEng = voices.find(v => v.lang.includes("en-IN") || v.lang.includes("en_IN"));
-    if (anyInEng) return anyInEng;
-    const gbNatural = voices.find(v => v.lang.startsWith("en-GB") && (v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Google")));
-    if (gbNatural) return gbNatural;
-    const anyEngNatural = voices.find(v => v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Google")));
-    if (anyEngNatural) return anyEngNatural;
-  }
+  // 2. Google हिन्दी voice
+  const googleHindi = voices.find(v => v.lang.startsWith("hi") && v.name.includes("Google"));
+  if (googleHindi) return googleHindi;
 
-  return voices.find(v => v.lang.startsWith(ttsLang.slice(0, 2))) || voices[0] || null;
+  // 3. Named Hindi voices
+  const namedHindi = voices.find(v => v.name.includes("Swara") || v.name.includes("Madhur") || v.name.includes("Kalpana") || v.name.includes("Hemant"));
+  if (namedHindi) return namedHindi;
+
+  // 4. Any Hindi language voice
+  const anyHindi = voices.find(v => v.lang.startsWith("hi") || v.lang === "hi-IN" || v.lang === "hi_IN");
+  if (anyHindi) return anyHindi;
+
+  // Fallback to Indian accent voice if Hindi missing
+  return voices.find(v => v.lang.includes("IN")) || voices[0] || null;
 }
 
 export function VideoConsultation() {
   const user = useAppStore((s) => s.user);
 
-  // Consultation Session Setup
+  // Call States
   const [inCall, setInCall] = useState(false);
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
-  const [ttsEnabled, setTtsEnabled] = useState(true);
-  const [language, setLanguage] = useState("english");
+  const [speakerOn, setSpeakerOn] = useState(true);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [aiThinking, setAiThinking] = useState(false);
-  const [expression, setExpression] = useState("neutral");
-  const [faceReady, setFaceReady] = useState(false);
   const [callTime, setCallTime] = useState(0);
-  const [selectedTopic, setSelectedTopic] = useState("CBSE Exam Strategy & Problem Solving");
+  const [selectedTopic, setSelectedTopic] = useState(TOPICS[0].title);
 
-  // Subtitles & Captions
+  // Subtitles & Captions (Hindi)
   const [userSub, setUserSub] = useState("");
   const [aiSub, setAiSub] = useState("");
 
-  // Live Transcript + Text Input
+  // Live Transcript & Text Typing Drawer
   const [textInput, setTextInput] = useState("");
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
   const [transcript, setTranscript] = useState<{ who: "you" | "ai"; text: string }[]>([]);
   const [notesGenerated, setNotesGenerated] = useState<string | null>(null);
 
-  // Speech API status
-  const [speechOk, setSpeechOk] = useState(true);
-
-  // Media & Anti-Echo Refs
+  // Media & Recognition Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
-  const faceTimerRef = useRef<any>(null);
   const inCallRef = useRef(false);
   const micOnRef = useRef(true);
   const isAiSpeakingRef = useRef(false);
   const isAiThinkingRef = useRef(false);
   const aiSpeakingCooldownRef = useRef(0);
   const lastAiSpokenCleanRef = useRef("");
-  const transcriptRef = useRef<HTMLDivElement>(null);
   const pendingSpeechRef = useRef<string>("");
   const silenceTimerRef = useRef<any>(null);
-
-  const lang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
+  const transcriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { inCallRef.current = inCall; }, [inCall]);
   useEffect(() => { micOnRef.current = micOn; }, [micOn]);
   useEffect(() => { transcriptRef.current?.scrollTo(0, 99999); }, [transcript]);
 
-  // Pre-load available synthesis voices on component mount
+  // Load voices on mount
   useEffect(() => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.getVoices();
@@ -172,7 +143,7 @@ export function VideoConsultation() {
     }
   }, []);
 
-  // Call duration counter
+  // Call timer
   useEffect(() => {
     if (inCall) {
       timerRef.current = setInterval(() => setCallTime((p) => p + 1), 1000);
@@ -185,15 +156,18 @@ export function VideoConsultation() {
 
   const fmt = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
-  // Media Stream Setup - Video preview only, keeping microphone available for Web Speech API
+  // Camera Management
   const startCamera = useCallback(async () => {
     try {
       const s = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false // Crucial: Do NOT lock mic in getUserMedia so SpeechRecognition gets full audio access on iOS/Android
+        audio: false // Video preview only, microphone is handled via Web Speech API
       });
       streamRef.current = s;
-      if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play().catch(() => {}); }
+      if (videoRef.current) {
+        videoRef.current.srcObject = s;
+        videoRef.current.play().catch(() => {});
+      }
     } catch {
       setCameraOn(false);
     }
@@ -214,7 +188,12 @@ export function VideoConsultation() {
 
   const toggleCamera = () => {
     const vt = streamRef.current?.getVideoTracks()[0];
-    if (vt) { vt.enabled = !vt.enabled; setCameraOn(vt.enabled); }
+    if (vt) {
+      vt.enabled = !vt.enabled;
+      setCameraOn(vt.enabled);
+    } else {
+      setCameraOn(!cameraOn);
+    }
   };
 
   const toggleMic = () => {
@@ -231,12 +210,12 @@ export function VideoConsultation() {
     });
   };
 
-  // Cross-calling functional refs for full decoupling
+  // Cross-calling functional refs
   const startListeningRef = useRef<() => void>(() => {});
   const speakRef = useRef<(text: string) => void>(() => {});
   const sendMessageRef = useRef<(text: string) => Promise<void>>(async () => {});
 
-  // Anti-Echo Protected Speech Recognition with Mobile Finalization
+  // Hindi Speech Recognition Engine (hi-IN)
   const stopListening = useCallback(() => {
     clearTimeout(silenceTimerRef.current);
     if (recognitionRef.current) {
@@ -247,18 +226,17 @@ export function VideoConsultation() {
 
   const startListening: () => void = useCallback(() => {
     if (recognitionRef.current) return;
-    // Never start listening if AI is currently speaking or thinking
     if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
 
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { setSpeechOk(false); return; }
+    if (!SR) return;
 
     const isMobileDevice = typeof navigator !== "undefined" && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
 
     const rec = new SR();
-    rec.continuous = !isMobileDevice; // On mobile, single utterance mode is required for speech capture
+    rec.continuous = !isMobileDevice;
     rec.interimResults = true;
-    rec.lang = lang.speechLang;
+    rec.lang = "hi-IN"; // Pure Hindi Speech Recognition
 
     const finalizeAndSendSpeech = () => {
       const textToSend = pendingSpeechRef.current.trim();
@@ -271,7 +249,6 @@ export function VideoConsultation() {
     };
 
     rec.onresult = (e: any) => {
-      // Echo gate: Discard if AI is speaking or in cooldown
       if (isAiSpeakingRef.current || isAiThinkingRef.current || Date.now() < aiSpeakingCooldownRef.current) {
         return;
       }
@@ -283,35 +260,28 @@ export function VideoConsultation() {
         if (e.results[i].isFinal) { final += t; } else { interim += t; }
       }
 
-      const candidate = (final || interim).trim().toLowerCase();
+      const candidate = (final || interim).trim();
       if (!candidate) return;
 
       // Echo filter against recent AI output
       const recentAiText = lastAiSpokenCleanRef.current;
-      if (recentAiText && candidate.length > 4) {
-        if (recentAiText.includes(candidate) || (candidate.length > 15 && recentAiText.slice(0, 40).includes(candidate.slice(0, 20)))) {
-          return;
-        }
+      if (recentAiText && candidate.length > 4 && recentAiText.includes(candidate)) {
+        return;
       }
 
-      const currentText = (final || interim).trim();
-      pendingSpeechRef.current = currentText;
-      setUserSub(currentText);
+      pendingSpeechRef.current = candidate;
+      setUserSub(candidate);
 
       clearTimeout(silenceTimerRef.current);
       if (final && final.trim()) {
-        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 500);
+        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 450);
       } else {
-        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 900);
+        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 850);
       }
     };
 
-    rec.onerror = (e: any) => {
-      console.warn("Consultation speech notice:", e.error);
-      if (["not-allowed", "service-not-allowed"].includes(e.error)) {
-        setSpeechOk(false);
-        recognitionRef.current = null;
-      }
+    rec.onerror = () => {
+      recognitionRef.current = null;
     };
 
     rec.onend = () => {
@@ -320,41 +290,35 @@ export function VideoConsultation() {
         finalizeAndSendSpeech();
       }
 
-      // Auto-restart listening if in call and AI is quiet
       if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
         setTimeout(() => {
           if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
             startListeningRef.current();
           }
-        }, 200);
+        }, 180);
       }
     };
 
     recognitionRef.current = rec;
-    try { 
-      rec.start(); 
-      setSpeechOk(true);
-    } catch { 
-      // Handled silently
-    }
-  }, [lang.speechLang]);
+    try {
+      rec.start();
+    } catch {}
+  }, []);
 
   useEffect(() => {
     startListeningRef.current = startListening;
   }, [startListening]);
 
-  // High-Quality Natural Text-To-Speech Synthesis with Clean Preprocessing
+  // High-Quality Hindi Speech Synthesis (hi-IN)
   const speak: (text: string) => void = useCallback((text: string) => {
-    if (!ttsEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    if (!speakerOn || typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
-    // 1. Immediately pause/abort mic input to prevent AI from hearing itself
     stopListening();
     isAiSpeakingRef.current = true;
     setAiSpeaking(true);
-
     window.speechSynthesis.cancel();
 
-    const cleanText = cleanTextForSpeech(text);
+    const cleanText = cleanHindiTextForSpeech(text);
     if (!cleanText) {
       isAiSpeakingRef.current = false;
       setAiSpeaking(false);
@@ -365,15 +329,12 @@ export function VideoConsultation() {
     lastAiSpokenCleanRef.current = cleanText.toLowerCase();
 
     const utt = new SpeechSynthesisUtterance(cleanText);
-    utt.rate = 0.98; // Natural, human conversational pace
+    utt.rate = 0.95; // Warm, natural Hindi pacing
     utt.pitch = 1.0;
-    utt.lang = lang.ttsLang;
+    utt.lang = "hi-IN";
 
-    // Select the most natural / neural voice available
-    const bestVoice = getBestNaturalVoice(lang.ttsLang, language);
-    if (bestVoice) {
-      utt.voice = bestVoice;
-    }
+    const voice = getHindiVoice();
+    if (voice) utt.voice = voice;
 
     utt.onstart = () => {
       isAiSpeakingRef.current = true;
@@ -383,39 +344,37 @@ export function VideoConsultation() {
     utt.onend = () => {
       isAiSpeakingRef.current = false;
       setAiSpeaking(false);
-      // Echo suppression cooldown (800ms) to allow speaker sound to decay
-      aiSpeakingCooldownRef.current = Date.now() + 800;
+      aiSpeakingCooldownRef.current = Date.now() + 700;
       setTimeout(() => {
         if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
           startListeningRef.current();
         }
-      }, 800);
-      setTimeout(() => setAiSub(""), 3500);
+      }, 700);
+      setTimeout(() => setAiSub(""), 4000);
     };
 
     utt.onerror = () => {
       isAiSpeakingRef.current = false;
       setAiSpeaking(false);
-      aiSpeakingCooldownRef.current = Date.now() + 500;
+      aiSpeakingCooldownRef.current = Date.now() + 400;
       setTimeout(() => {
         if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
           startListeningRef.current();
         }
-      }, 500);
+      }, 400);
     };
 
     window.speechSynthesis.speak(utt);
-  }, [ttsEnabled, lang.ttsLang, language, stopListening]);
+  }, [speakerOn, stopListening]);
 
   useEffect(() => {
     speakRef.current = speak;
   }, [speak]);
 
-  // AI Response Stream & Conversational Video Mentor Dialogue
+  // AI Response Stream in Hindi
   const sendMessage: (text: string) => Promise<void> = useCallback(async (text: string) => {
     if (!text.trim() || isAiThinkingRef.current) return;
-    
-    // Stop listening while AI thinks and prepares response
+
     stopListening();
     isAiThinkingRef.current = true;
     setAiThinking(true);
@@ -424,11 +383,12 @@ export function VideoConsultation() {
 
     try {
       const fd = new FormData();
-      const ctx = `[LIVE VIDEO CONSULTATION MODE - DIRECT SPOKEN DIALOGUE]: You are in a face-to-face video consultation call with the student on topic "${selectedTopic}". Student expression: ${expression}. Respond directly in 2 to 3 friendly, natural, conversational spoken sentences in ${language} (NO markdown asterisks/bullets/emojis/headers). Speak warmly and concisely like a live human tutor. Student said: "${text}"`;
-      fd.append("message", ctx);
+      const promptDirective = `[लाइव 1-ON-1 वीडियो परामर्श - शुद्ध हिंदी संवाद]: आप DEVGYA के वरिष्ठ AI शिक्षक हैं। आप छात्र के साथ लाइव वीडियो कॉल पर विषय "${selectedTopic}" पर चर्चा कर रहे हैं। आपको छात्र को केवल और केवल शुद्ध, सरल और अत्यंत स्पष्ट हिंदी (Hindi Devanagari) भाषा में उत्तर देना है। अंग्रेजी (English) शब्दों का उपयोग न करें। उत्तर संक्षिप्त (2 से 3 बोले जाने वाले वाक्य) और प्रेरणादायक रखें। छात्र ने पूछा: "${text}"`;
+      
+      fd.append("message", promptDirective);
       fd.append("agent_code", "student_tutor");
       fd.append("user_id", user?.id || "anonymous");
-      fd.append("language", language);
+      fd.append("language", "hindi"); // Strictly Hindi
 
       const res = await fetch(`${API_BASE}/agents/chat`, { method: "POST", body: fd });
 
@@ -443,77 +403,41 @@ export function VideoConsultation() {
           setAiSub(full.length > 250 ? "..." + full.slice(-250) : full);
         }
         try { const j = JSON.parse(full); full = j.response || full; } catch {}
-        setAiSub(full.length > 250 ? full.slice(0, 250) + "..." : full);
+        setAiSub(full);
         setTranscript((p) => [...p, { who: "ai", text: full }]);
         isAiThinkingRef.current = false;
         setAiThinking(false);
         speakRef.current(full);
       } else {
         const d = await res.json();
-        const t = d.response || "I am here to guide you through your studies!";
-        setAiSub(t.length > 250 ? t.slice(0, 250) + "..." : t);
+        const t = d.response || "नमस्ते! मैं आपकी पढ़ाई में पूरी सहायता करने के लिए यहाँ हूँ।";
+        setAiSub(t);
         setTranscript((p) => [...p, { who: "ai", text: t }]);
         isAiThinkingRef.current = false;
         setAiThinking(false);
         speakRef.current(t);
       }
     } catch {
-      setAiSub("Connection issue. Please check network.");
+      setAiSub("नेटवर्क समस्या। कृपया पुनः प्रयास करें।");
       isAiThinkingRef.current = false;
       setAiThinking(false);
       if (inCallRef.current && micOnRef.current) startListeningRef.current();
     }
-  }, [user?.id, expression, language, selectedTopic, stopListening]);
+  }, [user?.id, selectedTopic, stopListening]);
 
   useEffect(() => {
     sendMessageRef.current = sendMessage;
   }, [sendMessage]);
 
-  // Face Expression API Detector
-  useEffect(() => {
-    (async () => {
-      try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
-          faceapi.nets.faceExpressionNet.loadFromUri("/models"),
-        ]);
-        setFaceReady(true);
-      } catch (e) { console.warn("Face models loading skipped:", e); }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!inCall || !cameraOn || !faceReady) return;
-    const detect = async () => {
-      if (!videoRef.current) return;
-      try {
-        const d = await faceapi
-          .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
-          .withFaceExpressions();
-        if (d?.expressions) {
-          let best = "neutral", bestVal = 0;
-          for (const [k, v] of Object.entries(d.expressions as any)) {
-            if (typeof v === "number" && v > bestVal) { bestVal = v; best = k; }
-          }
-          if (bestVal > 0.4) setExpression(best);
-        }
-      } catch {}
-    };
-    faceTimerRef.current = setInterval(detect, 500);
-    return () => clearInterval(faceTimerRef.current);
-  }, [inCall, cameraOn, faceReady]);
-
-  // Start / End Video Session
+  // Start / End Consultation
   const startCall = async () => {
     await startCamera();
     setInCall(true);
     setTranscript([]);
-    const msg = language === "hindi"
-      ? `नमस्ते! मैं आपका DEVGYA AI परामर्शदाता हूँ। विषय है ${selectedTopic}। बोलिए, मैं सुन रहा हूँ!`
-      : `Hello! I'm your DEVGYA AI Mentor for ${selectedTopic}. Please speak naturally, I'm listening!`;
-    setAiSub(msg);
-    setTranscript([{ who: "ai", text: msg }]);
-    speak(msg);
+    const welcomeMsg = `नमस्ते! मैं आपका DEVGYA AI शिक्षक हूँ। आज हम "${selectedTopic}" पर बात करेंगे। आप सीधे बोलकर अपना सवाल पूछ सकते हैं!`;
+    setAiSub(welcomeMsg);
+    setTranscript([{ who: "ai", text: welcomeMsg }]);
+    speak(welcomeMsg);
   };
 
   const endCall = () => {
@@ -521,11 +445,11 @@ export function VideoConsultation() {
     stopCamera();
     window.speechSynthesis?.cancel();
 
-    // Generate AI Session Summary Notes
     if (transcript.length > 1) {
-      const summaryText = `Session Summary (${new Date().toLocaleDateString()}) - Topic: ${selectedTopic}\n` +
-        `Total Duration: ${fmt(callTime)}\n` +
-        `Key Insights Discussed: ${transcript.filter(t => t.who === 'ai').map(t => t.text).slice(0, 3).join(" | ")}`;
+      const summaryText = `परामर्श सत्र सारांश (${new Date().toLocaleDateString("hi-IN")})\n` +
+        `विषय: ${selectedTopic}\n` +
+        `सत्र अवधि: ${fmt(callTime)}\n` +
+        `मुख्य बिंदु: ${transcript.filter(t => t.who === "ai").map(t => t.text).slice(0, 3).join(" | ")}`;
       setNotesGenerated(summaryText);
     }
 
@@ -533,112 +457,102 @@ export function VideoConsultation() {
     setCameraOn(true);
     setMicOn(true);
     setAiSpeaking(false);
-    setExpression("neutral");
     setUserSub("");
     setAiSub("");
   };
 
-  // PRE-CALL TELEHEALTH HUB UI
+  // ==========================================
+  // PRE-CALL SETUP SCREEN (CLEAN & HINDI-ONLY)
+  // ==========================================
   if (!inCall) {
     return (
-      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12">
+      <div className="max-w-4xl mx-auto space-y-6 pb-12 px-2 sm:px-4 animate-in fade-in duration-300">
         
-        {/* HERO CONSULTATION CARD */}
-        <div className="bg-gradient-to-br from-indigo-600 via-purple-700 to-slate-900 text-white p-8 sm:p-12 rounded-3xl shadow-2xl space-y-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-400/10 blur-[100px] rounded-full pointer-events-none" />
-
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left relative z-10">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-cyan-300 text-xs font-bold backdrop-blur-md">
+        {/* HERO BANNER */}
+        <div className="bg-gradient-to-br from-indigo-700 via-purple-800 to-slate-900 text-white p-6 sm:p-10 rounded-3xl shadow-xl space-y-6 relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-emerald-300 text-xs font-black backdrop-blur-md">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                <span>DEVGYA Tele-Mentoring Hub</span>
+                <span>100% हिंदी AI परामर्श (1-on-1 Hindi Live Tutor)</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight">
-                AI Video Consultation Studio
+              <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
+                AI वीडियो परामर्श केंद्र
               </h1>
-              <p className="text-slate-200 text-xs sm:text-sm font-medium leading-relaxed max-w-md">
-                Real-time voice & video consultation with Socratic AI Mentor. Instant speech recognition, emotion detection, and automated session notes.
+              <p className="text-slate-200 text-xs sm:text-sm font-medium leading-relaxed max-w-lg">
+                अपने व्यक्तिगत AI शिक्षक के साथ सीधे हिंदी में बातचीत करें। कोई भी शंका पूछें, तुरंत उत्तर और मार्गदर्शन पाएं।
               </p>
             </div>
 
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white/10 border-2 border-white/20 flex flex-col items-center justify-center backdrop-blur-md shadow-2xl shrink-0">
-              <Video className="w-10 h-10 text-cyan-300 mb-1 animate-pulse" />
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
-                ● Live 24/7
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 border border-white/20 flex flex-col items-center justify-center backdrop-blur-md shadow-lg shrink-0">
+              <Video className="w-8 h-8 sm:w-10 sm:h-10 text-cyan-300 mb-1 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                ● 24/7 सक्रिय
               </span>
             </div>
           </div>
 
-          {/* TOPIC SELECTOR */}
-          <div className="space-y-2 pt-2 border-t border-white/10 relative z-10">
-            <label className="text-xs font-extrabold uppercase tracking-wider text-slate-300 block">
-              Select Consultation Agenda
+          {/* TOPIC SELECTION */}
+          <div className="space-y-2.5 pt-4 border-t border-white/10">
+            <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <BookOpen className="w-4 h-4 text-cyan-300" />
+              <span>परामर्श का विषय चुनें:</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {[
-                "CBSE Exam Strategy & Problem Solving",
-                "NCERT 5E Lesson Plan Guidance",
-                "Parenting & Screen-Time Advice"
-              ].map((tp) => (
-                <button
-                  key={tp}
-                  onClick={() => setSelectedTopic(tp)}
-                  className={`p-3 rounded-2xl text-xs font-bold text-left transition-all border ${
-                    selectedTopic === tp
-                      ? "bg-white text-indigo-900 border-white shadow-lg font-black"
-                      : "bg-white/10 text-white border-white/10 hover:bg-white/20"
-                  }`}
-                >
-                  {tp}
-                </button>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {TOPICS.map((tp) => {
+                const IconComponent = tp.icon;
+                const isSelected = selectedTopic === tp.title;
+                return (
+                  <button
+                    key={tp.id}
+                    onClick={() => setSelectedTopic(tp.title)}
+                    className={`p-3.5 rounded-2xl text-left transition-all border cursor-pointer flex items-start gap-3 ${
+                      isSelected
+                        ? "bg-white text-indigo-950 border-white shadow-lg font-black"
+                        : "bg-white/10 text-white border-white/10 hover:bg-white/20"
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl shrink-0 ${isSelected ? "bg-indigo-100 text-indigo-700" : "bg-white/10 text-cyan-300"}`}>
+                      <IconComponent className="w-4 h-4" />
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-xs font-black truncate">{tp.title}</p>
+                      <p className={`text-[11px] font-medium line-clamp-1 ${isSelected ? "text-indigo-800" : "text-slate-300"}`}>
+                        {tp.desc}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* LANGUAGE PICKER */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/10 relative z-10">
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-cyan-300" />
-              <span className="text-xs font-bold text-slate-300">Spoken Language:</span>
-              {LANGUAGES.map((l) => (
-                <button
-                  key={l.code}
-                  onClick={() => setLanguage(l.code)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all border ${
-                    language === l.code
-                      ? "bg-white text-indigo-900 border-white shadow-md"
-                      : "bg-white/10 text-slate-200 border-white/10 hover:bg-white/20"
-                  }`}
-                >
-                  {l.flag} {l.label}
-                </button>
-              ))}
-            </div>
-
+          {/* LAUNCH BUTTON */}
+          <div className="pt-2 flex justify-end">
             <button
               onClick={startCall}
-              className="w-full sm:w-auto px-8 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-2xl shadow-xl shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 uppercase tracking-wider active:scale-95"
+              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 uppercase tracking-wider"
             >
               <Phone className="w-4 h-4" />
-              <span>Launch Video Call Room</span>
+              <span>कॉल शुरू करें (Start Call)</span>
             </button>
           </div>
 
         </div>
 
-        {/* SESSION NOTES CARD */}
+        {/* SESSION SUMMARY NOTES (IF GENERATED) */}
         {notesGenerated && (
-          <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-lg space-y-3 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider flex items-center gap-2">
+          <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-2.5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-2">
                 <FileText className="w-4 h-4 text-indigo-600" />
-                AI Generated Session Summary Notes
+                पिछले सत्र का सारांश (Session Summary)
               </span>
-              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full font-bold">
-                Saved to Profile
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-black">
+                सुरक्षित
               </span>
             </div>
-            <p className="text-xs text-slate-700 font-mono bg-slate-50 p-4 rounded-2xl border border-slate-200 leading-relaxed whitespace-pre-wrap">
+            <p className="text-xs text-slate-700 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 leading-relaxed whitespace-pre-wrap font-medium">
               {notesGenerated}
             </p>
           </div>
@@ -648,163 +562,163 @@ export function VideoConsultation() {
     );
   }
 
-  // IN-CALL DEDICATED MOBILE & DESKTOP TELE-HEALTH VIDEO ROOM
+  // ========================================================
+  // IN-CALL SCREEN (STREAMLINED MOBILE & DESKTOP VIDEO ROOM)
+  // ========================================================
   return (
-    <div className="h-[calc(100vh-6.5rem)] flex flex-col relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 text-white shadow-2xl">
+    <div className="h-[calc(100dvh-5.5rem)] flex flex-col relative overflow-hidden rounded-3xl bg-slate-950 text-white shadow-2xl border border-slate-800">
       
-      {/* MAIN VIDEO ROOM CONTAINER */}
-      <div className="flex-1 relative bg-slate-900 rounded-2xl overflow-hidden">
+      {/* 1. TOP BAR */}
+      <header className="px-4 py-3 bg-slate-900/90 backdrop-blur-md border-b border-white/10 flex items-center justify-between z-20 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/20 border border-red-500/30 rounded-full">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+            <span className="text-xs font-black text-red-300">{fmt(callTime)}</span>
+          </div>
+          <span className="text-xs font-black text-slate-200 truncate max-w-[150px] sm:max-w-xs">
+            {selectedTopic}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowChatModal(true)}
+            className="p-2 bg-white/10 hover:bg-white/20 text-slate-200 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-bold"
+            title="चैट संदेश देखें"
+          >
+            <MessageSquare className="w-4 h-4 text-cyan-300" />
+            <span className="hidden sm:inline">चैट</span>
+          </button>
+
+          <button
+            onClick={endCall}
+            className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+          >
+            <PhoneOff className="w-3.5 h-3.5" />
+            <span>समाप्त</span>
+          </button>
+        </div>
+      </header>
+
+      {/* 2. MAIN CALL STAGE */}
+      <main className="flex-1 relative flex flex-col items-center justify-center p-4 overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950">
         
-        {/* USER VIDEO FEED */}
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          style={{
-            display: cameraOn ? "block" : "none",
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            transform: "scaleX(-1)"
-          }}
-        />
+        {/* CANDIDATE COMPACT PiP CAMERA THUMBNAIL */}
+        <div className="absolute top-3 right-3 z-30 w-24 h-32 sm:w-32 sm:h-44 rounded-2xl overflow-hidden bg-slate-900 border-2 border-white/20 shadow-2xl">
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            style={{
+              display: cameraOn ? "block" : "none",
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              transform: "scaleX(-1)"
+            }}
+          />
+          {!cameraOn && (
+            <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 bg-slate-800">
+              <User className="w-8 h-8 mb-1" />
+              <span className="text-[9px] font-bold text-slate-400">कैमरा बंद</span>
+            </div>
+          )}
+          <button
+            onClick={toggleCamera}
+            className="absolute bottom-1 right-1 p-1 bg-black/60 hover:bg-black/80 rounded-lg text-white backdrop-blur-sm cursor-pointer"
+            title={cameraOn ? "कैमरा बंद करें" : "कैमरा चालू करें"}
+          >
+            {cameraOn ? <Video className="w-3 h-3 text-emerald-400" /> : <VideoOff className="w-3 h-3 text-red-400" />}
+          </button>
+        </div>
 
-        {!cameraOn && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-            <div className="w-24 h-24 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
-              <User className="w-12 h-12 text-slate-500" />
+        {/* AI AVATAR & SOUND WAVE VISUALIZER */}
+        <div className="flex flex-col items-center justify-center space-y-4 my-auto relative z-10">
+          <div className="relative">
+            {/* Pulsing Aura */}
+            {aiSpeaking && (
+              <div className="absolute -inset-4 rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500 opacity-60 blur-xl animate-pulse" />
+            )}
+            {aiThinking && (
+              <div className="absolute -inset-4 rounded-full bg-gradient-to-r from-amber-500 to-purple-500 opacity-50 blur-xl animate-spin" />
+            )}
+
+            <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full bg-gradient-to-tr from-indigo-600 to-cyan-500 border-4 border-white/30 flex items-center justify-center shadow-2xl relative">
+              <Bot className={`w-14 h-14 sm:w-18 sm:h-18 text-white transition-transform ${aiSpeaking ? "scale-110" : "scale-100"}`} />
             </div>
           </div>
-        )}
 
-        {/* TOP STATUS BAR OVERLAY */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20">
-          <div className="flex items-center gap-2">
-            <div className="px-3 py-1.5 bg-slate-950/80 backdrop-blur-md rounded-xl border border-white/10 flex items-center gap-2 shadow-lg">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-              <span className="text-white text-xs font-black">{fmt(callTime)}</span>
-            </div>
-            
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-indigo-600/80 backdrop-blur-md rounded-xl border border-indigo-400/30">
-              <span className="text-white text-xs font-bold">{lang.flag} {lang.label}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* FACE EXPRESSION DETECTOR BADGE */}
-            <div className="px-3 py-1.5 bg-slate-950/80 backdrop-blur-md rounded-xl border border-white/10 flex items-center gap-2 shadow-lg">
-              <span className="text-base">{EXPR_EMOJI[expression] || "😐"}</span>
-              <span className="text-white text-xs font-bold capitalize">{expression}</span>
-            </div>
-
-            <button
-              onClick={() => setShowTranscript(!showTranscript)}
-              className="p-2 bg-slate-950/80 hover:bg-slate-800 text-white backdrop-blur-md rounded-xl border border-white/10 shadow-lg transition-colors"
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
+          {/* AI STATUS BADGE */}
+          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md">
+            {aiSpeaking ? (
+              <div className="flex items-center gap-1.5 text-cyan-300 text-xs font-black">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="w-1 bg-cyan-300 rounded-full animate-pulse" style={{ height: `${10 + (i % 2) * 6}px` }} />
+                  ))}
+                </div>
+                <span>शिक्षक बोल रहे हैं...</span>
+              </div>
+            ) : aiThinking ? (
+              <div className="flex items-center gap-2 text-amber-300 text-xs font-black">
+                <div className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                <span>उत्तर तैयार किया जा रहा है...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-black">
+                <Mic className="w-3.5 h-3.5 animate-pulse" />
+                <span>आपकी आवाज़ सुनी जा रही है...</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* AI SUBTITLE / CAPTION BUBBLE */}
-        {aiSub && (
-          <div className="absolute bottom-24 left-4 right-4 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="bg-indigo-600/95 backdrop-blur-xl border border-indigo-400/40 rounded-2xl px-5 py-4 shadow-2xl max-w-xl mx-auto space-y-1.5">
-              {aiSpeaking && (
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="w-1 bg-cyan-300 rounded-full animate-pulse" style={{ height: `${8 + Math.random() * 10}px`, animationDelay: `${i * 0.1}s` }} />
-                    ))}
-                  </div>
-                  <span className="text-cyan-300 text-[10px] font-black uppercase tracking-wider">DEVGYA AI Mentor Speaking</span>
-                </div>
-              )}
-              <p className="text-white text-xs sm:text-sm font-bold leading-relaxed">{aiSub}</p>
-            </div>
-          </div>
-        )}
-
-        {/* USER LIVE SPEECH CAPTION */}
-        {userSub && !aiSub && (
-          <div className="absolute bottom-24 left-4 right-4 z-20 animate-in fade-in duration-200">
-            <div className="bg-slate-900/90 backdrop-blur-xl border border-white/20 rounded-2xl px-5 py-3 shadow-xl max-w-xl mx-auto">
+        {/* LIVE HINDI SUBTITLES / CAPTION CARD */}
+        {(aiSub || userSub) && (
+          <div className="w-full max-w-lg mb-3 z-20 animate-in fade-in duration-200">
+            <div className={`p-4 rounded-2xl shadow-xl border backdrop-blur-xl ${
+              aiSub 
+                ? "bg-indigo-900/90 border-indigo-400/40 text-white" 
+                : "bg-slate-900/90 border-white/20 text-slate-100"
+            }`}>
               <div className="flex items-center gap-2 mb-1">
-                <Mic className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                <span className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Listening to You</span>
+                {aiSub ? (
+                  <>
+                    <Bot className="w-3.5 h-3.5 text-cyan-300" />
+                    <span className="text-[11px] font-black uppercase text-cyan-300">DEVGYA AI शिक्षक:</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-[11px] font-black uppercase text-emerald-300">आप पूछ रहे हैं:</span>
+                  </>
+                )}
               </div>
-              <p className="text-white text-xs sm:text-sm font-semibold">{userSub}</p>
+              <p className="text-xs sm:text-sm font-semibold leading-relaxed">
+                {aiSub || userSub}
+              </p>
             </div>
           </div>
         )}
 
-        {/* AI THINKING ANIMATION */}
-        {aiThinking && !aiSub && (
-          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 px-5 py-3 bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center gap-3 shadow-2xl">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="w-2.5 h-2.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
-            ))}
-            <span className="text-white text-xs font-bold">DEVGYA AI Processing Answer...</span>
-          </div>
-        )}
+      </main>
 
-        {/* SLIDE-OUT TRANSCRIPT DRAWER */}
-        {showTranscript && (
-          <div className="absolute top-0 right-0 bottom-0 w-80 bg-slate-900/95 backdrop-blur-xl z-30 flex flex-col border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-300">
-            <div className="p-4 border-b border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-black text-white">
-                <Bot className="w-4 h-4 text-indigo-400" />
-                <span>Live Call Transcript</span>
-              </div>
-              <button onClick={() => setShowTranscript(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4 space-y-2.5">
-              {transcript.map((m, i) => (
-                <div key={i} className={`flex ${m.who === "you" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs font-medium ${
-                    m.who === "you"
-                      ? "bg-indigo-600 text-white rounded-br-xs"
-                      : "bg-slate-800 text-slate-200 border border-white/10 rounded-bl-xs"
-                  }`}>
-                    {m.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* MOBILE-OPTIMIZED CONTROL DOCK */}
-      <div className="p-4 bg-slate-900 border-t border-white/10 flex flex-wrap items-center justify-center gap-3 shadow-2xl z-20">
+      {/* 3. ERGONOMIC MOBILE & DESKTOP BOTTOM CONTROLS */}
+      <footer className="p-3.5 sm:p-4 bg-slate-900 border-t border-white/10 flex items-center justify-center gap-4 z-20 shrink-0">
         
-        <button
-          onClick={toggleCamera}
-          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
-            cameraOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500/20 text-red-400 border border-red-500/40"
-          }`}
-          title={cameraOn ? "Turn Camera Off" : "Turn Camera On"}
-        >
-          {cameraOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-        </button>
-
+        {/* MIC TOGGLE */}
         <button
           onClick={toggleMic}
-          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
-            micOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500/20 text-red-400 border border-red-500/40"
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md ${
+            micOn ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-red-500/20 text-red-400 border border-red-500/40"
           }`}
-          title={micOn ? "Mute Microphone" : "Unmute Microphone"}
+          title={micOn ? "माइक म्यूट करें" : "माइक चालू करें"}
         >
           {micOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
         </button>
 
-        {/* TAP TO SPEAK / PUSH-TO-TALK MOBILE ACTION BUTTON */}
+        {/* TAP TO SPEAK / PUSH TO TALK */}
         <button
           onClick={() => {
             if (!micOn) toggleMic();
@@ -812,63 +726,100 @@ export function VideoConsultation() {
             setTimeout(startListening, 100);
           }}
           disabled={aiSpeaking || aiThinking}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+          className={`px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
             aiSpeaking || aiThinking
               ? "bg-slate-800 text-slate-500 opacity-60 cursor-not-allowed"
               : "bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg shadow-indigo-600/30 active:scale-95"
           }`}
         >
           <Mic className="w-4 h-4 animate-pulse text-cyan-300" />
-          <span>{aiSpeaking ? "AI Speaking..." : aiThinking ? "AI Thinking..." : "Speak Now"}</span>
+          <span>{aiSpeaking ? "शिक्षक बोल रहे हैं" : aiThinking ? "सोच रहे हैं..." : "बोलें (Speak)"}</span>
         </button>
 
-        {/* END CALL RED BUTTON */}
+        {/* SPEAKER AI VOICE TOGGLE */}
+        <button
+          onClick={() => setSpeakerOn(!speakerOn)}
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md ${
+            speakerOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+          }`}
+          title={speakerOn ? "आवाज़ म्यूट करें" : "आवाज़ चालू करें"}
+        >
+          {speakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+        </button>
+
+        {/* END CALL DISCONNECT BUTTON */}
         <button
           onClick={endCall}
           className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/40 active:scale-95 transition-transform cursor-pointer"
-          title="End Consultation Call"
+          title="कॉल समाप्त करें"
         >
           <PhoneOff className="w-5 h-5" />
         </button>
 
-        <button
-          onClick={() => setTtsEnabled(!ttsEnabled)}
-          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
-            ttsEnabled ? "bg-white/10 hover:bg-white/20 text-white" : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-          }`}
-          title={ttsEnabled ? "Mute AI Voice" : "Enable AI Voice"}
-        >
-          {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-        </button>
+      </footer>
 
-        {/* MOBILE CHAT INPUT INLINE */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (textInput.trim()) {
-              sendMessage(textInput.trim());
-              setTextInput("");
-            }
-          }}
-          className="flex items-center gap-2 shrink-0"
-        >
-          <input
-            type="text"
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-            placeholder="Type query..."
-            className="w-28 sm:w-48 px-3.5 py-2.5 text-xs rounded-xl border border-white/20 bg-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400 font-semibold"
-          />
-          <button
-            type="submit"
-            disabled={!textInput.trim() || aiThinking}
-            className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl transition-all cursor-pointer"
+      {/* 4. OPTIONAL TEXT CHAT MODAL (FOR TYPING WITHOUT CLUTTER) */}
+      {showChatModal && (
+        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-xl z-50 flex flex-col animate-in fade-in duration-200">
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-black text-white">
+              <MessageSquare className="w-4 h-4 text-cyan-300" />
+              <span>सत्र संदेश एवं बातचीत (Live Chat)</span>
+            </div>
+            <button
+              onClick={() => setShowChatModal(false)}
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {transcript.map((m, i) => (
+              <div key={i} className={`flex ${m.who === "you" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-xs font-semibold leading-relaxed ${
+                  m.who === "you"
+                    ? "bg-indigo-600 text-white rounded-br-xs"
+                    : "bg-slate-800 text-slate-200 border border-white/10 rounded-bl-xs"
+                }`}>
+                  <p className="text-[10px] font-black uppercase text-slate-300 mb-0.5">
+                    {m.who === "you" ? "आप" : "AI शिक्षक"}
+                  </p>
+                  {m.text}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (textInput.trim()) {
+                sendMessage(textInput.trim());
+                setTextInput("");
+                setShowChatModal(false);
+              }
+            }}
+            className="p-3 border-t border-white/10 bg-slate-900 flex items-center gap-2"
           >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
-
-      </div>
+            <input
+              type="text"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder="हिंदी में सवाल टाइप करें..."
+              className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 font-medium"
+            />
+            <button
+              type="submit"
+              disabled={!textInput.trim() || aiThinking}
+              className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              <Send className="w-4 h-4" />
+              <span>भेजें</span>
+            </button>
+          </form>
+        </div>
+      )}
 
     </div>
   );
