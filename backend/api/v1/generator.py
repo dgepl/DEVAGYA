@@ -42,7 +42,7 @@ async def _save_paper_for_user(email: Optional[str], paper_data: dict):
     # Sync to Supabase Cloud
     await supabase_service.save_question_paper_to_cloud(email_clean, paper_data)
 
-@router.post("/generate", response_model=GeneratedPaperResponse, dependencies=[Depends(check_rate_limit(max_requests=15, window_seconds=60, key_prefix="gen_paper"))])
+@router.post("/generate", response_model=GeneratedPaperResponse)
 async def generate_paper(request: GeneratePaperRequest):
     """Generate Question Paper directly from syllabus/OCR context without requiring file attachment."""
     try:
@@ -54,7 +54,7 @@ async def generate_paper(request: GeneratePaperRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Question paper generation failed: {str(e)}")
 
-@router.post("/generate-from-file", response_model=GeneratedPaperResponse, dependencies=[Depends(check_rate_limit(max_requests=15, window_seconds=60, key_prefix="gen_file"))])
+@router.post("/generate-from-file", response_model=GeneratedPaperResponse)
 async def generate_paper_from_file(
     file: Optional[UploadFile] = File(None),
     title: str = Form("Periodic Assessment Exam"),

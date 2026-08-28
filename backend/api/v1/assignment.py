@@ -63,10 +63,10 @@ class GenerateAssignmentRequest(BaseModel):
     chapter_topic: str = Field(..., example="Quadratic Equations & Arithmetic Progressions")
     title: Optional[str] = Field(default=None, example="Weekly Practice Assignment 1")
     difficulty: str = Field(default="medium", example="medium") # easy, medium, hard, hots
-    mcq_count: int = Field(default=5, ge=0, le=30)
-    short_count: int = Field(default=3, ge=0, le=20)
-    long_count: int = Field(default=2, ge=0, le=10)
-    fill_blanks_count: int = Field(default=0, ge=0, le=15)
+    mcq_count: int = Field(default=5, ge=0, le=200)
+    short_count: int = Field(default=3, ge=0, le=100)
+    long_count: int = Field(default=2, ge=0, le=50)
+    fill_blanks_count: int = Field(default=0, ge=0, le=100)
     custom_notes: Optional[str] = None
     due_date: Optional[str] = None
     school_name: Optional[str] = "DEVGYA GLOBAL ACADEMY"
@@ -195,7 +195,7 @@ def _classify_and_bucket_questions(raw_questions: List[Dict[str, Any]]) -> Dict[
             
     return buckets
 
-@router.post("/generate-ai", dependencies=[Depends(check_rate_limit(max_requests=15, window_seconds=60, key_prefix="asg_gen"))])
+@router.post("/generate-ai")
 async def generate_ai_assignment(req: GenerateAssignmentRequest):
     """
     Generates 100% original, curriculum-accurate CBSE/NCERT assignment questions
@@ -251,20 +251,29 @@ async def generate_ai_assignment(req: GenerateAssignmentRequest):
 
         notes_context = f"\nTeacher's Reference Notes / Focus Area:\n{req.custom_notes.strip()}\n" if req.custom_notes and req.custom_notes.strip() else ""
 
+        def _get_chunks(cnt: int, size: int) -> List[int]:
+            res = []
+            while cnt > 0:
+                take = min(cnt, size)
+                res.append(take)
+                cnt -= take
+            return res
+
         tasks = []
         
-        # 1. Objective Task (MCQs and Fill-in-the-blanks) if requested
-        if target_mcq > 0 or target_fill > 0:
+        # 1. Objective Tasks (MCQs in chunks of 10)
+        mcq_chunks = _get_chunks(target_mcq, 10)
+        for i, c_mcq in enumerate(mcq_chunks):
             obj_prompt = f"""{subject_directive}
 
-Generate EXACTLY the following objective questions for {req.class_name} {req.subject}.
+Generate EXACTLY {c_mcq} Multiple Choice Questions for {req.class_name} {req.subject}.
 Chapter / Topic: {req.chapter_topic}
 Difficulty: {diff_str}
+Batch Part: {i+1} of {len(mcq_chunks)}
 {notes_context}
 
-MANDATORY EXACT QUESTION QUANTITIES:
-- EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation)
-- EXACTLY {target_fill} Fill-in-the-Blanks Questions (labeled 'question_type': 'fill_in_the_blank', 'marks': 1, with answer and explanation)
+MANDATORY QUANTITY:
+- EXACTLY {c_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation)
 
 JSON FORMAT ONLY:
 {{
@@ -284,7 +293,7 @@ JSON FORMAT ONLY:
     }}
   ]
 }}
-You MUST produce ALL {target_mcq + target_fill} objective questions in the 'questions' list."""
+You MUST produce ALL {c_mcq} objective MCQs in the 'questions' list."""
             tasks.append(
                 ai_provider.chat_completion(
                     messages=[
@@ -297,18 +306,63 @@ You MUST produce ALL {target_mcq + target_fill} objective questions in the 'ques
                 )
             )
 
-        # 2. Subjective Task (Short Answer and Long Answer / HOTS) if requested
-        if target_short > 0 or target_long > 0:
-            subj_prompt = f"""{subject_directive}
+        # 2. Fill in the blanks tasks (in chunks of 10)
+        fill_chunks = _get_chunks(target_fill, 10)
+        for i, c_fill in enumerate(fill_chunks):
+            fill_prompt = f"""{subject_directive}
 
-Generate EXACTLY the following subjective questions for {req.class_name} {req.subject}.
+Generate EXACTLY {c_fill} Fill-in-the-Blanks Questions for {req.class_name} {req.subject}.
 Chapter / Topic: {req.chapter_topic}
 Difficulty: {diff_str}
+Batch Part: {i+1} of {len(fill_chunks)}
 {notes_context}
 
-MANDATORY EXACT QUESTION QUANTITIES:
-- EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, 'lines_allocated': 4, with complete step-by-step scoring rubric/model answer)
-- EXACTLY {target_long} Long Answer / HOTS Questions (labeled 'question_type': 'long', 'marks': 5, 'lines_allocated': 8, with detailed explanation, analysis, or multi-step solution)
+MANDATORY QUANTITY:
+- EXACTLY {c_fill} Fill-in-the-Blanks Questions (labeled 'question_type': 'fill_in_the_blank', 'marks': 1, with answer and explanation)
+
+JSON FORMAT ONLY:
+{{
+  "title": "{req.title or f'{req.subject} Assignment: {req.chapter_topic}'}",
+  "instructions": {json.dumps(sample_instructions)},
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "fill_in_the_blank",
+      "section": "Section B: Objective / Fill in the Blanks",
+      "question_text": "...",
+      "options": null,
+      "answer": "...",
+      "explanation": "...",
+      "marks": 1,
+      "lines_allocated": 2
+    }}
+  ]
+}}"""
+            tasks.append(
+                ai_provider.chat_completion(
+                    messages=[
+                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Return valid JSON."},
+                        {"role": "user", "content": fill_prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=3500,
+                    response_format_json=True
+                )
+            )
+
+        # 3. Short Answer tasks (in chunks of 8)
+        short_chunks = _get_chunks(target_short, 8)
+        for i, c_short in enumerate(short_chunks):
+            subj_prompt = f"""{subject_directive}
+
+Generate EXACTLY {c_short} Short Answer Questions for {req.class_name} {req.subject}.
+Chapter / Topic: {req.chapter_topic}
+Difficulty: {diff_str}
+Batch Part: {i+1} of {len(short_chunks)}
+{notes_context}
+
+MANDATORY QUANTITY:
+- EXACTLY {c_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, 'lines_allocated': 4, with complete step-by-step scoring rubric/model answer)
 
 JSON FORMAT ONLY:
 {{
@@ -318,7 +372,7 @@ JSON FORMAT ONLY:
     {{
       "question_number": 1,
       "question_type": "short",
-      "section": "Section B: Short Answer Questions",
+      "section": "Section C: Short Answer Questions",
       "question_text": "...",
       "options": null,
       "answer": "...",
@@ -328,12 +382,57 @@ JSON FORMAT ONLY:
     }}
   ]
 }}
-You MUST produce ALL {target_short + target_long} subjective questions in the 'questions' list."""
+You MUST produce ALL {c_short} Short Answer questions in the 'questions' list."""
             tasks.append(
                 ai_provider.chat_completion(
                     messages=[
                         {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Strictly adhere to the requested subject ({req.subject}) and topic ({req.chapter_topic}). Return valid JSON."},
                         {"role": "user", "content": subj_prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=3500,
+                    response_format_json=True
+                )
+            )
+
+        # 4. Long Answer / HOTS tasks (in chunks of 5)
+        long_chunks = _get_chunks(target_long, 5)
+        for i, c_long in enumerate(long_chunks):
+            long_prompt = f"""{subject_directive}
+
+Generate EXACTLY {c_long} Long Answer / HOTS Questions for {req.class_name} {req.subject}.
+Chapter / Topic: {req.chapter_topic}
+Difficulty: {diff_str}
+Batch Part: {i+1} of {len(long_chunks)}
+{notes_context}
+
+MANDATORY QUANTITY:
+- EXACTLY {c_long} Long Answer / HOTS Questions (labeled 'question_type': 'long', 'marks': 5, 'lines_allocated': 8, with detailed explanation, analysis, or multi-step solution)
+
+JSON FORMAT ONLY:
+{{
+  "title": "{req.title or f'{req.subject} Assignment: {req.chapter_topic}'}",
+  "instructions": {json.dumps(sample_instructions)},
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "long",
+      "section": "Section D: Long Answer & HOTS Questions",
+      "question_text": "...",
+      "options": null,
+      "answer": "...",
+      "explanation": "...",
+      "marks": 5,
+      "lines_allocated": 8
+    }}
+  ]
+}}
+You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
+            tasks.append(
+                ai_provider.chat_completion(
+                    messages=[
+                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Strictly adhere to the requested subject ({req.subject}) and topic ({req.chapter_topic}). Return valid JSON."},
+                        {"role": "user", "content": long_prompt}
                     ],
                     temperature=0.3,
                     max_tokens=3500,
