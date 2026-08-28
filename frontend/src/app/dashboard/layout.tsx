@@ -55,6 +55,13 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isAgentsPage = pathname?.startsWith("/dashboard/agents");
+  const isAIChatPage = 
+    pathname?.startsWith("/dashboard/agents") ||
+    pathname?.startsWith("/dashboard/chat") ||
+    pathname?.startsWith("/dashboard/video-consultation") ||
+    pathname?.startsWith("/dashboard/student/tutor") ||
+    pathname?.startsWith("/dashboard/parent/coach") ||
+    pathname?.startsWith("/dashboard/teacher-olympiad");
 
   useEffect(() => {
     setMounted(true);
@@ -300,13 +307,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           </PageTransition>
         </main>
 
-        {/* DASHBOARD BOTTOM DEVELOPER FOOTER */}
-        <footer className="mt-auto px-4 sm:px-8 py-3.5 border-t border-slate-200/80 bg-white/60 backdrop-blur-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 font-medium">
-          <p>&copy; 2026 DEVGYA Global Edutech Private Limited. All Rights Reserved.</p>
-          <p className="font-bold text-slate-600">
-            Designed and Developed by <strong className="text-indigo-600 font-black">Pratikk Yadav and Team +91 8307224756</strong>
-          </p>
-        </footer>
+        {/* DASHBOARD BOTTOM DEVELOPER FOOTER - Hidden on AI Chat & Exam screens for immersive full-height experience */}
+        {!isAIChatPage && (
+          <footer className="mt-auto px-4 sm:px-8 py-3.5 border-t border-slate-200/80 bg-white/60 backdrop-blur-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 font-medium">
+            <p>&copy; 2026 DEVGYA Global Edutech Private Limited. All Rights Reserved.</p>
+            <p className="font-bold text-slate-600">
+              Designed and Developed by <strong className="text-indigo-600 font-black">Pratikk Yadav and Team +91 8307224756</strong>
+            </p>
+          </footer>
+        )}
 
       </div>
 

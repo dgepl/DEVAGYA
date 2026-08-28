@@ -114,7 +114,11 @@ class AIProviderService:
                         
                         res.raise_for_status()
                         data = res.json()
-                        return data["choices"][0]["message"]["content"]
+                        raw_content = data["choices"][0]["message"]["content"] or ""
+                        # Strip any reasoning/think tags if present
+                        import re
+                        clean_content = re.sub(r'<think>[\s\S]*?</think>', '', raw_content).strip()
+                        return clean_content or raw_content
                     except httpx.HTTPStatusError as http_err:
                         last_error = http_err
                         if http_err.response.status_code == 400 and "response_format" in payload:
@@ -174,11 +178,11 @@ class AIProviderService:
         temperature: float = 0.6,
         model: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
-        """SSE streaming generator for ChatGPT-style real-time typing effect with multi-model 429 rate limit fallback."""
+        """SSE streaming generator for real-time typing effect with pure DEVGYA branding."""
         import asyncio
         key = self.api_key
         if not key:
-            yield "AI Provider API key is not configured. Please set AI_API_KEY in environment variables."
+            yield "DEVGYA AI engine is initializing. Please try again in a few moments."
             return
 
         headers = {
@@ -210,10 +214,11 @@ class AIProviderService:
                                 await asyncio.sleep(0.5)
                                 continue
                             else:
-                                yield f"\n\n*(Note: Groq AI rate limit reached. Please wait a few seconds and try again.)*"
+                                yield f"\n\n*(DEVGYA AI engine is currently processing high traffic. Please try again in a few moments.)*"
                                 return
 
                         has_yielded = False
+                        in_think_block = False
                         async for line in response.aiter_lines():
                             if line.startswith("data: "):
                                 data_str = line[6:].strip()
@@ -222,9 +227,19 @@ class AIProviderService:
                                 try:
                                     chunk = json.loads(data_str)
                                     content = chunk["choices"][0]["delta"].get("content", "")
-                                    if content:
-                                        has_yielded = True
-                                        yield content
+                                    if not content:
+                                        continue
+                                    if "<think>" in content:
+                                        in_think_block = True
+                                        continue
+                                    if "</think>" in content:
+                                        in_think_block = False
+                                        continue
+                                    if in_think_block:
+                                        continue
+                                    
+                                    has_yielded = True
+                                    yield content
                                 except Exception:
                                     pass
 
@@ -241,7 +256,7 @@ class AIProviderService:
                     await asyncio.sleep(0.5)
                     continue
                 else:
-                    yield f"\n\n*(Error connecting to AI Provider: {e})*"
+                    yield f"\n\n*(DEVGYA AI temporarily busy: Please try again in a few moments.)*"
                     return
 
 ai_provider = AIProviderService()
