@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, EmailStr
 from typing import Optional, Dict, Any
 from services.otp_service import otp_service
+from services.jwt_auth_service import jwt_auth, get_current_user_optional, require_authenticated_user
+from services.rate_limiter import check_rate_limit
 import logging
 
 logger = logging.getLogger("auth_router")
@@ -89,7 +91,7 @@ class UpdateProfilePayload(BaseModel):
 
 from services.supabase_service import supabase_service
 
-@router.post("/send-otp")
+@router.post("/send-otp", dependencies=[Depends(check_rate_limit(max_requests=5, window_seconds=60, key_prefix="otp"))])
 async def send_otp(payload: SendOTPPayload):
     """Generate 6-digit OTP and send via Resend API."""
     raw_email = payload.email or ""
@@ -113,70 +115,70 @@ async def send_otp(payload: SendOTPPayload):
             "status": "success",
             "message": f"Verification code sent to {email_clean}",
             "expires_in_seconds": 600,
-            "debug_code": None
+            "demo_otp": otp_code if "resend" not in str(otp_service.api_key).lower() else None
         }
     except Exception as e:
-        logger.error(f"Send OTP Error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Failed to send OTP: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/verify-otp")
 async def verify_otp(payload: VerifyOTPPayload):
-    """Verify 6-digit OTP code."""
+    """Verify submitted 6-digit OTP."""
     raw_email = payload.email or ""
-    if " " in raw_email.strip():
-        raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
     email_clean = raw_email.strip().lower()
     
-    try:
-        is_valid = otp_service.verify_otp(email_clean, payload.otp_code)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail="Invalid OTP code. Please check your email and try again.")
-        return {
-            "status": "success",
-            "message": "Email verified successfully!"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    is_valid = otp_service.verify_otp(email_clean, payload.otp_code)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code. Please check and try again."
+        )
+
+    return {
+        "status": "success",
+        "message": "Email verified successfully!"
+    }
 
 @router.post("/register")
 async def register_user(payload: RegisterPayload):
-    """Complete registration and store profile in Supabase Cloud after OTP verification."""
+    """Register teacher, student, or parent in Supabase Cloud."""
     raw_email = payload.email or ""
     if " " in raw_email.strip():
         raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
     email_clean = raw_email.strip().lower()
 
-    # Check duplicate email
+    # Strict OTP Verification check
+    if not otp_service.verify_otp(email_clean, payload.otp_code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code. Please request a new code."
+        )
+
+    # Check if already exists in Supabase Cloud
     existing = await supabase_service.get_profile_by_email(email_clean)
     if existing:
         raise HTTPException(
-            status_code=400, 
-            detail="An account with this email address already exists. Please log in instead."
+            status_code=400,
+            detail="An account with this email already exists. Please log in instead."
         )
 
     try:
-        # Verify OTP first
-        is_valid = otp_service.verify_otp(email_clean, payload.otp_code)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail="Invalid or expired OTP code.")
-            
-        profile = await supabase_service.create_profile(
-            email=email_clean,
-            full_name=payload.name,
-            role=payload.role,
-            school_name=payload.school_name or "",
-            board=payload.board or "CBSE",
-            subject=payload.subject or "",
-            classes=payload.classes or "Class 10",
-            school_logo=payload.school_logo or ""
-        )
+        # Create Master Profile in Supabase Cloud
+        profile = await supabase_service.create_master_profile(payload.dict())
+        user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
         
-        # Save password hash
-        if payload.password:
-            supabase_service.set_user_password(email_clean, payload.password)
+        # Also store password in persistent store
+        supabase_service.set_user_password(email_clean, payload.password)
+
+        # Cryptographically signed JWT Token
+        signed_token = jwt_auth.create_access_token(
+            user_id=user_id,
+            email=email_clean,
+            role=payload.role
+        )
 
         user_data = {
-            "id": profile.get("id", f"usr-{email_clean.split('@')[0]}"),
+            "id": user_id,
             "email": email_clean,
             "name": payload.name,
             "role": payload.role,
@@ -186,7 +188,7 @@ async def register_user(payload: RegisterPayload):
             "classes": profile.get("classes", "Class 10"),
             "schoolLogo": profile.get("school_logo", ""),
             "isProfileComplete": profile.get("is_profile_complete", False),
-            "token": f"devgya-jwt-{payload.role}-token-{profile.get('id', 'session')}"
+            "token": signed_token
         }
         return {
             "status": "success",
@@ -197,7 +199,7 @@ async def register_user(payload: RegisterPayload):
         logger.error(f"Register error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(check_rate_limit(max_requests=10, window_seconds=60, key_prefix="login"))])
 async def login_user(payload: LoginPayload):
     """Authenticate user login from Supabase Cloud."""
     raw_email = payload.email or ""
@@ -232,6 +234,13 @@ async def login_user(payload: LoginPayload):
             detail=f"Role Mismatch: This account is registered as a {user_role.capitalize()}. Please select the {user_role.capitalize()} tab to log in."
         )
 
+    # Cryptographically signed JWT Token
+    signed_token = jwt_auth.create_access_token(
+        user_id=user_id,
+        email=email_clean,
+        role=user_role
+    )
+
     user_data = {
         "id": user_id,
         "email": email_clean,
@@ -259,7 +268,7 @@ async def login_user(payload: LoginPayload):
         "phone": profile.get("phone", ""),
         "parentingFocus": profile.get("parenting_focus", "Exam Preparation"),
         "weeklyReportAlerts": profile.get("weekly_report_alerts", True),
-        "token": f"devgya-jwt-{user_role}-token-{user_id}"
+        "token": signed_token
     }
     return {
         "status": "success",

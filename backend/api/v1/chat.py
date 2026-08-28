@@ -35,8 +35,27 @@ MAX_IMAGES = 4
 MAX_IMAGE_BYTES = 6 * 1024 * 1024
 
 
+ALLOWED_MAGIC_HEADERS = (
+    b'\xff\xd8\xff',        # JPEG
+    b'\x89PNG\r\n\x1a\n',   # PNG
+    b'RIFF',                 # WEBP
+    b'GIF87a', b'GIF89a',    # GIF
+    b'BM'                    # BMP
+)
+
 def _image_to_data_url(file_bytes: bytes, content_type: str) -> str:
-    """Resize/compress an uploaded image and return a base64 data URL for vision models."""
+    """Validate, sanitize, resize/compress an uploaded image and return a base64 data URL for vision models."""
+    if not file_bytes:
+        return ""
+
+    if len(file_bytes) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=400, detail="Image exceeds maximum allowed size of 6MB.")
+
+    # Validate image signature / magic bytes to block disguised executables
+    if not any(file_bytes.startswith(sig) for sig in ALLOWED_MAGIC_HEADERS):
+        logger.warning("Rejected upload with invalid image signature in chat.")
+        raise HTTPException(status_code=400, detail="Invalid image file format. Only JPEG, PNG, WEBP, and GIF are allowed.")
+
     try:
         image = Image.open(io.BytesIO(file_bytes))
         image = image.convert("RGB")
@@ -47,9 +66,9 @@ def _image_to_data_url(file_bytes: bytes, content_type: str) -> str:
         image.save(buffer, format="JPEG", quality=80)
         encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
         return f"data:image/jpeg;base64,{encoded}"
-    except Exception:
-        encoded = base64.b64encode(file_bytes).decode("ascii")
-        return f"data:{content_type or 'image/jpeg'};base64,{encoded}"
+    except Exception as e:
+        logger.error(f"Chat vision processing error: {e}")
+        raise HTTPException(status_code=400, detail="Corrupted or unreadable image file.")
 
 
 def _derive_title(message: str) -> str:

@@ -49,15 +49,48 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Enable CORS
+# Configure Safe Origins for CORS
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "https://devgya.com",
+    "https://www.devgya.com",
+]
+
+import os
+custom_cors = os.getenv("CORS_ORIGINS", "")
+if custom_cors:
+    for origin in custom_cors.split(","):
+        clean_origin = origin.strip()
+        if clean_origin and clean_origin not in ALLOWED_ORIGINS:
+            ALLOWED_ORIGINS.append(clean_origin)
+
+# Enable Hardened CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https:\/\/.*(\.vercel\.app|\.devgya\.com)$",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["X-Conversation-Id", "X-XP-Earned"],
 )
+
+# Standard HTTP Security Headers Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Mount Phase 1 Routers
 app.include_router(generator_router, prefix=settings.API_V1_STR)

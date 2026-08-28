@@ -12,6 +12,8 @@ from services.pdf_service import pdf_generator_service
 import os
 from services.supabase_service import supabase_service
 
+from services.rate_limiter import check_rate_limit
+
 logger = logging.getLogger("assignment_api")
 router = APIRouter(prefix="/assignment", tags=["Assignments"])
 
@@ -52,6 +54,8 @@ async def _save_assignment_for_user(email: Optional[str], assignment_data: dict)
     ]
     store[email_clean] = [assignment_data] + filtered
     _save_assignments_store(store)
+    # Sync to Supabase Cloud
+    await supabase_service.save_assignment_to_cloud(email_clean, assignment_data)
 
 class GenerateAssignmentRequest(BaseModel):
     class_name: str = Field(..., example="Class 10")
@@ -191,7 +195,7 @@ def _classify_and_bucket_questions(raw_questions: List[Dict[str, Any]]) -> Dict[
             
     return buckets
 
-@router.post("/generate-ai")
+@router.post("/generate-ai", dependencies=[Depends(check_rate_limit(max_requests=15, window_seconds=60, key_prefix="asg_gen"))])
 async def generate_ai_assignment(req: GenerateAssignmentRequest):
     """
     Generates 100% original, curriculum-accurate CBSE/NCERT assignment questions
