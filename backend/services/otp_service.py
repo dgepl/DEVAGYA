@@ -19,6 +19,10 @@ class OTPService:
         return os.getenv("RESEND_API_KEY", "")
 
     @property
+    def api_key(self) -> str:
+        return self.RESEND_API_KEY
+
+    @property
     def RESEND_FROM_EMAIL(self) -> str:
         return os.getenv("RESEND_FROM_EMAIL", "DEVGYA GLOBAL <onboarding@devgya.in>")
 

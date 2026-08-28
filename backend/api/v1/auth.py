@@ -115,7 +115,7 @@ async def send_otp(payload: SendOTPPayload):
             "status": "success",
             "message": f"Verification code sent to {email_clean}",
             "expires_in_seconds": 600,
-            "demo_otp": otp_code if "resend" not in str(otp_service.api_key).lower() else None
+            "demo_otp": otp_code if not otp_service.RESEND_API_KEY else None
         }
     except Exception as e:
         logger.error(f"Failed to send OTP: {e}")
