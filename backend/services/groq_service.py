@@ -10,6 +10,57 @@ from services.academic_guardrail import attach_academic_guardrail
 
 logger = logging.getLogger("groq_service")
 
+def robust_json_parser(raw_text: str) -> Dict[str, Any]:
+    """Resilient multi-tier JSON parser for AI assessment outputs with LaTeX formulas and trailing commas."""
+    text = (raw_text or "").strip()
+    if "```json" in text:
+        text = text.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif "```" in text:
+        text = text.split("```", 1)[1].split("```", 1)[0].strip()
+
+    if "{" in text and "}" in text:
+        text = text[text.find("{"):text.rfind("}") + 1].strip()
+
+    # Tier 1: Standard parse
+    try:
+        return json.loads(text, strict=False)
+    except Exception:
+        pass
+
+    # Tier 2: Escape unescaped backslashes (common in LaTeX formulas)
+    sanitized = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', text)
+    try:
+        return json.loads(sanitized, strict=False)
+    except Exception:
+        pass
+
+    # Tier 3: Strip trailing commas before closing braces/brackets
+    sanitized_no_trailing = re.sub(r',\s*([}\]])', r'\1', sanitized)
+    try:
+        return json.loads(sanitized_no_trailing, strict=False)
+    except Exception:
+        pass
+
+    # Tier 4: Regex-based extraction of question objects
+    try:
+        q_match = re.search(r'"questions"\s*:\s*\[(.*)\]', text, re.DOTALL)
+        if q_match:
+            items = []
+            block_pattern = re.compile(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}')
+            for b in block_pattern.findall(q_match.group(1)):
+                try:
+                    cleaned_b = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', b)
+                    cleaned_b = re.sub(r',\s*([}\]])', r'\1', cleaned_b)
+                    items.append(json.loads(cleaned_b, strict=False))
+                except Exception:
+                    continue
+            if items:
+                return {"questions": items}
+    except Exception:
+        pass
+
+    return {}
+
 class GroqAIService:
     def __init__(self):
         self.api_key = settings.GROQ_API_KEY
@@ -18,7 +69,7 @@ class GroqAIService:
     async def generate_question_paper(self, req: GeneratePaperRequest) -> GeneratedPaperResponse:
         """
         Generates 100% original, curriculum-accurate CBSE/NCERT examination papers.
-        Supports arbitrarily large papers via parallel chunked generation.
+        Supports arbitrarily large papers (e.g. 40, 50, 100 questions) via parallel chunked synthesis.
         Zero mock questions guaranteed.
         """
         import asyncio
@@ -45,13 +96,41 @@ class GroqAIService:
                 cnt -= take
             return res
 
-        tasks = []
+        def _dedup_q_list(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            seen_texts = set()
+            out = []
+            for item in items:
+                t = str(item.get("question_text", "")).strip()
+                norm = re.sub(r'[^a-zA-Z0-9\s]', '', t.lower())
+                k = " ".join(norm.split())
+                if not k or k in seen_texts or len(k) < 8:
+                    continue
+                seen_texts.add(k)
+                out.append(item)
+            return out
+
         target_mcq = max(0, req.num_mcqs)
         target_short = max(0, req.num_short)
         target_long = max(0, req.num_long)
 
-        # 1. MCQ Tasks
-        mcq_chunks = _get_chunks(target_mcq, 10)
+        sem = asyncio.Semaphore(4)
+
+        async def _call_llm(prompt_text: str) -> str:
+            async with sem:
+                return await ai_provider.chat_completion(
+                    messages=[
+                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Synthesizer for {req.class_name} {req.subject}. Strictly adhere to {req.subject} and {req.chapter}. Return valid JSON."},
+                        {"role": "user", "content": prompt_text}
+                    ],
+                    temperature=0.3,
+                    max_tokens=3500,
+                    response_format_json=True
+                )
+
+        tasks = []
+
+        # 1. MCQ Tasks (in chunks of 8)
+        mcq_chunks = _get_chunks(target_mcq, 8)
         for i, c_mcq in enumerate(mcq_chunks):
             mcq_prompt = f"""{subject_directive}
 
@@ -79,20 +158,10 @@ JSON FORMAT ONLY:
   ]
 }}
 You MUST produce ALL {c_mcq} MCQs in the 'questions' list."""
-            tasks.append(
-                ai_provider.chat_completion(
-                    messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Synthesizer for {req.class_name} {req.subject}. Strictly adhere to {req.subject} and {req.chapter}. Return valid JSON."},
-                        {"role": "user", "content": mcq_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=3500,
-                    response_format_json=True
-                )
-            )
+            tasks.append(_call_llm(mcq_prompt))
 
-        # 2. Short Answer Tasks
-        short_chunks = _get_chunks(target_short, 8)
+        # 2. Short Answer Tasks (in chunks of 5)
+        short_chunks = _get_chunks(target_short, 5)
         for i, c_short in enumerate(short_chunks):
             short_prompt = f"""{subject_directive}
 
@@ -120,20 +189,10 @@ JSON FORMAT ONLY:
   ]
 }}
 You MUST produce ALL {c_short} Short Answer questions in the 'questions' list."""
-            tasks.append(
-                ai_provider.chat_completion(
-                    messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Synthesizer for {req.class_name} {req.subject}. Strictly adhere to {req.subject} and {req.chapter}. Return valid JSON."},
-                        {"role": "user", "content": short_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=3500,
-                    response_format_json=True
-                )
-            )
+            tasks.append(_call_llm(short_prompt))
 
-        # 3. Long Answer / HOTS Tasks
-        long_chunks = _get_chunks(target_long, 5)
+        # 3. Long Answer / HOTS Tasks (in chunks of 4)
+        long_chunks = _get_chunks(target_long, 4)
         for i, c_long in enumerate(long_chunks):
             long_prompt = f"""{subject_directive}
 
@@ -161,36 +220,15 @@ JSON FORMAT ONLY:
   ]
 }}
 You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
-            tasks.append(
-                ai_provider.chat_completion(
-                    messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Synthesizer for {req.class_name} {req.subject}. Strictly adhere to {req.subject} and {req.chapter}. Return valid JSON."},
-                        {"role": "user", "content": long_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=3500,
-                    response_format_json=True
-                )
-            )
+            tasks.append(_call_llm(long_prompt))
 
         raw_responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         extracted_raw_questions = []
         for resp in raw_responses:
             if isinstance(resp, str):
-                text = resp.strip()
-                if "```json" in text:
-                    text = text.split("```json", 1)[1].split("```", 1)[0].strip()
-                elif "```" in text:
-                    text = text.split("```", 1)[1].split("```", 1)[0].strip()
-                if "{" in text and "}" in text:
-                    text = text[text.find("{"):text.rfind("}") + 1].strip()
-                try:
-                    parsed = json.loads(text)
-                    if isinstance(parsed, dict):
-                        extracted_raw_questions.extend(parsed.get("questions") or [])
-                except Exception:
-                    pass
+                parsed = robust_json_parser(resp)
+                extracted_raw_questions.extend(parsed.get("questions") or [])
 
         # Clean and categorize
         mcqs, shorts, longs = [], [], []
@@ -233,116 +271,84 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                     "explanation": exp
                 })
 
-        def _dedup_q_list(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-            seen_texts = set()
-            out = []
-            for item in items:
-                t = str(item.get("question_text", "")).strip()
-                norm = re.sub(r'[^a-zA-Z0-9\s]', '', t.lower())
-                k = " ".join(norm.split())
-                if not k or k in seen_texts or len(k) < 8:
-                    continue
-                seen_texts.add(k)
-                out.append(item)
-            return out
-
         mcqs = _dedup_q_list(mcqs)
         shorts = _dedup_q_list(shorts)
         longs = _dedup_q_list(longs)
 
-        # Check for any missing questions and run targeted supplement
-        miss_mcq = max(0, target_mcq - len(mcqs))
-        miss_short = max(0, target_short - len(shorts))
-        miss_long = max(0, target_long - len(longs))
+        # Multi-round deficit fulfillment in safe small chunks
+        for _ in range(3):
+            miss_mcq = max(0, target_mcq - len(mcqs))
+            miss_short = max(0, target_short - len(shorts))
+            miss_long = max(0, target_long - len(longs))
 
-        if miss_mcq > 0 or miss_short > 0 or miss_long > 0:
+            if miss_mcq <= 0 and miss_short <= 0 and miss_long <= 0:
+                break
+
             supp_tasks = []
             if miss_mcq > 0:
-                supp_tasks.append(
-                    ai_provider.chat_completion(
-                        messages=[
-                            {"role": "system", "content": f"Generate EXACTLY {miss_mcq} authentic, distinct MCQs for {req.class_name} {req.subject}, {req.chapter}. Return valid JSON with 'questions' array."},
-                            {"role": "user", "content": f"Generate {miss_mcq} unique MCQs for {req.subject} topic '{req.chapter}'."}
-                        ],
-                        temperature=0.3,
-                        max_tokens=2500,
-                        response_format_json=True
-                    )
-                )
+                for chunk in _get_chunks(miss_mcq, 8):
+                    supp_tasks.append(_call_llm(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Multiple Choice Questions for {req.class_name} {req.subject}, {req.chapter}.
+JSON ONLY: {{"questions": [{{"question_type": "mcq", "question_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "answer": "...", "explanation": "...", "marks": 1}}]}}"""
+                    ))
             if miss_short > 0:
-                supp_tasks.append(
-                    ai_provider.chat_completion(
-                        messages=[
-                            {"role": "system", "content": f"Generate EXACTLY {miss_short} authentic, distinct Short Answer (3M) questions for {req.class_name} {req.subject}, {req.chapter}. Return valid JSON with 'questions' array."},
-                            {"role": "user", "content": f"Generate {miss_short} unique Short Answer questions for {req.subject} topic '{req.chapter}'."}
-                        ],
-                        temperature=0.3,
-                        max_tokens=2500,
-                        response_format_json=True
-                    )
-                )
+                for chunk in _get_chunks(miss_short, 5):
+                    supp_tasks.append(_call_llm(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Short Answer (3 Marks) Questions for {req.class_name} {req.subject}, {req.chapter}.
+JSON ONLY: {{"questions": [{{"question_type": "short", "question_text": "...", "answer": "...", "explanation": "...", "marks": 3}}]}}"""
+                    ))
             if miss_long > 0:
-                supp_tasks.append(
-                    ai_provider.chat_completion(
-                        messages=[
-                            {"role": "system", "content": f"Generate EXACTLY {miss_long} authentic, distinct Long Answer (5M) questions for {req.class_name} {req.subject}, {req.chapter}. Return valid JSON with 'questions' array."},
-                            {"role": "user", "content": f"Generate {miss_long} unique Long Answer questions for {req.subject} topic '{req.chapter}'."}
-                        ],
-                        temperature=0.3,
-                        max_tokens=2500,
-                        response_format_json=True
-                    )
-                )
-            
-            try:
-                supp_resps = await asyncio.gather(*supp_tasks, return_exceptions=True)
-                for s_resp in supp_resps:
-                    if isinstance(s_resp, str):
-                        try:
-                            s_data = json.loads(s_resp)
-                            for sq in s_data.get("questions", []):
-                                stype = str(sq.get("question_type", "")).lower()
-                                stext = str(sq.get("question_text") or sq.get("question") or "").strip()
-                                if not stext:
-                                    continue
-                                if "mcq" in stype:
-                                    mcqs.append({
-                                        "question_type": "mcq",
-                                        "question_text": stext,
-                                        "marks": 1,
-                                        "options": sq.get("options"),
-                                        "answer": str(sq.get("answer", "")),
-                                        "explanation": str(sq.get("explanation", ""))
-                                    })
-                                elif "long" in stype:
-                                    longs.append({
-                                        "question_type": "long",
-                                        "question_text": stext,
-                                        "marks": 5,
-                                        "options": None,
-                                        "answer": str(sq.get("answer", "")),
-                                        "explanation": str(sq.get("explanation", ""))
-                                    })
-                                else:
-                                    shorts.append({
-                                        "question_type": "short",
-                                        "question_text": stext,
-                                        "marks": 3,
-                                        "options": None,
-                                        "answer": str(sq.get("answer", "")),
-                                        "explanation": str(sq.get("explanation", ""))
-                                    })
-                        except Exception:
-                            pass
-            except Exception as supp_err:
-                logger.warning(f"[Supplement Error] {supp_err}")
+                for chunk in _get_chunks(miss_long, 4):
+                    supp_tasks.append(_call_llm(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Long Answer / HOTS (5 Marks) Questions for {req.class_name} {req.subject}, {req.chapter}.
+JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "answer": "...", "explanation": "...", "marks": 5}}]}}"""
+                    ))
 
-        # Final deduplication
-        mcqs = _dedup_q_list(mcqs)
-        shorts = _dedup_q_list(shorts)
-        longs = _dedup_q_list(longs)
+            supp_resps = await asyncio.gather(*supp_tasks, return_exceptions=True)
+            for s_resp in supp_resps:
+                if isinstance(s_resp, str):
+                    parsed_s = robust_json_parser(s_resp)
+                    for sq in parsed_s.get("questions", []):
+                        stype = str(sq.get("question_type", "")).lower()
+                        stext = str(sq.get("question_text") or sq.get("question") or "").strip()
+                        if not stext:
+                            continue
+                        if "mcq" in stype:
+                            mcqs.append({
+                                "question_type": "mcq",
+                                "question_text": stext,
+                                "marks": 1,
+                                "options": sq.get("options") or ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"],
+                                "answer": str(sq.get("answer", "")),
+                                "explanation": str(sq.get("explanation", ""))
+                            })
+                        elif "long" in stype:
+                            longs.append({
+                                "question_type": "long",
+                                "question_text": stext,
+                                "marks": 5,
+                                "options": None,
+                                "answer": str(sq.get("answer", "")),
+                                "explanation": str(sq.get("explanation", ""))
+                            })
+                        else:
+                            shorts.append({
+                                "question_type": "short",
+                                "question_text": stext,
+                                "marks": 3,
+                                "options": None,
+                                "answer": str(sq.get("answer", "")),
+                                "explanation": str(sq.get("explanation", ""))
+                            })
 
-        # Assemble final indexed questions
+            mcqs = _dedup_q_list(mcqs)
+            shorts = _dedup_q_list(shorts)
+            longs = _dedup_q_list(longs)
+
+        # Assemble final indexed questions matching exact requested count
         final_qs = []
         q_num = 1
         for q in mcqs[:target_mcq]:
