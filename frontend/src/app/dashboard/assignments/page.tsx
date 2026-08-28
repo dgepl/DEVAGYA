@@ -87,8 +87,8 @@ export default function AssignmentMakerPage() {
     theme_name: "cbse"
   });
 
-  // Calculate dynamic total marks
-  const estimatedMarks = mcqCount * 1 + fillBlanksCount * 1 + shortCount * 3 + longCount * 5;
+  // Calculate dynamic total marks (1M MCQ, 3M Short, 5M Long)
+  const estimatedMarks = mcqCount * 1 + shortCount * 3 + longCount * 5;
 
   // Initialize due date to 7 days from now
   useEffect(() => {
@@ -117,7 +117,7 @@ export default function AssignmentMakerPage() {
     setError(null);
     setSuccessMsg(null);
 
-    const totalCount = mcqCount + shortCount + longCount + fillBlanksCount;
+    const totalCount = mcqCount + shortCount + longCount;
     if (totalCount <= 0) {
       setError("Please select at least 1 question to generate.");
       return;
@@ -139,7 +139,7 @@ export default function AssignmentMakerPage() {
         mcq_count: mcqCount,
         short_count: shortCount,
         long_count: longCount,
-        fill_blanks_count: fillBlanksCount,
+        fill_blanks_count: 0,
         due_date: dueDate,
         school_name: schoolName.trim() || "DEVGYA GLOBAL ACADEMY",
         user_email: user?.email || undefined
@@ -631,56 +631,34 @@ export default function AssignmentMakerPage() {
                 />
               </div>
 
-              {/* Question Count Steppers */}
+              {/* Question Count Steppers (MCQ, Short, Long) */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
                     <Hash className="w-3.5 h-3.5 text-indigo-600" /> Question Breakdown
                   </label>
                   <span className="text-[11px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
-                    Total: {mcqCount + fillBlanksCount + shortCount + longCount} Questions ({estimatedMarks} Marks)
+                    Total: {mcqCount + shortCount + longCount} Questions ({estimatedMarks} Marks)
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {/* MCQs */}
-                  <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-2xl text-center">
-                    <span className="text-[11px] font-black text-blue-900 block mb-1.5">MCQs (1M)</span>
-                    <div className="flex items-center justify-center gap-1.5">
+                  <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl text-center shadow-2xs">
+                    <span className="text-[11px] font-black text-blue-900 block mb-2">Multiple Choice (1 Mark)</span>
+                    <div className="flex items-center justify-center gap-2">
                       <button
                         type="button"
                         onClick={() => setMcqCount(Math.max(0, mcqCount - 1))}
-                        className="w-7 h-7 rounded-lg bg-white border border-blue-200 font-black text-xs text-blue-900 cursor-pointer hover:bg-blue-100"
+                        className="w-8 h-8 rounded-xl bg-white border border-blue-200 font-black text-sm text-blue-900 cursor-pointer hover:bg-blue-100 active:scale-95 transition-all shadow-xs"
                       >
                         -
                       </button>
-                      <span className="w-6 font-black text-xs text-blue-950">{mcqCount}</span>
+                      <span className="w-8 font-black text-sm text-blue-950">{mcqCount}</span>
                       <button
                         type="button"
                         onClick={() => setMcqCount(mcqCount + 1)}
-                        className="w-7 h-7 rounded-lg bg-white border border-blue-200 font-black text-xs text-blue-900 cursor-pointer hover:bg-blue-100"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Fill in the Blanks */}
-                  <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-2xl text-center">
-                    <span className="text-[11px] font-black text-amber-900 block mb-1.5">Blanks (1M)</span>
-                    <div className="flex items-center justify-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setFillBlanksCount(Math.max(0, fillBlanksCount - 1))}
-                        className="w-7 h-7 rounded-lg bg-white border border-amber-200 font-black text-xs text-amber-900 cursor-pointer hover:bg-amber-100"
-                      >
-                        -
-                      </button>
-                      <span className="w-6 font-black text-xs text-amber-950">{fillBlanksCount}</span>
-                      <button
-                        type="button"
-                        onClick={() => setFillBlanksCount(fillBlanksCount + 1)}
-                        className="w-7 h-7 rounded-lg bg-white border border-amber-200 font-black text-xs text-amber-900 cursor-pointer hover:bg-amber-100"
+                        className="w-8 h-8 rounded-xl bg-white border border-blue-200 font-black text-sm text-blue-900 cursor-pointer hover:bg-blue-100 active:scale-95 transition-all shadow-xs"
                       >
                         +
                       </button>
@@ -688,21 +666,21 @@ export default function AssignmentMakerPage() {
                   </div>
 
                   {/* Short */}
-                  <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-2xl text-center">
-                    <span className="text-[11px] font-black text-emerald-900 block mb-1.5">Short (3M)</span>
-                    <div className="flex items-center justify-center gap-1.5">
+                  <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-center shadow-2xs">
+                    <span className="text-[11px] font-black text-emerald-900 block mb-2">Short Answer (3 Marks)</span>
+                    <div className="flex items-center justify-center gap-2">
                       <button
                         type="button"
                         onClick={() => setShortCount(Math.max(0, shortCount - 1))}
-                        className="w-7 h-7 rounded-lg bg-white border border-emerald-200 font-black text-xs text-emerald-900 cursor-pointer hover:bg-emerald-100"
+                        className="w-8 h-8 rounded-xl bg-white border border-emerald-200 font-black text-sm text-emerald-900 cursor-pointer hover:bg-emerald-100 active:scale-95 transition-all shadow-xs"
                       >
                         -
                       </button>
-                      <span className="w-6 font-black text-xs text-emerald-950">{shortCount}</span>
+                      <span className="w-8 font-black text-sm text-emerald-950">{shortCount}</span>
                       <button
                         type="button"
                         onClick={() => setShortCount(shortCount + 1)}
-                        className="w-7 h-7 rounded-lg bg-white border border-emerald-200 font-black text-xs text-emerald-900 cursor-pointer hover:bg-emerald-100"
+                        className="w-8 h-8 rounded-xl bg-white border border-emerald-200 font-black text-sm text-emerald-900 cursor-pointer hover:bg-emerald-100 active:scale-95 transition-all shadow-xs"
                       >
                         +
                       </button>
@@ -710,21 +688,21 @@ export default function AssignmentMakerPage() {
                   </div>
 
                   {/* Long */}
-                  <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-2xl text-center">
-                    <span className="text-[11px] font-black text-purple-900 block mb-1.5">Long (5M)</span>
-                    <div className="flex items-center justify-center gap-1.5">
+                  <div className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-2xl text-center shadow-2xs">
+                    <span className="text-[11px] font-black text-purple-900 block mb-2">Long Answer / HOTS (5 Marks)</span>
+                    <div className="flex items-center justify-center gap-2">
                       <button
                         type="button"
                         onClick={() => setLongCount(Math.max(0, longCount - 1))}
-                        className="w-7 h-7 rounded-lg bg-white border border-purple-200 font-black text-xs text-purple-900 cursor-pointer hover:bg-purple-100"
+                        className="w-8 h-8 rounded-xl bg-white border border-purple-200 font-black text-sm text-purple-900 cursor-pointer hover:bg-purple-100 active:scale-95 transition-all shadow-xs"
                       >
                         -
                       </button>
-                      <span className="w-6 font-black text-xs text-purple-950">{longCount}</span>
+                      <span className="w-8 font-black text-sm text-purple-950">{longCount}</span>
                       <button
                         type="button"
                         onClick={() => setLongCount(longCount + 1)}
-                        className="w-7 h-7 rounded-lg bg-white border border-purple-200 font-black text-xs text-purple-900 cursor-pointer hover:bg-purple-100"
+                        className="w-8 h-8 rounded-xl bg-white border border-purple-200 font-black text-sm text-purple-900 cursor-pointer hover:bg-purple-100 active:scale-95 transition-all shadow-xs"
                       >
                         +
                       </button>
