@@ -472,7 +472,6 @@ export async function getAICostAnalytics() {
   return res.json();
 }
 
-// 7. Assignment Maker Studio APIs
 export interface GenerateAssignmentPayload {
   class_name: string;
   subject: string;
@@ -486,6 +485,7 @@ export interface GenerateAssignmentPayload {
   custom_notes?: string;
   due_date?: string;
   school_name?: string;
+  user_email?: string;
 }
 
 export interface AssignmentQuestion {
@@ -538,6 +538,36 @@ export async function generateAIAssignment(payload: GenerateAssignmentPayload): 
     const errData = await res.json().catch(() => ({}));
     throw new Error(parseErrorMessage(errData, "Failed to generate AI assignment"));
   }
+  return res.json();
+}
+
+export async function getSavedAssignmentsHistory(email?: string): Promise<{ status: string; assignments: AssignmentData[] }> {
+  const targetEmail = (email || "guest@devgya.com").trim().toLowerCase();
+  const res = await fetch(`${getApiBase()}/assignment/history?email=${encodeURIComponent(targetEmail)}`);
+  if (!res.ok) throw new Error("Failed to fetch assignment history");
+  return res.json();
+}
+
+export async function saveAssignmentToHistory(assignment: AssignmentData, email?: string): Promise<{ status: string; message: string }> {
+  const targetEmail = (email || "guest@devgya.com").trim().toLowerCase();
+  const res = await fetch(`${getApiBase()}/assignment/history`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: targetEmail, assignment })
+  });
+  if (!res.ok) throw new Error("Failed to save assignment to history");
+  return res.json();
+}
+
+export async function deleteAssignmentFromHistory(params: { id?: string; title?: string; class_name?: string; email?: string }): Promise<{ status: string; message: string }> {
+  const targetEmail = (params.email || "guest@devgya.com").trim().toLowerCase();
+  let url = `${getApiBase()}/assignment/history?email=${encodeURIComponent(targetEmail)}`;
+  if (params.id) url += `&id=${encodeURIComponent(params.id)}`;
+  if (params.title) url += `&title=${encodeURIComponent(params.title)}`;
+  if (params.class_name) url += `&class_name=${encodeURIComponent(params.class_name)}`;
+
+  const res = await fetch(url, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete assignment from history");
   return res.json();
 }
 

@@ -9,6 +9,7 @@ import {
   AssignmentPDFConfig,
   GenerateAssignmentPayload
 } from "@/lib/api";
+import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
 import {
   Sparkles,
@@ -29,10 +30,24 @@ import {
   ChevronUp,
   Save,
   BookOpen,
-  Hash
+  Hash,
+  Archive,
+  Calendar
 } from "lucide-react";
 
 export default function AssignmentMakerPage() {
+  const {
+    user,
+    savedAssignments,
+    saveAssignment,
+    deleteSavedAssignment,
+    fetchSavedAssignments,
+    activeAssignment,
+    setActiveAssignment
+  } = useAppStore();
+
+  const [activeTab, setActiveTab] = useState<"studio" | "archive">("studio");
+
   // --- Form & Generator State ---
   const [className, setClassName] = useState("Class 10");
   const [subject, setSubject] = useState("Mathematics");
@@ -82,6 +97,20 @@ export default function AssignmentMakerPage() {
     setDueDate(d.toISOString().split("T")[0]);
   }, []);
 
+  // Fetch saved assignments from server on mount
+  useEffect(() => {
+    if (user?.email) {
+      fetchSavedAssignments(user.email);
+    }
+  }, [user?.email, fetchSavedAssignments]);
+
+  // Sync active assignment from store if present
+  useEffect(() => {
+    if (activeAssignment && !assignment) {
+      setAssignment(activeAssignment);
+    }
+  }, [activeAssignment]);
+
   // --- Handle AI Assignment Generation ---
   const handleGenerate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -112,13 +141,16 @@ export default function AssignmentMakerPage() {
         long_count: longCount,
         fill_blanks_count: fillBlanksCount,
         due_date: dueDate,
-        school_name: schoolName.trim() || "DEVGYA GLOBAL ACADEMY"
+        school_name: schoolName.trim() || "DEVGYA GLOBAL ACADEMY",
+        user_email: user?.email || undefined
       };
 
       const res = await generateAIAssignment(payload);
       if (res && res.assignment && res.assignment.questions?.length > 0) {
         setAssignment(res.assignment);
-        setSuccessMsg(`✨ Successfully generated all ${res.assignment.questions.length} questions!`);
+        setActiveAssignment(res.assignment);
+        saveAssignment(res.assignment);
+        setSuccessMsg(`✨ Successfully generated and archived all ${res.assignment.questions.length} questions!`);
       } else {
         throw new Error("No assignment questions returned by AI. Please try again.");
       }
@@ -126,6 +158,33 @@ export default function AssignmentMakerPage() {
       setError(err.message || "Failed to generate AI assignment. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveCurrentAssignment = () => {
+    if (!assignment) return;
+    saveAssignment(assignment);
+    setActiveAssignment(assignment);
+    setSuccessMsg("💾 Assignment saved to your archive!");
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const handleDownloadSavedAssignmentPDF = async (targetAssignment: AssignmentData, isTeacherKey: boolean) => {
+    try {
+      const blob = await downloadAssignmentPDF(targetAssignment, pdfConfig, isTeacherKey);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const typeStr = isTeacherKey ? "Teacher_Key" : "Worksheet";
+      a.download = `${targetAssignment.subject}_${targetAssignment.class_name}_${typeStr}.pdf`.replace(/\s+/g, "_");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setSuccessMsg(`📄 PDF Downloaded successfully (${typeStr})!`);
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setError(err.message || "Failed to download PDF.");
     }
   };
 
@@ -260,58 +319,102 @@ export default function AssignmentMakerPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-28">
       
-      {/* 1. CLEAN TOP HEADER (ONLY ONE UNIFIED HEADER, NO DUPLICATION) */}
+      {/* 1. TOP HEADER WITH STUDIO & ARCHIVE TABS */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
               <Edit3 className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <h1 className="text-sm sm:text-base font-black text-slate-900 truncate">
-                {assignment ? assignment.title : "AI Assignment Maker"}
+                {activeTab === "archive" ? "Saved Assignments Archive" : assignment ? assignment.title : "AI Assignment Maker"}
               </h1>
               <p className="text-[11px] text-slate-500 font-medium truncate">
-                {assignment ? `${assignment.class_name} • ${assignment.subject} • ${assignment.total_marks} Marks` : "CBSE / NCERT Worksheet Generator"}
+                {activeTab === "archive" ? "View, manage & re-download previously generated assignments" : assignment ? `${assignment.class_name} • ${assignment.subject} • ${assignment.total_marks} Marks` : "CBSE / NCERT Worksheet & Ruled Lines Generator"}
               </p>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          {assignment ? (
-            <div className="flex items-center gap-2 shrink-0">
+          {/* Top Tabs & Action Buttons */}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
               <button
                 type="button"
-                onClick={() => setShowPreviewModal(true)}
-                className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                onClick={() => setActiveTab("studio")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === "studio"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
               >
-                <Eye className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Preview Paper</span>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Studio</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setIsPdfModalOpen(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                onClick={() => setActiveTab("archive")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === "archive"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download PDF</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAssignment(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                title="Create New Assignment"
-              >
-                <RotateCcw className="w-4 h-4" />
+                <Archive className="w-3.5 h-3.5" />
+                <span>Archive</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                  activeTab === "archive" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-700"
+                }`}>
+                  {savedAssignments.length}
+                </span>
               </button>
             </div>
-          ) : (
-            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              100% Original AI
-            </span>
-          )}
+
+            {activeTab === "studio" && assignment && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSaveCurrentAssignment}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  title="Save changes to archive"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Save</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPreviewModal(true)}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Preview</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPdfModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download PDF</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssignment(null);
+                    setActiveAssignment(null);
+                  }}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                  title="Create New Assignment"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -342,16 +445,138 @@ export default function AssignmentMakerPage() {
       </div>
 
       {/* MAIN BODY CONTAINER */}
-      <main className="max-w-3xl mx-auto px-4 py-4">
-        {!assignment ? (
-          /* ====================================================================
-             MODE A: SIMPLE, INTUITIVE ASSIGNMENT CREATOR FORM
-             ==================================================================== */
-          <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
+      {activeTab === "archive" ? (
+        <main className="max-w-4xl mx-auto px-4 py-4 space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900">Create New Assignment Worksheet</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Configure your topic and question breakdown. AI will synthesize original questions.</p>
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Archive className="w-5 h-5 text-indigo-600" />
+                Assignment Archive
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">View, manage, and re-download generated worksheets and Teacher Answer Keys</p>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAssignment(null);
+                setActiveAssignment(null);
+                setActiveTab("studio");
+              }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/30 flex items-center gap-2 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Generate New Assignment</span>
+            </button>
+          </div>
+
+          {savedAssignments.length > 0 ? (
+            <div className="space-y-3.5">
+              {savedAssignments.map((asg, idx) => (
+                <div 
+                  key={asg.id || idx} 
+                  className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition hover:shadow-sm"
+                >
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-lg">
+                        {asg.class_name} • {asg.subject}
+                      </span>
+                      {asg.difficulty && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-lg">
+                          {asg.difficulty}
+                        </span>
+                      )}
+                      {asg.due_date && (
+                        <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          Due: {asg.due_date}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-base font-extrabold text-slate-900 truncate">
+                      {asg.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {asg.chapter_topic} • {asg.questions?.length || 0} Questions • Total {asg.total_marks} Marks
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadSavedAssignmentPDF(asg, false)}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                      title="Download Student Worksheet PDF (with Ruled Lines)"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Worksheet PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadSavedAssignmentPDF(asg, true)}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                      title="Download Teacher Answer Key PDF"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Answer Key
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssignment(asg);
+                        setActiveAssignment(asg);
+                        setActiveTab("studio");
+                      }}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                      title="Open in Studio Workspace"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteSavedAssignment(idx)}
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-xl transition cursor-pointer"
+                      title="Delete from archive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white p-12 sm:p-16 rounded-3xl border border-slate-200 text-center space-y-4 shadow-sm">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                <FileText className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-extrabold text-slate-900">No Saved Assignments Found</h3>
+              <p className="text-xs text-slate-500 font-medium max-w-md mx-auto">
+                Once you generate assignments in the AI Maker Studio, they will be archived here permanently for instant downloading, sharing, and re-editing.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab("studio")}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md inline-flex items-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Create Your First Assignment</span>
+              </button>
+            </div>
+          )}
+        </main>
+      ) : (
+        <main className="max-w-3xl mx-auto px-4 py-4">
+          {!assignment ? (
+            /* ====================================================================
+               MODE A: SIMPLE, INTUITIVE ASSIGNMENT CREATOR FORM
+               ==================================================================== */
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900">Create New Assignment Worksheet</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Configure your topic and question breakdown. AI will synthesize original questions.</p>
+              </div>
 
             <form onSubmit={handleGenerate} className="space-y-4">
               {/* Class & Subject */}
@@ -844,6 +1069,7 @@ export default function AssignmentMakerPage() {
           </div>
         )}
       </main>
+      )}
 
       {/* ====================================================================
          3. CLEAN FULL PAPER PREVIEW POP-UP MODAL

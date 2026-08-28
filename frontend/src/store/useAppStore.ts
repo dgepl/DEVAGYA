@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { GeneratedPaperResponse } from "@/lib/api";
+import { GeneratedPaperResponse, AssignmentData } from "@/lib/api";
 
 export interface UserProfile {
   id: string;
@@ -52,6 +52,8 @@ interface AppState {
   user: UserProfile;
   activePaper: GeneratedPaperResponse | null;
   savedPapers: GeneratedPaperResponse[];
+  activeAssignment: AssignmentData | null;
+  savedAssignments: AssignmentData[];
   ocrDraftText: string;
   activeChildId: string;
   setUser: (user: UserProfile) => void;
@@ -60,6 +62,9 @@ interface AppState {
   setActivePaper: (paper: GeneratedPaperResponse | null) => void;
   savePaper: (paper: GeneratedPaperResponse) => void;
   deleteSavedPaper: (index: number) => void;
+  setActiveAssignment: (assignment: AssignmentData | null) => void;
+  saveAssignment: (assignment: AssignmentData) => void;
+  deleteSavedAssignment: (index: number) => void;
   setOcrDraftText: (text: string) => void;
   setActiveChildId: (childId: string) => void;
   dismissedNotificationIds: string[];
@@ -69,6 +74,7 @@ interface AppState {
   setMobileDrawerOpen: (open: boolean) => void;
   syncProfileFromServer: (email?: string) => Promise<void>;
   fetchSavedPapers: (email?: string) => Promise<void>;
+  fetchSavedAssignments: (email?: string) => Promise<void>;
   initSession: () => void;
   logout: () => void;
 }
@@ -118,6 +124,20 @@ const getInitialSavedPapers = (email?: string): GeneratedPaperResponse[] => {
   return [];
 };
 
+const getInitialSavedAssignments = (email?: string): AssignmentData[] => {
+  if (typeof window !== "undefined") {
+    try {
+      const userKey = email ? `devgya_saved_assignments_${email.trim().toLowerCase()}` : "devgya_saved_assignments";
+      const stored = localStorage.getItem(userKey) || localStorage.getItem("devgya_saved_assignments");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+  }
+  return [];
+};
+
 const getInitialDismissedNotificationIds = (email?: string): string[] => {
   if (typeof window !== "undefined") {
     try {
@@ -135,12 +155,15 @@ const getInitialDismissedNotificationIds = (email?: string): string[] => {
 export const useAppStore = create<AppState>((set, get) => {
   const initialUser = getInitialUser();
   const initialPapers = getInitialSavedPapers(initialUser.email);
+  const initialAssignments = getInitialSavedAssignments(initialUser.email);
   const initialDismissed = getInitialDismissedNotificationIds(initialUser.email);
 
   return {
     user: initialUser,
     activePaper: null,
     savedPapers: initialPapers,
+    activeAssignment: null,
+    savedAssignments: initialAssignments,
     ocrDraftText: "",
     activeChildId: "",
     dismissedNotificationIds: initialDismissed,
@@ -190,6 +213,28 @@ export const useAppStore = create<AppState>((set, get) => {
         console.warn("Paper history sync notice:", err);
       }
     },
+    fetchSavedAssignments: async (targetEmail?: string) => {
+      const emailToFetch = targetEmail || get().user?.email;
+      if (!emailToFetch || emailToFetch === "" || emailToFetch.includes("guest") || typeof window === "undefined") {
+        return;
+      }
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+        const res = await fetch(`${baseUrl}/assignment/history?email=${encodeURIComponent(emailToFetch.trim().toLowerCase())}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.assignments && Array.isArray(data.assignments)) {
+            set({ savedAssignments: data.assignments });
+            try {
+              localStorage.setItem(`devgya_saved_assignments_${emailToFetch.trim().toLowerCase()}`, JSON.stringify(data.assignments));
+              localStorage.setItem("devgya_saved_assignments", JSON.stringify(data.assignments));
+            } catch (e) {}
+          }
+        }
+      } catch (err) {
+        console.warn("Assignment history sync notice:", err);
+      }
+    },
     syncProfileFromServer: async (targetEmail?: string) => {
       const emailToSync = targetEmail || get().user?.email;
       if (!emailToSync || emailToSync === "" || emailToSync.includes("guest") || typeof window === "undefined") {
@@ -222,19 +267,22 @@ export const useAppStore = create<AppState>((set, get) => {
           localStorage.setItem("devgya_user", JSON.stringify(user));
         } catch (e) {}
       }
-      // Load user-specific papers and dismissed notifications
+      // Load user-specific papers, assignments and dismissed notifications
       const userPapers = getInitialSavedPapers(user.email);
+      const userAssignments = getInitialSavedAssignments(user.email);
       const userDismissed = getInitialDismissedNotificationIds(user.email);
       set({ 
         user, 
         savedPapers: userPapers.length > 0 ? userPapers : get().savedPapers,
+        savedAssignments: userAssignments.length > 0 ? userAssignments : get().savedAssignments,
         dismissedNotificationIds: userDismissed
       });
 
-      // Fetch latest profile and papers from server for multi-device sync
+      // Fetch latest profile, papers and assignments from server for multi-device sync
       if (user.email) {
         get().syncProfileFromServer(user.email);
         get().fetchSavedPapers(user.email);
+        get().fetchSavedAssignments(user.email);
       }
     },
     updateUserProfile: (updates) => {
@@ -251,11 +299,18 @@ export const useAppStore = create<AppState>((set, get) => {
     initSession: () => {
       const user = getInitialUser();
       const userPapers = getInitialSavedPapers(user.email);
+      const userAssignments = getInitialSavedAssignments(user.email);
       const userDismissed = getInitialDismissedNotificationIds(user.email);
-      set({ user, savedPapers: userPapers, dismissedNotificationIds: userDismissed });
+      set({ 
+        user, 
+        savedPapers: userPapers, 
+        savedAssignments: userAssignments,
+        dismissedNotificationIds: userDismissed 
+      });
       if (user.email) {
         get().syncProfileFromServer(user.email);
         get().fetchSavedPapers(user.email);
+        get().fetchSavedAssignments(user.email);
       }
     },
     switchRole: (role) => set((state) => ({ user: { ...state.user, role } })),
@@ -306,6 +361,62 @@ export const useAppStore = create<AppState>((set, get) => {
         activePaper: shouldClearActive ? null : state.activePaper
       };
     }),
+    setActiveAssignment: (assignment) => set({ activeAssignment: assignment }),
+    saveAssignment: (assignment) => set((state) => {
+      const filtered = state.savedAssignments.filter(a => !(
+        (assignment.id && a.id === assignment.id) ||
+        (a.title === assignment.title && a.class_name === assignment.class_name)
+      ));
+      const updated = [assignment, ...filtered];
+      if (typeof window !== "undefined") {
+        try {
+          const emailKey = state.user?.email ? `devgya_saved_assignments_${state.user.email.trim().toLowerCase()}` : "devgya_saved_assignments";
+          localStorage.setItem(emailKey, JSON.stringify(updated));
+          localStorage.setItem("devgya_saved_assignments", JSON.stringify(updated));
+
+          // Sync to backend assignment history in background
+          const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+          fetch(`${baseUrl}/assignment/history`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: state.user?.email || "guest@devgya.com", assignment })
+          }).catch(() => {});
+        } catch (e) {}
+      }
+      return { savedAssignments: updated };
+    }),
+    deleteSavedAssignment: (index) => set((state) => {
+      const asgToDelete = state.savedAssignments[index];
+      const updated = state.savedAssignments.filter((_, i) => i !== index);
+      const userEmail = state.user?.email || "guest@devgya.com";
+
+      if (typeof window !== "undefined") {
+        try {
+          const emailKey = state.user?.email ? `devgya_saved_assignments_${state.user.email.trim().toLowerCase()}` : "devgya_saved_assignments";
+          localStorage.setItem(emailKey, JSON.stringify(updated));
+          localStorage.setItem("devgya_saved_assignments", JSON.stringify(updated));
+
+          if (asgToDelete) {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+            let url = `${baseUrl}/assignment/history?email=${encodeURIComponent(userEmail)}`;
+            if (asgToDelete.id) url += `&id=${encodeURIComponent(asgToDelete.id)}`;
+            if (asgToDelete.title) url += `&title=${encodeURIComponent(asgToDelete.title)}`;
+            if (asgToDelete.class_name) url += `&class_name=${encodeURIComponent(asgToDelete.class_name)}`;
+
+            fetch(url, { method: "DELETE" }).catch(() => {});
+          }
+        } catch (e) {}
+      }
+
+      const shouldClearActive = state.activeAssignment && asgToDelete && (
+        (asgToDelete.id && state.activeAssignment.id === asgToDelete.id) ||
+        (state.activeAssignment.title === asgToDelete.title && state.activeAssignment.class_name === asgToDelete.class_name)
+      );
+      return { 
+        savedAssignments: updated,
+        activeAssignment: shouldClearActive ? null : state.activeAssignment
+      };
+    }),
     setOcrDraftText: (ocrDraftText) => set({ ocrDraftText }),
     setActiveChildId: (activeChildId) => set({ activeChildId }),
     logout: () => {
@@ -315,7 +426,7 @@ export const useAppStore = create<AppState>((set, get) => {
           localStorage.removeItem("devgya_user");
         } catch (e) {}
       }
-      set({ user: defaultUser, activePaper: null, savedPapers: [] });
+      set({ user: defaultUser, activePaper: null, savedPapers: [], activeAssignment: null, savedAssignments: [] });
     }
   };
 });

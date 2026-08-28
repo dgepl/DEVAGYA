@@ -8,8 +8,49 @@ from pydantic import BaseModel, Field
 from services.ai_provider import ai_provider
 from services.pdf_service import pdf_generator_service
 
+import os
+from services.supabase_service import supabase_service
+
 logger = logging.getLogger("assignment_api")
 router = APIRouter(prefix="/assignment", tags=["Assignments"])
+
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
+ASSIGNMENTS_STORE_FILE = os.path.join(DATA_DIR, "saved_assignments.json")
+
+def _load_assignments_store() -> dict:
+    if not os.path.exists(ASSIGNMENTS_STORE_FILE):
+        return {}
+    try:
+        with open(ASSIGNMENTS_STORE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_assignments_store(data: dict):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(ASSIGNMENTS_STORE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+async def _save_assignment_for_user(email: Optional[str], assignment_data: dict):
+    if not assignment_data:
+        return
+    email_clean = (email or "guest@devgya.com").strip().lower()
+    store = _load_assignments_store()
+    user_assignments = store.get(email_clean, [])
+    
+    asg_id = assignment_data.get("id")
+    asg_title = assignment_data.get("title")
+    asg_class = assignment_data.get("class_name")
+
+    filtered = [
+        a for a in user_assignments 
+        if not (
+            (asg_id and a.get("id") == asg_id) or 
+            (a.get("title") == asg_title and a.get("class_name") == asg_class)
+        )
+    ]
+    store[email_clean] = [assignment_data] + filtered
+    _save_assignments_store(store)
 
 class GenerateAssignmentRequest(BaseModel):
     class_name: str = Field(..., example="Class 10")
@@ -24,6 +65,7 @@ class GenerateAssignmentRequest(BaseModel):
     custom_notes: Optional[str] = None
     due_date: Optional[str] = None
     school_name: Optional[str] = "DEVGYA GLOBAL ACADEMY"
+    user_email: Optional[str] = None
 
 class AssignmentQuestionItem(BaseModel):
     id: Optional[int] = None
@@ -318,6 +360,10 @@ Respond in JSON: {{"questions": [{{"question_type": "...", "section": "...", "qu
             "questions": cleaned_questions
         }
 
+        # Auto-save to teacher's persistent assignment history
+        if req.user_email:
+            await _save_assignment_for_user(req.user_email, assignment_result)
+
         return {"status": "success", "assignment": assignment_result}
 
     except HTTPException:
@@ -325,6 +371,66 @@ Respond in JSON: {{"questions": [{{"question_type": "...", "section": "...", "qu
     except Exception as e:
         logger.error(f"[AI Assignment Generation Failed] {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"AI Assignment Generation failed: {str(e)}")
+
+@router.get("/history")
+async def get_saved_assignments_history(email: str = "guest@devgya.com"):
+    """Retrieve saved assignments history for educator."""
+    email_clean = email.strip().lower()
+    store = _load_assignments_store()
+    user_assignments = store.get(email_clean, [])
+    return {
+        "status": "success",
+        "email": email_clean,
+        "assignments": user_assignments
+    }
+
+@router.post("/history")
+async def save_assignment_to_history(payload: dict):
+    """Save or update an assignment to educator history in persistent store."""
+    email_clean = (payload.get("email") or "guest@devgya.com").strip().lower()
+    assignment = payload.get("assignment")
+    if not assignment:
+        raise HTTPException(status_code=400, detail="Assignment object is required.")
+
+    await _save_assignment_for_user(email_clean, assignment)
+    return {
+        "status": "success",
+        "message": "Assignment saved to persistent history!"
+    }
+
+@router.delete("/history")
+async def delete_assignment_from_history(id: Optional[str] = None, title: Optional[str] = None, class_name: Optional[str] = None, email: str = "guest@devgya.com"):
+    """Delete a saved assignment from educator history in persistent store."""
+    email_clean = email.strip().lower()
+    store = _load_assignments_store()
+    user_assignments = store.get(email_clean, [])
+
+    updated = [
+        a for a in user_assignments 
+        if not (
+            (id and a.get("id") == id) or 
+            (title and class_name and a.get("title") == title and a.get("class_name") == class_name)
+        )
+    ]
+    store[email_clean] = updated
+
+    # Clean up from guest and default pools
+    for pool in ("default", "guest@devgya.com"):
+        if pool in store:
+            store[pool] = [
+                a for a in store[pool] 
+                if not (
+                    (id and a.get("id") == id) or 
+                    (title and class_name and a.get("title") == title and a.get("class_name") == class_name)
+                )
+            ]
+
+    _save_assignments_store(store)
+    return {
+        "status": "success",
+        "message": "Assignment deleted from history.",
+        "count": len(updated)
+    }
 
 @router.post("/generate-pdf")
 async def generate_assignment_pdf(payload: AssignmentPDFRequest):

@@ -19,13 +19,13 @@ export function PublicMobileDock() {
   }
 
   return (
-    <div className="fixed bottom-2 left-2 right-2 z-50 bg-white/95 backdrop-blur-2xl border border-slate-200/90 px-2 py-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-full md:hidden">
-      <div className="flex items-center justify-around max-w-md mx-auto relative">
+    <div className="fixed bottom-3 left-3 right-3 z-50 bg-white/95 backdrop-blur-2xl border border-slate-200/90 py-1.5 px-1 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-full md:hidden">
+      <div className="grid grid-cols-5 items-center max-w-md mx-auto">
         
         {/* Tab 1: Home */}
         <Link 
           href="/" 
-          className={`flex flex-col items-center py-1 px-2 transition active:scale-95 ${
+          className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
             pathname === "/" ? "text-indigo-600 font-extrabold" : "text-slate-500 font-medium hover:text-slate-900"
           }`}
         >
@@ -37,7 +37,7 @@ export function PublicMobileDock() {
         {/* Tab 2: About Us */}
         <Link 
           href="/about" 
-          className={`flex flex-col items-center py-1 px-2 transition active:scale-95 ${
+          className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
             pathname === "/about" ? "text-indigo-600 font-extrabold" : "text-slate-500 font-medium hover:text-slate-900"
           }`}
         >
@@ -46,15 +46,15 @@ export function PublicMobileDock() {
           {pathname === "/about" && <span className="w-1 h-1 rounded-full bg-indigo-600 mt-0.5" />}
         </Link>
 
-        {/* Central Glowing Button: Login */}
+        {/* Central Action: Login */}
         <Link
           href="/login"
-          className="relative -top-5 flex flex-col items-center group shrink-0"
+          className="flex flex-col items-center justify-center -my-1 py-1 group shrink-0 active:scale-90 transition-transform"
         >
-          <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/35 border-2 border-white group-active:scale-90 transition-transform">
-            <Sparkles className="w-6 h-6 animate-pulse text-amber-300" />
+          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white flex items-center justify-center shadow-md shadow-indigo-600/30 border border-white/60">
+            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
           </div>
-          <span className="text-[10px] font-black text-indigo-700 tracking-tight mt-0.5 uppercase">
+          <span className="text-[9px] font-black text-indigo-700 tracking-tight mt-0.5 uppercase">
             Log In
           </span>
         </Link>
@@ -62,19 +62,19 @@ export function PublicMobileDock() {
         {/* Tab 4: Why Choose Us */}
         <Link 
           href="/why-choose-us" 
-          className={`flex flex-col items-center py-1 px-2 transition active:scale-95 ${
+          className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
             pathname === "/why-choose-us" ? "text-indigo-600 font-extrabold" : "text-slate-500 font-medium hover:text-slate-900"
           }`}
         >
           <CheckCircle2 className="w-5 h-5" />
-          <span className="text-[9px] tracking-tight mt-0.5 font-bold text-center leading-tight">Why Us</span>
+          <span className="text-[9px] tracking-tight mt-0.5 font-bold">Why Us</span>
           {pathname === "/why-choose-us" && <span className="w-1 h-1 rounded-full bg-indigo-600 mt-0.5" />}
         </Link>
 
         {/* Tab 5: FAQ */}
         <Link 
           href="/faq" 
-          className={`flex flex-col items-center py-1 px-2 transition active:scale-95 ${
+          className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
             pathname === "/faq" ? "text-indigo-600 font-extrabold" : "text-slate-500 font-medium hover:text-slate-900"
           }`}
         >
