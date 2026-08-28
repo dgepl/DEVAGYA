@@ -309,10 +309,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* DASHBOARD BOTTOM DEVELOPER FOOTER - Hidden on AI Chat & Exam screens for immersive full-height experience */}
         {!isAIChatPage && (
-          <footer className="mt-auto px-4 sm:px-8 py-3.5 border-t border-slate-200/80 bg-white/60 backdrop-blur-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 font-medium">
+          <footer className="mt-auto px-4 sm:px-8 py-2.5 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[11px] text-slate-500 font-medium">
             <p>&copy; 2026 DEVGYA Global Edutech Private Limited. All Rights Reserved.</p>
-            <p className="font-bold text-slate-600">
-              Designed and Developed by <strong className="text-indigo-600 font-black">Pratikk Yadav and Team +91 8307224756</strong>
+            <p className="text-slate-500 font-medium">
+              Designed &amp; Developed by <span className="text-indigo-600 font-bold">Pratikk Yadav and Team (+91 8307224756)</span>
             </p>
           </footer>
         )}

@@ -633,32 +633,12 @@ export default function AssignmentMakerPage() {
                   <select
                     value={subject}
                     onChange={(e) => handleSubjectChange(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 transition"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
                   >
                     {availableSubjects.map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              {/* Quick Subject Badge Pills for 1-Click Selection */}
-              <div>
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {availableSubjects.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => handleSubjectChange(s)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        subject === s
-                          ? "bg-indigo-600 text-white shadow-xs"
-                          : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
                 </div>
               </div>
 
