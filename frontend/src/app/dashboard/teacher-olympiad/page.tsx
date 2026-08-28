@@ -381,7 +381,7 @@ export default function TeacherOlympiadPage() {
     };
   }, [examStarted, examSubmitted, isAutoTerminated]);
 
-  // 3. Looking Away / Face Absence AI Vision Monitor
+  // 3. Camera Stream & Video Presence Proctor Monitor (Fair, practical, zero-false-positive engine)
   useEffect(() => {
     if (!examStarted || examSubmitted || !mediaStream || isAutoTerminated) return;
 
@@ -396,73 +396,68 @@ export default function TeacherOlympiadPage() {
       const video = videoRef.current;
       if (video.readyState < 2) return;
 
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      if (!videoTrack || videoTrack.readyState !== "live" || !videoTrack.enabled || videoTrack.muted) {
+        faceMissingStreakRef.current += 1;
+        if (faceMissingStreakRef.current >= 4) {
+          faceMissingStreakRef.current = 0;
+          triggerProctorWarning(
+            "Webcam Feed Inactive",
+            "Your webcam video feed appears to be disabled or paused. Please ensure your camera remains enabled and uncovered during the Olympiad.",
+            "face_away"
+          );
+        }
+        return;
+      }
+
       const canvas = offscreenCanvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return;
 
-      let isFacePresent = false;
+      let isFrameValid = true;
 
-      // Try native FaceDetector if supported in browser
-      if (typeof window !== "undefined" && "FaceDetector" in window) {
-        try {
-          const detector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 2 });
-          const faces = await detector.detect(video);
-          if (faces && faces.length > 0) {
-            isFacePresent = true;
-          }
-        } catch (e) {}
-      }
-
-      // Fallback: Center-weighted skin-luminance presence analysis
-      if (!isFacePresent) {
+      try {
         ctx.drawImage(video, 0, 0, 160, 120);
-        try {
-          const imgData = ctx.getImageData(30, 20, 100, 80);
-          const data = imgData.data;
-          let skinPixels = 0;
-          let totalLum = 0;
-          const pixelCount = data.length / 4;
+        const imgData = ctx.getImageData(0, 0, 160, 120);
+        const data = imgData.data;
+        let totalLum = 0;
+        const sampleStep = 8; // fast sampling
+        let sampledCount = 0;
 
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-            totalLum += lum;
-
-            if (r > 60 && g > 40 && b > 20 && r > g && (r - g) > 15) {
-              skinPixels++;
-            }
-          }
-
-          const avgLum = totalLum / pixelCount;
-          const skinRatio = skinPixels / pixelCount;
-
-          // Face is present if luminance is normal and skin ratio in center frame is valid
-          if (avgLum > 20 && avgLum < 240 && skinRatio > 0.08) {
-            isFacePresent = true;
-          }
-        } catch (e) {
-          isFacePresent = true;
+        for (let i = 0; i < data.length; i += 4 * sampleStep) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          totalLum += (0.299 * r + 0.587 * g + 0.114 * b);
+          sampledCount++;
         }
+
+        const avgLum = totalLum / sampledCount;
+
+        // Frame is only considered obstructed if it is pitch black (lens physically covered/shutter closed < 5)
+        if (avgLum < 5) {
+          isFrameValid = false;
+        }
+      } catch (e) {
+        isFrameValid = true;
       }
 
-      if (!isFacePresent) {
+      if (!isFrameValid) {
         faceMissingStreakRef.current += 1;
-        // 3 consecutive failed checks (approx 4.5 seconds) = real looking away / absent
-        if (faceMissingStreakRef.current >= 3) {
+        // 5 consecutive obstructed checks (approx 12.5 seconds) = true camera obstruction
+        if (faceMissingStreakRef.current >= 5) {
           faceMissingStreakRef.current = 0;
           triggerProctorWarning(
-            "Face Not Detected / Looking Away",
-            "Your face was not detected in the center camera view. Please keep your face clearly visible and look straight at the screen.",
+            "Camera Feed Obstructed",
+            "Your camera lens appears completely covered or darkened. Please ensure your workspace is illuminated and your face is visible.",
             "face_away"
           );
         }
       } else {
         faceMissingStreakRef.current = 0;
       }
-    }, 1500);
+    }, 2500);
 
     return () => clearInterval(visionTimer);
   }, [examStarted, examSubmitted, mediaStream, isAutoTerminated]);
@@ -1450,8 +1445,8 @@ export default function TeacherOlympiadPage() {
                     </div>
                   </div>
 
-                  {/* 4-METRIC STATS GRID */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* 3-METRIC STATS GRID (Official Score, National Merit Rank, Accuracy Breakdown) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     
                     <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
                       <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Official Score</span>
@@ -1524,17 +1519,6 @@ export default function TeacherOlympiadPage() {
                           </p>
                         </>
                       )}
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
-                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Proctor Integrity</span>
-                      <div className="text-lg font-black text-emerald-300 pt-1 flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4" />
-                        <span>{Number(userSubmission.tab_switch_count ?? userSubmission.proctor_incidents ?? 0) === 0 ? "100% Clean Audit" : `${userSubmission.tab_switch_count} Warning(s)`}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-300">
-                        {isDeclared ? "Officially Benchmarked" : "Archived on Secure Server"}
-                      </p>
                     </div>
 
                   </div>
