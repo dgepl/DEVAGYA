@@ -300,6 +300,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           </PageTransition>
         </main>
 
+        {/* DASHBOARD BOTTOM DEVELOPER FOOTER */}
+        <footer className="mt-auto px-4 sm:px-8 py-3.5 border-t border-slate-200/80 bg-white/60 backdrop-blur-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 font-medium">
+          <p>&copy; 2026 DEVGYA Global Edutech Private Limited. All Rights Reserved.</p>
+          <p className="font-bold text-slate-600">
+            Designed and Developed by <strong className="text-indigo-600 font-black">Pratikk Yadav +91 8307224756</strong>
+          </p>
+        </footer>
+
       </div>
 
       {/* ROLE-SPECIFIC NATIVE MOBILE BOTTOM NAVBAR DOCK */}
