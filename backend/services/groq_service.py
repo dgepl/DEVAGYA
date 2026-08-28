@@ -416,193 +416,58 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
         extracted_text: str = "",
         image_data_url: Optional[str] = None
     ) -> GeneratedPaperResponse:
-        """Generate Exam Question Paper derived directly from user inputs and optional PDF/photo attachment."""
-        prompt_text = f"""
-You are DEVGYA's Senior CBSE & NCERT Master Assessment Creator.
-Generate an official high-quality Examination Question Paper strictly adhering to these user-specified constraints:
+        """Generate Exam Question Paper derived directly from user inputs and PDF/photo attachment with parallel chunked synthesis."""
+        detect_prompt = """Analyze this study material/worksheet.
+Extract:
+1. Real Subject (e.g., Science, Mathematics, English, Social Science)
+2. Real Chapter / Topic Name
+3. Exam Title
+4. Concise Key Concepts & Core Content Summary (max 400 words)
 
-Paper Details:
-- Title: {req.title}
-- Target Grade/Class: {req.class_name}
-- Subject: {req.subject}
-- Syllabus Chapter/Topic: {req.chapter}
-- Difficulty Level: {req.difficulty}
-- Total Marks: {req.total_marks}
-- Time Allowed: {req.time_allowed_mins} minutes
-- School Name: {req.school_name}
-
-Exact Question Breakdown Required:
-1. Multiple Choice Questions (MCQs): EXACTLY {req.num_mcqs} questions (1 mark each). Include 4 options (A, B, C, D) for each MCQ.
-2. Short Answer Questions: EXACTLY {req.num_short} questions (3 marks each).
-3. Long Answer Questions: EXACTLY {req.num_long} questions (5 marks each).
-Custom Teacher Instructions:
-{req.custom_instructions or "Ensure high NCERT curriculum alignment and HOTS questions."}
-
-Respond strictly with a valid JSON object matching this structure:
-{{
-  "title": "{req.title}",
-  "class_name": "{req.class_name}",
-  "subject": "{req.subject}",
-  "chapter": "{req.chapter}",
-  "difficulty": "{req.difficulty}",
-  "total_marks": {req.total_marks},
-  "time_allowed_mins": {req.time_allowed_mins},
-  "instructions": [
-    "All questions are compulsory.",
-    "The question paper consists of 3 sections: Section A (MCQs), Section B (Short Answer), Section C (Long Answer)."
-  ],
-  "questions": [
-    {{
-      "id": 1,
-      "question_number": 1,
-      "question_type": "mcq",
-      "question_text": "MCQ Question text based on study material",
-      "marks": 1,
-      "options": ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"],
-      "answer": "(A) Option 1",
-      "explanation": "Detailed step-by-step explanation"
-    }},
-    {{
-      "id": 2,
-      "question_number": 2,
-      "question_type": "short",
-      "question_text": "Short answer question based on study material?",
-      "marks": 3,
-      "answer": "Structured 3-mark model solution.",
-      "explanation": "NCERT concept breakdown."
-    }},
-    {{
-      "id": 3,
-      "question_number": 3,
-      "question_type": "long",
-      "question_text": "Long answer question based on study material?",
-      "marks": 5,
-      "answer": "Detailed 5-mark answer derivation/explanation.",
-      "explanation": "Comprehensive solution."
-    }}
-  ],
-  "school_name": "{req.school_name}"
-}}
-"""
+Return valid JSON ONLY:
+{
+  "subject": "...",
+  "chapter": "...",
+  "title": "...",
+  "summary": "..."
+}"""
 
         if image_data_url:
             user_content = [
-                {
-                    "type": "text",
-                    "text": f"CRITICAL DIRECTIVE: Base ALL questions DIRECTLY on the visible text, problems, and topic in this attached image/worksheet. Detect the real Subject, Chapter, and Title from the image.\n\n{prompt_text}"
-                },
+                {"type": "text", "text": detect_prompt},
                 {"type": "image_url", "image_url": {"url": image_data_url}}
             ]
         elif extracted_text and extracted_text.strip():
-            user_content = f"CRITICAL DIRECTIVE: Base ALL questions DIRECTLY on the text, story, and topic of this attached document:\n\n{extracted_text[:6000]}\n\nDetect the real Subject, Chapter, and Title from this attached document.\n\n{prompt_text}"
+            user_content = f"{detect_prompt}\n\nDocument Text:\n{extracted_text[:6000]}"
         else:
-            raise ValueError("Reference document (PDF or Image) is compulsory and must contain readable content.")
-
-        messages = [
-            {"role": "system", "content": f"You are a senior AI assessment synthesizer. Base questions 100% on the user's uploaded attachment content. Detect the correct subject and chapter from the attachment. Always return valid JSON."},
-            {"role": "user", "content": user_content}
-        ]
+            return await self.generate_question_paper(req)
 
         try:
-            raw = await ai_provider.chat_completion(messages, temperature=0.3, max_tokens=4000, response_format_json=True)
-            text = (raw or "").strip()
-            if "```json" in text:
-                text = text.split("```json", 1)[1].split("```", 1)[0].strip()
-            elif "```" in text:
-                text = text.split("```", 1)[1].split("```", 1)[0].strip()
+            raw_meta = await ai_provider.chat_completion(
+                messages=[
+                    {"role": "system", "content": "You are DEVGYA's curriculum metadata and concept extractor. Return JSON."},
+                    {"role": "user", "content": user_content}
+                ],
+                temperature=0.2,
+                max_tokens=1500,
+                response_format_json=True
+            )
+            parsed_meta = robust_json_parser(raw_meta)
+            if parsed_meta.get("subject") and str(parsed_meta["subject"]).lower() not in ["general", "general studies"]:
+                req.subject = str(parsed_meta["subject"])
+            if parsed_meta.get("chapter") and str(parsed_meta["chapter"]).lower() not in ["general syllabus", "general"]:
+                req.chapter = str(parsed_meta["chapter"])
+            if parsed_meta.get("title"):
+                req.title = str(parsed_meta["title"])
 
-            if "{" in text and "}" in text:
-                text = text[text.find("{"):text.rfind("}") + 1].strip()
+            summary_text = parsed_meta.get("summary", "")
+            if summary_text:
+                existing_inst = req.custom_instructions or ""
+                req.custom_instructions = f"{existing_inst}\n\nStrictly base questions on this attached source material summary:\n{summary_text}".strip()
+        except Exception as meta_err:
+            logger.warning(f"[Attachment Meta Notice] {meta_err}")
 
-            data = json.loads(text)
-
-            if isinstance(data, dict):
-                inferred_subj = str(data.get("subject") or "").strip()
-                if inferred_subj and inferred_subj.lower() not in ["general studies", "general"]:
-                    data["subject"] = inferred_subj
-                else:
-                    data["subject"] = str(req.subject or "General")
-
-                inferred_chap = str(data.get("chapter") or "").strip()
-                if inferred_chap and inferred_chap.lower() not in ["general syllabus", "general"]:
-                    data["chapter"] = inferred_chap
-                else:
-                    data["chapter"] = str(req.chapter or "NCERT Syllabus")
-
-                data["title"] = str(data.get("title") or req.title or f"{data['subject']} Assessment")
-                data["class_name"] = str(data.get("class_name") or req.class_name or "Class 10")
-                data["difficulty"] = str(data.get("difficulty") or req.difficulty or "medium")
-                data["total_marks"] = int(data.get("total_marks") or req.total_marks or 40)
-                data["time_allowed_mins"] = int(data.get("time_allowed_mins") or req.time_allowed_mins or 90)
-                data["school_name"] = str(data.get("school_name") or req.school_name or "DEVGYA GLOBAL ACADEMY")
-                if not isinstance(data.get("instructions"), list) or not data["instructions"]:
-                    data["instructions"] = [
-                        "All questions are compulsory.",
-                        "Read all questions carefully before attempting.",
-                        "Marks for each question are indicated against it."
-                    ]
-
-                raw_questions = data.get("questions") if isinstance(data.get("questions"), list) else []
-                clean_qs = []
-                for idx, q in enumerate(raw_questions):
-                    if not isinstance(q, dict):
-                        continue
-                    ans_val = q.get("answer")
-                    if isinstance(ans_val, dict):
-                        ans_val = str(ans_val.get("answer") or ans_val.get("text") or list(ans_val.values())[0])
-                    elif not isinstance(ans_val, str):
-                        ans_val = str(ans_val or "")
-
-                    raw_type = str(q.get("question_type") or "").lower()
-                    opts = q.get("options") if isinstance(q.get("options"), list) and len(q.get("options")) >= 2 else None
-                    if "short" in raw_type or "subjective" in raw_type:
-                        q_type = "short"
-                    elif "long" in raw_type or "essay" in raw_type or "descriptive" in raw_type:
-                        q_type = "long"
-                    elif "mcq" in raw_type or "choice" in raw_type or opts:
-                        q_type = "mcq"
-                    else:
-                        q_type = "short" if int(q.get("marks") or 1) == 3 else "long" if int(q.get("marks") or 1) >= 5 else "mcq"
-
-                    q_text = str(q.get("question_text") or q.get("question") or f"Question {idx+1} on {req.chapter}")
-
-                    clean_qs.append({
-                        "id": idx + 1,
-                        "question_number": idx + 1,
-                        "question_type": q_type,
-                        "question_text": q_text,
-                        "marks": int(q.get("marks") or (1 if q_type == "mcq" else 3 if q_type == "short" else 5)),
-                        "options": opts,
-                        "answer": ans_val or "Refer to step-by-step solution.",
-                        "explanation": str(q.get("explanation") or "NCERT aligned concept explanation.")
-                    })
-
-                # Deduplicate and index questions
-                seen_texts = set()
-                deduped_qs = []
-                for q in clean_qs:
-                    norm = re.sub(r'[^a-zA-Z0-9\s]', '', str(q.get("question_text", "")).lower())
-                    norm_key = " ".join(norm.split())
-                    if not norm_key or norm_key in seen_texts or len(norm_key) < 8:
-                        continue
-                    seen_texts.add(norm_key)
-                    deduped_qs.append(q)
-
-                final_indexed = []
-                q_cnt = 1
-                for q in deduped_qs:
-                    q_copy = dict(q)
-                    q_copy["id"] = q_cnt
-                    q_copy["question_number"] = q_cnt
-                    final_indexed.append(q_copy)
-                    q_cnt += 1
-
-                data["questions"] = final_indexed
-
-            return GeneratedPaperResponse(**data)
-        except Exception as e:
-            logger.warning(f"[GroqService] Notice during attachment synthesis: {e}. Falling back to curriculum generator.")
-            return await self.generate_question_paper(req)
+        return await self.generate_question_paper(req)
 
     async def socratic_chat(self, question: str, subject: str = "Science", grade: str = "Class 10", action: str = "normal") -> dict:
         """Socratic AI Tutor method: Guides students with hints and guiding questions without giving direct answers."""

@@ -163,7 +163,7 @@ def robust_json_parser(raw_text: str) -> Dict[str, Any]:
     except Exception:
         pass
 
-    return json.loads(sanitized_no_trailing)
+    return {}
 
 def _classify_and_bucket_questions(raw_questions: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
     """Accurately categorizes generated questions into MCQ, Fill in the Blanks, Short Answer, and Long Answer."""
@@ -259,10 +259,24 @@ async def generate_ai_assignment(req: GenerateAssignmentRequest):
                 cnt -= take
             return res
 
+        sem = asyncio.Semaphore(4)
+
+        async def _call_llm_assignment(prompt_text: str) -> str:
+            async with sem:
+                return await ai_provider.chat_completion(
+                    messages=[
+                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Strictly adhere to the requested subject ({req.subject}) and topic ({req.chapter_topic}). Return valid JSON."},
+                        {"role": "user", "content": prompt_text}
+                    ],
+                    temperature=0.3,
+                    max_tokens=3500,
+                    response_format_json=True
+                )
+
         tasks = []
-        
-        # 1. Objective Tasks (MCQs in chunks of 10)
-        mcq_chunks = _get_chunks(target_mcq, 10)
+
+        # 1. Objective MCQs (in chunks of 8)
+        mcq_chunks = _get_chunks(target_mcq, 8)
         for i, c_mcq in enumerate(mcq_chunks):
             obj_prompt = f"""{subject_directive}
 
@@ -294,20 +308,10 @@ JSON FORMAT ONLY:
   ]
 }}
 You MUST produce ALL {c_mcq} objective MCQs in the 'questions' list."""
-            tasks.append(
-                ai_provider.chat_completion(
-                    messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Strictly adhere to the requested subject ({req.subject}) and topic ({req.chapter_topic}). Return valid JSON."},
-                        {"role": "user", "content": obj_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=3500,
-                    response_format_json=True
-                )
-            )
+            tasks.append(_call_llm_assignment(obj_prompt))
 
-        # 2. Fill in the blanks tasks (in chunks of 10)
-        fill_chunks = _get_chunks(target_fill, 10)
+        # 2. Fill in the blanks tasks (in chunks of 8)
+        fill_chunks = _get_chunks(target_fill, 8)
         for i, c_fill in enumerate(fill_chunks):
             fill_prompt = f"""{subject_directive}
 
@@ -338,20 +342,10 @@ JSON FORMAT ONLY:
     }}
   ]
 }}"""
-            tasks.append(
-                ai_provider.chat_completion(
-                    messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Return valid JSON."},
-                        {"role": "user", "content": fill_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=3500,
-                    response_format_json=True
-                )
-            )
+            tasks.append(_call_llm_assignment(fill_prompt))
 
-        # 3. Short Answer tasks (in chunks of 8)
-        short_chunks = _get_chunks(target_short, 8)
+        # 3. Short Answer tasks (in chunks of 5)
+        short_chunks = _get_chunks(target_short, 5)
         for i, c_short in enumerate(short_chunks):
             subj_prompt = f"""{subject_directive}
 
@@ -383,20 +377,10 @@ JSON FORMAT ONLY:
   ]
 }}
 You MUST produce ALL {c_short} Short Answer questions in the 'questions' list."""
-            tasks.append(
-                ai_provider.chat_completion(
-                    messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Strictly adhere to the requested subject ({req.subject}) and topic ({req.chapter_topic}). Return valid JSON."},
-                        {"role": "user", "content": subj_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=3500,
-                    response_format_json=True
-                )
-            )
+            tasks.append(_call_llm_assignment(subj_prompt))
 
-        # 4. Long Answer / HOTS tasks (in chunks of 5)
-        long_chunks = _get_chunks(target_long, 5)
+        # 4. Long Answer / HOTS tasks (in chunks of 4)
+        long_chunks = _get_chunks(target_long, 4)
         for i, c_long in enumerate(long_chunks):
             long_prompt = f"""{subject_directive}
 
@@ -428,19 +412,9 @@ JSON FORMAT ONLY:
   ]
 }}
 You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
-            tasks.append(
-                ai_provider.chat_completion(
-                    messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Strictly adhere to the requested subject ({req.subject}) and topic ({req.chapter_topic}). Return valid JSON."},
-                        {"role": "user", "content": long_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=3500,
-                    response_format_json=True
-                )
-            )
+            tasks.append(_call_llm_assignment(long_prompt))
 
-        # Run tasks in parallel for lightning-fast, high-quality output
+        # Run tasks through semaphore concurrency pool
         raw_responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         extracted_raw_questions = []
@@ -462,55 +436,9 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
             elif isinstance(resp, Exception):
                 logger.warning(f"[Assignment Section Error] {resp}")
 
-        # Bucket and count
+        # Bucket and deduplicate
         buckets = _classify_and_bucket_questions(extracted_raw_questions)
 
-        # Check for any deficit and run targeted supplementary generation
-        missing_mcq = max(0, target_mcq - len(buckets["mcq"]))
-        missing_fill = max(0, target_fill - len(buckets["fill_in_the_blank"]))
-        missing_short = max(0, target_short - len(buckets["short"]))
-        missing_long = max(0, target_long - len(buckets["long"]))
-
-        total_missing = missing_mcq + missing_fill + missing_short + missing_long
-
-        if total_missing > 0:
-            logger.info(f"[Assignment Deficit Detected] Need: MCQ={missing_mcq}, Fill={missing_fill}, Short={missing_short}, Long={missing_long}. Fetching authentic supplement...")
-            supp_lines = []
-            if missing_mcq > 0:
-                supp_lines.append(f"- EXACTLY {missing_mcq} MCQs (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'])")
-            if missing_fill > 0:
-                supp_lines.append(f"- EXACTLY {missing_fill} Fill-in-the-Blanks (labeled 'question_type': 'fill_in_the_blank', 'marks': 1)")
-            if missing_short > 0:
-                supp_lines.append(f"- EXACTLY {missing_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3)")
-            if missing_long > 0:
-                supp_lines.append(f"- EXACTLY {missing_long} Long Answer / HOTS Questions (labeled 'question_type': 'long', 'marks': 5)")
-
-            supp_prompt = f"""Generate EXACTLY {total_missing} authentic CBSE questions for {req.class_name} {req.subject}, topic '{req.chapter_topic}':
-{chr(10).join(supp_lines)}
-
-Return JSON ONLY:
-{{"questions": [{{"question_type": "...", "section": "...", "question_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "answer": "...", "explanation": "...", "marks": 1, "lines_allocated": 3}}]}}"""
-            try:
-                supp_raw = await ai_provider.chat_completion(
-                    messages=[
-                        {"role": "system", "content": f"You are CBSE {req.subject} expert question generator. Return JSON."},
-                        {"role": "user", "content": supp_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=3000,
-                    response_format_json=True
-                )
-                supp_parsed = robust_json_parser(supp_raw)
-                supp_bucket = _classify_and_bucket_questions(supp_parsed.get("questions") or [])
-                buckets["mcq"].extend(supp_bucket["mcq"])
-                buckets["fill_in_the_blank"].extend(supp_bucket["fill_in_the_blank"])
-                buckets["short"].extend(supp_bucket["short"])
-                buckets["long"].extend(supp_bucket["long"])
-            except Exception as supp_err:
-                logger.warning(f"[Assignment Supplement Error] {supp_err}")
-
-        # Assemble exact requested counts
-        # Deduplicate all questions within each bucket
         def _dedup_list(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             seen_texts = set()
             out = []
@@ -528,6 +456,61 @@ Return JSON ONLY:
         buckets["fill_in_the_blank"] = _dedup_list(buckets["fill_in_the_blank"])
         buckets["short"] = _dedup_list(buckets["short"])
         buckets["long"] = _dedup_list(buckets["long"])
+
+        # Multi-round deficit fulfillment in safe small chunks
+        for _ in range(3):
+            missing_mcq = max(0, target_mcq - len(buckets["mcq"]))
+            missing_fill = max(0, target_fill - len(buckets["fill_in_the_blank"]))
+            missing_short = max(0, target_short - len(buckets["short"]))
+            missing_long = max(0, target_long - len(buckets["long"]))
+
+            if missing_mcq <= 0 and missing_fill <= 0 and missing_short <= 0 and missing_long <= 0:
+                break
+
+            supp_tasks = []
+            if missing_mcq > 0:
+                for chunk in _get_chunks(missing_mcq, 8):
+                    supp_tasks.append(_call_llm_assignment(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Multiple Choice Questions for {req.class_name} {req.subject}, topic '{req.chapter_topic}'.
+JSON ONLY: {{"questions": [{{"question_type": "mcq", "section": "Section A: Multiple Choice Questions", "question_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "answer": "...", "explanation": "...", "marks": 1, "lines_allocated": 1}}]}}"""
+                    ))
+            if missing_fill > 0:
+                for chunk in _get_chunks(missing_fill, 8):
+                    supp_tasks.append(_call_llm_assignment(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Fill-in-the-Blanks Questions for {req.class_name} {req.subject}, topic '{req.chapter_topic}'.
+JSON ONLY: {{"questions": [{{"question_type": "fill_in_the_blank", "section": "Section B: Objective / Fill in the Blanks", "question_text": "...", "answer": "...", "explanation": "...", "marks": 1, "lines_allocated": 2}}]}}"""
+                    ))
+            if missing_short > 0:
+                for chunk in _get_chunks(missing_short, 5):
+                    supp_tasks.append(_call_llm_assignment(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Short Answer Questions for {req.class_name} {req.subject}, topic '{req.chapter_topic}'.
+JSON ONLY: {{"questions": [{{"question_type": "short", "section": "Section C: Short Answer Questions", "question_text": "...", "answer": "...", "explanation": "...", "marks": 3, "lines_allocated": 4}}]}}"""
+                    ))
+            if missing_long > 0:
+                for chunk in _get_chunks(missing_long, 4):
+                    supp_tasks.append(_call_llm_assignment(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Long Answer / HOTS Questions for {req.class_name} {req.subject}, topic '{req.chapter_topic}'.
+JSON ONLY: {{"questions": [{{"question_type": "long", "section": "Section D: Long Answer & HOTS Questions", "question_text": "...", "answer": "...", "explanation": "...", "marks": 5, "lines_allocated": 8}}]}}"""
+                    ))
+
+            supp_resps = await asyncio.gather(*supp_tasks, return_exceptions=True)
+            for s_resp in supp_resps:
+                if isinstance(s_resp, str):
+                    supp_parsed = robust_json_parser(s_resp)
+                    supp_bucket = _classify_and_bucket_questions(supp_parsed.get("questions") or [])
+                    buckets["mcq"].extend(supp_bucket["mcq"])
+                    buckets["fill_in_the_blank"].extend(supp_bucket["fill_in_the_blank"])
+                    buckets["short"].extend(supp_bucket["short"])
+                    buckets["long"].extend(supp_bucket["long"])
+
+            buckets["mcq"] = _dedup_list(buckets["mcq"])
+            buckets["fill_in_the_blank"] = _dedup_list(buckets["fill_in_the_blank"])
+            buckets["short"] = _dedup_list(buckets["short"])
+            buckets["long"] = _dedup_list(buckets["long"])
 
         selected_mcqs = buckets["mcq"][:target_mcq]
         selected_fills = buckets["fill_in_the_blank"][:target_fill]
