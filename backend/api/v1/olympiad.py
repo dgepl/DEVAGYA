@@ -135,10 +135,27 @@ async def get_user_attempt_status(
         if not user_sub:
             user_sub = s
 
+    # Mask scores and question evaluations if admin has not declared results
+    safe_sub = None
+    if user_sub:
+        safe_sub = dict(user_sub)
+        is_published = safe_sub.get("published") is True or safe_sub.get("review_status") == "published"
+        if not is_published:
+            safe_sub["published"] = False
+            safe_sub["review_status"] = safe_sub.get("review_status", "pending_admin_review")
+            safe_sub["question_evaluations"] = None
+            safe_sub["score_percentage"] = None
+            safe_sub["official_score"] = None
+            safe_sub["correct_count"] = None
+            safe_sub["wrong_count"] = None
+            safe_sub["merit_rank"] = None
+            safe_sub["state_rank"] = None
+            safe_sub["district_rank"] = None
+
     return {
         "status": "success",
         "has_attempted": bool(user_sub),
-        "submission": user_sub,
+        "submission": safe_sub,
         "active_paper_id": paper_id
     }
 

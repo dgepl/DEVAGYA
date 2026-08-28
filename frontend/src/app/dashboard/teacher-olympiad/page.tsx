@@ -66,14 +66,24 @@ export default function TeacherOlympiadPage() {
   const [timeLeft, setTimeLeft] = useState<number>(60 * 60); // 3600 seconds
   const [timerActive, setTimerActive] = useState<boolean>(false);
 
-  // Proctoring & Integrity Checks
+  // Professional 4-Factor Proctoring Engine (Fullscreen, Tab Switch, App Switch, Face/Gaze)
+  const [proctorWarnings, setProctorWarnings] = useState<number>(0);
+  const [activeWarningModal, setActiveWarningModal] = useState<{
+    count: number;
+    title: string;
+    reason: string;
+    type: "fullscreen" | "tab_switch" | "app_switch" | "face_away";
+  } | null>(null);
+  const [isAutoTerminated, setIsAutoTerminated] = useState<boolean>(false);
+  const [autoTerminatedReason, setAutoTerminatedReason] = useState<string | null>(null);
   const [tabSwitches, setTabSwitches] = useState<number>(0);
   const [fullscreenExits, setFullscreenExits] = useState<number>(0);
   const [webcamEnabled, setWebcamEnabled] = useState<boolean>(false);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const [proctorWarningMsg, setProctorWarningMsg] = useState<string | null>(null);
   const [proctorLogs, setProctorLogs] = useState<string[]>([]);
-  const [autoTerminatedReason, setAutoTerminatedReason] = useState<string | null>(null);
+  const lastWarningTimeRef = useRef<number>(0);
+  const faceMissingStreakRef = useRef<number>(0);
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const warningTimeoutRef = useRef<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -254,95 +264,208 @@ export default function TeacherOlympiadPage() {
     }
   }, [mediaStream, examStarted]);
 
-  // Trigger Proctoring Incident with 5-warning threshold and clear explanation
-  const triggerProctorIncident = (reason: string) => {
-    if (examSubmitted) return;
-    setTabSwitches((prev) => {
+  // Genuine Security Violation Handler with 5-Warning Threshold & Auto-Submission
+  const triggerProctorWarning = (
+    title: string,
+    reason: string,
+    type: "fullscreen" | "tab_switch" | "app_switch" | "face_away"
+  ) => {
+    if (!examStarted || examSubmitted || isAutoTerminated) return;
+
+    // Debounce to prevent multiple triggers from firing on the same event (< 2500ms)
+    const now = Date.now();
+    if (now - lastWarningTimeRef.current < 2500) return;
+    lastWarningTimeRef.current = now;
+
+    setProctorWarnings((prev) => {
       const count = prev + 1;
       const timeStr = new Date().toLocaleTimeString();
-      const log = `[${timeStr}] Warning #${count}: ${reason}`;
+      const log = `[${timeStr}] Warning #${count}/5: ${title} - ${reason}`;
       setProctorLogs((prevLogs) => [...prevLogs, log]);
+      setTabSwitches(count);
 
       if (count >= 5) {
-        const termMsg = `Maximum Proctoring Violations Reached (5/5 Warnings): ${reason}. Assessment automatically submitted.`;
+        const termMsg = `Maximum Proctoring Violations Reached (5/5 Warnings): ${title}. Assessment automatically submitted.`;
+        setIsAutoTerminated(true);
         setAutoTerminatedReason(termMsg);
-        setProctorWarningMsg(`🚨 MAXIMUM VIOLATIONS REACHED (5/5 Warnings): Assessment Auto-Submitted.`);
+        setActiveWarningModal({
+          count: 5,
+          title: "🚨 ASSESSMENT AUTO-SUBMITTED",
+          reason: "You have exceeded the maximum 5 allowed security violations. Your examination paper has been automatically submitted for audit.",
+          type
+        });
         setTimeout(() => {
           processSubmission(true, termMsg);
-        }, 800);
+        }, 1200);
       } else {
-        setProctorWarningMsg(`⚠️ INTEGRITY NOTICE (Warning #${count}/5): ${reason}. Please stay on this screen.`);
-        if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
-        warningTimeoutRef.current = setTimeout(() => {
-          setProctorWarningMsg(null);
-        }, 5000);
+        setActiveWarningModal({
+          count,
+          title,
+          reason,
+          type
+        });
       }
 
       return count;
     });
   };
 
-  // Anti-Cheating: Reliable Tab Switch & Fullscreen Monitoring (No false window blur triggers)
+  // 1. Fullscreen Exit Security Listener
   useEffect(() => {
-    if (!examStarted || examSubmitted) return;
-
-    let hiddenTimeout: NodeJS.Timeout | null = null;
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // Debounce 1.5s to prevent brief OS touch gestures or mobile notifications from firing false alerts
-        hiddenTimeout = setTimeout(() => {
-          if (document.hidden) {
-            triggerProctorIncident("Tab switched or minimized");
-          }
-        }, 1500);
-      } else {
-        if (hiddenTimeout) clearTimeout(hiddenTimeout);
-      }
-    };
+    if (!examStarted || examSubmitted || isAutoTerminated) return;
 
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
         setFullscreenExits((prev) => prev + 1);
+        triggerProctorWarning(
+          "Full-Screen Mode Exited",
+          "You exited full-screen mode. You must remain in full-screen during the entire examination.",
+          "fullscreen"
+        );
       }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, [examStarted, examSubmitted, isAutoTerminated]);
+
+  // 2. Tab Switch & Application Switch Listeners (visibilitychange + window.blur)
+  useEffect(() => {
+    if (!examStarted || examSubmitted || isAutoTerminated) return;
+
+    let hiddenTimeout: NodeJS.Timeout | null = null;
+    let blurTimeout: NodeJS.Timeout | null = null;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        hiddenTimeout = setTimeout(() => {
+          if (document.hidden) {
+            triggerProctorWarning(
+              "Tab Switched or Browser Minimized",
+              "Navigating away from the active examination window is strictly prohibited.",
+              "tab_switch"
+            );
+          }
+        }, 600);
+      } else if (hiddenTimeout) {
+        clearTimeout(hiddenTimeout);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      blurTimeout = setTimeout(() => {
+        // Trigger only if window lost focus to another app and document isn't already hidden
+        if (!document.hidden && !document.hasFocus()) {
+          triggerProctorWarning(
+            "Application Focus Lost",
+            "Switched to another application or window. Please keep your focus solely on the exam interface.",
+            "app_switch"
+          );
+        }
+      }, 800);
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    window.addEventListener("blur", handleWindowBlur);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      window.removeEventListener("blur", handleWindowBlur);
       if (hiddenTimeout) clearTimeout(hiddenTimeout);
+      if (blurTimeout) clearTimeout(blurTimeout);
     };
-  }, [examStarted, examSubmitted]);
+  }, [examStarted, examSubmitted, isAutoTerminated]);
 
-  // Real-time AI Camera Presence & Stream Verification Loop
+  // 3. Looking Away / Face Absence AI Vision Monitor
   useEffect(() => {
-    if (!examStarted || examSubmitted || !mediaStream) return;
+    if (!examStarted || examSubmitted || !mediaStream || isAutoTerminated) return;
 
-    let cameraOffTicks = 0;
+    if (!offscreenCanvasRef.current) {
+      offscreenCanvasRef.current = document.createElement("canvas");
+      offscreenCanvasRef.current.width = 160;
+      offscreenCanvasRef.current.height = 120;
+    }
 
-    const visionTimer = setInterval(() => {
-      if (!videoRef.current || examSubmitted) return;
+    const visionTimer = setInterval(async () => {
+      if (!videoRef.current || examSubmitted || isAutoTerminated) return;
+      const video = videoRef.current;
+      if (video.readyState < 2) return;
 
-      // Verify that mediaStream video track is live and enabled
-      const videoTrack = mediaStream.getVideoTracks()[0];
-      const isLive = videoTrack && videoTrack.readyState === "live" && videoTrack.enabled;
+      const canvas = offscreenCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
 
-      if (!isLive) {
-        cameraOffTicks += 1;
-        if (cameraOffTicks >= 5) {
-          triggerProctorIncident("Camera stream disconnected or disabled");
-          cameraOffTicks = 0;
+      let isFacePresent = false;
+
+      // Try native FaceDetector if supported in browser
+      if (typeof window !== "undefined" && "FaceDetector" in window) {
+        try {
+          const detector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 2 });
+          const faces = await detector.detect(video);
+          if (faces && faces.length > 0) {
+            isFacePresent = true;
+          }
+        } catch (e) {}
+      }
+
+      // Fallback: Center-weighted skin-luminance presence analysis
+      if (!isFacePresent) {
+        ctx.drawImage(video, 0, 0, 160, 120);
+        try {
+          const imgData = ctx.getImageData(30, 20, 100, 80);
+          const data = imgData.data;
+          let skinPixels = 0;
+          let totalLum = 0;
+          const pixelCount = data.length / 4;
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            totalLum += lum;
+
+            if (r > 60 && g > 40 && b > 20 && r > g && (r - g) > 15) {
+              skinPixels++;
+            }
+          }
+
+          const avgLum = totalLum / pixelCount;
+          const skinRatio = skinPixels / pixelCount;
+
+          // Face is present if luminance is normal and skin ratio in center frame is valid
+          if (avgLum > 20 && avgLum < 240 && skinRatio > 0.08) {
+            isFacePresent = true;
+          }
+        } catch (e) {
+          isFacePresent = true;
+        }
+      }
+
+      if (!isFacePresent) {
+        faceMissingStreakRef.current += 1;
+        // 3 consecutive failed checks (approx 4.5 seconds) = real looking away / absent
+        if (faceMissingStreakRef.current >= 3) {
+          faceMissingStreakRef.current = 0;
+          triggerProctorWarning(
+            "Face Not Detected / Looking Away",
+            "Your face was not detected in the center camera view. Please keep your face clearly visible and look straight at the screen.",
+            "face_away"
+          );
         }
       } else {
-        cameraOffTicks = 0;
+        faceMissingStreakRef.current = 0;
       }
-    }, 2000);
+    }, 1500);
 
     return () => clearInterval(visionTimer);
-  }, [examStarted, examSubmitted, mediaStream]);
+  }, [examStarted, examSubmitted, mediaStream, isAutoTerminated]);
 
   // Format MM:SS
   const formattedTime = useMemo(() => {
@@ -776,26 +899,89 @@ export default function TeacherOlympiadPage() {
       {examStarted && !examSubmitted && (
         <div className="space-y-5">
           
-          {/* REAL-TIME ANTI-CHEATING WARNING BANNER */}
-          {proctorWarningMsg && (
-            <div className="p-4 rounded-2xl bg-rose-600 text-white font-bold text-xs shadow-lg shadow-rose-600/30 flex items-center justify-between gap-3 animate-bounce">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
-                <span>{proctorWarningMsg}</span>
+          {/* HIGH-VISIBILITY MODAL PROCTORING WARNING */}
+          {activeWarningModal && (
+            <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+              <div className="bg-white border-2 border-rose-500 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-5 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto shadow-md animate-bounce">
+                  <AlertTriangle className="w-8 h-8" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                    SECURITY NOTICE (WARNING {activeWarningModal.count} OF 5)
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-black text-slate-900 pt-1">
+                    {activeWarningModal.title}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    {activeWarningModal.reason}
+                  </p>
+                </div>
+
+                {/* 5-Warning Visual Progress */}
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                    <span>Security Warnings Accumulated</span>
+                    <span className="text-rose-600 font-black">{activeWarningModal.count} / 5 Warnings</span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {[1, 2, 3, 4, 5].map((num) => (
+                      <div
+                        key={num}
+                        className={`h-2.5 rounded-full transition-all ${
+                          num <= activeWarningModal.count
+                            ? num >= 4 ? "bg-rose-600 animate-pulse" : "bg-amber-500"
+                            : "bg-slate-200"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-rose-700 font-bold">
+                    ⚠️ 5 warnings will immediately auto-terminate and submit your assessment paper.
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div>
+                  {activeWarningModal.count >= 5 ? (
+                    <div className="text-xs font-black text-rose-600 animate-pulse py-2">
+                      Submitting assessment paper to National Board...
+                    </div>
+                  ) : activeWarningModal.type === "fullscreen" ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          if (document.documentElement.requestFullscreen) {
+                            await document.documentElement.requestFullscreen().catch(() => {});
+                          }
+                        } catch (e) {}
+                        setActiveWarningModal(null);
+                      }}
+                      className="w-full py-3 bg-gradient-to-r from-rose-600 to-indigo-600 hover:from-rose-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>Re-Enter Full-Screen Mode & Continue</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setActiveWarningModal(null)}
+                      className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                    >
+                      I Understand • Return to Assessment
+                    </button>
+                  )}
+                </div>
               </div>
-              <button 
-                onClick={() => setProctorWarningMsg(null)}
-                className="text-white/80 hover:text-white font-black text-sm px-2 py-0.5"
-              >
-                ✕
-              </button>
             </div>
           )}
           
           {/* EXAM HALL HEADER: TIMER, SECTION SWITCHER & MOBILE PALETTE BUTTON */}
           <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 border border-slate-200 shadow-md flex flex-wrap items-center justify-between gap-3">
             
-            {/* Section Switcher Tabs */}
+            {/* Section Switcher Tabs & Security Badge */}
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
@@ -822,6 +1008,16 @@ export default function TeacherOlympiadPage() {
                 <span>Part-B: {selectedSubject}</span>
                 <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full">{partBAnsweredCount}/40</span>
               </button>
+
+              {/* Security Pill */}
+              <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black border flex items-center gap-1 ${
+                proctorWarnings > 0
+                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+              }`}>
+                <ShieldCheck className="w-3 h-3" />
+                <span>{proctorWarnings > 0 ? `${proctorWarnings}/5 Warnings` : "Proctor Monitored"}</span>
+              </span>
 
               {/* Mobile Question Palette Opener */}
               <button
@@ -1122,7 +1318,7 @@ export default function TeacherOlympiadPage() {
           <div className="space-y-2">
             {autoTerminatedReason ? (
               <span className="text-[10px] font-black uppercase tracking-widest bg-rose-100 text-rose-800 px-3.5 py-1 rounded-full border border-rose-200">
-                🚨 AUTO-SUBMITTED (MAXIMUM 3 WARNINGS EXCEEDED)
+                🚨 AUTO-SUBMITTED (MAXIMUM 5 WARNINGS EXCEEDED)
               </span>
             ) : (
               <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full border border-emerald-200">
@@ -1136,7 +1332,7 @@ export default function TeacherOlympiadPage() {
 
             <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-lg mx-auto">
               {autoTerminatedReason 
-                ? "Your 100-MCQ assessment was automatically submitted to the evaluation committee because 3 consecutive proctoring infractions were logged by the automated anti-cheating system."
+                ? "Your 100-MCQ assessment was automatically submitted to the evaluation committee because 5 proctoring infractions were logged by the automated anti-cheating system."
                 : "Your responses for the 100-MCQ Teacher Skills Olympiad 2026 have been securely recorded and sent to the national evaluation committee."}
             </p>
           </div>
@@ -1168,15 +1364,15 @@ export default function TeacherOlympiadPage() {
             <ul className="text-xs text-slate-600 space-y-2 font-medium">
               <li className="flex items-start gap-2">
                 <span className="text-indigo-600 font-bold">•</span>
-                <span><strong>No Instant Score:</strong> In adherence to national benchmarking standards, scores are held under confidential review.</span>
+                <span><strong>Confidential Grading:</strong> In adherence to national benchmarking standards, scores and answer keys remain locked until officially declared by Super Admin.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-indigo-600 font-bold">•</span>
-                <span><strong>Result Declaration Timeline:</strong> Official Merit Lists, State & District Percentile Scorecards will be declared within <strong>10–15 days</strong>.</span>
+                <span><strong>Result Declaration Timeline:</strong> Official Merit Lists, State & District Percentile Scorecards will be released upon board publication.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-indigo-600 font-bold">•</span>
-                <span><strong>Manual Badge Approval:</strong> Verified badges (<em>CBSE-CPD Aligned Pedagogy</em>, <em>Verified Subject Expert</em>, <em>TSO Benchmarked</em>) will be granted to your profile after administrative audit.</span>
+                <span><strong>Verified Badges & Ranking:</strong> Verified badges (<em>CBSE-CPD Aligned Pedagogy</em>, <em>Subject Expert</em>) will unlock on your profile upon result publication.</span>
               </li>
             </ul>
           </div>
@@ -1190,7 +1386,7 @@ export default function TeacherOlympiadPage() {
               }}
               className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
             >
-              View Results & Scorecard →
+              View Submission Status →
             </button>
 
             <Link
@@ -1210,94 +1406,164 @@ export default function TeacherOlympiadPage() {
 
           {/* CANDIDATE'S PERSONAL SCORECARD & REVIEW BANNER (IF ATTEMPTED) */}
           {userSubmission ? (
-            <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-purple-950 text-white rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-xl space-y-6">
-              
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
-                <div className="space-y-1">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-black">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>{userSubmission.published ? "OFFICIALLY DECLARED MERIT SCORECARD" : "ASSESSMENT RECORD & SUBMISSION SCRIPT"}</span>
+            (() => {
+              const isDeclared = Boolean(userSubmission.published === true || userSubmission.review_status === "published");
+
+              return (
+                <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-white rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-xl space-y-6">
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+                    <div className="space-y-1">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black border"
+                        style={{
+                          backgroundColor: isDeclared ? "rgba(16, 185, 129, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                          borderColor: isDeclared ? "rgba(16, 185, 129, 0.4)" : "rgba(245, 158, 11, 0.4)",
+                          color: isDeclared ? "#6ee7b7" : "#fde68a"
+                        }}
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>{isDeclared ? "OFFICIALLY DECLARED MERIT SCORECARD" : "ASSESSMENT SUBMITTED • PENDING SUPER ADMIN DECLARATION"}</span>
+                      </div>
+                      <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+                        {userSubmission.teacher_name} &bull; {userSubmission.subject} Assessment
+                      </h2>
+                      <p className="text-xs text-slate-300 font-medium">
+                        National Teacher Skills Olympiad 2026 &bull; Submitted {userSubmission.submitted_at}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {isDeclared ? (
+                        <button
+                          onClick={() => setShowAnswerReviewModal(true)}
+                          className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95 uppercase tracking-wider"
+                        >
+                          <FileCheck className="w-4 h-4" />
+                          <span>Check Right & Wrong Answers</span>
+                        </button>
+                      ) : (
+                        <div className="px-4 py-2.5 bg-slate-800/80 border border-amber-400/30 rounded-xl text-xs font-bold text-amber-300 flex items-center gap-2">
+                          <Lock className="w-4 h-4 text-amber-400" />
+                          <span>Answers Locked (Pending Result Declaration)</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-                    {userSubmission.teacher_name} &bull; {userSubmission.subject} Assessment
-                  </h2>
-                  <p className="text-xs text-slate-300 font-medium">
-                    National Teacher Skills Olympiad 2026 &bull; Submitted {userSubmission.submitted_at}
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowAnswerReviewModal(true)}
-                    className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95 uppercase tracking-wider"
-                  >
-                    <FileCheck className="w-4 h-4" />
-                    <span>Check Right & Wrong Answers</span>
-                  </button>
-                </div>
-              </div>
+                  {/* 4-METRIC STATS GRID */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    
+                    <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Official Score</span>
+                      {isDeclared ? (
+                        <>
+                          <div className="text-2xl sm:text-3xl font-black text-amber-300">
+                            {userSubmission.score_percentage}%
+                          </div>
+                          <p className="text-[11px] text-slate-300 font-medium">
+                            {userSubmission.correct_count ?? 0}/100 Marks Scored
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-sm sm:text-base font-black text-amber-300 flex items-center gap-1.5 pt-1">
+                            <Lock className="w-4 h-4" />
+                            <span>Under Review</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">
+                            Declared by Super Admin
+                          </p>
+                        </>
+                      )}
+                    </div>
 
-              {/* 4-METRIC STATS GRID */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
-                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Official Score</span>
-                  <div className="text-2xl sm:text-3xl font-black text-amber-300">
-                    {userSubmission.score_percentage}%
+                    <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">National Merit Rank</span>
+                      {isDeclared ? (
+                        <>
+                          <div className="text-2xl sm:text-3xl font-black text-white">
+                            #{userSubmission.merit_rank ?? 1}
+                          </div>
+                          <p className="text-[11px] text-emerald-400 font-medium">
+                            State Rank: #{userSubmission.state_rank ?? 1}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-sm sm:text-base font-black text-slate-300 flex items-center gap-1.5 pt-1">
+                            <Clock className="w-4 h-4 text-slate-400" />
+                            <span>Processing</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">
+                            National Merit Standing
+                          </p>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Accuracy Breakdown</span>
+                      {isDeclared ? (
+                        <>
+                          <div className="flex items-center gap-2 text-xs font-bold pt-1">
+                            <span className="text-emerald-400 font-black">✓ {userSubmission.correct_count ?? 0} Correct</span>
+                            <span className="text-rose-400 font-black">✗ {userSubmission.wrong_count ?? 0} Wrong</span>
+                          </div>
+                          <p className="text-[11px] text-slate-300 font-medium">
+                            ⚪ {userSubmission.unanswered_count ?? 0} Unattempted
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-sm sm:text-base font-black text-slate-300 flex items-center gap-1.5 pt-1">
+                            <Lock className="w-4 h-4" />
+                            <span>Locked</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">
+                            100 Question Breakdown
+                          </p>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Proctor Integrity</span>
+                      <div className="text-lg font-black text-emerald-300 pt-1 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>{Number(userSubmission.tab_switch_count ?? userSubmission.proctor_incidents ?? 0) === 0 ? "100% Clean Audit" : `${userSubmission.tab_switch_count} Warning(s)`}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-300">
+                        {isDeclared ? "Officially Benchmarked" : "Archived on Secure Server"}
+                      </p>
+                    </div>
+
                   </div>
-                  <p className="text-[11px] text-slate-300 font-medium">
-                    {userSubmission.correct_count ?? 0}/100 Marks Scored
-                  </p>
+
+                  {/* BADGES ROW (IF DECLARED) */}
+                  {isDeclared && userSubmission.badges_awarded && userSubmission.badges_awarded.length > 0 && (
+                    <div className="pt-2 flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-slate-300">Awarded Distinctions:</span>
+                      {userSubmission.badges_awarded.map((badge: string, bIdx: number) => (
+                        <span key={bIdx} className="px-3 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full text-xs font-black flex items-center gap-1.5">
+                          <Award className="w-3.5 h-3.5 text-amber-300" />
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {!isDeclared && (
+                    <div className="p-4 bg-amber-500/10 border border-amber-400/20 rounded-2xl text-xs text-amber-200 flex items-start gap-2.5">
+                      <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <p>
+                        <strong>Evaluation in progress:</strong> Your question paper has been submitted to the National Evaluation Committee. Official right/wrong answers, pedagogical explanations, merit percentiles, and badges will become accessible as soon as results are officially declared.
+                      </p>
+                    </div>
+                  )}
+
                 </div>
-
-                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
-                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">National Merit Rank</span>
-                  <div className="text-2xl sm:text-3xl font-black text-white">
-                    #{userSubmission.merit_rank ?? 1}
-                  </div>
-                  <p className="text-[11px] text-emerald-400 font-medium">
-                    State Rank: #{userSubmission.state_rank ?? 1}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
-                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Accuracy Breakdown</span>
-                  <div className="flex items-center gap-2 text-xs font-bold pt-1">
-                    <span className="text-emerald-400 font-black">✓ {userSubmission.correct_count ?? 0} Correct</span>
-                    <span className="text-rose-400 font-black">✗ {userSubmission.wrong_count ?? 0} Wrong</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 font-medium">
-                    ⚪ {userSubmission.unanswered_count ?? 0} Unattempted
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
-                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Proctor Integrity</span>
-                  <div className="text-lg font-black text-emerald-300 pt-1 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>{Number(userSubmission.tab_switch_count ?? userSubmission.proctor_incidents ?? 0) === 0 ? "100% Clean Audit" : `${userSubmission.tab_switch_count} Tab Warnings`}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-300">
-                    {userSubmission.published ? "Officially Benchmarked" : "Under Final Board Audit"}
-                  </p>
-                </div>
-
-              </div>
-
-              {/* BADGES ROW */}
-              {userSubmission.badges_awarded && userSubmission.badges_awarded.length > 0 && (
-                <div className="pt-2 flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-slate-300">Awarded Distinctions:</span>
-                  {userSubmission.badges_awarded.map((badge: string, bIdx: number) => (
-                    <span key={bIdx} className="px-3 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full text-xs font-black flex items-center gap-1.5">
-                      <Award className="w-3.5 h-3.5 text-amber-300" />
-                      {badge}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-            </div>
+              );
+            })()
           ) : (
             <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm text-center space-y-3">
               <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto">
@@ -1376,8 +1642,8 @@ export default function TeacherOlympiadPage() {
         </div>
       )}
 
-      {/* 6. FULL 100-QUESTION PAPER ANSWER REVIEW MODAL (CHECK RIGHT & WRONG ANSWERS) */}
-      {showAnswerReviewModal && userSubmission && (
+      {/* 6. FULL 100-QUESTION PAPER ANSWER REVIEW MODAL (CHECK RIGHT & WRONG ANSWERS - ONLY AFTER ADMIN DECLARATION) */}
+      {showAnswerReviewModal && userSubmission && (userSubmission.published === true || userSubmission.review_status === "published") && (
         <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="max-w-4xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 max-h-[90vh] flex flex-col font-sans">
             
