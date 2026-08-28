@@ -9,12 +9,13 @@ from PIL import Image
 
 from services.ai_provider import ai_provider
 from services.chat_history_service import chat_history_service
+from services.academic_guardrail import attach_academic_guardrail
 
 logger = logging.getLogger("chat_router")
 
 router = APIRouter(prefix="/chat", tags=["AI Chat Studio"])
 
-SYSTEM_PROMPT = (
+SYSTEM_PROMPT = attach_academic_guardrail(
     "You are Devgya AI, a world-class, professional AI Teaching Assistant for Devgya Global "
     "(a K-12 school solutions provider for CBSE & NCERT). You are an expert educator, mentor "
     "and content creator who responds in clear, structured Markdown. Use headings, bullet lists, "

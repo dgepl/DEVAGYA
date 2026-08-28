@@ -6,6 +6,7 @@ from groq import Groq
 from config import settings
 from schemas.question import GeneratePaperRequest, GeneratedPaperResponse, QuestionItem
 from services.ai_provider import ai_provider
+from services.academic_guardrail import attach_academic_guardrail
 
 logger = logging.getLogger("groq_service")
 
@@ -453,7 +454,7 @@ Respond strictly with a valid JSON object matching this structure:
             "normal": "Act as a master Socratic Tutor. DO NOT give the direct final answer. Instead, ask 1-2 guiding questions, provide a helpful hint, and explain the underlying principle."
         }
 
-        system_prompt = f"""You are DEVGYA's Master Socratic AI Tutor for {grade} {subject}.
+        system_prompt = attach_academic_guardrail(f"""You are DEVGYA's Master Socratic AI Tutor for {grade} {subject}.
 Your Goal: Guide the student to discover the answer themselves through encouraging questions, hints, and simple conceptual explanations.
 Constraint: DO NOT output the complete final answer directly.
 Action Mode: {action_instructions.get(action, action_instructions['normal'])}
@@ -463,7 +464,7 @@ Respond in valid JSON format:
   "response": "Your encouraging explanation or guidance text...",
   "hints": ["Hint 1", "Hint 2"],
   "guiding_question": "A clear question for the student to answer next..."
-}}"""
+}}""")
 
         try:
             res = self.client.chat.completions.create(
@@ -777,7 +778,7 @@ Respond strictly in JSON format:
                 "when_to_seek_help": "If persistent anxiety, sleep disturbances, or total withdrawal continues for more than 2 weeks."
             }
 
-        system_prompt = """You are DEVGYA's 24/7 AI Parenting Coach & Child Psychology Specialist.
+        system_prompt = attach_academic_guardrail("""You are DEVGYA's 24/7 AI Parenting Coach & Child Psychology Specialist.
 Your Goal: Provide empathetic, practical, evidence-based parenting guidance for supporting children's education and emotional well-being.
 Important Safety Constraint: DO NOT provide clinical medical diagnoses. Indicate when consulting a professional guidance counselor or pediatrician is recommended.
 
@@ -787,7 +788,7 @@ Respond strictly in JSON format:
   "practical_steps": ["Actionable step 1", "Actionable step 2", "Actionable step 3"],
   "communication_script": "Exact words or script parents can say to their child...",
   "when_to_seek_help": "Clear indicators for when professional guidance is appropriate..."
-}"""
+}""")
 
         try:
             res = self.client.chat.completions.create(

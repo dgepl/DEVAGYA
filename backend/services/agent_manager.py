@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Dict, Any, List, Optional
 from services.ai_provider import ai_provider
+from services.academic_guardrail import attach_academic_guardrail
 from schemas.phase4 import AgentExecutePayload, AgentResponse
 
 logger = logging.getLogger("agent_manager")
@@ -174,7 +175,7 @@ class AgentManagerService:
         )
         return {
             **agent,
-            "system_prompt": agent["system_prompt"] + doc_guidance
+            "system_prompt": attach_academic_guardrail(agent["system_prompt"] + doc_guidance)
         }
 
     async def execute_agent(self, payload: AgentExecutePayload) -> AgentResponse:

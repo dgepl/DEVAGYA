@@ -2,12 +2,13 @@ import json
 import logging
 from typing import Dict, Any, List
 from services.ai_provider import ai_provider
+from services.academic_guardrail import attach_academic_guardrail
 from schemas.phase3 import SocraticQueryPayload, SocraticResponse
 
 logger = logging.getLogger("socratic_tutor")
 
-SOCRATIC_SYSTEM_PROMPT = """
-You are an expert Socratic AI Tutor on Academix AI platform.
+SOCRATIC_SYSTEM_PROMPT = attach_academic_guardrail("""
+You are an expert Socratic AI Tutor on DEVGYA platform.
 Your objective is NEVER to directly reveal the final answer to homework or exam problems right away unless explicitly asked by the student after multiple attempts.
 Instead, your goal is to empower the student to think critically, ask probing questions, identify missing steps, and discover the solution themselves.
 
@@ -20,16 +21,16 @@ Rules:
    - "reply": Markdown explanation with guiding questions (Socratic style).
    - "suggested_hints": List of 3 concise hint choices (e.g., ["Remind me of Newton's 2nd Law", "Help me list the given values", "Give me an example"]).
    - "suggested_questions": List of 2 follow-up probing questions for the student to consider.
-"""
+""")
 
-DIRECT_EXPLANATION_PROMPT = """
-You are an encouraging AI Master Educator. The student has explicitly requested the direct step-by-step answer or solution.
+DIRECT_EXPLANATION_PROMPT = attach_academic_guardrail("""
+You are an encouraging AI Master Educator on DEVGYA platform. The student has explicitly requested the direct step-by-step answer or solution.
 Provide a crystal-clear, structured explanation with key concepts emphasized.
 Format in JSON format with fields:
    - "reply": Markdown response with step-by-step breakdown.
    - "suggested_hints": List of 3 key takeaways or summary points.
    - "suggested_questions": List of 2 practice questions to test their understanding.
-"""
+""")
 
 class SocraticTutorService:
     async def process_student_query(self, payload: SocraticQueryPayload) -> SocraticResponse:
