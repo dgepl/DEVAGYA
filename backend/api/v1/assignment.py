@@ -510,6 +510,25 @@ Return JSON ONLY:
                 logger.warning(f"[Assignment Supplement Error] {supp_err}")
 
         # Assemble exact requested counts
+        # Deduplicate all questions within each bucket
+        def _dedup_list(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            seen_texts = set()
+            out = []
+            for item in items:
+                t = str(item.get("question_text", "")).strip()
+                norm = re.sub(r'[^a-zA-Z0-9\s]', '', t.lower())
+                k = " ".join(norm.split())
+                if not k or k in seen_texts or len(k) < 8:
+                    continue
+                seen_texts.add(k)
+                out.append(item)
+            return out
+
+        buckets["mcq"] = _dedup_list(buckets["mcq"])
+        buckets["fill_in_the_blank"] = _dedup_list(buckets["fill_in_the_blank"])
+        buckets["short"] = _dedup_list(buckets["short"])
+        buckets["long"] = _dedup_list(buckets["long"])
+
         selected_mcqs = buckets["mcq"][:target_mcq]
         selected_fills = buckets["fill_in_the_blank"][:target_fill]
         selected_shorts = buckets["short"][:target_short]

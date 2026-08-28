@@ -233,6 +233,23 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                     "explanation": exp
                 })
 
+        def _dedup_q_list(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            seen_texts = set()
+            out = []
+            for item in items:
+                t = str(item.get("question_text", "")).strip()
+                norm = re.sub(r'[^a-zA-Z0-9\s]', '', t.lower())
+                k = " ".join(norm.split())
+                if not k or k in seen_texts or len(k) < 8:
+                    continue
+                seen_texts.add(k)
+                out.append(item)
+            return out
+
+        mcqs = _dedup_q_list(mcqs)
+        shorts = _dedup_q_list(shorts)
+        longs = _dedup_q_list(longs)
+
         # Check for any missing questions and run targeted supplement
         miss_mcq = max(0, target_mcq - len(mcqs))
         miss_short = max(0, target_short - len(shorts))
@@ -244,8 +261,8 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                 supp_tasks.append(
                     ai_provider.chat_completion(
                         messages=[
-                            {"role": "system", "content": f"Generate EXACTLY {miss_mcq} authentic MCQs for {req.class_name} {req.subject}, {req.chapter}. Return valid JSON with 'questions' array."},
-                            {"role": "user", "content": f"Generate {miss_mcq} MCQs for {req.subject} topic '{req.chapter}'."}
+                            {"role": "system", "content": f"Generate EXACTLY {miss_mcq} authentic, distinct MCQs for {req.class_name} {req.subject}, {req.chapter}. Return valid JSON with 'questions' array."},
+                            {"role": "user", "content": f"Generate {miss_mcq} unique MCQs for {req.subject} topic '{req.chapter}'."}
                         ],
                         temperature=0.3,
                         max_tokens=2500,
@@ -256,8 +273,8 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                 supp_tasks.append(
                     ai_provider.chat_completion(
                         messages=[
-                            {"role": "system", "content": f"Generate EXACTLY {miss_short} authentic Short Answer (3M) questions for {req.class_name} {req.subject}, {req.chapter}. Return valid JSON with 'questions' array."},
-                            {"role": "user", "content": f"Generate {miss_short} Short Answer questions for {req.subject} topic '{req.chapter}'."}
+                            {"role": "system", "content": f"Generate EXACTLY {miss_short} authentic, distinct Short Answer (3M) questions for {req.class_name} {req.subject}, {req.chapter}. Return valid JSON with 'questions' array."},
+                            {"role": "user", "content": f"Generate {miss_short} unique Short Answer questions for {req.subject} topic '{req.chapter}'."}
                         ],
                         temperature=0.3,
                         max_tokens=2500,
@@ -268,8 +285,8 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                 supp_tasks.append(
                     ai_provider.chat_completion(
                         messages=[
-                            {"role": "system", "content": f"Generate EXACTLY {miss_long} authentic Long Answer (5M) questions for {req.class_name} {req.subject}, {req.chapter}. Return valid JSON with 'questions' array."},
-                            {"role": "user", "content": f"Generate {miss_long} Long Answer questions for {req.subject} topic '{req.chapter}'."}
+                            {"role": "system", "content": f"Generate EXACTLY {miss_long} authentic, distinct Long Answer (5M) questions for {req.class_name} {req.subject}, {req.chapter}. Return valid JSON with 'questions' array."},
+                            {"role": "user", "content": f"Generate {miss_long} unique Long Answer questions for {req.subject} topic '{req.chapter}'."}
                         ],
                         temperature=0.3,
                         max_tokens=2500,
@@ -285,10 +302,10 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                             s_data = json.loads(s_resp)
                             for sq in s_data.get("questions", []):
                                 stype = str(sq.get("question_type", "")).lower()
-                                stext = str(sq.get("question_text") or sq.get("question") or "")
+                                stext = str(sq.get("question_text") or sq.get("question") or "").strip()
                                 if not stext:
                                     continue
-                                if "mcq" in stype and len(mcqs) < target_mcq:
+                                if "mcq" in stype:
                                     mcqs.append({
                                         "question_type": "mcq",
                                         "question_text": stext,
@@ -297,7 +314,7 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                                         "answer": str(sq.get("answer", "")),
                                         "explanation": str(sq.get("explanation", ""))
                                     })
-                                elif "long" in stype and len(longs) < target_long:
+                                elif "long" in stype:
                                     longs.append({
                                         "question_type": "long",
                                         "question_text": stext,
@@ -306,7 +323,7 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                                         "answer": str(sq.get("answer", "")),
                                         "explanation": str(sq.get("explanation", ""))
                                     })
-                                elif len(shorts) < target_short:
+                                else:
                                     shorts.append({
                                         "question_type": "short",
                                         "question_text": stext,
@@ -319,6 +336,11 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                             pass
             except Exception as supp_err:
                 logger.warning(f"[Supplement Error] {supp_err}")
+
+        # Final deduplication
+        mcqs = _dedup_q_list(mcqs)
+        shorts = _dedup_q_list(shorts)
+        longs = _dedup_q_list(longs)
 
         # Assemble final indexed questions
         final_qs = []
@@ -549,99 +571,32 @@ Respond strictly with a valid JSON object matching this structure:
                         "explanation": str(q.get("explanation") or "NCERT aligned concept explanation.")
                     })
 
-                # Enforce exact section breakdown counts matching user request
-                data["questions"] = self._enforce_exact_question_counts(clean_qs, req)
+                # Deduplicate and index questions
+                seen_texts = set()
+                deduped_qs = []
+                for q in clean_qs:
+                    norm = re.sub(r'[^a-zA-Z0-9\s]', '', str(q.get("question_text", "")).lower())
+                    norm_key = " ".join(norm.split())
+                    if not norm_key or norm_key in seen_texts or len(norm_key) < 8:
+                        continue
+                    seen_texts.add(norm_key)
+                    deduped_qs.append(q)
+
+                final_indexed = []
+                q_cnt = 1
+                for q in deduped_qs:
+                    q_copy = dict(q)
+                    q_copy["id"] = q_cnt
+                    q_copy["question_number"] = q_cnt
+                    final_indexed.append(q_copy)
+                    q_cnt += 1
+
+                data["questions"] = final_indexed
 
             return GeneratedPaperResponse(**data)
         except Exception as e:
             logger.warning(f"[GroqService] Notice during attachment synthesis: {e}. Falling back to curriculum generator.")
             return await self.generate_question_paper(req)
-
-    def _enforce_exact_question_counts(self, clean_qs: List[Dict[str, Any]], req: GeneratePaperRequest) -> List[Dict[str, Any]]:
-        """Guarantees the question array contains EXACTLY the counts specified in GeneratePaperRequest."""
-        mcqs = [q for q in clean_qs if q.get("question_type") == "mcq"]
-        shorts = [q for q in clean_qs if q.get("question_type") == "short"]
-        longs = [q for q in clean_qs if q.get("question_type") == "long"]
-
-        # Truncate if LLM generated too many for a section
-        mcqs = mcqs[:req.num_mcqs]
-        shorts = shorts[:req.num_short]
-        longs = longs[:req.num_long]
-
-        subj = req.subject or "Science"
-        chap = req.chapter or "NCERT Syllabus"
-        cls = req.class_name or "Class 10"
-
-        # Supplement missing MCQs
-        while len(mcqs) < req.num_mcqs:
-            idx = len(mcqs) + 1
-            mcqs.append({
-                "id": len(mcqs) + 1,
-                "question_number": len(mcqs) + 1,
-                "question_type": "mcq",
-                "question_text": f"Which core principle or law governs '{chap}' in {cls} {subj} (MCQ #{idx})?",
-                "marks": 1,
-                "options": [
-                    f"(A) Primary governing principle of {chap}",
-                    f"(B) Secondary equilibrium shift",
-                    f"(C) Inverse thermal decay",
-                    f"(D) Zero-point scalar constant"
-                ],
-                "answer": f"(A) Primary governing principle of {chap}",
-                "explanation": f"Based on standard NCERT {subj} textbook guidelines for {cls}."
-            })
-
-        # Supplement missing Short Questions
-        while len(shorts) < req.num_short:
-            idx = len(shorts) + 1
-            if "english" in subj.lower() or "literature" in subj.lower() or "surgery" in chap.lower() or "trick" in chap.lower():
-                s_q = f"Describe the main cause of Tricki's illness and how Mr. Herriot treated him in '{chap}'."
-                s_ans = "Solution:\n1. Cause: Mrs. Pumphrey overfed Tricki with sweets, cream cakes, and cod-liver oil without giving him physical exercise.\n2. Treatment: Mr. Herriot kept Tricki under observation at the surgery, gave him plenty of water for two days without food, and allowed him to play with other dogs."
-            else:
-                s_q = f"Explain key concept #{idx} of '{chap}' in {subj} ({cls}). List two main characteristics or principles."
-                s_ans = f"Solution:\n1. Definition: {chap} describes core principles in {cls} {subj}.\n2. Characteristics: (i) Governed by standard NCERT principles, (ii) Applied in core practical scenarios."
-            
-            shorts.append({
-                "id": len(shorts) + 1,
-                "question_number": len(shorts) + 1,
-                "question_type": "short",
-                "question_text": s_q,
-                "marks": 3,
-                "answer": s_ans,
-                "explanation": "Provide 2 distinct points for full 3-mark credit based on NCERT guidelines."
-            })
-
-        # Supplement missing Long Questions
-        while len(longs) < req.num_long:
-            idx = len(longs) + 1
-            if "english" in subj.lower() or "literature" in subj.lower() or "surgery" in chap.lower() or "trick" in chap.lower():
-                l_q = f"Analyze the character of Mrs. Pumphrey in '{chap}'. How does her excessive love and pampering harm Tricki?"
-                l_ans = "Detailed Solution:\n1. Over-pampering Nature: Mrs. Pumphrey treats Tricki like a human child, feeding him rich food, chocolates, and malt.\n2. Lack of Practicality: She fails to realize that overfeeding without exercise causes illness.\n3. Transformation: After Tricki's recovery, she calls it 'a triumph of surgery', highlighting her gratitude and innocent affection."
-            else:
-                l_q = f"Provide a detailed analytical explanation and practical derivation regarding '{chap}' in {subj} ({cls})."
-                l_ans = f"Detailed Solution:\n- Step 1: State governing principles for {chap}.\n- Step 2: Explain structural or theoretical steps.\n- Step 3: Highlight practical precautions and key observations."
-            
-            longs.append({
-                "id": len(longs) + 1,
-                "question_number": len(longs) + 1,
-                "question_type": "long",
-                "question_text": l_q,
-                "marks": 5,
-                "answer": l_ans,
-                "explanation": "Full 5-mark structured answer following NCERT guidelines."
-            })
-
-        # Combine all sections and re-index question numbers cleanly 1..N
-        final_qs = []
-        q_counter = 1
-        for q in mcqs + shorts + longs:
-            q_copy = dict(q)
-            q_copy["id"] = q_counter
-            q_copy["question_number"] = q_counter
-            final_qs.append(q_copy)
-            q_counter += 1
-
-        return final_qs
 
     async def socratic_chat(self, question: str, subject: str = "Science", grade: str = "Class 10", action: str = "normal") -> dict:
         """Socratic AI Tutor method: Guides students with hints and guiding questions without giving direct answers."""
