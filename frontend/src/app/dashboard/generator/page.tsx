@@ -41,22 +41,20 @@ import {
 } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
-
-const CLASS_OPTIONS = [
-  "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
-  "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
-  "Class 11", "Class 12", "College / Competitive Exam"
-];
+import { CBSE_NCERT_CURRICULUM } from "@/lib/cbseNcertCurriculum";
 
 export default function GeneratorPage() {
   const router = useRouter();
   const { user, ocrDraftText, savedPapers, savePaper, deleteSavedPaper, setOcrDraftText } = useAppStore();
 
+  // Dynamic NCERT Curriculum Lookups
+  const availableClasses = Object.keys(CBSE_NCERT_CURRICULUM);
+  
   // Clean Form State (Auto-Prefills from Teacher Profile)
   const [schoolName, setSchoolName] = useState(user.schoolName || "");
   const [title, setTitle] = useState("");
-  const [className, setClassName] = useState(user.classes || "");
-  const [subject, setSubject] = useState(user.subject || "");
+  const [className, setClassName] = useState(user.classes || "Class 10");
+  const [subject, setSubject] = useState(user.subject || "Science");
   const [chapter, setChapter] = useState("");
   const [difficulty, setDifficulty] = useState("medium");
   const [totalMarks, setTotalMarks] = useState<string>("");
@@ -67,12 +65,43 @@ export default function GeneratorPage() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [showAnswerKey, setShowAnswerKey] = useState(true);
 
+  // Dynamic Subject and Chapter derivations
+  const currentClassData = CBSE_NCERT_CURRICULUM[className] || CBSE_NCERT_CURRICULUM["Class 10"];
+  const availableSubjects = Object.keys(currentClassData?.subjects || {});
+  const availableChapters = currentClassData?.subjects?.[subject] || [];
+
+  // Handle Class Change -> Auto-select first valid Subject & Chapter
+  const handleClassChange = (newClass: string) => {
+    setClassName(newClass);
+    const subjs = Object.keys(CBSE_NCERT_CURRICULUM[newClass]?.subjects || {});
+    const nextSubj = subjs.includes(subject) ? subject : (subjs[0] || "Science");
+    setSubject(nextSubj);
+    const chaps = CBSE_NCERT_CURRICULUM[newClass]?.subjects?.[nextSubj] || [];
+    setChapter(chaps[0] || "");
+  };
+
+  // Handle Subject Change -> Auto-select first valid Chapter
+  const handleSubjectChange = (newSubj: string) => {
+    setSubject(newSubj);
+    const chaps = CBSE_NCERT_CURRICULUM[className]?.subjects?.[newSubj] || [];
+    setChapter(chaps[0] || "");
+  };
+
   // Auto-update from user profile on login/profile updates
   useEffect(() => {
     if (user) {
       if (user.schoolName && !schoolName) setSchoolName(user.schoolName);
-      if (user.subject && !subject) setSubject(user.subject);
-      if (user.classes && !className) setClassName(user.classes);
+      if (user.classes && !className) {
+        setClassName(user.classes);
+        const subjs = Object.keys(CBSE_NCERT_CURRICULUM[user.classes]?.subjects || {});
+        if (user.subject && subjs.includes(user.subject)) {
+          setSubject(user.subject);
+        } else if (subjs.length > 0) {
+          setSubject(subjs[0]);
+        }
+      } else if (user.subject && !subject) {
+        setSubject(user.subject);
+      }
     }
   }, [user]);
 
@@ -149,6 +178,29 @@ export default function GeneratorPage() {
 
   const handleGenerate = async (forceSyllabus: boolean = false) => {
     setError(null);
+
+    // 1. Mandatory Fields Validation Check
+    if (!schoolName.trim()) {
+      setError("Custom Institution Name is compulsory. Please enter your school or institution name.");
+      return;
+    }
+    if (!title.trim()) {
+      setError("Assessment Title is compulsory. Please enter an exam/assessment title.");
+      return;
+    }
+    if (!className.trim()) {
+      setError("Grade / Class is compulsory. Please select a class.");
+      return;
+    }
+    if (!subject.trim()) {
+      setError("Subject is compulsory. Please select a subject from the CBSE/NCERT curriculum.");
+      return;
+    }
+    if (!chapter.trim()) {
+      setError("Topic / Chapter is compulsory. Please select or enter a chapter/topic.");
+      return;
+    }
+
     const hasOcrContext = Boolean(ocrDraftText || (customPrompt && customPrompt.includes("Based on OCR scanned textbook extract:")));
 
     // If no file and no OCR context, and user hasn't explicitly chosen direct syllabus generation
@@ -162,11 +214,11 @@ export default function GeneratorPage() {
 
     setLoading(true);
 
-    const targetSchoolName = schoolName.trim() || user.schoolName || "DEVGYA GLOBAL ACADEMY";
-    const targetTitle = title.trim() || `${className || user.classes || "Class 10"} ${subject || user.subject || "General"} Periodic Assessment`;
-    const targetClass = className.trim() || user.classes || "Class 10";
-    const targetSubject = subject.trim() || user.subject || "General Science";
-    const targetChapter = chapter.trim() || "Full Syllabus / Comprehensive";
+    const targetSchoolName = schoolName.trim();
+    const targetTitle = title.trim();
+    const targetClass = className.trim();
+    const targetSubject = subject.trim();
+    const targetChapter = chapter.trim();
     const finalMarks = requestedTotal > 0 ? requestedTotal : (calculatedTotal > 0 ? calculatedTotal : 25);
     const finalTime = parseInt(timeMins) || (finalMarks <= 25 ? 45 : (finalMarks <= 50 ? 90 : 180));
 
@@ -677,8 +729,8 @@ export default function GeneratorPage() {
               <Sliders className="w-5 h-5 text-indigo-600" />
               Assessment Configuration Form
             </h2>
-            <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">
-              Fields Optional
+            <span className="text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-1 rounded-full">
+              * Mandatory Fields
             </span>
           </div>
 
@@ -716,70 +768,95 @@ export default function GeneratorPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Custom Institution Name
+                Custom Institution Name <span className="text-rose-500 font-bold">*</span>
               </label>
               <input
                 type="text"
+                required
                 value={schoolName}
                 onChange={(e) => setSchoolName(e.target.value)}
                 placeholder="e.g. St. Xavier's Senior Secondary School"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Assessment Title
+                Assessment Title <span className="text-rose-500 font-bold">*</span>
               </label>
               <input
                 type="text"
+                required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Term-1 Periodic Unit Test"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
               />
             </div>
           </div>
 
-          {/* 2. Class & Subject */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* 2. Class & Subject (Dynamic CBSE/NCERT Dropdowns) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Grade / Class</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Grade / Class <span className="text-rose-500 font-bold">*</span>
+              </label>
               <select
                 value={className}
-                onChange={(e) => setClassName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onChange={(e) => handleClassChange(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
               >
                 <option value="">Select Class</option>
-                {CLASS_OPTIONS.map((c) => (
+                {availableClasses.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Subject</label>
-              <input
-                type="text"
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Subject (for {className || "Class"}) <span className="text-rose-500 font-bold">*</span>
+              </label>
+              <select
                 value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g. Science / Mathematics"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+                onChange={(e) => handleSubjectChange(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+              >
+                <option value="">Select Subject</option>
+                {availableSubjects.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
           </div>
 
           {/* 3. Chapter & Difficulty */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Topic / Chapter</label>
-              <input
-                type="text"
-                value={chapter}
-                onChange={(e) => setChapter(e.target.value)}
-                placeholder="e.g. Acids, Bases & Salts"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Topic / Chapter (CBSE / NCERT) <span className="text-rose-500 font-bold">*</span>
+              </label>
+              {availableChapters.length > 0 ? (
+                <select
+                  value={chapter}
+                  onChange={(e) => setChapter(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+                >
+                  <option value="">Select Chapter / Topic</option>
+                  {availableChapters.map((ch) => (
+                    <option key={ch} value={ch}>{ch}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={chapter}
+                  onChange={(e) => setChapter(e.target.value)}
+                  placeholder="e.g. Acids, Bases & Salts"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                />
+              )}
             </div>
 
             <div>
@@ -787,7 +864,7 @@ export default function GeneratorPage() {
               <select
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 capitalize"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 capitalize cursor-pointer transition"
               >
                 <option value="easy">Easy</option>
                 <option value="medium">Medium</option>
