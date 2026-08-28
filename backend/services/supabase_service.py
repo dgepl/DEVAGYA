@@ -330,6 +330,71 @@ class SupabaseService:
             logger.warn(f"Cloud question paper delete notice: {e}")
             return False
 
+    async def save_assignment_to_cloud(self, email: str, assignment_data: dict) -> bool:
+        """Persist an assignment/worksheet directly into Supabase Cloud question_papers table."""
+        if not assignment_data or not SERVICE_KEY:
+            return False
+        try:
+            email_clean = (email or "guest@devgya.com").strip().lower()
+            profile = await self.get_profile_by_email(email_clean)
+            teacher_id = profile.get("id") if profile else None
+
+            raw_diff = str(assignment_data.get("difficulty") or "medium").lower()
+            valid_diffs = {"easy", "medium", "hard", "mixed"}
+            diff = raw_diff if raw_diff in valid_diffs else "medium"
+
+            row = {
+                "title": str(assignment_data.get("title") or "Assignment Worksheet"),
+                "class_name": str(assignment_data.get("class_name") or "Class 10"),
+                "subject_name": str(assignment_data.get("subject") or "General"),
+                "chapter_title": str(assignment_data.get("chapter_topic") or assignment_data.get("chapter") or "General Syllabus"),
+                "difficulty": diff,
+                "total_marks": int(assignment_data.get("total_marks") or 25),
+                "time_allowed_mins": int(assignment_data.get("time_allowed_mins") or 45),
+                "questions": assignment_data.get("questions") or [],
+                "answer_key": {"instructions": assignment_data.get("instructions") or []}
+            }
+            if teacher_id and "-" in str(teacher_id):
+                row["teacher_id"] = teacher_id
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(f"{SUPABASE_URL}/rest/v1/question_papers", headers=headers, json=row)
+                return res.status_code in (200, 201)
+        except Exception as e:
+            logger.warn(f"Cloud assignment save notice: {e}")
+            return False
+
+    async def create_master_profile(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create or update a master profile record across Supabase Cloud and local store."""
+        email = (data.get("email") or "").strip().lower()
+        full_name = data.get("name") or data.get("full_name") or email.split("@")[0].capitalize()
+        role = data.get("role", "teacher")
+        
+        # Save all provided fields in profile details store
+        self.save_teacher_profile_details(
+            email=email,
+            full_name=full_name,
+            role=role,
+            **{k: v for k, v in data.items() if k not in ("email", "name", "full_name", "role", "password", "otp_code")}
+        )
+        
+        profile = await self.create_profile(
+            email=email,
+            full_name=full_name,
+            role=role,
+            school_name=data.get("school_name", ""),
+            board=data.get("board", "CBSE"),
+            subject=data.get("subject", ""),
+            classes=data.get("classes", "Class 10"),
+            school_logo=data.get("school_logo", "")
+        )
+        
+        # Merge extra fields
+        for k, v in data.items():
+            if k not in profile or not profile[k]:
+                profile[k] = v
+        return profile
+
     async def create_profile(
         self, 
         email: str, 
