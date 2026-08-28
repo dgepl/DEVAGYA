@@ -1327,8 +1327,8 @@ export default function TeacherOlympiadPage() {
 
             <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-lg mx-auto">
               {autoTerminatedReason 
-                ? "Your 100-MCQ assessment was automatically submitted to the evaluation committee because 5 proctoring infractions were logged by the automated anti-cheating system."
-                : "Your responses for the 100-MCQ Teacher Skills Olympiad 2026 have been securely recorded and sent to the national evaluation committee."}
+                ? "Your 100-MCQ assessment was automatically submitted to DEVGYA Evaluation Team because 5 proctoring infractions were logged by the automated anti-cheating system."
+                : "Your responses for the 100-MCQ Teacher Skills Olympiad 2026 have been securely recorded and sent to DEVGYA Evaluation Team."}
             </p>
           </div>
 
@@ -1540,7 +1540,7 @@ export default function TeacherOlympiadPage() {
                     <div className="p-4 bg-amber-500/10 border border-amber-400/20 rounded-2xl text-xs text-amber-200 flex items-start gap-2.5">
                       <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                       <p>
-                        <strong>Evaluation in progress:</strong> Your question paper has been submitted to the National Evaluation Committee. Official right/wrong answers, pedagogical explanations, merit percentiles, and badges will become accessible as soon as results are officially declared.
+                        <strong>Evaluation in progress:</strong> Your question paper has been submitted to DEVGYA Evaluation Team. Official right/wrong answers, pedagogical explanations, merit percentiles, and badges will become accessible as soon as results are officially declared.
                       </p>
                     </div>
                   )}
