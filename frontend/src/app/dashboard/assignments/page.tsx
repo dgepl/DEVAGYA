@@ -637,12 +637,12 @@ export default function AssignmentMakerPage() {
                   <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
                     <Hash className="w-3.5 h-3.5 text-indigo-600" /> Question Breakdown
                   </label>
-                  <span className="text-[11px] font-bold text-indigo-700">
-                    Total: {mcqCount + shortCount + longCount} Questions ({estimatedMarks} Marks)
+                  <span className="text-[11px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                    Total: {mcqCount + fillBlanksCount + shortCount + longCount} Questions ({estimatedMarks} Marks)
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {/* MCQs */}
                   <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-2xl text-center">
                     <span className="text-[11px] font-black text-blue-900 block mb-1.5">MCQs (1M)</span>
@@ -650,7 +650,7 @@ export default function AssignmentMakerPage() {
                       <button
                         type="button"
                         onClick={() => setMcqCount(Math.max(0, mcqCount - 1))}
-                        className="w-7 h-7 rounded-lg bg-white border border-blue-200 font-black text-xs text-blue-900"
+                        className="w-7 h-7 rounded-lg bg-white border border-blue-200 font-black text-xs text-blue-900 cursor-pointer hover:bg-blue-100"
                       >
                         -
                       </button>
@@ -658,7 +658,29 @@ export default function AssignmentMakerPage() {
                       <button
                         type="button"
                         onClick={() => setMcqCount(mcqCount + 1)}
-                        className="w-7 h-7 rounded-lg bg-white border border-blue-200 font-black text-xs text-blue-900"
+                        className="w-7 h-7 rounded-lg bg-white border border-blue-200 font-black text-xs text-blue-900 cursor-pointer hover:bg-blue-100"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Fill in the Blanks */}
+                  <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-2xl text-center">
+                    <span className="text-[11px] font-black text-amber-900 block mb-1.5">Blanks (1M)</span>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setFillBlanksCount(Math.max(0, fillBlanksCount - 1))}
+                        className="w-7 h-7 rounded-lg bg-white border border-amber-200 font-black text-xs text-amber-900 cursor-pointer hover:bg-amber-100"
+                      >
+                        -
+                      </button>
+                      <span className="w-6 font-black text-xs text-amber-950">{fillBlanksCount}</span>
+                      <button
+                        type="button"
+                        onClick={() => setFillBlanksCount(fillBlanksCount + 1)}
+                        className="w-7 h-7 rounded-lg bg-white border border-amber-200 font-black text-xs text-amber-900 cursor-pointer hover:bg-amber-100"
                       >
                         +
                       </button>
@@ -672,7 +694,7 @@ export default function AssignmentMakerPage() {
                       <button
                         type="button"
                         onClick={() => setShortCount(Math.max(0, shortCount - 1))}
-                        className="w-7 h-7 rounded-lg bg-white border border-emerald-200 font-black text-xs text-emerald-900"
+                        className="w-7 h-7 rounded-lg bg-white border border-emerald-200 font-black text-xs text-emerald-900 cursor-pointer hover:bg-emerald-100"
                       >
                         -
                       </button>
@@ -680,7 +702,7 @@ export default function AssignmentMakerPage() {
                       <button
                         type="button"
                         onClick={() => setShortCount(shortCount + 1)}
-                        className="w-7 h-7 rounded-lg bg-white border border-emerald-200 font-black text-xs text-emerald-900"
+                        className="w-7 h-7 rounded-lg bg-white border border-emerald-200 font-black text-xs text-emerald-900 cursor-pointer hover:bg-emerald-100"
                       >
                         +
                       </button>
@@ -694,7 +716,7 @@ export default function AssignmentMakerPage() {
                       <button
                         type="button"
                         onClick={() => setLongCount(Math.max(0, longCount - 1))}
-                        className="w-7 h-7 rounded-lg bg-white border border-purple-200 font-black text-xs text-purple-900"
+                        className="w-7 h-7 rounded-lg bg-white border border-purple-200 font-black text-xs text-purple-900 cursor-pointer hover:bg-purple-100"
                       >
                         -
                       </button>
@@ -702,7 +724,7 @@ export default function AssignmentMakerPage() {
                       <button
                         type="button"
                         onClick={() => setLongCount(longCount + 1)}
-                        className="w-7 h-7 rounded-lg bg-white border border-purple-200 font-black text-xs text-purple-900"
+                        className="w-7 h-7 rounded-lg bg-white border border-purple-200 font-black text-xs text-purple-900 cursor-pointer hover:bg-purple-100"
                       >
                         +
                       </button>
