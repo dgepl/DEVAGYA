@@ -35,6 +35,24 @@ import {
   Calendar
 } from "lucide-react";
 
+const DEFAULT_SUBJECT_TOPICS: Record<string, string> = {
+  "Mathematics": "Quadratic Equations & Polynomials",
+  "Science": "Chemical Reactions and Equations & Life Processes",
+  "Physics": "Electricity, Ohm's Law & Magnetic Effects",
+  "Chemistry": "Acids, Bases, Salts & Carbon and its Compounds",
+  "Biology": "Life Processes & Heredity and Evolution",
+  "Social Science": "Nationalism in India & Resources and Development",
+  "History": "The Rise of Nationalism in Europe",
+  "Civics / Political Science": "Power Sharing, Federalism & Gender, Religion",
+  "Geography": "Resources and Development & Water Resources",
+  "Economics": "Development & Sectors of the Indian Economy",
+  "English": "Reading Comprehension, Notice Writing & Grammar",
+  "Hindi (हिंदी)": "वाच्य, पद-परिचय एवं अपठित गद्यांश",
+  "Computer Science / IT": "Data Types, Python Loops & Functions",
+  "Accountancy": "Financial Statements & Partnership Accounts",
+  "Business Studies": "Principles of Management & Business Environment"
+};
+
 export default function AssignmentMakerPage() {
   const {
     user,
@@ -602,7 +620,11 @@ export default function AssignmentMakerPage() {
                   <label className="block text-xs font-bold text-slate-700 mb-1">Subject</label>
                   <select
                     value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
+                    onChange={(e) => {
+                      const newSubj = e.target.value;
+                      setSubject(newSubj);
+                      setChapterTopic(DEFAULT_SUBJECT_TOPICS[newSubj] || "General Core Chapter");
+                    }}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 transition"
                   >
                     {[

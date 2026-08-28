@@ -219,13 +219,45 @@ async def generate_ai_assignment(req: GenerateAssignmentRequest):
             "hots": "High Order Thinking Skills (HOTS) & Creative Synthesis"
         }.get(req.difficulty.lower(), "Application & Conceptual Understanding")
 
+        subj_lower = (req.subject or "").lower()
+        is_math = "math" in subj_lower
+        is_science = any(k in subj_lower for k in ["sci", "phys", "chem", "bio"])
+        is_lang = any(k in subj_lower for k in ["eng", "hindi", "sanskrit", "language"])
+
+        if is_math:
+            subject_directive = f"CRITICAL: This is a MATHEMATICS assignment for {req.class_name}. All questions MUST be authentic CBSE/NCERT Math problems based strictly on '{req.chapter_topic}'. Use LaTeX ($...$) for algebraic expressions, fractions, powers, and equations."
+            sample_instructions = [
+                "Write all answers clearly in the designated spaces provided.",
+                "Show all intermediate calculation and algebraic steps for numerical problems."
+            ]
+        elif is_science:
+            subject_directive = f"CRITICAL: This is a {req.subject.upper()} assignment for {req.class_name}. All questions MUST strictly test scientific concepts, laws, chemical equations, diagrams, and definitions for '{req.chapter_topic}'. Do NOT generate pure mathematics algebra questions unless explicitly requested in physics."
+            sample_instructions = [
+                "Write all answers clearly in the designated spaces provided.",
+                "Draw neat labeled diagrams and write balanced chemical equations where applicable."
+            ]
+        elif is_lang:
+            subject_directive = f"CRITICAL: This is an {req.subject.upper()} language assignment for {req.class_name}. All questions MUST test language comprehension, grammar, literature analysis, vocabulary, and writing skills for '{req.chapter_topic}'. Do NOT include mathematical or numerical calculation questions."
+            sample_instructions = [
+                "Write all answers legibly in clear sentences.",
+                "Pay careful attention to grammar, spelling, and word limit."
+            ]
+        else:
+            subject_directive = f"CRITICAL: This is a {req.subject.upper()} assignment for {req.class_name}. All questions MUST be strictly based on the social science / commerce / theoretical curriculum for '{req.chapter_topic}'. Do NOT generate math or numerical calculation questions."
+            sample_instructions = [
+                "Write all answers clearly in the designated spaces provided.",
+                "Structure subjective answers with clear headings and bullet points."
+            ]
+
         notes_context = f"\nTeacher's Reference Notes / Focus Area:\n{req.custom_notes.strip()}\n" if req.custom_notes and req.custom_notes.strip() else ""
 
         tasks = []
         
         # 1. Objective Task (MCQs and Fill-in-the-blanks) if requested
         if target_mcq > 0 or target_fill > 0:
-            obj_prompt = f"""Generate EXACTLY the following objective questions for {req.class_name} {req.subject}.
+            obj_prompt = f"""{subject_directive}
+
+Generate EXACTLY the following objective questions for {req.class_name} {req.subject}.
 Chapter / Topic: {req.chapter_topic}
 Difficulty: {diff_str}
 {notes_context}
@@ -237,10 +269,7 @@ MANDATORY EXACT QUESTION QUANTITIES:
 JSON FORMAT ONLY:
 {{
   "title": "{req.title or f'{req.subject} Assignment: {req.chapter_topic}'}",
-  "instructions": [
-    "Write your answers clearly in the designated spaces provided.",
-    "Show all intermediate calculation steps for numerical problems."
-  ],
+  "instructions": {json.dumps(sample_instructions)},
   "questions": [
     {{
       "question_number": 1,
@@ -259,7 +288,7 @@ You MUST produce ALL {target_mcq + target_fill} objective questions in the 'ques
             tasks.append(
                 ai_provider.chat_completion(
                     messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Use formal LaTeX ($...$) for mathematical and chemical notation. Return valid JSON."},
+                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Strictly adhere to the requested subject ({req.subject}) and topic ({req.chapter_topic}). Return valid JSON."},
                         {"role": "user", "content": obj_prompt}
                     ],
                     temperature=0.3,
@@ -270,22 +299,21 @@ You MUST produce ALL {target_mcq + target_fill} objective questions in the 'ques
 
         # 2. Subjective Task (Short Answer and Long Answer / HOTS) if requested
         if target_short > 0 or target_long > 0:
-            subj_prompt = f"""Generate EXACTLY the following subjective questions for {req.class_name} {req.subject}.
+            subj_prompt = f"""{subject_directive}
+
+Generate EXACTLY the following subjective questions for {req.class_name} {req.subject}.
 Chapter / Topic: {req.chapter_topic}
 Difficulty: {diff_str}
 {notes_context}
 
 MANDATORY EXACT QUESTION QUANTITIES:
 - EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, 'lines_allocated': 4, with complete step-by-step scoring rubric/model answer)
-- EXACTLY {target_long} Long Answer / HOTS Questions (labeled 'question_type': 'long', 'marks': 5, 'lines_allocated': 8, with detailed derivation, analysis, or multi-step solution)
+- EXACTLY {target_long} Long Answer / HOTS Questions (labeled 'question_type': 'long', 'marks': 5, 'lines_allocated': 8, with detailed explanation, analysis, or multi-step solution)
 
 JSON FORMAT ONLY:
 {{
   "title": "{req.title or f'{req.subject} Assignment: {req.chapter_topic}'}",
-  "instructions": [
-    "Write your answers clearly in the designated spaces provided.",
-    "Show all intermediate calculation steps for numerical problems."
-  ],
+  "instructions": {json.dumps(sample_instructions)},
   "questions": [
     {{
       "question_number": 1,
@@ -304,7 +332,7 @@ You MUST produce ALL {target_short + target_long} subjective questions in the 'q
             tasks.append(
                 ai_provider.chat_completion(
                     messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Use formal LaTeX ($...$) for mathematical and chemical notation. Return valid JSON."},
+                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Creator for {req.class_name} {req.subject}. Strictly adhere to the requested subject ({req.subject}) and topic ({req.chapter_topic}). Return valid JSON."},
                         {"role": "user", "content": subj_prompt}
                     ],
                     temperature=0.3,
