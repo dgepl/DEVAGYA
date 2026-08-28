@@ -35,23 +35,7 @@ import {
   Calendar
 } from "lucide-react";
 
-const DEFAULT_SUBJECT_TOPICS: Record<string, string> = {
-  "Mathematics": "Quadratic Equations & Polynomials",
-  "Science": "Chemical Reactions and Equations & Life Processes",
-  "Physics": "Electricity, Ohm's Law & Magnetic Effects",
-  "Chemistry": "Acids, Bases, Salts & Carbon and its Compounds",
-  "Biology": "Life Processes & Heredity and Evolution",
-  "Social Science": "Nationalism in India & Resources and Development",
-  "History": "The Rise of Nationalism in Europe",
-  "Civics / Political Science": "Power Sharing, Federalism & Gender, Religion",
-  "Geography": "Resources and Development & Water Resources",
-  "Economics": "Development & Sectors of the Indian Economy",
-  "English": "Reading Comprehension, Notice Writing & Grammar",
-  "Hindi (हिंदी)": "वाच्य, पद-परिचय एवं अपठित गद्यांश",
-  "Computer Science / IT": "Data Types, Python Loops & Functions",
-  "Accountancy": "Financial Statements & Partnership Accounts",
-  "Business Studies": "Principles of Management & Business Environment"
-};
+import { CBSE_NCERT_CURRICULUM } from "@/lib/cbseNcertCurriculum";
 
 export default function AssignmentMakerPage() {
   const {
@@ -68,8 +52,9 @@ export default function AssignmentMakerPage() {
 
   // --- Form & Generator State ---
   const [className, setClassName] = useState("Class 10");
-  const [subject, setSubject] = useState("Mathematics");
-  const [chapterTopic, setChapterTopic] = useState("Quadratic Equations & Polynomials");
+  const [subject, setSubject] = useState("Science");
+  const [chapterTopic, setChapterTopic] = useState("Chapter 1: Chemical Reactions and Equations");
+  const [customSubTopic, setCustomSubTopic] = useState("");
   const [title, setTitle] = useState("");
   const [difficulty, setDifficulty] = useState("medium");
   const [mcqCount, setMcqCount] = useState(4);
@@ -78,6 +63,28 @@ export default function AssignmentMakerPage() {
   const [fillBlanksCount, setFillBlanksCount] = useState(0);
   const [dueDate, setDueDate] = useState("");
   const [schoolName, setSchoolName] = useState("DEVGYA GLOBAL ACADEMY");
+
+  // Dynamic NCERT Curriculum Lookups
+  const availableClasses = Object.keys(CBSE_NCERT_CURRICULUM);
+  const availableSubjects = Object.keys(CBSE_NCERT_CURRICULUM[className]?.subjects || {});
+  const availableChapters = CBSE_NCERT_CURRICULUM[className]?.subjects?.[subject] || [];
+
+  // Handle Class Change -> Auto-select first valid Subject & Chapter
+  const handleClassChange = (newClass: string) => {
+    setClassName(newClass);
+    const subjs = Object.keys(CBSE_NCERT_CURRICULUM[newClass]?.subjects || {});
+    const nextSubj = subjs.includes(subject) ? subject : subjs[0] || "Mathematics";
+    setSubject(nextSubj);
+    const chaps = CBSE_NCERT_CURRICULUM[newClass]?.subjects?.[nextSubj] || [];
+    setChapterTopic(chaps[0] || "Chapter 1: Core Fundamentals");
+  };
+
+  // Handle Subject Change -> Auto-select first valid Chapter
+  const handleSubjectChange = (newSubj: string) => {
+    setSubject(newSubj);
+    const chaps = CBSE_NCERT_CURRICULUM[className]?.subjects?.[newSubj] || [];
+    setChapterTopic(chaps[0] || "Chapter 1: Core Fundamentals");
+  };
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,17 +148,16 @@ export default function AssignmentMakerPage() {
       return;
     }
 
-    if (!chapterTopic.trim()) {
-      setError("Please specify the Chapter / Topic.");
-      return;
-    }
+    const finalTopic = customSubTopic.trim()
+      ? `${chapterTopic.trim()} (Focus Area: ${customSubTopic.trim()})`
+      : chapterTopic.trim();
 
     setLoading(true);
     try {
       const payload: GenerateAssignmentPayload = {
         class_name: className,
         subject,
-        chapter_topic: chapterTopic.trim(),
+        chapter_topic: finalTopic,
         title: title.trim() || `${subject} Assignment: ${chapterTopic.trim()}`,
         difficulty,
         mcq_count: mcqCount,
@@ -600,57 +606,86 @@ export default function AssignmentMakerPage() {
               {/* Class & Subject */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Class</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Select Class (CBSE/NCERT)
+                  </label>
                   <select
                     value={className}
-                    onChange={(e) => setClassName(e.target.value)}
+                    onChange={(e) => handleClassChange(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 transition"
                   >
-                    {[
-                      "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
-                      "Class 11 Science", "Class 11 Commerce", "Class 11 Humanities",
-                      "Class 12 Science", "Class 12 Commerce", "Class 12 Humanities"
-                    ].map((c) => (
+                    {availableClasses.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Subject</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Select Subject (for {className})
+                  </label>
                   <select
                     value={subject}
-                    onChange={(e) => {
-                      const newSubj = e.target.value;
-                      setSubject(newSubj);
-                      setChapterTopic(DEFAULT_SUBJECT_TOPICS[newSubj] || "General Core Chapter");
-                    }}
+                    onChange={(e) => handleSubjectChange(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 transition"
                   >
-                    {[
-                      "Mathematics", "Science", "Physics", "Chemistry", "Biology",
-                      "Social Science", "History", "Civics / Political Science", "Geography", "Economics",
-                      "English", "Hindi (हिंदी)", "Computer Science / IT", "Accountancy", "Business Studies"
-                    ].map((s) => (
+                    {availableSubjects.map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              {/* Chapter / Topic */}
+              {/* Quick Subject Badge Pills for 1-Click Selection */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Chapter / Topic <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={chapterTopic}
-                  onChange={(e) => setChapterTopic(e.target.value)}
-                  placeholder="e.g. Quadratic Equations, Nature of Roots & Word Problems"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 transition"
-                  required
-                />
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {availableSubjects.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => handleSubjectChange(s)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        subject === s
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* NCERT Official Chapter Selector */}
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Select Chapter (According to CBSE / NCERT) <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={chapterTopic}
+                    onChange={(e) => setChapterTopic(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 transition"
+                  >
+                    {availableChapters.map((ch) => (
+                      <option key={ch} value={ch}>{ch}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Optional Custom Subtopic / Specific Focus */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                    Optional: Specific Subtopic / Custom Focus Area
+                  </label>
+                  <input
+                    type="text"
+                    value={customSubTopic}
+                    onChange={(e) => setCustomSubTopic(e.target.value)}
+                    placeholder="e.g. Focus on balancing chemical equations & precipitation reactions"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 transition"
+                  />
+                </div>
               </div>
 
               {/* Question Count Steppers (MCQ, Short, Long) */}
