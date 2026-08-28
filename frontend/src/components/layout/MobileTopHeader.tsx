@@ -156,7 +156,7 @@ export function MobileTopHeader() {
     setMobileDrawerOpen(false);
     logout();
     if (typeof window !== "undefined") {
-      window.location.replace("/");
+      window.location.replace("/login");
     }
   };
 

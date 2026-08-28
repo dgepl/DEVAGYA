@@ -422,11 +422,20 @@ export const useAppStore = create<AppState>((set, get) => {
     logout: () => {
       if (typeof window !== "undefined") {
         try {
-          // Clear active session only, preserving user-keyed paper history in local & backend stores!
           localStorage.removeItem("devgya_user");
+          localStorage.removeItem("devgya_saved_papers");
+          localStorage.removeItem("devgya_saved_assignments");
+          sessionStorage.clear();
         } catch (e) {}
       }
-      set({ user: defaultUser, activePaper: null, savedPapers: [], activeAssignment: null, savedAssignments: [] });
+      set({ 
+        user: defaultUser, 
+        activePaper: null, 
+        savedPapers: [], 
+        activeAssignment: null, 
+        savedAssignments: [],
+        dismissedNotificationIds: []
+      });
     }
   };
 });

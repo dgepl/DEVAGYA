@@ -185,9 +185,6 @@ export function Navbar() {
 
         </div>
       )}
-
-      {/* PERSISTENT GLOBAL PUBLIC MOBILE BOTTOM DOCK */}
-      <PublicMobileDock />
     </header>
   );
 }

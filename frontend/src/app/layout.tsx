@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { ReactQueryProvider } from "@/components/providers/ReactQueryProvider";
+import { PublicMobileDock } from "@/components/layout/PublicMobileDock";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -151,6 +152,7 @@ export default function RootLayout({
       <body className={`${plusJakarta.variable} ${outfit.variable} font-sans bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white`}>
         <ReactQueryProvider>
           {children}
+          <PublicMobileDock />
         </ReactQueryProvider>
       </body>
     </html>

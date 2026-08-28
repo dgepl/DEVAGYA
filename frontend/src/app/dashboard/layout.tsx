@@ -78,13 +78,19 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const handleSignOut = () => {
     logout();
     if (typeof window !== "undefined") {
-      window.location.href = "/";
+      window.location.replace("/login");
     }
   };
 
-  // Strict Role-Based Access Control (RBAC) Route Guard
+  // Strict Authentication & Role-Based Access Control (RBAC) Route Guard
   useEffect(() => {
-    if (!mounted || !user || !user.role) return;
+    if (!mounted) return;
+
+    // Guest users or unauthenticated visitors cannot access the dashboard
+    if (!user || !user.email || user.email.trim() === "" || user.id === "usr-guest") {
+      router.replace("/login");
+      return;
+    }
 
     if (user.role === "student") {
       const isStudentAllowed = 
@@ -115,7 +121,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [user, pathname, router, mounted]);
 
-  if (!mounted) {
+  if (!mounted || !user || !user.email || user.id === "usr-guest") {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />

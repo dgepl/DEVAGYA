@@ -412,7 +412,7 @@ function ProfileContent() {
   const handleSignOut = () => {
     logout();
     if (typeof window !== "undefined") {
-      window.location.replace("/");
+      window.location.replace("/login");
     }
   };
 
