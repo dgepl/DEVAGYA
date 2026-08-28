@@ -36,6 +36,7 @@ export interface QuestionItem {
 }
 
 export interface GeneratedPaperResponse {
+  id?: string;
   title: string;
   class_name: string;
   subject: string;
@@ -47,6 +48,8 @@ export interface GeneratedPaperResponse {
   questions: QuestionItem[];
   school_name: string;
   school_logo?: string;
+  user_email?: string;
+  created_at?: string;
 }
 
 function parseErrorMessage(errData: any, fallback: string): string {
