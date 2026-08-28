@@ -294,7 +294,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* PAGE CONTENT WITH SMOOTH ANIMATIONS */}
-        <main className={`${isAgentsPage ? 'p-2 sm:p-3' : 'p-4 sm:p-6 lg:p-8'} flex-1`}>
+        <main className={`${isAgentsPage ? 'p-2 sm:p-3' : 'p-3 sm:p-6 lg:p-8'} flex-1 w-full max-w-full overflow-x-hidden`}>
           <PageTransition>
             {children}
           </PageTransition>
@@ -304,7 +304,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         <footer className="mt-auto px-4 sm:px-8 py-3.5 border-t border-slate-200/80 bg-white/60 backdrop-blur-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 font-medium">
           <p>&copy; 2026 DEVGYA Global Edutech Private Limited. All Rights Reserved.</p>
           <p className="font-bold text-slate-600">
-            Designed and Developed by <strong className="text-indigo-600 font-black">Pratikk Yadav +91 8307224756</strong>
+            Designed and Developed by <strong className="text-indigo-600 font-black">Pratikk Yadav and Team +91 8307224756</strong>
           </p>
         </footer>
 

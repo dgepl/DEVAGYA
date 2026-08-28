@@ -86,7 +86,7 @@ export function Footer() {
             </p>
             <p className="text-[12px] font-bold text-slate-300 flex items-center justify-center md:justify-start gap-1.5">
               <Code2 className="w-3.5 h-3.5 text-cyan-400 inline" />
-              <span>Designed and Developed by <strong className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300">Pratikk Yadav +91 8307224756</strong></span>
+              <span>Designed and Developed by <strong className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300">Pratikk Yadav and Team +91 8307224756</strong></span>
             </p>
           </div>
 

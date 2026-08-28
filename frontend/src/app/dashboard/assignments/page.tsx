@@ -317,13 +317,13 @@ export default function AssignmentMakerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-28">
+    <div className="w-full max-w-full overflow-x-hidden min-h-screen bg-slate-50 text-slate-900 pb-28">
       
       {/* 1. TOP HEADER WITH STUDIO & ARCHIVE TABS */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs w-full max-w-full overflow-x-hidden">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Edit3 className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -336,9 +336,9 @@ export default function AssignmentMakerPage() {
             </div>
           </div>
 
-          {/* Top Tabs & Action Buttons */}
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
+          {/* Top Tabs & Action Buttons (Wrap gracefully on mobile) */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200 shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveTab("studio")}
@@ -372,11 +372,11 @@ export default function AssignmentMakerPage() {
             </div>
 
             {activeTab === "studio" && assignment && (
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleSaveCurrentAssignment}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                   title="Save changes to archive"
                 >
                   <Save className="w-3.5 h-3.5" />
@@ -386,7 +386,7 @@ export default function AssignmentMakerPage() {
                 <button
                   type="button"
                   onClick={() => setShowPreviewModal(true)}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Preview</span>
@@ -395,7 +395,7 @@ export default function AssignmentMakerPage() {
                 <button
                   type="button"
                   onClick={() => setIsPdfModalOpen(true)}
-                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Download PDF</span>
@@ -766,7 +766,7 @@ export default function AssignmentMakerPage() {
              ==================================================================== */
           <div className="space-y-4">
             {/* Minimal Toolbar */}
-            <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-1">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-700">
                   {assignment.questions.length} Questions
@@ -777,7 +777,7 @@ export default function AssignmentMakerPage() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setShowSolutions(!showSolutions)}
@@ -791,7 +791,7 @@ export default function AssignmentMakerPage() {
                 </button>
 
                 {/* Quick Add Buttons */}
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                   <button
                     type="button"
                     onClick={() => handleAddQuestion("mcq")}
@@ -823,14 +823,14 @@ export default function AssignmentMakerPage() {
             </div>
 
             {/* Questions List */}
-            <div className="space-y-3.5">
+            <div className="space-y-3.5 w-full max-w-full overflow-hidden">
               {assignment.questions.map((q) => {
                 const isEditing = editingQNum === q.question_number;
 
                 return (
                   <div
                     key={q.question_number}
-                    className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3 transition"
+                    className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3 transition w-full max-w-full overflow-hidden break-words"
                   >
                     {/* Top Row: Q Number, Type, Marks & Edit/Delete Action Icons */}
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
