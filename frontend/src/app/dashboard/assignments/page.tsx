@@ -50,6 +50,12 @@ export default function AssignmentMakerPage() {
 
   const [activeTab, setActiveTab] = useState<"studio" | "archive">("studio");
 
+  useEffect(() => {
+    if (user?.email) {
+      fetchSavedAssignments(user.email);
+    }
+  }, [user?.email, fetchSavedAssignments]);
+
   // --- Form & Generator State ---
   const [className, setClassName] = useState("Class 10");
   const [subject, setSubject] = useState("Science");

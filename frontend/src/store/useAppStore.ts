@@ -110,6 +110,13 @@ const getInitialUser = (): UserProfile => {
   return defaultUser;
 };
 
+const isMockItem = (item: any): boolean => {
+  if (!item || typeof item !== "object") return true;
+  const title = (item.title || "").toLowerCase();
+  if (title.includes("mock") || title.includes("sample paper 1") || title.includes("sample demo") || title.includes("test dummy")) return true;
+  return false;
+};
+
 const getInitialSavedPapers = (email?: string): GeneratedPaperResponse[] => {
   if (typeof window !== "undefined") {
     try {
@@ -117,7 +124,9 @@ const getInitialSavedPapers = (email?: string): GeneratedPaperResponse[] => {
       const stored = localStorage.getItem(userKey) || localStorage.getItem("devgya_saved_papers");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(p => !isMockItem(p));
+        }
       }
     } catch (e) {}
   }
@@ -131,7 +140,9 @@ const getInitialSavedAssignments = (email?: string): AssignmentData[] => {
       const stored = localStorage.getItem(userKey) || localStorage.getItem("devgya_saved_assignments");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(a => !isMockItem(a));
+        }
       }
     } catch (e) {}
   }

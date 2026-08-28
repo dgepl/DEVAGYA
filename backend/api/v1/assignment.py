@@ -624,8 +624,19 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "section": "Section D: Lon
 
 @router.get("/history")
 async def get_saved_assignments_history(email: str = "guest@devgya.com"):
-    """Retrieve saved assignments history for educator."""
+    """Retrieve saved assignments history for educator from cloud or local store."""
     email_clean = email.strip().lower()
+    
+    # 1. Fetch from Supabase Cloud metadata
+    cloud_asgs = await supabase_service.get_assignments_from_cloud(email_clean)
+    if cloud_asgs:
+        return {
+            "status": "success",
+            "email": email_clean,
+            "assignments": cloud_asgs
+        }
+
+    # 2. Fallback to local store
     store = _load_assignments_store()
     user_assignments = store.get(email_clean, [])
     return {
@@ -636,7 +647,7 @@ async def get_saved_assignments_history(email: str = "guest@devgya.com"):
 
 @router.post("/history")
 async def save_assignment_to_history(payload: dict):
-    """Save or update an assignment to educator history in persistent store."""
+    """Save or update an assignment to educator history in persistent store and cloud."""
     email_clean = (payload.get("email") or "guest@devgya.com").strip().lower()
     assignment = payload.get("assignment")
     if not assignment:
@@ -650,7 +661,7 @@ async def save_assignment_to_history(payload: dict):
 
 @router.delete("/history")
 async def delete_assignment_from_history(id: Optional[str] = None, title: Optional[str] = None, class_name: Optional[str] = None, email: str = "guest@devgya.com"):
-    """Delete a saved assignment from educator history in persistent store."""
+    """Delete a saved assignment from educator history in persistent store and cloud."""
     email_clean = email.strip().lower()
     store = _load_assignments_store()
     user_assignments = store.get(email_clean, [])
@@ -676,6 +687,10 @@ async def delete_assignment_from_history(id: Optional[str] = None, title: Option
             ]
 
     _save_assignments_store(store)
+
+    # Delete from Supabase Cloud
+    await supabase_service.delete_assignment_from_cloud(email_clean, title=title, class_name=class_name, asg_id=id)
+
     return {
         "status": "success",
         "message": "Assignment deleted from history.",
