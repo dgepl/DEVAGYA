@@ -30,6 +30,7 @@ class GeneratePaperRequest(BaseModel):
     user_email: Optional[str] = None
 
 class GeneratedPaperResponse(BaseModel):
+    id: Optional[str] = None
     title: str
     class_name: str
     subject: str

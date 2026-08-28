@@ -359,9 +359,12 @@ export const useAppStore = create<AppState>((set, get) => {
 
           if (paperToDelete) {
             const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-            fetch(`${baseUrl}/generator/history?title=${encodeURIComponent(paperToDelete.title)}&class_name=${encodeURIComponent(paperToDelete.class_name)}&email=${encodeURIComponent(userEmail)}`, {
-              method: "DELETE"
-            }).catch(() => {});
+            let url = `${baseUrl}/generator/history?email=${encodeURIComponent(userEmail)}`;
+            if (paperToDelete.id) url += `&id=${encodeURIComponent(paperToDelete.id)}`;
+            if (paperToDelete.title) url += `&title=${encodeURIComponent(paperToDelete.title)}`;
+            if (paperToDelete.class_name) url += `&class_name=${encodeURIComponent(paperToDelete.class_name)}`;
+
+            fetch(url, { method: "DELETE" }).catch(() => {});
           }
         } catch (e) {}
       }

@@ -276,27 +276,50 @@ async def save_paper_to_history(payload: dict):
     }
 
 @router.delete("/history")
-async def delete_paper_from_history(title: str, class_name: str, email: str = "guest@devgya.com"):
-    """Delete a saved question paper from educator history in cloud & local store."""
+async def delete_paper_from_history(
+    title: Optional[str] = None,
+    class_name: Optional[str] = None,
+    id: Optional[str] = None,
+    email: str = "guest@devgya.com"
+):
+    """Delete a saved question paper from educator history in cloud PostgreSQL & local store."""
     email_clean = email.strip().lower()
     store = _load_papers_store()
     user_papers = store.get(email_clean, [])
 
-    updated = [p for p in user_papers if not (p.get("title") == title and p.get("class_name") == class_name)]
+    # Filter out paper by id or by title/class_name
+    updated = [
+        p for p in user_papers 
+        if not (
+            (id and p.get("id") == id) or 
+            (title and p.get("title") == title and (not class_name or p.get("class_name") == class_name))
+        )
+    ]
     store[email_clean] = updated
 
     # Clean up from guest and default pools to prevent resurrection
     for pool in ("default", "guest@devgya.com"):
         if pool in store:
-            store[pool] = [p for p in store[pool] if not (p.get("title") == title and p.get("class_name") == class_name)]
+            store[pool] = [
+                p for p in store[pool] 
+                if not (
+                    (id and p.get("id") == id) or 
+                    (title and p.get("title") == title and (not class_name or p.get("class_name") == class_name))
+                )
+            ]
 
     _save_papers_store(store)
 
-    # Delete from Supabase Cloud
-    await supabase_service.delete_question_paper_from_cloud(email_clean, title, class_name)
+    # Delete directly from Supabase Cloud PostgreSQL
+    await supabase_service.delete_question_paper_from_cloud(
+        email=email_clean,
+        title=title,
+        class_name=class_name,
+        paper_id=id
+    )
 
     return {
         "status": "success",
-        "message": "Question paper deleted from history.",
+        "message": "Question paper deleted permanently from history.",
         "count": len(updated)
     }

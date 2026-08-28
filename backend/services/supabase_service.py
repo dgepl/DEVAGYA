@@ -642,14 +642,19 @@ class SupabaseService:
 
             async with httpx.AsyncClient(timeout=10.0) as client:
                 # Check if paper with same title and class already exists for this teacher
-                q_url = f"{SUPABASE_URL}/rest/v1/question_papers?teacher_id=eq.{teacher_id}&title=eq.{title}&class_name=eq.{class_name}"
-                check_res = await client.get(q_url, headers=headers)
+                check_res = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/question_papers",
+                    headers=headers,
+                    params={"teacher_id": f"eq.{teacher_id}", "title": f"eq.{title}", "class_name": f"eq.{class_name}"}
+                )
                 if check_res.status_code == 200 and check_res.json():
                     # Update existing paper
                     existing_id = check_res.json()[0]["id"]
+                    paper_data["id"] = existing_id
                     patch_res = await client.patch(
-                        f"{SUPABASE_URL}/rest/v1/question_papers?id=eq.{existing_id}",
+                        f"{SUPABASE_URL}/rest/v1/question_papers",
                         headers=headers,
+                        params={"id": f"eq.{existing_id}"},
                         json=row
                     )
                     return patch_res.status_code in (200, 204)
@@ -657,10 +662,15 @@ class SupabaseService:
                     # Insert new paper
                     ins_res = await client.post(
                         f"{SUPABASE_URL}/rest/v1/question_papers",
-                        headers=headers,
+                        headers={**headers, "Prefer": "return=representation"},
                         json=row
                     )
-                    return ins_res.status_code in (200, 201)
+                    if ins_res.status_code in (200, 201):
+                        created_rows = ins_res.json()
+                        if created_rows and isinstance(created_rows, list) and len(created_rows) > 0:
+                            paper_data["id"] = created_rows[0].get("id")
+                        return True
+                    return False
         except Exception as e:
             logger.error(f"Error saving question paper to Supabase Cloud: {e}")
             return False
@@ -679,9 +689,12 @@ class SupabaseService:
                 return []
             teacher_id = profile["id"]
 
-            url = f"{SUPABASE_URL}/rest/v1/question_papers?teacher_id=eq.{teacher_id}&order=created_at.desc"
             async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.get(url, headers=headers)
+                res = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/question_papers",
+                    headers=headers,
+                    params={"teacher_id": f"eq.{teacher_id}", "order": "created_at.desc"}
+                )
                 if res.status_code == 200:
                     rows = res.json()
                     papers = []
@@ -715,27 +728,61 @@ class SupabaseService:
             logger.error(f"Error fetching question papers from Supabase Cloud: {e}")
         return []
 
-    async def delete_question_paper_from_cloud(self, email: str, title: str, class_name: Optional[str] = None, paper_id: Optional[str] = None) -> bool:
-        """Permanently deletes a question paper from Supabase Cloud."""
+    async def delete_question_paper_from_cloud(
+        self,
+        email: str,
+        title: Optional[str] = None,
+        class_name: Optional[str] = None,
+        paper_id: Optional[str] = None
+    ) -> bool:
+        """Permanently deletes a question paper from Supabase Cloud PostgreSQL."""
         if not SERVICE_KEY:
             return False
         email_clean = (email or "").strip().lower()
         try:
             profile = await self.get_profile_by_email(email_clean)
-            if not profile or not profile.get("id"):
-                return False
-            teacher_id = profile["id"]
+            teacher_id = profile.get("id") if profile else None
 
             async with httpx.AsyncClient(timeout=10.0) as client:
-                if paper_id:
-                    del_url = f"{SUPABASE_URL}/rest/v1/question_papers?id=eq.{paper_id}&teacher_id=eq.{teacher_id}"
-                elif class_name:
-                    del_url = f"{SUPABASE_URL}/rest/v1/question_papers?teacher_id=eq.{teacher_id}&title=eq.{title}&class_name=eq.{class_name}"
-                else:
-                    del_url = f"{SUPABASE_URL}/rest/v1/question_papers?teacher_id=eq.{teacher_id}&title=eq.{title}"
+                # 1. Primary delete by UUID
+                if paper_id and paper_id.strip():
+                    p_id = paper_id.strip()
+                    del_res = await client.delete(
+                        f"{SUPABASE_URL}/rest/v1/question_papers",
+                        headers=headers,
+                        params={"id": f"eq.{p_id}"}
+                    )
+                    if del_res.status_code in (200, 204):
+                        logger.info(f"Successfully deleted question paper by ID: {p_id}")
+                        return True
 
-                res = await client.delete(del_url, headers=headers)
-                return res.status_code in (200, 204)
+                # 2. Secondary delete by teacher_id and title
+                if teacher_id and title:
+                    params = {"teacher_id": f"eq.{teacher_id}", "title": f"eq.{title}"}
+                    if class_name:
+                        params["class_name"] = f"eq.{class_name}"
+                    del_res = await client.delete(
+                        f"{SUPABASE_URL}/rest/v1/question_papers",
+                        headers=headers,
+                        params=params
+                    )
+                    if del_res.status_code in (200, 204):
+                        logger.info(f"Successfully deleted question paper by title: {title}")
+                        return True
+
+                # 3. Global title match fallback
+                if title:
+                    params = {"title": f"eq.{title}"}
+                    if class_name:
+                        params["class_name"] = f"eq.{class_name}"
+                    del_res = await client.delete(
+                        f"{SUPABASE_URL}/rest/v1/question_papers",
+                        headers=headers,
+                        params=params
+                    )
+                    if del_res.status_code in (200, 204):
+                        logger.info(f"Successfully deleted question paper by global title: {title}")
+                        return True
         except Exception as e:
             logger.error(f"Error deleting question paper from Supabase Cloud: {e}")
         return False
