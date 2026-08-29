@@ -52,15 +52,42 @@ export interface GeneratedPaperResponse {
   created_at?: string;
 }
 
-function parseErrorMessage(errData: any, fallback: string): string {
-  if (!errData) return fallback;
-  if (typeof errData.detail === "string" && errData.detail.trim()) return errData.detail;
-  if (Array.isArray(errData.detail) && errData.detail.length > 0) {
-    const first = errData.detail[0];
-    if (typeof first === "string") return first;
-    if (first && first.msg) return first.msg;
+function parseErrorMessage(errData: any, fallback: string, status?: number): string {
+  if (status === 429) {
+    return (
+      "⚠️ AI Rate Limit Reached: The AI provider is temporarily busy handling high request volume. " +
+      "Please wait 10–15 seconds and try again."
+    );
   }
-  if (typeof errData.message === "string" && errData.message.trim()) return errData.message;
+  if (status === 413) {
+    return (
+      "📁 Content Length Exceeded: The requested question count or uploaded document is too large. " +
+      "Please reduce question count or upload a smaller file section."
+    );
+  }
+  if (status === 401) {
+    return (
+      "🔑 AI Authentication Error: Invalid or expired AI API credentials on the server. " +
+      "Please contact system administrator."
+    );
+  }
+  if (status === 503 || status === 502 || status === 504) {
+    return (
+      "🌐 AI Service Temporarily Overloaded: The AI model provider is busy or timed out. " +
+      "Please wait a few moments and try again."
+    );
+  }
+
+  if (errData) {
+    if (typeof errData.detail === "string" && errData.detail.trim()) return errData.detail;
+    if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+      const first = errData.detail[0];
+      if (typeof first === "string") return first;
+      if (first && first.msg) return first.msg;
+    }
+    if (typeof errData.error === "string" && errData.error.trim()) return errData.error;
+    if (typeof errData.message === "string" && errData.message.trim()) return errData.message;
+  }
   return fallback;
 }
 
@@ -73,12 +100,12 @@ export async function generateQuestionPaper(payload: GeneratePaperPayload): Prom
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(parseErrorMessage(errData, "Failed to generate question paper"));
+      throw new Error(parseErrorMessage(errData, "Failed to generate question paper", res.status));
     }
     return res.json();
   } catch (e: any) {
-    if (e.name === "TypeError" && e.message.includes("fetch")) {
-      throw new Error("Unable to connect to backend server. Please verify the backend service is active.");
+    if (e.name === "TypeError" && (e.message.includes("fetch") || e.message.includes("Failed to fetch"))) {
+      throw new Error("🌐 Network / Server Connection Error: Unable to reach the backend server. Please verify your internet connection or backend server status.");
     }
     throw e;
   }
@@ -92,12 +119,12 @@ export async function generateQuestionPaperFromFile(formData: FormData): Promise
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(parseErrorMessage(errData, "Unable to read attached file or generate question paper"));
+      throw new Error(parseErrorMessage(errData, "Unable to read attached file or generate question paper", res.status));
     }
     return res.json();
   } catch (e: any) {
     if (e.name === "TypeError" && (e.message.includes("fetch") || e.message.includes("Failed to fetch"))) {
-      throw new Error("Unable to connect to backend server. Please verify the backend service is active.");
+      throw new Error("🌐 Network / Server Connection Error: Unable to reach the backend server. Please verify your internet connection or backend server status.");
     }
     throw e;
   }
@@ -532,16 +559,23 @@ export interface AssignmentPDFConfig {
 }
 
 export async function generateAIAssignment(payload: GenerateAssignmentPayload): Promise<{ status: string; assignment: AssignmentData }> {
-  const res = await fetch(`${getApiBase()}/assignment/generate-ai`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(parseErrorMessage(errData, "Failed to generate AI assignment"));
+  try {
+    const res = await fetch(`${getApiBase()}/assignment/generate-ai`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(parseErrorMessage(errData, "Failed to generate AI assignment", res.status));
+    }
+    return res.json();
+  } catch (e: any) {
+    if (e.name === "TypeError" && (e.message.includes("fetch") || e.message.includes("Failed to fetch"))) {
+      throw new Error("🌐 Network / Server Connection Error: Unable to reach the backend server. Please verify your internet connection or backend server status.");
+    }
+    throw e;
   }
-  return res.json();
 }
 
 export async function getSavedAssignmentsHistory(email?: string): Promise<{ status: string; assignments: AssignmentData[] }> {

@@ -130,17 +130,17 @@ export default function TeacherDashboardOverviewPage() {
     {
       code: "teacher_olympiad",
       href: "/dashboard/teacher-olympiad",
-      name: "Teacher Skill Olympiad",
+      name: "Skill Enhance Program",
       desc: "Test and certify pedagogical, leadership, and subject teaching proficiencies.",
       icon: Trophy,
       color: "from-amber-500 to-orange-600",
-      badge: "Official Exam"
+      badge: "Official Certification"
     },
     {
       code: "olympiad_practice",
       href: "/dashboard/teacher-olympiad/practice",
-      name: "Olympiad Practice",
-      desc: "Unlimited timed practice quizzes and mock papers for teacher skill mastery.",
+      name: "Skill Enhance Practice",
+      desc: "Unlimited timed practice quizzes and mock papers for teacher skill enhancement.",
       icon: BookOpen,
       color: "from-emerald-500 to-teal-600",
       badge: "Practice Zone"

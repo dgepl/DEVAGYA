@@ -35,8 +35,8 @@ export function AboutSection() {
       icon: GraduationCap,
       color: "from-purple-600 to-pink-600",
       accent: "border-purple-200 bg-purple-50/60 text-purple-900",
-      desc: "We equip educators with cutting-edge digital tools like OCR worksheet and assignment generators, the Teachers Skill Olympiad, and modern pedagogy books to enhance classroom efficiency.",
-      highlights: ["OCR Worksheet & Assignment Generators", "Teachers Skill Olympiad", "Modern Pedagogy Books", "Enhanced Classroom Efficiency"]
+      desc: "We equip educators with cutting-edge digital tools like OCR worksheet and assignment generators, the Skill Enhance Program, and modern pedagogy books to enhance classroom efficiency.",
+      highlights: ["OCR Worksheet & Assignment Generators", "Skill Enhance Program", "Modern Pedagogy Books", "Enhanced Classroom Efficiency"]
     },
     {
       title: "For Parents & Students",

@@ -634,7 +634,7 @@ export default function TeacherOlympiadPage() {
                 </span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                Teacher Skills Olympiad (TSO) 2026
+                Skill Enhance Program 2026
               </h1>
               <p className="text-xs sm:text-sm text-slate-300 font-medium">
                 National Pedagogy & Subject Mastery Assessment (100 MCQs • 60 Minutes • 60/40 Hybrid Structure)
@@ -844,7 +844,7 @@ export default function TeacherOlympiadPage() {
                   {hasAttempted || userSubmission ? "ASSESSMENT RECORD PERMANENTLY ARCHIVED" : "LIVE TIMED ASSESSMENT"}
                 </span>
                 <h3 className="text-base font-black text-slate-900">
-                  {hasAttempted || userSubmission ? "Official Assessment Completed (Locked)" : "Ready to take the 100-MCQ National Olympiad?"}
+                  {hasAttempted || userSubmission ? "Official Assessment Completed (Locked)" : "Ready to take the 100-MCQ Skill Enhance Assessment?"}
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
                   {hasAttempted || userSubmission 

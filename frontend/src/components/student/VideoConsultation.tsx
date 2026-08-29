@@ -143,6 +143,47 @@ export function VideoConsultation() {
     }
   }, []);
 
+  // Complete teardown when user exits the page, switches routes, or closes the tab
+  useEffect(() => {
+    const handleExit = () => {
+      // 1. Immediately cut AI speech synthesis
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      // 2. Abort Speech Recognition
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+        recognitionRef.current = null;
+      }
+      // 3. Stop Webcam and Microphone hardware streams
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      // 4. Clear all timers
+      clearInterval(timerRef.current);
+      clearTimeout(silenceTimerRef.current);
+      // 5. Reset control flags
+      inCallRef.current = false;
+      isAiSpeakingRef.current = false;
+      isAiThinkingRef.current = false;
+    };
+
+    window.addEventListener("beforeunload", handleExit);
+    window.addEventListener("pagehide", handleExit);
+    window.addEventListener("popstate", handleExit);
+
+    return () => {
+      handleExit();
+      window.removeEventListener("beforeunload", handleExit);
+      window.removeEventListener("pagehide", handleExit);
+      window.removeEventListener("popstate", handleExit);
+    };
+  }, []);
+
   // Call timer
   useEffect(() => {
     if (inCall) {
@@ -441,9 +482,13 @@ export function VideoConsultation() {
   };
 
   const endCall = () => {
+    isAiSpeakingRef.current = false;
+    isAiThinkingRef.current = false;
     stopListening();
     stopCamera();
-    window.speechSynthesis?.cancel();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
 
     if (transcript.length > 1) {
       const summaryText = `परामर्श सत्र सारांश (${new Date().toLocaleDateString("hi-IN")})\n` +
@@ -457,6 +502,7 @@ export function VideoConsultation() {
     setCameraOn(true);
     setMicOn(true);
     setAiSpeaking(false);
+    setAiThinking(false);
     setUserSub("");
     setAiSub("");
   };

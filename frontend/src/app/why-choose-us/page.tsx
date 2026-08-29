@@ -38,7 +38,7 @@ export default function WhyChooseUsPage() {
     },
     {
       title: "Empowering Educators",
-      description: "Through skill olympiads and pedagogy resources, we actively help teachers upgrade their classroom efficiency.",
+      description: "Through skill enhance programs and pedagogy resources, we actively help teachers upgrade their classroom efficiency.",
       icon: GraduationCap,
       color: "from-emerald-600 to-teal-600",
       badge: "Teacher Growth"

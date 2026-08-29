@@ -35,8 +35,8 @@ export function MobileTeacherDashboard() {
     { name: "Teacher Mentor AI", sub: "Pedagogy & Lesson AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "AI Tool" },
     { name: "Question Generator", sub: "NCERT Exam Papers", href: "/dashboard/generator", icon: Sparkles, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Generator" },
     { name: "OCR Scanner", sub: "Book Page to Test", href: "/dashboard/ocr", icon: Scan, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", type: "Vision OCR" },
-    { name: "Olympiad Practice", sub: "Practice Mock Tests", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Practice" },
-    { name: "Teacher Skill Olympiad", sub: "Official Certification", href: "/dashboard/teacher-olympiad", icon: Trophy, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100", type: "Olympiad" },
+    { name: "Skill Enhance Practice", sub: "Practice Mock Tests", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Practice" },
+    { name: "Skill Enhance Program", sub: "Official Certification", href: "/dashboard/teacher-olympiad", icon: Trophy, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100", type: "Certification" },
     { name: "Video Consultation", sub: "Live 1-on-1 Mentoring", href: "/dashboard/video-consultation", icon: Video, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "Consultation" },
     { name: "Analytics AI", sub: "Class Score Radar", href: "/dashboard/agents?agent=analytics_assistant", icon: TrendingUp, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Analytics" },
     { name: "English Coach", sub: "Academic Polish", href: "/dashboard/agents?agent=english_coach", icon: Bot, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100", type: "AI Coach" },
@@ -333,7 +333,7 @@ export function MobileTeacherDashboard() {
                 </div>
               </Link>
 
-              {/* Card 4: Olympiad Practice */}
+              {/* Card 4: Skill Enhance Practice */}
               <Link
                 href="/dashboard/teacher-olympiad/practice"
                 className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-emerald-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
@@ -342,7 +342,7 @@ export function MobileTeacherDashboard() {
                   <BookOpen className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Olympiad Practice</h3>
+                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Skill Enhance Practice</h3>
                   <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Practice Mock Tests</p>
                 </div>
                 <div className="flex justify-end pt-1">
@@ -352,7 +352,7 @@ export function MobileTeacherDashboard() {
                 </div>
               </Link>
 
-              {/* Card 5: Teacher Skill Olympiad */}
+              {/* Card 5: Skill Enhance Program */}
               <Link
                 href="/dashboard/teacher-olympiad"
                 className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-orange-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
@@ -361,7 +361,7 @@ export function MobileTeacherDashboard() {
                   <Trophy className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Teacher Skill Olympiad</h3>
+                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Skill Enhance Program</h3>
                   <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Official Certification</p>
                 </div>
                 <div className="flex justify-end pt-1">

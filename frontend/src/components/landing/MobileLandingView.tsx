@@ -104,9 +104,9 @@ export function MobileLandingView() {
     {
       id: 3,
       tag: "Slide 03 / 04 (Auto 3s)",
-      portalTitle: "National Teacher Skill Olympiad 2026",
+      portalTitle: "National Skill Enhance Program 2026",
       xp: "18200 XP",
-      welcome: "Educator Olympiad Practice 🏆",
+      welcome: "Skill Enhance Practice 🏆",
       subtitle: "Official CBSE & NCERT Proficiency Mock Tests",
       stat1: { label: "Mock Bank", val: "100 Qs", color: "text-purple-600" },
       stat2: { label: "Timed Exam", val: "120 Mins", color: "text-amber-600" },
@@ -115,7 +115,7 @@ export function MobileLandingView() {
       progressPct: "88%",
       progressWidth: "w-[88%]",
       floatingCard1: {
-        title: "Official Olympiad",
+        title: "Skill Enhance Program",
         subtitle: "Registration Live",
         detail: "National Certification",
         icon: Trophy
@@ -498,7 +498,7 @@ export function MobileLandingView() {
               </div>
             </Link>
 
-            {/* Tool 4: National Teacher Skill Olympiad 2026 */}
+            {/* Tool 4: National Skill Enhance Program 2026 */}
             <Link
               href="/login"
               className="p-4 rounded-2xl bg-white border border-indigo-100 shadow-xs flex items-start gap-3.5 transition active:scale-98 block group"
@@ -509,14 +509,14 @@ export function MobileLandingView() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition">
-                    Teacher Skill Olympiad 2026
+                    Skill Enhance Program 2026
                   </h3>
                   <span className="text-[9px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
                     Live Practice
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 font-medium mt-1 leading-relaxed">
-                  Official CBSE-aligned educator proficiency test with 100-question practice mocks and national ranking.
+                  Official CBSE-aligned educator proficiency certification with 100-question practice mocks and national ranking.
                 </p>
               </div>
             </Link>

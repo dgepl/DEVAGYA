@@ -42,6 +42,8 @@ async def _save_paper_for_user(email: Optional[str], paper_data: dict):
     # Sync to Supabase Cloud
     await supabase_service.save_question_paper_to_cloud(email_clean, paper_data)
 
+from services.error_service import format_ai_exception_detail
+
 @router.post("/generate", response_model=GeneratedPaperResponse)
 async def generate_paper(request: GeneratePaperRequest):
     """Generate Question Paper directly from syllabus/OCR context without requiring file attachment."""
@@ -51,8 +53,11 @@ async def generate_paper(request: GeneratePaperRequest):
             response.user_email = request.user_email
         await _save_paper_for_user(request.user_email, response.dict())
         return response
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Question paper generation failed: {str(e)}")
+        status_code, detail = format_ai_exception_detail(e, "Question Paper Generation")
+        raise HTTPException(status_code=status_code, detail=detail)
 
 @router.post("/generate-from-file", response_model=GeneratedPaperResponse)
 async def generate_paper_from_file(
@@ -95,16 +100,32 @@ async def generate_paper_from_file(
             if user_email: res.user_email = user_email
             await _save_paper_for_user(user_email, res.dict())
             return res
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to generate paper: {str(e)}")
+            status_code, detail = format_ai_exception_detail(e, "Question Paper Generation")
+            raise HTTPException(status_code=status_code, detail=detail)
 
     extracted_text = ""
     image_data_url = None
 
-    file_bytes = await file.read()
+    try:
+        file_bytes = await file.read()
+    except Exception as read_err:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unreadable Attachment: Could not read uploaded file '{file.filename}'. Please verify the file is not corrupted."
+        )
+
     filename = file.filename or "attachment"
     content_type = (file.content_type or "").lower()
     ext = os.path.splitext(filename)[1].lower()
+
+    if len(file_bytes) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unreadable Attachment: Uploaded file '{filename}' is empty (0 bytes). Please upload a valid document or photo."
+        )
 
     if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
         try:
@@ -117,33 +138,41 @@ async def generate_paper_from_file(
             enc = base64.b64encode(buf.getvalue()).decode("ascii")
             image_data_url = f"data:image/jpeg;base64,{enc}"
         except Exception as img_err:
-            print(f"[Generator] Image parsing notice: {img_err}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unreadable Image Attachment: Could not process '{filename}'. Please ensure it is a valid, uncorrupted image (PNG, JPG, WEBP)."
+            )
     elif ext == ".pdf" or "pdf" in content_type:
         try:
             extracted_text, pdf_img_url = extract_pdf_content(file_bytes)
             if pdf_img_url:
                 image_data_url = pdf_img_url
         except Exception as pdf_err:
-            print(f"[Generator] PDF parsing notice: {pdf_err}")
             try:
                 extracted_text = extract_document_text(file_bytes, filename, content_type)
             except Exception:
-                pass
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unreadable PDF Attachment: Could not parse text or pages from '{filename}'. Please ensure the PDF is not password-protected or encrypted."
+                )
     else:
         try:
             extracted_text = extract_document_text(file_bytes, filename, content_type)
         except Exception as doc_err:
-            print(f"[Generator] Document text extraction notice: {doc_err}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unreadable Document Attachment: Could not extract text from '{filename}'. Please upload a standard PDF, image, DOCX, or text file."
+            )
 
     has_text = bool(extracted_text and len(extracted_text.strip()) >= 10)
     has_image = bool(image_data_url and len(image_data_url) > 100)
 
-    # If file couldn't be parsed into text/image, generate directly from prompt & syllabus
+    # If file couldn't be parsed into text/image, raise a clear actionable error
     if not has_text and not has_image:
-        res = await groq_service.generate_question_paper(req)
-        if user_email: res.user_email = user_email
-        await _save_paper_for_user(user_email, res.dict())
-        return res
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unreadable Attachment: No readable text or images found in '{filename}'. Please check that the file is not blank, or generate directly using syllabus topics without file upload."
+        )
 
     try:
         response = await groq_service.generate_question_paper_with_attachment(
@@ -154,10 +183,11 @@ async def generate_paper_from_file(
         if user_email: response.user_email = user_email
         await _save_paper_for_user(user_email, response.dict())
         return response
+    except HTTPException:
+        raise
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=400, detail=str(e))
+        status_code, detail = format_ai_exception_detail(e, "Question Paper Generation with Attachment")
+        raise HTTPException(status_code=status_code, detail=detail)
 
 @router.post("/teaching-assistant")
 async def generate_teaching_material(payload: dict):

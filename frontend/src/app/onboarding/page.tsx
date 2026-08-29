@@ -242,7 +242,7 @@ export default function TSOOnboardingPage() {
               <span>
                 {step === 1 && "1. Quick Registration"}
                 {step === 2 && "2. Teaching Profile"}
-                {step === 3 && "3. Teacher Skills Olympiad (TSO)"}
+                {step === 3 && "3. Skill Enhance Program"}
                 {step === 4 && "4. ₹1 Trial & AI Suite"}
               </span>
             </div>
@@ -490,7 +490,7 @@ export default function TSOOnboardingPage() {
                   <div>
                     <span className="text-[10px] font-black tracking-widest uppercase text-amber-300">NATIONAL INITIATIVE</span>
                     <h3 className="text-base sm:text-lg font-black text-white leading-tight">
-                      Teacher Skills Olympiad (TSO) 2026
+                      Skill Enhance Program 2026
                     </h3>
                   </div>
                 </div>
@@ -533,7 +533,7 @@ export default function TSOOnboardingPage() {
                       <span>Priority Recruitment Badge</span>
                     </div>
                     <p className="text-[11px] text-slate-300 leading-snug">
-                      Earn a "TSO Benchmarked Rank Badge" for high visibility to top recruiting private schools.
+                      Earn a "Skill Enhanced Rank Badge" for high visibility to top recruiting private schools.
                     </p>
                   </div>
                 </div>
@@ -549,7 +549,7 @@ export default function TSOOnboardingPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h4 className="text-xs font-black text-slate-900">
-                      Do you want to join the Free Teacher Skills Olympiad (TSO)?
+                      Do you want to join the Free Skill Enhance Program?
                     </h4>
                     <p className="text-[11px] text-slate-500">
                       Zero fee, national certificate & verified badge.
@@ -744,7 +744,7 @@ export default function TSOOnboardingPage() {
 
       {/* FOOTER */}
       <footer className="max-w-2xl w-full mx-auto text-center text-[11px] text-slate-400 font-medium py-2">
-        DEVGYA GLOBAL EDUTECH PRIVATE LIMITED • National Teacher Skills Olympiad 2026
+        DEVGYA GLOBAL EDUTECH PRIVATE LIMITED • National Skill Enhance Program 2026
       </footer>
 
     </div>

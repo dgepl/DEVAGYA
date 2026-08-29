@@ -451,14 +451,45 @@ export default function AssignmentMakerPage() {
       {/* Notifications */}
       <div className="max-w-5xl mx-auto px-4 mt-3">
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 flex items-center justify-between text-xs font-semibold shadow-xs">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{error}</span>
+          <div className="p-4 bg-rose-50/90 border border-rose-200 rounded-2xl space-y-2.5 text-rose-900 shadow-xs animate-in fade-in duration-200">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <h4 className="text-xs font-black text-rose-900">
+                    {error.includes("Rate Limit")
+                      ? "⏱️ AI Rate Limit Warning"
+                      : error.includes("Content Length")
+                      ? "📁 Content Length Exceeded"
+                      : error.includes("Network") || error.includes("Connection")
+                      ? "🌐 Network Connection Error"
+                      : "Assignment Generation Error"}
+                  </h4>
+                  <p className="text-xs text-rose-700 font-medium leading-relaxed">
+                    {error}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="text-rose-400 hover:text-rose-700 p-1 rounded-lg transition"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-700">
-              <X className="w-4 h-4" />
-            </button>
+
+            <div className="flex items-center gap-2 pt-1 border-t border-rose-200/60">
+              <button
+                type="button"
+                onClick={() => handleGenerate()}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Retry Generation</span>
+              </button>
+            </div>
           </div>
         )}
         {successMsg && (

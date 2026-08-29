@@ -8,7 +8,7 @@ export function WhySchoolsSection() {
 
   const comparisonData = [
     { feature: "Worksheet & Assignment Creation", traditional: "Hours of Manual Typing", devgya: "OCR Worksheet & Assignment Generator" },
-    { feature: "Teacher Skill Upgradation", traditional: "Occasional Seminars", devgya: "Teachers Skill Olympiad & Modern Pedagogy Books" },
+    { feature: "Teacher Skill Upgradation", traditional: "Occasional Seminars", devgya: "Skill Enhance Program & Modern Pedagogy Books" },
     { feature: "School Services & Supplies", traditional: "Multiple Fragmented Vendors", devgya: "Seamless Book Supply, Publishing & Placement Support" },
     { feature: "Parent & Student Support", traditional: "Static Homework Sheets", devgya: "AI Query Assistance, Quizzes & Parenting Guides" },
     { feature: "CBSE Teacher Training", traditional: "Infrequent Workshops", devgya: "Professional CBSE Teacher Training Workshops" }
@@ -29,7 +29,7 @@ export function WhySchoolsSection() {
     },
     {
       title: "Empowering Educators",
-      description: "Through skill olympiads and pedagogy resources, we actively help teachers upgrade their classroom efficiency.",
+      description: "Through skill enhancement programs and pedagogy resources, we actively help teachers upgrade their classroom efficiency.",
       icon: GraduationCap,
       color: "from-emerald-600 to-teal-600"
     },

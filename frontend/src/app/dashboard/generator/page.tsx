@@ -1039,29 +1039,72 @@ export default function GeneratorPage() {
 
           {/* ERROR & ACTION DISPLAY */}
           {error && (
-            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2.5">
-              <p className="text-xs text-rose-700 font-bold flex items-start gap-1.5">
-                <span>⚠️</span>
-                <span>{error}</span>
-              </p>
-              <div className="flex items-center gap-2 pt-1 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100/50 text-rose-800 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <Upload className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Attach Document / Photo</span>
-                </button>
+            <div className="p-4 bg-rose-50/90 border border-rose-200 rounded-2xl space-y-3 animate-in fade-in duration-200">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1 min-w-0">
+                  <h4 className="text-xs font-black text-rose-900">
+                    {error.includes("Rate Limit")
+                      ? "⏱️ AI Rate Limit Warning"
+                      : error.includes("Unreadable")
+                      ? "📄 Unreadable Document Attachment"
+                      : error.includes("Content Length")
+                      ? "📁 Content Length Exceeded"
+                      : error.includes("Network") || error.includes("Connection")
+                      ? "🌐 Connection Error"
+                      : "Assessment Generation Error"}
+                  </h4>
+                  <p className="text-xs text-rose-700 font-medium leading-relaxed">
+                    {error}
+                  </p>
+                </div>
+              </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleGenerate(true)}
-                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Generate from CBSE Syllabus Directly</span>
-                </button>
+              <div className="flex items-center gap-2 pt-1 flex-wrap border-t border-rose-200/60">
+                {error.includes("Unreadable") ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeFile();
+                        setError(null);
+                      }}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remove File & Generate from Syllabus</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100/50 text-rose-800 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Upload Another File</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerate()}
+                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Retry Generation Now</span>
+                    </button>
+                    {selectedFile && (
+                      <button
+                        type="button"
+                        onClick={() => handleGenerate(true)}
+                        className="px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100/50 text-rose-800 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Try from Syllabus Direct</span>
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           )}

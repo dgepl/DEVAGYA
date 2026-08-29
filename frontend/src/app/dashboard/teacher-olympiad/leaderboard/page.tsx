@@ -89,7 +89,7 @@ export default function OlympiadLeaderboardPage() {
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-            Teachers Skill Olympiad Official Leaderboard
+            Skill Enhance Program Official Leaderboard
           </h1>
 
           <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed">

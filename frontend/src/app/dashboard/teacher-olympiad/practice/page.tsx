@@ -135,7 +135,7 @@ export default function OlympiadPracticePage() {
               <Trophy className="w-3 h-3" /> Practice Drills (Untimed)
             </div>
             <h1 className="text-base sm:text-2xl font-black">
-              Teacher Olympiad Practice Arena
+              Skill Enhance Practice Arena
             </h1>
             <p className="text-[11px] sm:text-xs text-slate-300 font-medium">
               100 authentic questions across CBSE NEP Pedagogy & Core Subject modules with instant explanations.

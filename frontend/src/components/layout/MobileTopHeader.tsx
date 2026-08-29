@@ -78,25 +78,25 @@ export function MobileTopHeader() {
       });
     }
 
-    // 2. Real Olympiad notification (Teacher or Student)
+    // 2. Real Skill Enhance Program notification (Teacher or Student)
     if (role === "teacher") {
       list.push({
         id: "olympiad-official-teacher-2026",
         type: "olympiad",
-        title: "National Teacher Skill Olympiad 2026",
-        message: "Official CBSE/NCERT educator proficiency test registrations are live. Start unlimited timed practice mock tests.",
-        tag: "OLYMPIAD ALERT",
+        title: "National Teacher Skill Enhance Program 2026",
+        message: "Official CBSE/NCERT educator proficiency certification is live. Start unlimited timed practice mock tests.",
+        tag: "SKILL ENHANCE",
         tagColor: "bg-amber-100 text-amber-700 border-amber-200",
         time: "Active",
         actionUrl: "/dashboard/teacher-olympiad/practice",
-        actionText: "Start Olympiad Practice",
+        actionText: "Start Skill Practice",
         icon: Trophy
       });
     } else if (role === "student") {
       list.push({
         id: "student-practice-olympiad-2026",
         type: "olympiad",
-        title: "Student Olympiad & Board Exam Prep",
+        title: "Student Skill & Board Exam Prep",
         message: "Timed practice quizzes, flashcards & NCERT tests are ready for your target exam.",
         tag: "EXAM PREP",
         tagColor: "bg-blue-100 text-blue-700 border-blue-200",
@@ -167,8 +167,8 @@ export function MobileTopHeader() {
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
     { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
-    { label: "Teacher Skill Olympiad", href: "/dashboard/teacher-olympiad", icon: Trophy },
-    { label: "Olympiad Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
+    { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
+    { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
   ];
 

@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Response, Depends
 from pydantic import BaseModel, Field
 from services.ai_provider import ai_provider
 from services.pdf_service import pdf_generator_service
+from services.error_service import format_ai_exception_detail
 
 import os
 from services.supabase_service import supabase_service
@@ -418,6 +419,7 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
         raw_responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         extracted_raw_questions = []
+        task_exceptions = []
         assignment_title = req.title or f"{req.subject} Worksheet: {req.chapter_topic}"
         instructions = [
             "Write all answers legibly in the designated spaces provided.",
@@ -435,6 +437,11 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                 extracted_raw_questions.extend(parsed.get("questions") or [])
             elif isinstance(resp, Exception):
                 logger.warning(f"[Assignment Section Error] {resp}")
+                task_exceptions.append(resp)
+
+        if not extracted_raw_questions and task_exceptions:
+            status_code, detail = format_ai_exception_detail(task_exceptions[0], "AI Assignment Generation")
+            raise HTTPException(status_code=status_code, detail=detail)
 
         # Bucket and deduplicate
         buckets = _classify_and_bucket_questions(extracted_raw_questions)
@@ -620,7 +627,8 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "section": "Section D: Lon
         raise
     except Exception as e:
         logger.error(f"[AI Assignment Generation Failed] {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"AI Assignment Generation failed: {str(e)}")
+        status_code, detail = format_ai_exception_detail(e, "AI Assignment Generation")
+        raise HTTPException(status_code=status_code, detail=detail)
 
 @router.get("/history")
 async def get_saved_assignments_history(email: str = "guest@devgya.com"):
