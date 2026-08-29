@@ -41,6 +41,7 @@ import {
   Mic,
   MicOff,
   Volume2,
+  VolumeX,
   ThumbsUp,
   ThumbsDown,
   ArrowRight
@@ -49,6 +50,7 @@ import { getAIAgents } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
 import { WorksheetPdfModal } from "@/components/pdf/WorksheetPdfModal";
+import { speakChatMessage, stopSpeech } from "@/lib/speechSynthesis";
 
 const iconMap: Record<string, any> = {
   GraduationCap,
@@ -346,8 +348,34 @@ export function AgentMarketplace() {
 
   // History state
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+
+  // Stop speech on unmount
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+    };
+  }, []);
+
+  // Handle Toggle Speak Audio for an AI message
+  const handleToggleSpeak = useCallback((msgId: string, content: string) => {
+    if (speakingMsgId === msgId) {
+      stopSpeech();
+      setSpeakingMsgId(null);
+      return;
+    }
+
+    setSpeakingMsgId(msgId);
+    speakChatMessage(
+      content,
+      language,
+      () => setSpeakingMsgId(msgId),
+      () => setSpeakingMsgId(null),
+      () => setSpeakingMsgId(null)
+    );
+  }, [speakingMsgId, language]);
 
   // Language dropdown
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
@@ -497,6 +525,8 @@ export function AgentMarketplace() {
   // Load a past conversation
   const loadConversation = useCallback(
     async (id: string) => {
+      stopSpeech();
+      setSpeakingMsgId(null);
       abortRef.current?.abort();
       setActiveConvId(id);
       setHistoryOpen(false);
@@ -539,6 +569,8 @@ export function AgentMarketplace() {
 
   // New chat
   const newChat = () => {
+    stopSpeech();
+    setSpeakingMsgId(null);
     abortRef.current?.abort();
     setActiveConvId(null);
     setMessages([getWelcomeMsg(selectedAgentCode)]);
@@ -551,6 +583,8 @@ export function AgentMarketplace() {
   // Switch agent → reset chat
   const switchAgent = (agentCode: string) => {
     if (agentCode === selectedAgentCode) return;
+    stopSpeech();
+    setSpeakingMsgId(null);
     abortRef.current?.abort();
     setSelectedAgentCode(agentCode);
     setActiveConvId(null);
@@ -1040,6 +1074,30 @@ export function AgentMarketplace() {
                           </button>
 
                           <div className="flex items-center gap-1">
+                            {/* SPEAK / STOP AUDIO BUTTON */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSpeak(m.id, m.content)}
+                              className={`px-2.5 py-1 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
+                                speakingMsgId === m.id
+                                  ? "bg-purple-100 text-purple-700 border-purple-300 shadow-2xs animate-pulse"
+                                  : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
+                              }`}
+                              title={speakingMsgId === m.id ? "Stop voice (आवाज़ रोकें)" : "Speak message (आवाज़ में सुनें)"}
+                            >
+                              {speakingMsgId === m.id ? (
+                                <>
+                                  <VolumeX className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+                                  <span className="text-[11px] font-black">Stop</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Volume2 className="w-3.5 h-3.5 text-purple-600" />
+                                  <span className="text-[11px] font-bold hidden sm:inline">Speak</span>
+                                </>
+                              )}
+                            </button>
+
                             <button
                               type="button"
                               className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"

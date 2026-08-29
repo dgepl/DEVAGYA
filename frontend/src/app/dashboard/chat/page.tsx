@@ -19,10 +19,13 @@ import {
   ImageIcon,
   Sparkles,
   StopCircle,
-  Globe
+  Globe,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
+import { speakChatMessage, stopSpeech } from "@/lib/speechSynthesis";
 
 const LANGUAGES = [
   { code: "english", label: "English", flag: "🇬🇧" },
@@ -102,6 +105,7 @@ export default function ChatStudioPage() {
   const [attached, setAttached] = useState<AttachedImage[]>([]);
   const [language, setLanguage] = useState("english");
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -109,6 +113,31 @@ export default function ChatStudioPage() {
   const abortRef = useRef<AbortController | null>(null);
   const didAutoLoad = useRef(false);
   const langDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Stop speech on unmount
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+    };
+  }, []);
+
+  // Handle Toggle Speak Audio for an AI message
+  const handleToggleSpeak = useCallback((msgId: string, content: string) => {
+    if (speakingMsgId === msgId) {
+      stopSpeech();
+      setSpeakingMsgId(null);
+      return;
+    }
+
+    setSpeakingMsgId(msgId);
+    speakChatMessage(
+      content,
+      language,
+      () => setSpeakingMsgId(msgId),
+      () => setSpeakingMsgId(null),
+      () => setSpeakingMsgId(null)
+    );
+  }, [speakingMsgId, language]);
 
   // Close language dropdown on outside click
   useEffect(() => {
@@ -133,6 +162,8 @@ export default function ChatStudioPage() {
 
   const loadConversation = useCallback(
     async (id: string) => {
+      stopSpeech();
+      setSpeakingMsgId(null);
       abortRef.current?.abort();
       setActiveId(id);
       setHistoryOpen(false);
@@ -165,6 +196,8 @@ export default function ChatStudioPage() {
   );
 
   const newChat = () => {
+    stopSpeech();
+    setSpeakingMsgId(null);
     abortRef.current?.abort();
     setActiveId(null);
     setMessages([WELCOME_MSG]);
@@ -553,6 +586,29 @@ export default function ChatStudioPage() {
 
                   {m.sender === "assistant" && m.content && (
                     <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSpeak(m.id, m.content)}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer ${
+                          speakingMsgId === m.id
+                            ? "bg-indigo-100 text-indigo-700 border-indigo-300 shadow-xs animate-pulse"
+                            : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
+                        }`}
+                        title={speakingMsgId === m.id ? "Stop voice (आवाज़ रोकें)" : "Speak message (आवाज़ में सुनें)"}
+                      >
+                        {speakingMsgId === m.id ? (
+                          <>
+                            <VolumeX className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+                            <span className="text-[11px] font-black">Stop</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
+                            <span className="text-[11px] font-bold">Speak</span>
+                          </>
+                        )}
+                      </button>
+
                       <button
                         onClick={() => handleCopy(m.id, m.content)}
                         className="p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
