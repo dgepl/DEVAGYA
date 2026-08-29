@@ -3,6 +3,7 @@ import os
 import re
 import html
 import zipfile
+from typing import Optional, List, Dict, Any
 import xml.etree.ElementTree as ET
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, Flowable, Image as RLImage
@@ -154,8 +155,8 @@ def strip_emojis_for_pdf(raw: str) -> str:
 
 def clean_md_to_reportlab(text: str) -> str:
     """
-    Transforms raw academic text, LaTeX equations, chemical formulas, and Markdown
-    into crisp, modern ReportLab XML typography.
+    Transforms raw academic text, LaTeX equations, Physics vectors, chemical formulas,
+    and Markdown into crisp, publication-grade ReportLab XML typography.
     """
     if not text:
         return ""
@@ -170,81 +171,128 @@ def clean_md_to_reportlab(text: str) -> str:
     t = t.replace("\u2018", "'").replace("\u2019", "'")
     t = t.replace("\u00a0", " ")
 
-    # 3. Escape raw XML special characters (&, <, >) FIRST before inserting ReportLab tags
-    import html
-    t = html.escape(t)
-
-    # 4. Strip math delimiters across multiple lines: $...$, $$...$$, \[...\], \(...\)
-    t = re.sub(r'\\r\\n|\\n', '\n', t)
+    # 3. Strip math delimiters across multiple lines: $...$, $$...$$, \[...\], \(...\)
     t = re.sub(r'\$\$([\s\S]*?)\$\$', r'\1', t)
     t = re.sub(r'\$([^\$]+)\$', r'\1', t)
     t = re.sub(r'\\\[([\s\S]*?)\\\]', r'\1', t)
     t = re.sub(r'\\\(([\s\S]*?)\\\)', r'\1', t)
     t = re.sub(r'\\\[|\\\]|\\\(|\\\)', '', t)
 
-    # 5. Greek symbols & Mathematical Constants (replace early)
+    # 4. Physics Vector Notation & Accents (e.g. \vec{A} -> A⃗, \hat{i} -> î, \bar{x} -> x̄)
+    # Unit vectors
+    t = re.sub(r'\\hat\{\s*i\s*\}|\\hat\s+i(?![a-zA-Z])', 'î', t)
+    t = re.sub(r'\\hat\{\s*j\s*\}|\\hat\s+j(?![a-zA-Z])', 'ĵ', t)
+    t = re.sub(r'\\hat\{\s*k\s*\}|\\hat\s+k(?![a-zA-Z])', 'k̂', t)
+    t = re.sub(r'\\hat\{\s*n\s*\}|\\hat\s+n(?![a-zA-Z])', 'n̂', t)
+    t = re.sub(r'\\hat\{\s*r\s*\}|\\hat\s+r(?![a-zA-Z])', 'r̂', t)
+    t = re.sub(r'\\hat\{\s*([a-zA-Z0-9]+)\s*\}', r'\1̂', t)
+
+    # Vectors with arrow
+    t = re.sub(r'\\overrightarrow\{\s*([^{}]+)\s*\}', r'\1⃗', t)
+    t = re.sub(r'\\vec\{\s*([^{}]+)\s*\}', r'\1⃗', t)
+    t = re.sub(r'\\vec\s+([a-zA-Z])(?![a-zA-Z])', r'\1⃗', t)
+
+    # Bar / Overline / Dot / Tilde accents
+    t = re.sub(r'\\overline\{\s*([^{}]+)\s*\}', r'\1̄', t)
+    t = re.sub(r'\\bar\{\s*([^{}]+)\s*\}', r'\1̄', t)
+    t = re.sub(r'\\bar\s+([a-zA-Z])(?![a-zA-Z])', r'\1̄', t)
+    t = re.sub(r'\\ddot\{\s*([^{}]+)\s*\}', r'\1̈', t)
+    t = re.sub(r'\\dot\{\s*([^{}]+)\s*\}', r'\1̇', t)
+    t = re.sub(r'\\tilde\{\s*([^{}]+)\s*\}', r'\1̃', t)
+
+    # 5. Greek symbols & Physical Constants (using (?![a-zA-Z]) to match before underscores & operators)
     greek_symbols = [
-        (r'\\alpha', 'α'), (r'\\beta', 'β'), (r'\\gamma', 'γ'), (r'\\Gamma', 'Γ'),
-        (r'\\delta', 'δ'), (r'\\Delta', 'Δ'), (r'\\epsilon', 'ε'), (r'\\varepsilon', 'ε'),
-        (r'\\zeta', 'ζ'), (r'\\eta', 'η'), (r'\\theta', 'θ'), (r'\\Theta', 'Θ'),
-        (r'\\lambda', 'λ'), (r'\\Lambda', 'Λ'), (r'\\mu', 'μ'), (r'\\nu', 'ν'),
-        (r'\\xi', 'ξ'), (r'\\pi', 'π'), (r'\\Pi', 'Π'), (r'\\rho', 'ρ'),
-        (r'\\sigma', 'σ'), (r'\\Sigma', 'Σ'), (r'\\tau', 'τ'), (r'\\phi', 'φ'),
-        (r'\\Phi', 'Φ'), (r'\\chi', 'χ'), (r'\\psi', 'ψ'), (r'\\Psi', 'Ψ'),
-        (r'\\omega', 'ω'), (r'\\Omega', 'Ω'),
-        (r'\\degree', '°'), (r'\^\\circ', '°'), (r'\\circ', '°')
+        (r'\\alpha(?![a-zA-Z])', 'α'), (r'\\beta(?![a-zA-Z])', 'β'), (r'\\gamma(?![a-zA-Z])', 'γ'), (r'\\Gamma(?![a-zA-Z])', 'Γ'),
+        (r'\\delta(?![a-zA-Z])', 'δ'), (r'\\Delta(?![a-zA-Z])', 'Δ'), (r'\\varepsilon(?![a-zA-Z])', 'ε'), (r'\\epsilon(?![a-zA-Z])', 'ε'),
+        (r'\\zeta(?![a-zA-Z])', 'ζ'), (r'\\eta(?![a-zA-Z])', 'η'), (r'\\vartheta(?![a-zA-Z])', 'θ'), (r'\\theta(?![a-zA-Z])', 'θ'), (r'\\Theta(?![a-zA-Z])', 'Θ'),
+        (r'\\iota(?![a-zA-Z])', 'ι'), (r'\\kappa(?![a-zA-Z])', 'κ'), (r'\\lambda(?![a-zA-Z])', 'λ'), (r'\\Lambda(?![a-zA-Z])', 'Λ'),
+        (r'\\mu(?![a-zA-Z])', 'μ'), (r'\\nu(?![a-zA-Z])', 'ν'), (r'\\xi(?![a-zA-Z])', 'ξ'), (r'\\Xi(?![a-zA-Z])', 'Ξ'),
+        (r'\\pi(?![a-zA-Z])', 'π'), (r'\\Pi(?![a-zA-Z])', 'Π'), (r'\\varrho(?![a-zA-Z])', 'ρ'), (r'\\rho(?![a-zA-Z])', 'ρ'),
+        (r'\\sigma(?![a-zA-Z])', 'σ'), (r'\\Sigma(?![a-zA-Z])', 'Σ'), (r'\\tau(?![a-zA-Z])', 'τ'), (r'\\upsilon(?![a-zA-Z])', 'υ'),
+        (r'\\varphi(?![a-zA-Z])', 'φ'), (r'\\phi(?![a-zA-Z])', 'φ'), (r'\\Phi(?![a-zA-Z])', 'Φ'), (r'\\chi(?![a-zA-Z])', 'χ'),
+        (r'\\psi(?![a-zA-Z])', 'ψ'), (r'\\Psi(?![a-zA-Z])', 'Ψ'), (r'\\omega(?![a-zA-Z])', 'ω'), (r'\\Omega(?![a-zA-Z])', 'Ω'),
+        (r'\\hbar(?![a-zA-Z])', 'ℏ'), (r'\\ell(?![a-zA-Z])', 'ℓ'), (r'\\nabla(?![a-zA-Z])', '∇'), (r'\\partial(?![a-zA-Z])', '∂'),
+        (r'\\degree(?![a-zA-Z])', '°'), (r'\^\\circ(?![a-zA-Z])', '°'), (r'\\circ(?![a-zA-Z])', '°'), (r'\\AA(?![a-zA-Z])', 'Å')
     ]
     for pattern_str, repl in greek_symbols:
         t = re.sub(pattern_str, repl, t)
 
-    # 6. Mathematical & Logical Operators
+    # 6. Trigonometry, Logarithms & Mathematical Functions (Strip leading backslash)
+    math_functions = [
+        r'\\sin(?![a-zA-Z])', r'\\cos(?![a-zA-Z])', r'\\tan(?![a-zA-Z])', r'\\cot(?![a-zA-Z])', r'\\sec(?![a-zA-Z])', r'\\csc(?![a-zA-Z])',
+        r'\\arcsin(?![a-zA-Z])', r'\\arccos(?![a-zA-Z])', r'\\arctan(?![a-zA-Z])', r'\\sinh(?![a-zA-Z])', r'\\cosh(?![a-zA-Z])', r'\\tanh(?![a-zA-Z])',
+        r'\\ln(?![a-zA-Z])', r'\\log(?![a-zA-Z])', r'\\exp(?![a-zA-Z])', r'\\det(?![a-zA-Z])', r'\\dim(?![a-zA-Z])', r'\\ker(?![a-zA-Z])', r'\\deg(?![a-zA-Z])',
+        r'\\max(?![a-zA-Z])', r'\\min(?![a-zA-Z])', r'\\sup(?![a-zA-Z])', r'\\inf(?![a-zA-Z])'
+    ]
+    for fn in math_functions:
+        t = re.sub(fn, lambda m: m.group(0)[1:], t)
+
+    # Limits: \lim_{x \to 0} -> lim(x → 0)
+    t = re.sub(r'\\lim_\{([^}]+)\}', r'lim(\1)', t)
+    t = re.sub(r'\\lim(?![a-zA-Z])', 'lim', t)
+
+    # 7. Mathematical & Logical Operators
     math_ops = [
-        (r'\\times', '×'), (r'\\div', '÷'), (r'\\pm', '±'), (r'\\mp', '∓'),
-        (r'\\cdot', '·'), (r'\\bullet', '•'), (r'\\approx', '≈'), (r'\\neq', '≠'),
-        (r'\\leq', '≤'), (r'\\le', '≤'), (r'\\geq', '≥'), (r'\\ge', '≥'),
-        (r'\\equiv', '≡'), (r'\\propto', '∝'), (r'\\sim', '~'),
-        (r'\\rightarrow', '→'), (r'\\to', '→'), (r'\\leftarrow', '←'),
-        (r'\\leftrightarrow', '↔'), (r'\\Rightarrow', '⇒'), (r'\\Leftarrow', '⇐'),
-        (r'\\Leftrightarrow', '⇔'), (r'\\iff', '⇔'),
-        (r'\\infty', '∞'), (r'\\partial', '∂'), (r'\\nabla', '∇'), (r'\\angle', '∠'),
-        (r'\\parallel', '∥'), (r'\\perp', '⊥'), (r'\\triangle', '△'),
-        (r'\\in', '∈'), (r'\\notin', '∉'), (r'\\subset', '⊂'), (r'\\subseteq', '⊆'),
-        (r'\\cap', '∩'), (r'\\cup', '∪'), (r'\\forall', '∀'), (r'\\exists', '∃')
+        (r'\\times(?![a-zA-Z])', '×'), (r'\\div(?![a-zA-Z])', '÷'), (r'\\pm(?![a-zA-Z])', '±'), (r'\\mp(?![a-zA-Z])', '∓'),
+        (r'\\cdot(?![a-zA-Z])', '·'), (r'\\bullet(?![a-zA-Z])', '•'), (r'\\approx(?![a-zA-Z])', '≈'), (r'\\neq(?![a-zA-Z])', '≠'), (r'\\ne(?![a-zA-Z])', '≠'),
+        (r'\\leq(?![a-zA-Z])', '≤'), (r'\\le(?![a-zA-Z])', '≤'), (r'\\geq(?![a-zA-Z])', '≥'), (r'\\ge(?![a-zA-Z])', '≥'),
+        (r'\\ll(?![a-zA-Z])', '≪'), (r'\\gg(?![a-zA-Z])', '≫'), (r'\\equiv(?![a-zA-Z])', '≡'), (r'\\cong(?![a-zA-Z])', '≅'),
+        (r'\\propto(?![a-zA-Z])', '∝'), (r'\\sim(?![a-zA-Z])', '~'),
+        (r'\\rightarrow(?![a-zA-Z])', '→'), (r'\\to(?![a-zA-Z])', '→'), (r'\\leftarrow(?![a-zA-Z])', '←'),
+        (r'\\leftrightarrow(?![a-zA-Z])', '↔'), (r'\\Rightarrow(?![a-zA-Z])', '⇒'), (r'\\implies(?![a-zA-Z])', '⇒'),
+        (r'\\Leftarrow(?![a-zA-Z])', '⇐'), (r'\\Leftrightarrow(?![a-zA-Z])', '⇔'), (r'\\iff(?![a-zA-Z])', '⇔'),
+        (r'\\rightleftharpoons(?![a-zA-Z])', '⇌'),
+        (r'\\infty(?![a-zA-Z])', '∞'), (r'\\angle(?![a-zA-Z])', '∠'), (r'\\parallel(?![a-zA-Z])', '∥'), (r'\\perp(?![a-zA-Z])', '⊥'), (r'\\triangle(?![a-zA-Z])', '△'),
+        (r'\\in(?![a-zA-Z])', '∈'), (r'\\notin(?![a-zA-Z])', '∉'), (r'\\subset(?![a-zA-Z])', '⊂'), (r'\\subseteq(?![a-zA-Z])', '⊆'),
+        (r'\\supset(?![a-zA-Z])', '⊃'), (r'\\supseteq(?![a-zA-Z])', '⊇'),
+        (r'\\cap(?![a-zA-Z])', '∩'), (r'\\cup(?![a-zA-Z])', '∪'), (r'\\forall(?![a-zA-Z])', '∀'), (r'\\exists(?![a-zA-Z])', '∃'),
+        (r'\\emptyset(?![a-zA-Z])', '∅'), (r'\\otimes(?![a-zA-Z])', '⊗'), (r'\\oplus(?![a-zA-Z])', '⊕'), (r'\\odot(?![a-zA-Z])', '⊙')
     ]
     for pattern_str, repl in math_ops:
         t = re.sub(pattern_str, repl, t)
 
-    # 7. Calculus Integrals & Summations
-    t = re.sub(r'\\iint', '∬', t)
-    t = re.sub(r'\\iiint', '∭', t)
-    t = re.sub(r'\\oint', '∮', t)
-    t = re.sub(r'\\int', '∫', t)
-    t = re.sub(r'\\sum', '∑', t)
-    t = re.sub(r'\\prod', '∏', t)
+    # 8. Calculus Integrals & Summations
+    t = re.sub(r'\\iint(?![a-zA-Z])', '∬', t)
+    t = re.sub(r'\\iiint(?![a-zA-Z])', '∭', t)
+    t = re.sub(r'\\oint(?![a-zA-Z])', '∮', t)
+    t = re.sub(r'\\int(?![a-zA-Z])', '∫', t)
+    t = re.sub(r'\\sum(?![a-zA-Z])', '∑', t)
+    t = re.sub(r'\\prod(?![a-zA-Z])', '∏', t)
 
-    # 8. Square Roots (iterative for nested braces): \sqrt{x} -> √(x), \sqrt[n]{x} -> ⁿ√(x)
-    for _ in range(4):
+    # 9. LaTeX Text & Font Formatting
+    t = re.sub(r'\\mathbf\{([^{}]+)\}', r'<b>\1</b>', t)
+    t = re.sub(r'\\textbf\{([^{}]+)\}', r'<b>\1</b>', t)
+    t = re.sub(r'\\boldsymbol\{([^{}]+)\}', r'<b>\1</b>', t)
+    t = re.sub(r'\\bm\{([^{}]+)\}', r'<b>\1</b>', t)
+    t = re.sub(r'\\mathit\{([^{}]+)\}', r'<i>\1</i>', t)
+    t = re.sub(r'\\textit\{([^{}]+)\}', r'<i>\1</i>', t)
+    t = re.sub(r'\\underline\{([^{}]+)\}', r'<u>\1</u>', t)
+    t = re.sub(r'\\text\{([^{}]+)\}', r'\1', t)
+    t = re.sub(r'\\mathrm\{([^{}]+)\}', r'\1', t)
+    t = re.sub(r'\\operatorname\{([^{}]+)\}', r'\1', t)
+    t = re.sub(r'\\mathbb\{([^{}]+)\}', r'\1', t)
+    t = re.sub(r'\\mathcal\{([^{}]+)\}', r'\1', t)
+
+    # 10. Fractions and Roots (Iterative multi-pass to handle nested fractions and roots)
+    def _format_fraction(m):
+        num = m.group(1).strip()
+        den = m.group(2).strip()
+        if re.match(r'^[+-]?[0-9a-zA-Zα-ωΑ-Ω\.\u20D7\u0302\u0304]+$', num) and re.match(r'^[+-]?[0-9a-zA-Zα-ωΑ-Ω\.\u20D7\u0302\u0304]+$', den):
+            return f"{num}/{den}"
+        return f"({num})/({den})"
+
+    for _ in range(5):
+        t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', _format_fraction, t)
         t = re.sub(r'\\sqrt\[([^{}]+)\]\{([^{}]+)\}', r'<sup>\1</sup>√(\2)', t)
         t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
 
-    # 9. Fractions: Format simple numerical/symbolic fractions cleanly (e.g. \frac{7}{2} -> 7/2)
-    def _format_fraction_match(m):
-        num = m.group(1).strip()
-        den = m.group(2).strip()
-        # If simple integer, signed number, or single variable term: 7/2, -5/2, x/y
-        if re.match(r'^[+-]?[0-9a-zA-Z]+$', num) and re.match(r'^[+-]?[0-9a-zA-Z]+$', den):
-            return f"{num}/{den}"
-        return f"({num}) / ({den})"
-
-    for _ in range(4):
-        t = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', _format_fraction_match, t)
-
-    # 10. Unicode Superscript mapping for common mathematical exponents (e.g. x^2 -> x²)
+    # 11. Unicode Superscript mapping for common mathematical exponents (e.g. x^2 -> x², 10^{-3} -> 10⁻³)
     SUPERSCRIPT_MAP = {
         '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
         '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
         '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
-        'n': 'ⁿ', 'i': 'ⁱ', 'x': 'ˣ', 'y': 'ʸ'
+        'n': 'ⁿ', 'i': 'ⁱ', 'x': 'ˣ', 'y': 'ʸ', 'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ',
+        'm': 'ᵐ', 'p': 'ᵖ', 't': 'ᵗ', 'k': 'ᵏ', 'o': 'ᵒ', 'r': 'ʳ', 's': 'ˢ'
     }
 
     def _replace_super(m):
@@ -256,12 +304,12 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\^\{([^{}]+)\}', _replace_super, t)
     t = re.sub(r'\^([0-9a-zA-Z+\-]+)', _replace_super, t)
 
-    # 11. Subscripts / Indices / Chemical formulas: H_2O -> H₂O
+    # 12. Subscripts / Indices / Chemical formulas: H_2O -> H₂O, \varepsilon_0 -> ε₀
     SUBSCRIPT_MAP = {
         '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
         '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
         '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎',
-        'a': 'ₐ', 'e': 'ₑ', 'o': 'ₒ', 'x': 'ₓ', 'h': 'ₕ', 'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'p': 'ₚ', 's': 'ₛ', 't': 'ₜ'
+        'a': 'ₐ', 'e': 'ₑ', 'o': 'ₒ', 'x': 'ₓ', 'h': 'ₕ', 'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'p': 'ₚ', 's': 'ₛ', 't': 'ₜ', 'i': 'ᵢ', 'j': 'ⱼ', 'r': 'ᵣ', 'u': 'ᵤ', 'v': 'ᵥ'
     }
 
     def _replace_sub(m):
@@ -270,56 +318,16 @@ def clean_md_to_reportlab(text: str) -> str:
             return ''.join(SUBSCRIPT_MAP[c] for c in content)
         return f"<sub>{content}</sub>"
 
-    for _ in range(3):
+    for _ in range(4):
         t = re.sub(r'_\{([^{}]+)\}', _replace_sub, t)
     t = re.sub(r'_([0-9]+)', _replace_sub, t)
-    t = re.sub(r'_([a-zA-Z])', _replace_sub, t)
+    t = re.sub(r'_([a-zA-Z])(?![a-zA-Z])', _replace_sub, t)
 
-    # 10. LaTeX Text Formatting
-    t = re.sub(r'\\mathbf\{([^{}]+)\}', r'<b>\1</b>', t)
-    t = re.sub(r'\\textbf\{([^{}]+)\}', r'<b>\1</b>', t)
-    t = re.sub(r'\\mathit\{([^{}]+)\}', r'<i>\1</i>', t)
-    t = re.sub(r'\\textit\{([^{}]+)\}', r'<i>\1</i>', t)
-    t = re.sub(r'\\underline\{([^{}]+)\}', r'<u>\1</u>', t)
-    t = re.sub(r'\\text\{([^{}]+)\}', r'\1', t)
-    t = re.sub(r'\\mathrm\{([^{}]+)\}', r'\1', t)
-    t = re.sub(r'\\operatorname\{([^{}]+)\}', r'\1', t)
-
-    # 11. Greek symbols & Mathematical Constants
-    greek_symbols = [
-        (r'\\alpha', 'α'), (r'\\beta', 'β'), (r'\\gamma', 'γ'), (r'\\Gamma', 'Γ'),
-        (r'\\delta', 'δ'), (r'\\Delta', 'Δ'), (r'\\epsilon', 'ε'), (r'\\varepsilon', 'ε'),
-        (r'\\zeta', 'ζ'), (r'\\eta', 'η'), (r'\\theta', 'θ'), (r'\\Theta', 'Θ'),
-        (r'\\lambda', 'λ'), (r'\\Lambda', 'Λ'), (r'\\mu', 'μ'), (r'\\nu', 'ν'),
-        (r'\\xi', 'ξ'), (r'\\pi', 'π'), (r'\\Pi', 'Π'), (r'\\rho', 'ρ'),
-        (r'\\sigma', 'σ'), (r'\\Sigma', 'Σ'), (r'\\tau', 'τ'), (r'\\phi', 'φ'),
-        (r'\\Phi', 'Φ'), (r'\\chi', 'χ'), (r'\\psi', 'ψ'), (r'\\Psi', 'Ψ'),
-        (r'\\omega', 'ω'), (r'\\Omega', 'Ω'),
-        (r'\\degree', '°'), (r'\^\\circ', '°'), (r'\\circ', '°')
-    ]
-    for pattern_str, repl in greek_symbols:
-        t = re.sub(pattern_str, repl, t)
-
-    # 12. Mathematical & Logical Operators
-    math_ops = [
-        (r'\\times', '×'), (r'\\div', '÷'), (r'\\pm', '±'), (r'\\mp', '∓'),
-        (r'\\cdot', '·'), (r'\\bullet', '•'), (r'\\approx', '≈'), (r'\\neq', '≠'),
-        (r'\\leq', '≤'), (r'\\le', '≤'), (r'\\geq', '≥'), (r'\\ge', '≥'),
-        (r'\\equiv', '≡'), (r'\\propto', '∝'), (r'\\sim', '~'),
-        (r'\\rightarrow', '→'), (r'\\to', '→'), (r'\\leftarrow', '←'),
-        (r'\\leftrightarrow', '↔'), (r'\\Rightarrow', '⇒'), (r'\\Leftarrow', '⇐'),
-        (r'\\Leftrightarrow', '⇔'), (r'\\iff', '⇔'),
-        (r'\\infty', '∞'), (r'\\partial', '∂'), (r'\\nabla', '∇'), (r'\\angle', '∠'),
-        (r'\\parallel', '∥'), (r'\\perp', '⊥'), (r'\\triangle', '△'),
-        (r'\\in', '∈'), (r'\\notin', '∉'), (r'\\subset', '⊂'), (r'\\subseteq', '⊆'),
-        (r'\\cap', '∩'), (r'\\cup', '∪'), (r'\\forall', '∀'), (r'\\exists', '∃')
-    ]
-    for pattern_str, repl in math_ops:
-        t = re.sub(pattern_str, repl, t)
-
-    # 13. Strip leftover LaTeX layout artifacts
-    t = re.sub(r'\\displaystyle', '', t)
-    t = re.sub(r'\\limits', '', t)
+    # 13. Strip leftover LaTeX layout artifacts & stray backslashes
+    t = re.sub(r'\\displaystyle(?![a-zA-Z])', '', t)
+    t = re.sub(r'\\textstyle(?![a-zA-Z])', '', t)
+    t = re.sub(r'\\limits(?![a-zA-Z])', '', t)
+    t = re.sub(r'\\nolimits(?![a-zA-Z])', '', t)
     t = re.sub(r'\\left\(', '(', t)
     t = re.sub(r'\\right\)', ')', t)
     t = re.sub(r'\\left\[', '[', t)
@@ -328,13 +336,17 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\right\}', '}', t)
     t = re.sub(r'\\left\|', '|', t)
     t = re.sub(r'\\right\|', '|', t)
-    t = re.sub(r'\\left', '', t)
-    t = re.sub(r'\\right', '', t)
+    t = re.sub(r'\\left\.', '', t)
+    t = re.sub(r'\\right\.', '', t)
+    t = re.sub(r'\\left(?![a-zA-Z])', '', t)
+    t = re.sub(r'\\right(?![a-zA-Z])', '', t)
     t = re.sub(r'\\[,\;!]', ' ', t)
-    t = re.sub(r'\\quad', '\u00A0\u00A0', t)
-    t = re.sub(r'\\qquad', '\u00A0\u00A0\u00A0\u00A0', t)
+    t = re.sub(r'\\quad(?![a-zA-Z])', '  ', t)
+    t = re.sub(r'\\qquad(?![a-zA-Z])', '    ', t)
+    
+    # Strip stray backslashes before regular characters (e.g. \%, \$, \_, \&, \#)
+    t = re.sub(r'\\([%$\&_#{}])', r'\1', t)
     t = re.sub(r'\\\s+', ' ', t)
-    t = t.replace('&nbsp;', '\u00A0')
 
     # 14. Convert Markdown bold **text** to <b>text</b>
     t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t)
@@ -999,6 +1011,11 @@ class PDFGeneratorService:
                 story.append(t_flow)
             except Exception:
                 pass
+
+        doc.build(story, canvasmaker=NumberedCanvas)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
 
 class RuledLinesFlowable(Flowable):
     """Draws crisp, high-precision ruled writing lines for student handwritten answers."""
