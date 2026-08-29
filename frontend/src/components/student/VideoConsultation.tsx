@@ -16,24 +16,15 @@ import {
   Send,
   MessageSquare,
   X,
-  FileText,
+  Eye,
+  SwitchCamera,
   CheckCircle2,
   HelpCircle,
-  BookOpen,
-  GraduationCap,
-  SwitchCamera
+  Camera
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-
-const TOPICS = [
-  { id: "ask_anything", title: "खुली चर्चा एवं कोई भी सवाल (Ask Anything)", desc: "किसी भी विषय, शंका, जिज्ञासा, करियर, तकनीक या व्यक्तिगत मार्गदर्शन पर बेझिझक बात करें", icon: Sparkles },
-  { id: "math_science", title: "गणित एवं विज्ञान शंका समाधान", desc: "कठिन सूत्रों, प्रमेयों और संख्यात्मक प्रश्नों की सरल व्याख्या", icon: BookOpen },
-  { id: "exam_strategy", title: "CBSE / बोर्ड परीक्षा तैयारी रणनीति", desc: "समय प्रबंधन, महत्वपूर्ण अध्याय और उच्च अंक प्राप्त करने की तकनीक", icon: GraduationCap },
-  { id: "chapter_revision", title: "त्वरित अध्याय पुनरीक्षण (Revision)", desc: "मुख्य अवधारणाओं का तेजी से अभ्यास और त्वरित प्रश्नोत्तर", icon: Sparkles },
-  { id: "study_guidance", title: "अध्ययन एवं करियर मार्गदर्शन", desc: "पढ़ाई में एकाग्रता और सही विषय चयन हेतु व्यक्तिगत सलाह", icon: HelpCircle }
-];
 
 // Helper: Clean markdown, LaTeX, and symbols so Hindi speech is natural
 function cleanHindiTextForSpeech(rawText: string): string {
@@ -105,7 +96,6 @@ export function VideoConsultation() {
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [aiThinking, setAiThinking] = useState(false);
   const [callTime, setCallTime] = useState(0);
-  const [selectedTopic, setSelectedTopic] = useState(TOPICS[0].title);
 
   // Subtitles & Captions (Hindi)
   const [userSub, setUserSub] = useState("");
@@ -115,7 +105,6 @@ export function VideoConsultation() {
   const [textInput, setTextInput] = useState("");
   const [showChatModal, setShowChatModal] = useState(false);
   const [transcript, setTranscript] = useState<{ who: "you" | "ai"; text: string }[]>([]);
-  const [notesGenerated, setNotesGenerated] = useState<string | null>(null);
 
   // Media & Recognition Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -244,7 +233,7 @@ export function VideoConsultation() {
   }, [facingMode, startCamera]);
 
   useEffect(() => {
-    if (inCall && streamRef.current && videoRef.current) {
+    if (streamRef.current && videoRef.current) {
       videoRef.current.srcObject = streamRef.current;
       videoRef.current.play().catch(() => {});
     }
@@ -278,6 +267,84 @@ export function VideoConsultation() {
     });
   };
 
+  // CONTINUOUS LIVE STREAM SAMPLER: Continually tracks real-time video frames in memory
+  const liveFrameRef = useRef<Blob | null>(null);
+
+  useEffect(() => {
+    if (!inCall || !cameraOn) return;
+    const interval = setInterval(() => {
+      if (!videoRef.current || !streamRef.current) return;
+      const video = videoRef.current;
+      if (video.videoWidth === 0 || video.videoHeight === 0 || video.readyState < 2) return;
+      try {
+        const canvas = document.createElement("canvas");
+        let width = video.videoWidth;
+        let height = video.videoHeight;
+        const maxDim = 800;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            if (blob) liveFrameRef.current = blob;
+          }, "image/jpeg", 0.85);
+        }
+      } catch {}
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, [inCall, cameraOn]);
+
+  const captureCurrentFrame = useCallback((): Blob | null => {
+    if (liveFrameRef.current) return liveFrameRef.current;
+    if (!videoRef.current || !streamRef.current) return null;
+    const video = videoRef.current;
+    if (video.videoWidth === 0 || video.videoHeight === 0 || video.readyState < 2) return null;
+
+    try {
+      const canvas = document.createElement("canvas");
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+      const maxDim = 800;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+
+      ctx.drawImage(video, 0, 0, width, height);
+
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      const byteString = atob(dataUrl.split(",")[1]);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      return new Blob([ab], { type: "image/jpeg" });
+    } catch {
+      return null;
+    }
+  }, []);
+
   // Cross-calling functional refs
   const startListeningRef = useRef<() => void>(() => {});
   const speakRef = useRef<(text: string) => void>(() => {});
@@ -299,107 +366,109 @@ export function VideoConsultation() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) return;
 
-    const isMobileDevice = typeof navigator !== "undefined" && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
-
-    const rec = new SR();
-    rec.continuous = !isMobileDevice;
-    rec.interimResults = true;
-    rec.lang = "hi-IN"; // Pure Hindi Speech Recognition
-
-    const finalizeAndSendSpeech = () => {
-      const textToSend = pendingSpeechRef.current.trim();
-      if (textToSend && textToSend.length > 1) {
-        pendingSpeechRef.current = "";
-        clearTimeout(silenceTimerRef.current);
-        setUserSub("");
-        sendMessageRef.current(textToSend);
-      }
-    };
-
-    rec.onresult = (e: any) => {
-      if (isAiSpeakingRef.current || isAiThinkingRef.current || Date.now() < aiSpeakingCooldownRef.current) {
-        return;
-      }
-
-      let interim = "";
-      let final = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) { final += t; } else { interim += t; }
-      }
-
-      const candidate = (final || interim).trim();
-      if (!candidate) return;
-
-      // Echo filter against recent AI output
-      const recentAiText = lastAiSpokenCleanRef.current;
-      if (recentAiText && candidate.length > 4 && recentAiText.includes(candidate)) {
-        return;
-      }
-
-      pendingSpeechRef.current = candidate;
-      setUserSub(candidate);
-
-      clearTimeout(silenceTimerRef.current);
-      if (final && final.trim()) {
-        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 450);
-      } else {
-        silenceTimerRef.current = setTimeout(finalizeAndSendSpeech, 850);
-      }
-    };
-
-    rec.onerror = () => {
-      recognitionRef.current = null;
-    };
-
-    rec.onend = () => {
-      recognitionRef.current = null;
-      if (pendingSpeechRef.current.trim() && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-        finalizeAndSendSpeech();
-      }
-
-      if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-        setTimeout(() => {
-          if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-            startListeningRef.current();
-          }
-        }, 180);
-      }
-    };
-
-    recognitionRef.current = rec;
     try {
+      const rec = new SR();
+      rec.lang = "hi-IN";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+
+      rec.onstart = () => {
+        pendingSpeechRef.current = "";
+      };
+
+      rec.onresult = (e: any) => {
+        if (!inCallRef.current || !micOnRef.current) return;
+        if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
+        if (Date.now() < aiSpeakingCooldownRef.current) return;
+
+        let interim = "";
+        let final = "";
+
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const trans = e.results[i][0].transcript;
+          if (e.results[i].isFinal) {
+            final += trans + " ";
+          } else {
+            interim += trans;
+          }
+        }
+
+        const candidateText = (final || interim).trim();
+        if (!candidateText) return;
+
+        // Filter out echo if AI just spoke similar words
+        if (lastAiSpokenCleanRef.current && candidateText.length > 5) {
+          if (lastAiSpokenCleanRef.current.includes(candidateText) || candidateText.includes(lastAiSpokenCleanRef.current.slice(0, 15))) {
+            return;
+          }
+        }
+
+        setUserSub(candidateText);
+        pendingSpeechRef.current = (pendingSpeechRef.current + " " + final).trim() || candidateText;
+
+        // Debounced silence trigger: sends spoken message automatically after 1.2s of silence
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          const toSend = pendingSpeechRef.current.trim();
+          if (toSend && toSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+            pendingSpeechRef.current = "";
+            sendMessageRef.current(toSend);
+          }
+        }, 1200);
+      };
+
+      rec.onerror = (e: any) => {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          rec.abort();
+          recognitionRef.current = null;
+        }
+      };
+
+      rec.onend = () => {
+        recognitionRef.current = null;
+        if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+          setTimeout(() => {
+            if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+              startListeningRef.current();
+            }
+          }, 300);
+        }
+      };
+
+      recognitionRef.current = rec;
       rec.start();
-    } catch {}
+    } catch {
+      recognitionRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
     startListeningRef.current = startListening;
   }, [startListening]);
 
-  // High-Quality Hindi Speech Synthesis (hi-IN)
-  const speak: (text: string) => void = useCallback((text: string) => {
-    if (!speakerOn || typeof window === "undefined" || !("speechSynthesis" in window)) return;
-
-    stopListening();
-    isAiSpeakingRef.current = true;
-    setAiSpeaking(true);
-    window.speechSynthesis.cancel();
-
-    const cleanText = cleanHindiTextForSpeech(text);
-    if (!cleanText) {
-      isAiSpeakingRef.current = false;
-      setAiSpeaking(false);
+  // Hindi Natural Speech Output (TTS)
+  const speak = useCallback((text: string) => {
+    if (!speakerOn || typeof window === "undefined" || !("speechSynthesis" in window)) {
       if (inCallRef.current && micOnRef.current) startListeningRef.current();
       return;
     }
 
-    lastAiSpokenCleanRef.current = cleanText.toLowerCase();
+    stopListening();
+    window.speechSynthesis.cancel();
 
-    const utt = new SpeechSynthesisUtterance(cleanText);
-    utt.rate = 0.95; // Warm, natural Hindi pacing
-    utt.pitch = 1.0;
+    const spokenText = cleanHindiTextForSpeech(text);
+    if (!spokenText) {
+      if (inCallRef.current && micOnRef.current) startListeningRef.current();
+      return;
+    }
+
+    lastAiSpokenCleanRef.current = spokenText.slice(0, 40);
+
+    const utt = new SpeechSynthesisUtterance(spokenText);
     utt.lang = "hi-IN";
+    utt.rate = 1.0;
+    utt.pitch = 1.05;
 
     const voice = getHindiVoice();
     if (voice) utt.voice = voice;
@@ -407,26 +476,25 @@ export function VideoConsultation() {
     utt.onstart = () => {
       isAiSpeakingRef.current = true;
       setAiSpeaking(true);
+      stopListening();
     };
 
     utt.onend = () => {
       isAiSpeakingRef.current = false;
       setAiSpeaking(false);
-      aiSpeakingCooldownRef.current = Date.now() + 700;
+      aiSpeakingCooldownRef.current = Date.now() + 800;
       setTimeout(() => {
-        if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+        if (inCallRef.current && micOnRef.current) {
           startListeningRef.current();
         }
-      }, 700);
-      setTimeout(() => setAiSub(""), 4000);
+      }, 400);
     };
 
     utt.onerror = () => {
       isAiSpeakingRef.current = false;
       setAiSpeaking(false);
-      aiSpeakingCooldownRef.current = Date.now() + 400;
       setTimeout(() => {
-        if (inCallRef.current && micOnRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+        if (inCallRef.current && micOnRef.current) {
           startListeningRef.current();
         }
       }, 400);
@@ -439,7 +507,7 @@ export function VideoConsultation() {
     speakRef.current = speak;
   }, [speak]);
 
-  // AI Response Stream in Hindi
+  // AI Response Stream in Hindi with LIVE REAL-TIME CAMERA VISION
   const sendMessage: (text: string) => Promise<void> = useCallback(async (text: string) => {
     if (!text.trim() || isAiThinkingRef.current) return;
 
@@ -451,12 +519,21 @@ export function VideoConsultation() {
 
     try {
       const fd = new FormData();
-      const promptDirective = `[लाइव 1-ON-1 वीडियो परामर्श सत्र - खुली चर्चा एवं मार्गदर्शन]: आप DEVGYA के वरिष्ठ AI शिक्षक एवं मार्गदर्शक हैं। आप लाइव 1-on-1 वीडियो परामर्श सत्र में हैं। इस सत्र में कोई विषय पाबंदी नहीं है — उपयोगकर्ता पढ़ाई, विज्ञान, तकनीक, गणित, करियर, सामान्य ज्ञान, जीवन मार्गदर्शन, व्यक्तिगत विकास या अपनी किसी भी जिज्ञासा पर कुछ भी पूछ सकता है। उपयोगकर्ता के सवाल का 2 से 3 संक्षिप्त, सरल, अत्यंत स्पष्ट और प्रेरणादायक हिंदी (Hindi Devanagari) वाक्यों में सीधा और संपूर्ण उत्तर दें। उपयोगकर्ता का प्रश्न: "${text}"`;
+      const promptDirective = `[लाइव 1-ON-1 वीडियो एवं विज़न परामर्श सत्र]: आप DEVGYA के वरिष्ठ AI लाइव वीडियो एवं विज़न शिक्षक (Senior Live Video AI Mentor) हैं। आप उपयोगकर्ता के साथ लाइव वीडियो कॉल पर हैं और आपके सामने उपयोगकर्ता का लाइव कैमरा विज़न फ्रेम (Live Camera Vision) संलग्न है। 
+आपको उपयोगकर्ता की हर गतिविधि, चेहरे के भाव (खुश/मुस्कुराना, उदास, गुस्सा, विचारशील, हैरान), उँगलियों के इशारे (1, 2, 3, 4, 5 उँगलियाँ दिखाना, थम्ब्स अप, विक्ट्री साइन), कपड़े, हाथ में पकड़ी किताब/कॉपी/नोट्स या आस-पास की वस्तुएं स्पष्ट रूप से दिखाई दे रही हैं। 
+जब भी उपयोगकर्ता पूछे कि 'मैं कितनी उंगलियां दिखा रहा हूँ?', 'मेरे चेहरे के क्या भाव हैं / मैं खुश हूँ या उदास?', 'क्या आप मेरी कॉपी देख सकते हैं?' या कोई भी सवाल पूछे, तो संलग्न लाइव कैमरा चित्र को ध्यान से देखकर तुरंत सटीक, प्राकृतिक, और अत्यंत स्पष्ट हिंदी (Hindi Devanagari) में 2 से 3 संक्षिप्त वाक्यों में उत्तर दें। कभी यह न कहें कि आप देख नहीं सकते — आप लाइव कैमरे से सब कुछ देख रहे हैं। 
+उपयोगकर्ता का प्रश्न: "${text}"`;
       
       fd.append("message", promptDirective);
       fd.append("agent_code", "video_consultant");
       fd.append("user_id", user?.id || "anonymous");
       fd.append("language", "hindi"); // Strictly Hindi
+
+      // ATTACH LIVE REAL-TIME CAMERA SNAPSHOT FOR VISION
+      const frameBlob = captureCurrentFrame();
+      if (frameBlob) {
+        fd.append("images", frameBlob, "live_camera_snapshot.jpg");
+      }
 
       const res = await fetch(`${API_BASE}/agents/chat`, { method: "POST", body: fd });
 
@@ -491,7 +568,7 @@ export function VideoConsultation() {
       setAiThinking(false);
       if (inCallRef.current && micOnRef.current) startListeningRef.current();
     }
-  }, [user?.id, stopListening]);
+  }, [user?.id, stopListening, captureCurrentFrame]);
 
   useEffect(() => {
     sendMessageRef.current = sendMessage;
@@ -502,9 +579,7 @@ export function VideoConsultation() {
     await startCamera(facingMode);
     setInCall(true);
     setTranscript([]);
-    const welcomeMsg = selectedTopic.includes("Ask Anything") || selectedTopic.includes("खुली चर्चा")
-      ? "नमस्ते! मैं आपका DEVGYA AI लाइव वीडियो शिक्षक हूँ। आप मुझसे किसी भी विषय, शंका या जिज्ञासा पर कुछ भी पूछ सकते हैं। आप सीधे बोलकर अपना सवाल पूछें!"
-      : `नमस्ते! मैं आपका DEVGYA AI शिक्षक हूँ। आज हम "${selectedTopic}" पर बात करेंगे। आप सीधे बोलकर अपना सवाल पूछ सकते हैं!`;
+    const welcomeMsg = "नमस्ते! मैं आपका DEVGYA AI लाइव वीडियो एवं विज़न शिक्षक हूँ। मेरा कैमरा और विज़न सक्रिय है — आप मुझे कुछ भी दिखा सकते हैं (जैसे उँगलियाँ, चेहरे के भाव, या अपनी कॉपी) और कोई भी सवाल पूछ सकते हैं!";
     setAiSub(welcomeMsg);
     setTranscript([{ who: "ai", text: welcomeMsg }]);
     speak(welcomeMsg);
@@ -519,14 +594,6 @@ export function VideoConsultation() {
       window.speechSynthesis.cancel();
     }
 
-    if (transcript.length > 1) {
-      const summaryText = `परामर्श सत्र सारांश (${new Date().toLocaleDateString("hi-IN")})\n` +
-        `विषय: ${selectedTopic}\n` +
-        `सत्र अवधि: ${fmt(callTime)}\n` +
-        `मुख्य बिंदु: ${transcript.filter(t => t.who === "ai").map(t => t.text).slice(0, 3).join(" | ")}`;
-      setNotesGenerated(summaryText);
-    }
-
     setInCall(false);
     setCameraOn(true);
     setMicOn(true);
@@ -536,9 +603,9 @@ export function VideoConsultation() {
     setAiSub("");
   };
 
-  // ==========================================
-  // PRE-CALL SETUP SCREEN (CLEAN & HINDI-ONLY)
-  // ==========================================
+  // ========================================================
+  // PRE-CALL SETUP SCREEN (CLEAN, DIRECT & VISION READY)
+  // ========================================================
   if (!inCall) {
     return (
       <div className="max-w-4xl mx-auto space-y-6 pb-12 px-2 sm:px-4 animate-in fade-in duration-300">
@@ -549,56 +616,60 @@ export function VideoConsultation() {
             <div className="space-y-2">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-emerald-300 text-xs font-black backdrop-blur-md">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                <span>100% हिंदी AI परामर्श (1-on-1 Hindi Live Tutor)</span>
+                <span>100% लाइव AI विज़न एवं हिंदी वीडियो परामर्श (Live Vision Tutor)</span>
               </div>
               <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
-                AI वीडियो परामर्श केंद्र
+                AI लाइव वीडियो परामर्श केंद्र
               </h1>
               <p className="text-slate-200 text-xs sm:text-sm font-medium leading-relaxed max-w-lg">
-                अपने व्यक्तिगत AI शिक्षक के साथ सीधे हिंदी में बातचीत करें। कोई भी शंका पूछें, तुरंत उत्तर और मार्गदर्शन पाएं।
+                अपने व्यक्तिगत AI शिक्षक के साथ सीधे 1-on-1 लाइव वीडियो में बातचीत करें। AI आपके चेहरे के भाव, उँगलियों के इशारे और नोट्स देखकर तुरंत उत्तर देगा।
               </p>
             </div>
 
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 border border-white/20 flex flex-col items-center justify-center backdrop-blur-md shadow-lg shrink-0">
               <Video className="w-8 h-8 sm:w-10 sm:h-10 text-cyan-300 mb-1 animate-pulse" />
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
-                ● 24/7 सक्रिय
+                ● विज़न सक्रिय
               </span>
             </div>
           </div>
 
-          {/* TOPIC SELECTION */}
-          <div className="space-y-2.5 pt-4 border-t border-white/10">
-            <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4 text-cyan-300" />
-              <span>परामर्श का विषय चुनें:</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {TOPICS.map((tp) => {
-                const IconComponent = tp.icon;
-                const isSelected = selectedTopic === tp.title;
-                return (
-                  <button
-                    key={tp.id}
-                    onClick={() => setSelectedTopic(tp.title)}
-                    className={`p-3.5 rounded-2xl text-left transition-all border cursor-pointer flex items-start gap-3 ${
-                      isSelected
-                        ? "bg-white text-indigo-950 border-white shadow-lg font-black"
-                        : "bg-white/10 text-white border-white/10 hover:bg-white/20"
-                    }`}
-                  >
-                    <div className={`p-2 rounded-xl shrink-0 ${isSelected ? "bg-indigo-100 text-indigo-700" : "bg-white/10 text-cyan-300"}`}>
-                      <IconComponent className="w-4 h-4" />
-                    </div>
-                    <div className="space-y-0.5 min-w-0">
-                      <p className="text-xs font-black truncate">{tp.title}</p>
-                      <p className={`text-[11px] font-medium line-clamp-1 ${isSelected ? "text-indigo-800" : "text-slate-300"}`}>
-                        {tp.desc}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
+          {/* LIVE CAPABILITIES RADAR */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-white/10">
+            <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300 shrink-0">
+                <Eye className="w-4 h-4" />
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <p className="text-xs font-black text-white">लाइव AI विज़न (Vision)</p>
+                <p className="text-[11px] text-slate-300 font-medium leading-tight">
+                  उँगलियाँ गिनना, चेहरे के भाव (खुश/उदास/गुस्सा), कॉपी व किताबें देखना
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 shrink-0">
+                <Mic className="w-4 h-4" />
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <p className="text-xs font-black text-white">शुद्ध हिंदी संवाद (Neural Voice)</p>
+                <p className="text-[11px] text-slate-300 font-medium leading-tight">
+                  प्राकृतिक बोले जाने वाली हिंदी आवाज़ और लाइव स्पीच रिकॉग्निशन
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300 shrink-0">
+                <SwitchCamera className="w-4 h-4" />
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <p className="text-xs font-black text-white">फ्रंट व बैक कैमरा (Flip Camera)</p>
+                <p className="text-[11px] text-slate-300 font-medium leading-tight">
+                  रियर कैमरे से कॉपी/किताब दिखाएं और फ्रंट से चेहरा दिखाएं
+                </p>
+              </div>
             </div>
           </div>
 
@@ -609,29 +680,11 @@ export function VideoConsultation() {
               className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 uppercase tracking-wider"
             >
               <Phone className="w-4 h-4" />
-              <span>कॉल शुरू करें (Start Call)</span>
+              <span>लाइव वीडियो कॉल शुरू करें (Start Live Call)</span>
             </button>
           </div>
 
         </div>
-
-        {/* SESSION SUMMARY NOTES (IF GENERATED) */}
-        {notesGenerated && (
-          <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-2.5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <span className="text-xs font-black text-indigo-700 uppercase tracking-wider flex items-center gap-2">
-                <FileText className="w-4 h-4 text-indigo-600" />
-                पिछले सत्र का सारांश (Session Summary)
-              </span>
-              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-black">
-                सुरक्षित
-              </span>
-            </div>
-            <p className="text-xs text-slate-700 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 leading-relaxed whitespace-pre-wrap font-medium">
-              {notesGenerated}
-            </p>
-          </div>
-        )}
 
       </div>
     );
@@ -650,9 +703,10 @@ export function VideoConsultation() {
             <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
             <span className="text-xs font-black text-red-300">{fmt(callTime)}</span>
           </div>
-          <span className="text-xs font-black text-slate-200 truncate max-w-[150px] sm:max-w-xs">
-            {selectedTopic}
-          </span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-full text-cyan-300 text-[11px] font-black">
+            <Eye className="w-3 h-3" />
+            <span>AI विज़न कनेक्टेड</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -749,12 +803,12 @@ export function VideoConsultation() {
             ) : aiThinking ? (
               <div className="flex items-center gap-2 text-amber-300 text-xs font-black">
                 <div className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                <span>उत्तर तैयार किया जा रहा है...</span>
+                <span>विज़न व उत्तर तैयार किया जा रहा है...</span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-black">
                 <Mic className="w-3.5 h-3.5 animate-pulse" />
-                <span>आपकी आवाज़ सुनी जा रही है...</span>
+                <span>आपकी आवाज़ व कैमरा देखा जा रहा है...</span>
               </div>
             )}
           </div>
@@ -894,9 +948,9 @@ export function VideoConsultation() {
                     : "bg-slate-800 text-slate-200 border border-white/10 rounded-bl-xs"
                 }`}>
                   <p className="text-[10px] font-black uppercase text-slate-300 mb-0.5">
-                    {m.who === "you" ? "आप" : "AI शिक्षक"}
+                    {m.who === "you" ? "आप" : "DEVGYA AI शिक्षक"}
                   </p>
-                  {m.text}
+                  <p>{m.text}</p>
                 </div>
               </div>
             ))}
@@ -908,25 +962,23 @@ export function VideoConsultation() {
               if (textInput.trim()) {
                 sendMessage(textInput.trim());
                 setTextInput("");
-                setShowChatModal(false);
               }
             }}
-            className="p-3 border-t border-white/10 bg-slate-900 flex items-center gap-2"
+            className="p-3 border-t border-white/10 flex gap-2"
           >
             <input
               type="text"
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              placeholder="हिंदी में सवाल टाइप करें..."
-              className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 font-medium"
+              placeholder="यहाँ टाइप करें (Type message)..."
+              className="flex-1 bg-slate-900 border border-white/20 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
             />
             <button
               type="submit"
-              disabled={!textInput.trim() || aiThinking}
-              className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-md"
+              disabled={!textInput.trim() || aiThinking || aiSpeaking}
+              className="p-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl cursor-pointer"
             >
               <Send className="w-4 h-4" />
-              <span>भेजें</span>
             </button>
           </form>
         </div>
