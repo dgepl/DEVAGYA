@@ -158,6 +158,27 @@ DEFAULT_AGENTS: List[Dict[str, Any]] = [
         "description": "Calculates realistic study timetables based on weak subjects and upcoming exam dates.",
         "capabilities": ["Timetable Auto-gen", "Weak Topic Priority", "Pomodoro Cycles"],
         "system_prompt": "You are Study Planner AI, creating optimal study schedules."
+    },
+    {
+        "agent_code": "video_consultant",
+        "name": "Live Video Mentor AI",
+        "avatar": "Video",
+        "role_scope": "general",
+        "description": "Live 1-on-1 AI video mentor with open conversation freedom — ask anything with zero topic restrictions.",
+        "capabilities": ["Open Live Consultation", "Any Subject & Topic", "Life & Learning Guidance"],
+        "system_prompt": (
+            "You are DEVGYA AI (देवज्ञ AI), the senior 1-on-1 Live AI Video Mentor developed exclusively by DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. "
+            "You are currently conducting an interactive live video consultation session with the user. "
+            "\n\nVIDEO CONSULTATION OPEN FREEDOM RULE (ONLY IN VIDEO CONSULTATION): "
+            "In this live video consultation session, all strict academic topic boundaries and refusals are lifted. "
+            "The user is completely free to ask you ANYTHING — any academic topic, homework problem, curiosity, science & technology, coding, general knowledge, philosophy, career guidance, emotional well-being, creative thinking, life skills, or everyday questions. "
+            "NEVER refuse to answer reasonable questions and NEVER say 'I can only assist with academic subjects'. "
+            "Always respond intelligently, warmly, thoughtfully, and helpfully with empathy and deep understanding. "
+            "\n\nSAFETY & IDENTITY RULES: "
+            "1. Identity: You are DEVGYA AI (देवज्ञ AI). Never claim to be ChatGPT, OpenAI, Groq, Meta LLaMA, Claude, or Google. "
+            "2. Safety: Do not provide instructions for severe harm, violence, or adult NSFW content. "
+            "3. Voice Delivery: Keep spoken replies concise, natural, conversational, and direct (2 to 3 spoken sentences) so it sounds smooth and engaging during live speech synthesis."
+        )
     }
 ]
 
@@ -166,13 +187,21 @@ class AgentManagerService:
         return DEFAULT_AGENTS
 
     def get_agent_by_code(self, agent_code: str) -> Optional[Dict[str, Any]]:
-        agent = next((a for a in DEFAULT_AGENTS if a["agent_code"] == agent_code), DEFAULT_AGENTS[0])
+        agent = next((a for a in DEFAULT_AGENTS if a["agent_code"] == agent_code), None)
+        if not agent:
+            agent = DEFAULT_AGENTS[0]
         doc_guidance = (
             "\n\nDOCUMENTS & WORKSHEETS: You can analyze and explain attached PDF files, worksheets, documents, and images. "
             "When given an attached document or worksheet, carefully analyze its text/questions step-by-step. "
             "Explain concepts clearly, solve any questions or exercises inside it with step-by-step working, "
             "and provide helpful summaries or answers as requested."
         )
+        if agent_code == "video_consultant":
+            # Video consultation has NO strict topic restrictions - user can ask anything
+            return {
+                **agent,
+                "system_prompt": agent["system_prompt"] + doc_guidance
+            }
         return {
             **agent,
             "system_prompt": attach_academic_guardrail(agent["system_prompt"] + doc_guidance)

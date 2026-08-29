@@ -20,13 +20,15 @@ import {
   CheckCircle2,
   HelpCircle,
   BookOpen,
-  GraduationCap
+  GraduationCap,
+  SwitchCamera
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 const TOPICS = [
+  { id: "ask_anything", title: "खुली चर्चा एवं कोई भी सवाल (Ask Anything)", desc: "किसी भी विषय, शंका, जिज्ञासा, करियर, तकनीक या व्यक्तिगत मार्गदर्शन पर बेझिझक बात करें", icon: Sparkles },
   { id: "math_science", title: "गणित एवं विज्ञान शंका समाधान", desc: "कठिन सूत्रों, प्रमेयों और संख्यात्मक प्रश्नों की सरल व्याख्या", icon: BookOpen },
   { id: "exam_strategy", title: "CBSE / बोर्ड परीक्षा तैयारी रणनीति", desc: "समय प्रबंधन, महत्वपूर्ण अध्याय और उच्च अंक प्राप्त करने की तकनीक", icon: GraduationCap },
   { id: "chapter_revision", title: "त्वरित अध्याय पुनरीक्षण (Revision)", desc: "मुख्य अवधारणाओं का तेजी से अभ्यास और त्वरित प्रश्नोत्तर", icon: Sparkles },
@@ -97,6 +99,7 @@ export function VideoConsultation() {
   // Call States
   const [inCall, setInCall] = useState(false);
   const [cameraOn, setCameraOn] = useState(true);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [micOn, setMicOn] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(true);
   const [aiSpeaking, setAiSpeaking] = useState(false);
@@ -197,28 +200,48 @@ export function VideoConsultation() {
 
   const fmt = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
-  // Camera Management
-  const startCamera = useCallback(async () => {
+  // Camera Management & Switch Front/Back Camera
+  const startCamera = useCallback(async (mode: "user" | "environment" = facingMode) => {
     try {
-      const s = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false // Video preview only, microphone is handled via Web Speech API
-      });
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+      let s: MediaStream;
+      try {
+        s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: mode }, width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+      } catch {
+        s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: mode, width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+      }
       streamRef.current = s;
       if (videoRef.current) {
         videoRef.current.srcObject = s;
         videoRef.current.play().catch(() => {});
       }
-    } catch {
+      setCameraOn(true);
+      setFacingMode(mode);
+    } catch (err) {
+      console.warn("Could not start camera:", err);
       setCameraOn(false);
     }
-  }, []);
+  }, [facingMode]);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
+
+  const switchCamera = useCallback(async () => {
+    const nextMode = facingMode === "user" ? "environment" : "user";
+    await startCamera(nextMode);
+  }, [facingMode, startCamera]);
 
   useEffect(() => {
     if (inCall && streamRef.current && videoRef.current) {
@@ -233,7 +256,11 @@ export function VideoConsultation() {
       vt.enabled = !vt.enabled;
       setCameraOn(vt.enabled);
     } else {
-      setCameraOn(!cameraOn);
+      if (!cameraOn) {
+        startCamera(facingMode);
+      } else {
+        setCameraOn(false);
+      }
     }
   };
 
@@ -424,10 +451,10 @@ export function VideoConsultation() {
 
     try {
       const fd = new FormData();
-      const promptDirective = `[लाइव 1-ON-1 वीडियो परामर्श - शुद्ध हिंदी संवाद]: आप DEVGYA के वरिष्ठ AI शिक्षक हैं। आप छात्र के साथ लाइव वीडियो कॉल पर विषय "${selectedTopic}" पर चर्चा कर रहे हैं। आपको छात्र को केवल और केवल शुद्ध, सरल और अत्यंत स्पष्ट हिंदी (Hindi Devanagari) भाषा में उत्तर देना है। अंग्रेजी (English) शब्दों का उपयोग न करें। उत्तर संक्षिप्त (2 से 3 बोले जाने वाले वाक्य) और प्रेरणादायक रखें। छात्र ने पूछा: "${text}"`;
+      const promptDirective = `[लाइव 1-ON-1 वीडियो परामर्श सत्र - खुली चर्चा एवं मार्गदर्शन]: आप DEVGYA के वरिष्ठ AI शिक्षक एवं मार्गदर्शक हैं। आप लाइव 1-on-1 वीडियो परामर्श सत्र में हैं। इस सत्र में कोई विषय पाबंदी नहीं है — उपयोगकर्ता पढ़ाई, विज्ञान, तकनीक, गणित, करियर, सामान्य ज्ञान, जीवन मार्गदर्शन, व्यक्तिगत विकास या अपनी किसी भी जिज्ञासा पर कुछ भी पूछ सकता है। उपयोगकर्ता के सवाल का 2 से 3 संक्षिप्त, सरल, अत्यंत स्पष्ट और प्रेरणादायक हिंदी (Hindi Devanagari) वाक्यों में सीधा और संपूर्ण उत्तर दें। उपयोगकर्ता का प्रश्न: "${text}"`;
       
       fd.append("message", promptDirective);
-      fd.append("agent_code", "student_tutor");
+      fd.append("agent_code", "video_consultant");
       fd.append("user_id", user?.id || "anonymous");
       fd.append("language", "hindi"); // Strictly Hindi
 
@@ -451,7 +478,7 @@ export function VideoConsultation() {
         speakRef.current(full);
       } else {
         const d = await res.json();
-        const t = d.response || "नमस्ते! मैं आपकी पढ़ाई में पूरी सहायता करने के लिए यहाँ हूँ।";
+        const t = d.response || "नमस्ते! मैं आपकी पूरी सहायता और मार्गदर्शन के लिए यहाँ प्रस्तुत हूँ।";
         setAiSub(t);
         setTranscript((p) => [...p, { who: "ai", text: t }]);
         isAiThinkingRef.current = false;
@@ -464,7 +491,7 @@ export function VideoConsultation() {
       setAiThinking(false);
       if (inCallRef.current && micOnRef.current) startListeningRef.current();
     }
-  }, [user?.id, selectedTopic, stopListening]);
+  }, [user?.id, stopListening]);
 
   useEffect(() => {
     sendMessageRef.current = sendMessage;
@@ -472,10 +499,12 @@ export function VideoConsultation() {
 
   // Start / End Consultation
   const startCall = async () => {
-    await startCamera();
+    await startCamera(facingMode);
     setInCall(true);
     setTranscript([]);
-    const welcomeMsg = `नमस्ते! मैं आपका DEVGYA AI शिक्षक हूँ। आज हम "${selectedTopic}" पर बात करेंगे। आप सीधे बोलकर अपना सवाल पूछ सकते हैं!`;
+    const welcomeMsg = selectedTopic.includes("Ask Anything") || selectedTopic.includes("खुली चर्चा")
+      ? "नमस्ते! मैं आपका DEVGYA AI लाइव वीडियो शिक्षक हूँ। आप मुझसे किसी भी विषय, शंका या जिज्ञासा पर कुछ भी पूछ सकते हैं। आप सीधे बोलकर अपना सवाल पूछें!"
+      : `नमस्ते! मैं आपका DEVGYA AI शिक्षक हूँ। आज हम "${selectedTopic}" पर बात करेंगे। आप सीधे बोलकर अपना सवाल पूछ सकते हैं!`;
     setAiSub(welcomeMsg);
     setTranscript([{ who: "ai", text: welcomeMsg }]);
     speak(welcomeMsg);
@@ -650,7 +679,7 @@ export function VideoConsultation() {
       <main className="flex-1 relative flex flex-col items-center justify-center p-4 overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950">
         
         {/* CANDIDATE COMPACT PiP CAMERA THUMBNAIL */}
-        <div className="absolute top-3 right-3 z-30 w-24 h-32 sm:w-32 sm:h-44 rounded-2xl overflow-hidden bg-slate-900 border-2 border-white/20 shadow-2xl">
+        <div className="absolute top-3 right-3 z-30 w-28 h-36 sm:w-36 sm:h-48 rounded-2xl overflow-hidden bg-slate-900 border-2 border-white/20 shadow-2xl">
           <video
             ref={videoRef}
             autoPlay
@@ -661,7 +690,7 @@ export function VideoConsultation() {
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              transform: "scaleX(-1)"
+              transform: facingMode === "user" ? "scaleX(-1)" : "none"
             }}
           />
           {!cameraOn && (
@@ -670,12 +699,23 @@ export function VideoConsultation() {
               <span className="text-[9px] font-bold text-slate-400">कैमरा बंद</span>
             </div>
           )}
+          
+          {/* FLIP CAMERA BUTTON (TOP RIGHT OF PiP) */}
+          <button
+            onClick={switchCamera}
+            className="absolute top-1.5 right-1.5 p-1.5 bg-black/60 hover:bg-black/80 rounded-xl text-white backdrop-blur-md cursor-pointer transition active:scale-90 border border-white/20"
+            title={facingMode === "user" ? "बैक कैमरा चालू करें (Switch to Rear Camera)" : "फ्रंट कैमरा चालू करें (Switch to Selfie Camera)"}
+          >
+            <SwitchCamera className="w-3.5 h-3.5 text-cyan-300" />
+          </button>
+
+          {/* TOGGLE CAMERA ON/OFF (BOTTOM RIGHT OF PiP) */}
           <button
             onClick={toggleCamera}
-            className="absolute bottom-1 right-1 p-1 bg-black/60 hover:bg-black/80 rounded-lg text-white backdrop-blur-sm cursor-pointer"
+            className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/60 hover:bg-black/80 rounded-xl text-white backdrop-blur-md cursor-pointer transition active:scale-90 border border-white/20"
             title={cameraOn ? "कैमरा बंद करें" : "कैमरा चालू करें"}
           >
-            {cameraOn ? <Video className="w-3 h-3 text-emerald-400" /> : <VideoOff className="w-3 h-3 text-red-400" />}
+            {cameraOn ? <Video className="w-3.5 h-3.5 text-emerald-400" /> : <VideoOff className="w-3.5 h-3.5 text-red-400" />}
           </button>
         </div>
 
@@ -751,12 +791,37 @@ export function VideoConsultation() {
       </main>
 
       {/* 3. ERGONOMIC MOBILE & DESKTOP BOTTOM CONTROLS */}
-      <footer className="p-3.5 sm:p-4 bg-slate-900 border-t border-white/10 flex items-center justify-center gap-4 z-20 shrink-0">
+      <footer className="p-3.5 sm:p-4 bg-slate-900 border-t border-white/10 flex flex-wrap items-center justify-center gap-2.5 sm:gap-4 z-20 shrink-0">
         
+        {/* CAMERA ON/OFF TOGGLE */}
+        <button
+          onClick={toggleCamera}
+          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md ${
+            cameraOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500/20 text-red-400 border border-red-500/40"
+          }`}
+          title={cameraOn ? "कैमरा बंद करें" : "कैमरा चालू करें"}
+        >
+          {cameraOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+        </button>
+
+        {/* SWITCH TO BACK / FRONT CAMERA */}
+        <button
+          onClick={switchCamera}
+          disabled={!cameraOn}
+          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md ${
+            facingMode === "environment"
+              ? "bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-400/50"
+              : "bg-white/10 hover:bg-white/20 text-white"
+          } ${!cameraOn ? "opacity-40 cursor-not-allowed" : ""}`}
+          title={facingMode === "user" ? "बैक कैमरे पर बदलें (Switch to Rear Camera)" : "फ्रंट कैमरे पर बदलें (Switch to Front Camera)"}
+        >
+          <SwitchCamera className="w-5 h-5 text-cyan-300" />
+        </button>
+
         {/* MIC TOGGLE */}
         <button
           onClick={toggleMic}
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md ${
+          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md ${
             micOn ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-red-500/20 text-red-400 border border-red-500/40"
           }`}
           title={micOn ? "माइक म्यूट करें" : "माइक चालू करें"}
@@ -772,7 +837,7 @@ export function VideoConsultation() {
             setTimeout(startListening, 100);
           }}
           disabled={aiSpeaking || aiThinking}
-          className={`px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+          className={`px-4 sm:px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
             aiSpeaking || aiThinking
               ? "bg-slate-800 text-slate-500 opacity-60 cursor-not-allowed"
               : "bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg shadow-indigo-600/30 active:scale-95"
@@ -785,7 +850,7 @@ export function VideoConsultation() {
         {/* SPEAKER AI VOICE TOGGLE */}
         <button
           onClick={() => setSpeakerOn(!speakerOn)}
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md ${
+          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md ${
             speakerOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
           }`}
           title={speakerOn ? "आवाज़ म्यूट करें" : "आवाज़ चालू करें"}
@@ -796,7 +861,7 @@ export function VideoConsultation() {
         {/* END CALL DISCONNECT BUTTON */}
         <button
           onClick={endCall}
-          className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/40 active:scale-95 transition-transform cursor-pointer"
+          className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/40 active:scale-95 transition-transform cursor-pointer"
           title="कॉल समाप्त करें"
         >
           <PhoneOff className="w-5 h-5" />
