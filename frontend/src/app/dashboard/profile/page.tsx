@@ -190,7 +190,7 @@ function ProfileContent() {
       if (user.parentingFocus) setParentingFocus(user.parentingFocus);
       if (user.weeklyReportAlerts !== undefined) setWeeklyReportAlerts(user.weeklyReportAlerts);
     }
-  }, [user?.email]);
+  }, [user?.email, user?.avatarUrl, user?.schoolLogo, user?.name, user?.schoolName]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -205,12 +205,12 @@ function ProfileContent() {
     setErrorMsg(null);
 
     try {
-      const compressedBase64 = await compressImageFile(file, 320, 0.82);
+      const compressedBase64 = await compressImageFile(file, 450, 0.85);
       setAvatarUrl(compressedBase64);
       updateUserProfile({ avatarUrl: compressedBase64 });
 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      await fetch(`${baseUrl}/auth/profile`, {
+      const res = await fetch(`${baseUrl}/auth/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -221,6 +221,13 @@ function ProfileContent() {
           school_logo: schoolLogo
         })
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user?.avatarUrl) {
+          setAvatarUrl(data.user.avatarUrl);
+          updateUserProfile({ avatarUrl: data.user.avatarUrl });
+        }
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
@@ -265,12 +272,12 @@ function ProfileContent() {
     setErrorMsg(null);
 
     try {
-      const compressedBase64 = await compressImageFile(file, 380, 0.85);
+      const compressedBase64 = await compressImageFile(file, 450, 0.85);
       setSchoolLogo(compressedBase64);
       updateUserProfile({ schoolLogo: compressedBase64 });
 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-      await fetch(`${baseUrl}/auth/profile`, {
+      const res = await fetch(`${baseUrl}/auth/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -281,6 +288,13 @@ function ProfileContent() {
           school_logo: compressedBase64
         })
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user?.schoolLogo) {
+          setSchoolLogo(data.user.schoolLogo);
+          updateUserProfile({ schoolLogo: data.user.schoolLogo });
+        }
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {

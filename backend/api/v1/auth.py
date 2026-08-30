@@ -187,6 +187,7 @@ async def register_user(payload: RegisterPayload):
             "subject": profile.get("subject", ""),
             "classes": profile.get("classes", "Class 10"),
             "schoolLogo": profile.get("school_logo", ""),
+            "avatarUrl": profile.get("avatar_url", ""),
             "isProfileComplete": profile.get("is_profile_complete", False),
             "token": signed_token
         }
@@ -251,6 +252,7 @@ async def login_user(payload: LoginPayload):
         "subject": profile.get("subject", ""),
         "classes": profile.get("classes", "Class 10"),
         "schoolLogo": profile.get("school_logo", ""),
+        "avatarUrl": profile.get("avatar_url", ""),
         "isProfileComplete": True,
         # Student specific
         "targetExam": profile.get("target_exam", ""),

@@ -2,7 +2,22 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['res.cloudinary.com', 'images.unsplash.com', 'lh3.googleusercontent.com'],
+    domains: [
+      'res.cloudinary.com',
+      'amlvyskjrencrolnppgs.supabase.co',
+      'images.unsplash.com',
+      'lh3.googleusercontent.com'
+    ],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      }
+    ]
   },
   async rewrites() {
     return [
