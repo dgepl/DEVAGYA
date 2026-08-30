@@ -293,15 +293,41 @@ STRICT REQUIREMENTS:
             target_paper["published"] = published
 
             if published:
-                # Ensure only one paper is primary active
+                # Deactivate previously active paper for this subject track
+                subj = target_paper.get("subject", "").strip().lower()
                 for p in papers:
-                    if p["id"] != paper_id:
+                    if p["id"] != paper_id and p.get("subject", "").strip().lower() == subj:
                         p["published"] = False
 
             with open(PAPERS_FILE, "w", encoding="utf-8") as f:
                 json.dump(papers, f, indent=2)
 
             return {"status": "success", "updated_paper": target_paper}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def update_paper(self, paper_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Allows Super Admin to edit general paper fields like title, timings, published state, etc."""
+        try:
+            papers = self.get_all_papers()
+            target_paper = next((p for p in papers if p["id"] == paper_id), None)
+            if not target_paper:
+                return {"status": "error", "message": "Paper not found"}
+
+            for key, val in updates.items():
+                if key != "id":
+                    target_paper[key] = val
+
+            if updates.get("published") is True:
+                subj = target_paper.get("subject", "").strip().lower()
+                for p in papers:
+                    if p["id"] != paper_id and p.get("subject", "").strip().lower() == subj:
+                        p["published"] = False
+
+            with open(PAPERS_FILE, "w", encoding="utf-8") as f:
+                json.dump(papers, f, indent=2)
+
+            return {"status": "success", "paper": target_paper}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 

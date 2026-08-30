@@ -695,6 +695,56 @@ export default function TeacherOlympiadPage() {
       {!examStarted && activeTab === "overview" && (
         <div className="space-y-6">
           
+          {/* OFFICIAL EXAM SCHEDULE & ACCESS WINDOW BANNER */}
+          {paperData && (
+            <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+              !scheduleStatus.isOpen && scheduleStatus.message.includes("opens on")
+                ? "bg-amber-50/90 border-amber-200 text-amber-900"
+                : !scheduleStatus.isOpen && scheduleStatus.message.includes("concluded on")
+                ? "bg-rose-50/90 border-rose-200 text-rose-900"
+                : "bg-emerald-50/90 border-emerald-200 text-emerald-900"
+            }`}>
+              <div className="flex items-start sm:items-center gap-3">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
+                  !scheduleStatus.isOpen && scheduleStatus.message.includes("opens on")
+                    ? "bg-amber-100 text-amber-700 border-amber-300"
+                    : !scheduleStatus.isOpen && scheduleStatus.message.includes("concluded on")
+                    ? "bg-rose-100 text-rose-700 border-rose-300"
+                    : "bg-emerald-100 text-emerald-700 border-emerald-300"
+                }`}>
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border bg-white/70">
+                      {scheduleStatus.isOpen ? "🟢 Window Live & Active" : scheduleStatus.message.includes("opens on") ? "⏳ Scheduled Examination" : "🔴 Examination Concluded"}
+                    </span>
+                    <span className="text-xs font-bold text-slate-700 font-mono hidden md:inline">
+                      Paper ID: {paperData.id}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black">
+                    {scheduleStatus.isOpen
+                      ? "Official Examination Window is Currently Active"
+                      : scheduleStatus.message.includes("opens on")
+                      ? "Assessment Window Locked (Scheduled Ahead)"
+                      : "Official Assessment Window Has Concluded"}
+                  </h4>
+                  <p className="text-xs font-medium opacity-90">
+                    {paperData.start_time && `Starts: ${new Date(paperData.start_time.replace(" ", "T")).toLocaleString()}`}
+                    {paperData.end_time && ` • Closes: ${new Date(paperData.end_time.replace(" ", "T")).toLocaleString()}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="shrink-0 flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                <span className="text-xs font-black px-3 py-1.5 rounded-xl bg-white/90 border border-slate-200/80 shadow-2xs">
+                  Duration: 60 Mins
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* SECTION BREAKDOWN (60/40 HYBRID STRUCTURE) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             

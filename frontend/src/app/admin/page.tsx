@@ -30,7 +30,10 @@ import {
   BookOpen,
   Printer,
   FileCheck,
-  Clock
+  Clock,
+  Calendar,
+  CalendarClock,
+  Zap
 } from "lucide-react";
 
 export default function SuperAdminPage() {
@@ -132,6 +135,14 @@ export default function SuperAdminPage() {
 
   // Paper Preview Modal State
   const [previewPaper, setPreviewPaper] = useState<any | null>(null);
+
+  // Schedule & Timing Edit Modal State
+  const [scheduleModalPaper, setScheduleModalPaper] = useState<any | null>(null);
+  const [schedTitle, setSchedTitle] = useState("");
+  const [schedStartTime, setSchedStartTime] = useState(getLocalISOString(0));
+  const [schedEndTime, setSchedEndTime] = useState(getLocalISOString(30 * 24 * 60 * 60 * 1000));
+  const [schedPublished, setSchedPublished] = useState(true);
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   // Olympiad Question Add Form State
   const [showQuestionModal, setShowQuestionModal] = useState(false);
@@ -479,6 +490,82 @@ export default function SuperAdminPage() {
       alert("Failed to save manual paper.");
     } finally {
       setSavingManualPaper(false);
+    }
+  };
+
+  // Calculate Live Schedule Status
+  const getPaperScheduleStatus = (paper: any) => {
+    if (paper.published === false) {
+      return { status: "inactive", label: "Draft / Inactive", color: "bg-slate-100 text-slate-600 border-slate-200" };
+    }
+    const now = Date.now();
+    if (paper.start_time) {
+      const startMs = new Date(paper.start_time.replace(" ", "T")).getTime();
+      if (!isNaN(startMs) && now < startMs) {
+        return { status: "upcoming", label: "Upcoming Scheduled", color: "bg-amber-50 text-amber-700 border-amber-200" };
+      }
+    }
+    if (paper.end_time) {
+      const endMs = new Date(paper.end_time.replace(" ", "T")).getTime();
+      if (!isNaN(endMs) && now > endMs) {
+        return { status: "expired", label: "Concluded", color: "bg-rose-50 text-rose-700 border-rose-200" };
+      }
+    }
+    return { status: "live", label: "Live & Active", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+  };
+
+  // Open Schedule Editor Modal for a Paper
+  const openScheduleModal = (paper: any) => {
+    setScheduleModalPaper(paper);
+    setSchedTitle(paper.title || "");
+    const formatForInput = (isoStr?: string, defaultOffset = 0) => {
+      if (!isoStr) return getLocalISOString(defaultOffset);
+      try {
+        const d = new Date(isoStr.replace(" ", "T"));
+        if (isNaN(d.getTime())) return getLocalISOString(defaultOffset);
+        const tzOffset = d.getTimezoneOffset() * 60000;
+        return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+      } catch {
+        return getLocalISOString(defaultOffset);
+      }
+    };
+    setSchedStartTime(formatForInput(paper.start_time, 0));
+    setSchedEndTime(formatForInput(paper.end_time, 30 * 24 * 60 * 60 * 1000));
+    setSchedPublished(paper.published !== false);
+  };
+
+  // Save Paper Schedule Changes (Start Time, End Time, Title, Published)
+  const handleSavePaperSchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scheduleModalPaper) return;
+    setSavingSchedule(true);
+    setActionMsg(null);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const startFormatted = schedStartTime.replace("T", " ") + (schedStartTime.length === 16 ? ":00" : "");
+      const endFormatted = schedEndTime.replace("T", " ") + (schedEndTime.length === 16 ? ":00" : "");
+      const res = await fetch(`${baseUrl}/admin/tso/papers/${scheduleModalPaper.id}/schedule`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: schedTitle.trim() || scheduleModalPaper.title,
+          start_time: startFormatted,
+          end_time: endFormatted,
+          published: schedPublished
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || data.status === "error") {
+        throw new Error(data.message || data.detail || "Failed to update schedule");
+      }
+      setActionMsg(`✅ Schedule updated successfully for "${schedTitle || scheduleModalPaper.title}". Window: ${startFormatted} to ${endFormatted}`);
+      setScheduleModalPaper(null);
+      await fetchAdminData();
+      setTimeout(() => setActionMsg(null), 5000);
+    } catch (err: any) {
+      alert(err.message || "Failed to save paper schedule");
+    } finally {
+      setSavingSchedule(false);
     }
   };
 
@@ -1528,9 +1615,10 @@ export default function SuperAdminPage() {
                   <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-200">
                     <tr>
                       <th className="p-3.5">Paper Title</th>
-                      <th className="p-3.5">Grade & Subject</th>
+                      <th className="p-3.5">Grade & Track</th>
                       <th className="p-3.5">Board</th>
-                      <th className="p-3.5">Total Marks</th>
+                      <th className="p-3.5">Exam Timing Window (Start ⇄ End)</th>
+                      <th className="p-3.5">Marks & Duration</th>
                       <th className="p-3.5">Source</th>
                       <th className="p-3.5 text-right">Actions</th>
                     </tr>
@@ -1538,48 +1626,91 @@ export default function SuperAdminPage() {
                   <tbody className="divide-y divide-slate-100">
                     {papersList.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-400 font-semibold">
+                        <td colSpan={7} className="p-8 text-center text-slate-400 font-semibold">
                           No papers found in repository. Create one using AI or Manual Builder!
                         </td>
                       </tr>
                     ) : (
-                      papersList.map((p) => (
-                        <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="p-3.5 font-bold text-slate-900">
-                            <div>{p.title}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{p.id}</div>
-                          </td>
-                          <td className="p-3.5 font-semibold text-slate-700">
-                            {p.class_name} • {p.subject}
-                          </td>
-                          <td className="p-3.5 font-bold text-indigo-600">{p.board || "CBSE"}</td>
-                          <td className="p-3.5 font-bold">{p.total_marks} Marks ({p.time_allowed_mins} mins)</td>
-                          <td className="p-3.5">
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
-                              p.source === "ai_prompt" ? "bg-purple-50 text-purple-700 border border-purple-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            }`}>
-                              {p.source === "ai_prompt" ? "AI Generated" : "Manual"}
-                            </span>
-                          </td>
-                          <td className="p-3.5 text-right space-x-2">
-                            <button
-                              onClick={() => setPreviewPaper(p)}
-                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer inline-flex items-center gap-1"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Preview</span>
-                            </button>
+                      papersList.map((p) => {
+                        const sched = getPaperScheduleStatus(p);
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3.5 font-bold text-slate-900 max-w-xs">
+                              <div className="line-clamp-1">{p.title}</div>
+                              <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                                <span>{p.id}</span>
+                                <span>•</span>
+                                <span>{p.school_name || "DEVGYA GLOBAL"}</span>
+                              </div>
+                            </td>
+                            <td className="p-3.5 font-semibold text-slate-700">
+                              <div>{p.class_name}</div>
+                              <div className="text-[11px] text-indigo-600 font-bold">{p.subject}</div>
+                            </td>
+                            <td className="p-3.5 font-bold text-indigo-600">{p.board || "CBSE"}</td>
+                            <td className="p-3.5">
+                              <div className="space-y-1.5">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase border ${sched.color}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    sched.status === "live" ? "bg-emerald-500 animate-pulse" :
+                                    sched.status === "upcoming" ? "bg-amber-500" :
+                                    sched.status === "expired" ? "bg-rose-500" : "bg-slate-400"
+                                  }`} />
+                                  <span>{sched.label}</span>
+                                </span>
+                                <div className="text-[10.5px] font-mono text-slate-600 space-y-0.5">
+                                  <div className="flex items-center gap-1 text-slate-700">
+                                    <span className="font-bold text-slate-400 text-[9px] uppercase">Start:</span>
+                                    <span>{p.start_time ? p.start_time.slice(0, 16) : "Immediate / Live"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-slate-700">
+                                    <span className="font-bold text-slate-400 text-[9px] uppercase">End:</span>
+                                    <span>{p.end_time ? p.end_time.slice(0, 16) : "Open / No Limit"}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3.5 font-bold text-slate-800">
+                              <div>{p.total_marks} Marks</div>
+                              <div className="text-[11px] text-slate-500 font-medium">{p.time_allowed_mins} Mins</div>
+                            </td>
+                            <td className="p-3.5">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                                p.source === "ai_prompt" ? "bg-purple-50 text-purple-700 border border-purple-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              }`}>
+                                {p.source === "ai_prompt" ? "AI Generated" : "Manual"}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
+                              <button
+                                onClick={() => openScheduleModal(p)}
+                                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-[11px] rounded-xl transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs active:scale-95"
+                                title="Change Start Time & End Time Window"
+                              >
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Set Timing</span>
+                              </button>
 
-                            <button
-                              onClick={() => handleDeletePaper(p.id)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer inline-flex"
-                              title="Delete Paper"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                              <button
+                                onClick={() => setPreviewPaper(p)}
+                                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[11px] rounded-xl transition-all cursor-pointer inline-flex items-center gap-1 active:scale-95"
+                                title="Preview Exam Script"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Preview</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleDeletePaper(p.id)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer inline-flex"
+                                title="Delete Paper"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -2409,6 +2540,202 @@ export default function SuperAdminPage() {
                 {savingQuestionEdit ? "Saving Changes..." : "Save Question Changes"}
               </button>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* SCHEDULE & TIMING EDIT MODAL */}
+      {scheduleModalPaper && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 text-slate-900 max-h-[92vh] overflow-y-auto">
+            
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+                  <CalendarClock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Set Exam Schedule & Timing</h3>
+                  <p className="text-[11px] text-slate-500 font-semibold">{scheduleModalPaper.id} • {scheduleModalPaper.class_name} ({scheduleModalPaper.subject})</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setScheduleModalPaper(null)}
+                className="text-slate-400 hover:text-slate-700 font-black text-base cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePaperSchedule} className="space-y-4">
+              
+              {/* Paper Title */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700">Exam Paper Title</label>
+                <input
+                  type="text"
+                  required
+                  value={schedTitle}
+                  onChange={(e) => setSchedTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none"
+                  placeholder="e.g. National Teacher Skills Olympiad 2026 — SCIENCE"
+                />
+              </div>
+
+              {/* Start & End Date Time Pickers */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Exam Start Date & Time</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={schedStartTime}
+                    onChange={(e) => setSchedStartTime(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                  />
+                  <p className="text-[10px] text-slate-400 font-medium">When candidates can first enter the hall.</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Exam End Date & Time</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={schedEndTime}
+                    onChange={(e) => setSchedEndTime(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none"
+                  />
+                  <p className="text-[10px] text-slate-400 font-medium">When the assessment hall automatically closes.</p>
+                </div>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Quick Window Presets</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSchedStartTime(getLocalISOString(0));
+                      setSchedEndTime(getLocalISOString(30 * 24 * 60 * 60 * 1000));
+                      setSchedPublished(true);
+                    }}
+                    className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[10.5px] font-bold text-center transition-colors cursor-pointer"
+                  >
+                    ⚡ Live Now (30 Days)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(9, 0, 0, 0);
+                      const tzOffset = d.getTimezoneOffset() * 60000;
+                      const sIso = new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+                      
+                      const endD = new Date(d);
+                      endD.setDate(endD.getDate() + 7);
+                      endD.setHours(23, 59, 0, 0);
+                      const eIso = new Date(endD.getTime() - tzOffset).toISOString().slice(0, 16);
+
+                      setSchedStartTime(sIso);
+                      setSchedEndTime(eIso);
+                      setSchedPublished(true);
+                    }}
+                    className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-xl text-[10.5px] font-bold text-center transition-colors cursor-pointer"
+                  >
+                    📅 Tomorrow (7 Days)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSchedStartTime(getLocalISOString(0));
+                      setSchedEndTime(getLocalISOString(24 * 60 * 60 * 1000));
+                      setSchedPublished(true);
+                    }}
+                    className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[10.5px] font-bold text-center transition-colors cursor-pointer"
+                  >
+                    ⏱️ 24-Hour Blitz
+                  </button>
+                </div>
+              </div>
+
+              {/* Published Toggle */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-bold text-slate-800">Activate in Live Candidate Exam Hall</div>
+                  <div className="text-[10px] text-slate-500">When enabled, candidates on this subject track will take this exact scheduled paper.</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={schedPublished}
+                    onChange={(e) => setSchedPublished(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              {/* Live Preview Summary */}
+              {(() => {
+                const now = Date.now();
+                const startMs = new Date(schedStartTime).getTime();
+                const endMs = new Date(schedEndTime).getTime();
+                let statusText = "";
+                let statusBg = "";
+
+                if (!schedPublished) {
+                  statusText = "⏸️ This paper is set as INACTIVE / DRAFT and hidden from students & teachers.";
+                  statusBg = "bg-slate-100 border-slate-200 text-slate-700";
+                } else if (!isNaN(startMs) && now < startMs) {
+                  statusText = `⏳ UPCOMING: Assessment hall will remain LOCKED until ${new Date(startMs).toLocaleString()}. Candidates will see an active countdown.`;
+                  statusBg = "bg-amber-50 border-amber-200 text-amber-800";
+                } else if (!isNaN(endMs) && now > endMs) {
+                  statusText = `🔴 EXPIRED: The assessment window closed on ${new Date(endMs).toLocaleString()}. Candidates cannot take the exam.`;
+                  statusBg = "bg-rose-50 border-rose-200 text-rose-800";
+                } else {
+                  statusText = "🟢 LIVE & ACTIVE: Candidates can immediately enter the assessment hall and take this exam.";
+                  statusBg = "bg-emerald-50 border-emerald-200 text-emerald-800";
+                }
+
+                return (
+                  <div className={`p-3 rounded-2xl border text-xs font-semibold ${statusBg}`}>
+                    {statusText}
+                  </div>
+                );
+              })()}
+
+              {/* Modal Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setScheduleModalPaper(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={savingSchedule}
+                  className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>{savingSchedule ? "Saving Schedule..." : "Apply & Save Schedule"}</span>
+                </button>
+              </div>
+
+            </form>
 
           </div>
         </div>
