@@ -976,8 +976,8 @@ export default function GeneratorPage() {
 
             <p className="text-[11px] text-slate-500 font-medium">
               {selectedFiles.length > 0
-                ? "💡 Attached files active: AI will synthesize exam questions exclusively from the contents of these documents/photos."
-                : "💡 Optional: If you do not attach files, questions will be generated directly from the Class, Subject & Chapter selected above."}
+                ? `💡 ${selectedFiles.length} file(s) attached: AI will synthesize exam questions exclusively from the contents of these documents/photos. You can add more one by one or clear.`
+                : "💡 Optional: You can select multiple files at once in the file picker, or add them one-by-one (up to 5 files). If no files are attached, questions will be generated directly from the curriculum selected above."}
             </p>
 
             {/* Hidden Multi-file input */}
@@ -996,8 +996,8 @@ export default function GeneratorPage() {
                 className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/30 rounded-2xl p-4 text-center cursor-pointer transition-all"
               >
                 <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-slate-700">Click to upload textbook photos or PDFs (Multi-select enabled)</p>
-                <p className="text-[10px] text-slate-400 font-medium">Select 1 or more images / PDF worksheets (Up to 5 files)</p>
+                <p className="text-xs font-bold text-slate-700">Click to upload textbook photos or PDFs</p>
+                <p className="text-[10px] text-slate-400 font-medium">Select multiple files at once or add one by one (Up to 5 files)</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1033,10 +1033,10 @@ export default function GeneratorPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-2 border border-dashed border-indigo-300 hover:bg-indigo-50/50 rounded-xl text-xs font-bold text-indigo-700 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                    className="w-full py-2.5 border-2 border-dashed border-indigo-300 hover:bg-indigo-50/60 rounded-xl text-xs font-bold text-indigo-700 flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Attach More Photos or PDFs ({selectedFiles.length}/5)</span>
+                    <Plus className="w-4 h-4 text-indigo-600" />
+                    <span>+ Add Another File ({selectedFiles.length}/5 attached)</span>
                   </button>
                 )}
               </div>

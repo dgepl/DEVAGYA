@@ -668,9 +668,11 @@ export default function ChatStudioPage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 flex items-center justify-center transition-colors cursor-pointer"
+                  className="w-16 h-16 rounded-xl border-2 border-dashed border-indigo-200 text-indigo-500 hover:text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50/50 flex flex-col items-center justify-center transition-colors cursor-pointer"
+                  title="Add another photo or PDF (one by one or multi-select)"
                 >
-                  <ImageIcon className="w-5 h-5" />
+                  <Plus className="w-5 h-5 mb-0.5" />
+                  <span className="text-[8px] font-bold">Add file</span>
                 </button>
               )}
             </div>
@@ -690,7 +692,7 @@ export default function ChatStudioPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={streaming || attached.length >= MAX_IMAGES}
               className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0 cursor-pointer"
-              title="Attach images or PDF documents (up to 4)"
+              title="Attach photos or PDF documents (select multiple at once or add one-by-one)"
             >
               <Paperclip className="w-4 h-4" />
             </button>

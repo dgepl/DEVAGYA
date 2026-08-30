@@ -1225,7 +1225,7 @@ export function AgentMarketplace() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={streaming || attached.length >= MAX_IMAGES}
                   className="w-8 h-8 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0 flex items-center justify-center cursor-pointer shadow-2xs"
-                  title="Attach PDF, worksheet, document, or image"
+                  title="Attach photos, PDFs, or documents (select multiple at once or add one by one)"
                 >
                   <Paperclip className="w-4 h-4 text-slate-600" />
                 </button>
