@@ -40,14 +40,18 @@ try:
     # 2. Register Devanagari Font (Hindi / Sanskrit)
     devanagari_candidates = [
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "NotoSansDevanagari.ttf")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "fonts", "NotoSansDevanagari.ttf")),
         "C:/Windows/Fonts/Nirmala.ttf",
         "C:/Windows/Fonts/mangal.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"
     ]
     for dfp in devanagari_candidates:
         if os.path.exists(dfp):
-            pdfmetrics.registerFont(TTFont("DevanagariFont", dfp))
-            break
+            try:
+                pdfmetrics.registerFont(TTFont("DevanagariFont", dfp))
+                break
+            except Exception:
+                pass
 except Exception as e:
     pass
 
@@ -357,12 +361,19 @@ def clean_md_to_reportlab(text: str) -> str:
     # 16. Convert inline code `text` to Courier font
     t = re.sub(r'`([^`]+?)`', r'<font face="Courier">\1</font>', t)
 
-    # 17. Convert newlines to HTML breaks
-    t = re.sub(r'\n+', '<br/>', t.strip())
+    # 17. Normalize HTML breaks (<br>, <br/>, <br />, &lt;br&gt;) and newlines
+    t = re.sub(r'(?:<br\s*/?>|&lt;br\s*/?&gt;|\n)+', '<br/>', t.strip(), flags=re.IGNORECASE)
 
-    # 18. Balance unclosed tags
-    for tag in ["b", "i", "u", "sup", "sub"]:
-        open_t = t.count(f"<{tag}>")
+    # 18. Wrap Devanagari Hindi text sequences in Devanagari font
+    def _wrap_devanagari(m):
+        content = m.group(0)
+        return f'<font face="DevanagariFont">{content}</font>'
+    
+    t = re.sub(r'[\u0900-\u097F\uA8E0-\uA8FF\u200C\u200D]+(?:\s+[\u0900-\u097F\uA8E0-\uA8FF\u200C\u200D]+)*', _wrap_devanagari, t)
+
+    # 19. Balance unclosed tags
+    for tag in ["b", "i", "u", "sup", "sub", "font"]:
+        open_t = t.count(f"<{tag}")
         close_t = t.count(f"</{tag}>")
         if open_t > close_t:
             t += f"</{tag}>" * (open_t - close_t)
