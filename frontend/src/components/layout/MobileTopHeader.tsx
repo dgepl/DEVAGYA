@@ -107,24 +107,8 @@ export function MobileTopHeader() {
       });
     }
 
-    // 3. Real OCR draft notification if text is scanned
-    if (ocrDraftText && ocrDraftText.trim().length > 0) {
-      list.push({
-        id: "ocr-active-draft-text",
-        type: "ocr",
-        title: "OCR Document Text Extracted",
-        message: "Scanned document text is loaded and ready to generate questions or review.",
-        tag: "VISION OCR",
-        tagColor: "bg-cyan-100 text-cyan-700 border-cyan-200",
-        time: "Ready",
-        actionUrl: "/dashboard/ocr",
-        actionText: "Open OCR Scanner",
-        icon: ScanText
-      });
-    }
-
     return list;
-  }, [savedPapers, role, ocrDraftText]);
+  }, [savedPapers, role]);
 
   // Remove any notification that has been seen/dismissed by the user!
   const notifications = useMemo(() => {
@@ -166,7 +150,7 @@ export function MobileTopHeader() {
     { label: "AI Assignment Maker", href: "/dashboard/assignments", icon: FileText },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
-    { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
+    { label: "Lesson Planner AI", href: "/dashboard/lesson-planner", icon: BookOpen },
     { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },

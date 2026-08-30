@@ -142,7 +142,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     { label: "AI Assignment Maker", href: "/dashboard/assignments", icon: FileText },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
-    { label: "OCR Scanner", href: "/dashboard/ocr", icon: ScanText },
+    { label: "Lesson Planner AI", href: "/dashboard/lesson-planner", icon: BookOpen },
     { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },

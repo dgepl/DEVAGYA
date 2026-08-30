@@ -62,6 +62,7 @@ async def generate_paper(request: GeneratePaperRequest):
 @router.post("/generate-from-file", response_model=GeneratedPaperResponse)
 async def generate_paper_from_file(
     file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
     title: str = Form("Periodic Assessment Exam"),
     class_name: str = Form("Class 10"),
     subject: str = Form("Science"),
@@ -76,7 +77,7 @@ async def generate_paper_from_file(
     custom_instructions: str = Form(""),
     user_email: str = Form("")
 ):
-    """Generate Question Paper with optional reference PDF/Photo or direct prompt."""
+    """Generate Question Paper with optional multi-file reference PDFs/Photos or direct prompt."""
     req = GeneratePaperRequest(
         title=title,
         class_name=class_name,
@@ -93,8 +94,15 @@ async def generate_paper_from_file(
         user_email=user_email
     )
 
+    # Collect all uploaded files
+    uploaded_files: List[UploadFile] = []
+    if files:
+        uploaded_files.extend([f for f in files if f and f.filename])
+    if file and file.filename and file not in uploaded_files:
+        uploaded_files.append(file)
+
     # If no file is attached, generate directly from prompt/syllabus
-    if not file or not file.filename:
+    if not uploaded_files:
         try:
             res = await groq_service.generate_question_paper(req)
             if user_email: res.user_email = user_email
@@ -106,79 +114,74 @@ async def generate_paper_from_file(
             status_code, detail = format_ai_exception_detail(e, "Question Paper Generation")
             raise HTTPException(status_code=status_code, detail=detail)
 
-    extracted_text = ""
-    image_data_url = None
+    extracted_texts: List[str] = []
+    primary_image_data_url: Optional[str] = None
 
-    try:
-        file_bytes = await file.read()
-    except Exception as read_err:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unreadable Attachment: Could not read uploaded file '{file.filename}'. Please verify the file is not corrupted."
-        )
-
-    filename = file.filename or "attachment"
-    content_type = (file.content_type or "").lower()
-    ext = os.path.splitext(filename)[1].lower()
-
-    if len(file_bytes) == 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unreadable Attachment: Uploaded file '{filename}' is empty (0 bytes). Please upload a valid document or photo."
-        )
-
-    if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
+    for f_item in uploaded_files:
         try:
-            img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
-            if img.width > 1280:
-                h = int(img.height * 1280 / img.width)
-                img = img.resize((1280, h))
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=80)
-            enc = base64.b64encode(buf.getvalue()).decode("ascii")
-            image_data_url = f"data:image/jpeg;base64,{enc}"
-        except Exception as img_err:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unreadable Image Attachment: Could not process '{filename}'. Please ensure it is a valid, uncorrupted image (PNG, JPG, WEBP)."
-            )
-    elif ext == ".pdf" or "pdf" in content_type:
-        try:
-            extracted_text, pdf_img_url = extract_pdf_content(file_bytes)
-            if pdf_img_url:
-                image_data_url = pdf_img_url
-        except Exception as pdf_err:
+            file_bytes = await f_item.read()
+        except Exception:
+            continue
+
+        if len(file_bytes) == 0:
+            continue
+
+        filename = f_item.filename or "attachment"
+        content_type = (f_item.content_type or "").lower()
+        ext = os.path.splitext(filename)[1].lower()
+
+        if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
             try:
-                extracted_text = extract_document_text(file_bytes, filename, content_type)
+                img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+                if img.width > 1280:
+                    h = int(img.height * 1280 / img.width)
+                    img = img.resize((1280, h))
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=80)
+                enc = base64.b64encode(buf.getvalue()).decode("ascii")
+                img_url = f"data:image/jpeg;base64,{enc}"
+                if not primary_image_data_url:
+                    primary_image_data_url = img_url
+            except Exception as img_err:
+                pass
+        elif ext == ".pdf" or "pdf" in content_type:
+            try:
+                pdf_text, pdf_img_url = extract_pdf_content(file_bytes)
+                if pdf_text:
+                    extracted_texts.append(f"--- Document: {filename} ---\n{pdf_text}")
+                if pdf_img_url and not primary_image_data_url:
+                    primary_image_data_url = pdf_img_url
             except Exception:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unreadable PDF Attachment: Could not parse text or pages from '{filename}'. Please ensure the PDF is not password-protected or encrypted."
-                )
-    else:
-        try:
-            extracted_text = extract_document_text(file_bytes, filename, content_type)
-        except Exception as doc_err:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unreadable Document Attachment: Could not extract text from '{filename}'. Please upload a standard PDF, image, DOCX, or text file."
-            )
+                try:
+                    doc_text = extract_document_text(file_bytes, filename, content_type)
+                    if doc_text:
+                        extracted_texts.append(f"--- Document: {filename} ---\n{doc_text}")
+                except Exception:
+                    pass
+        else:
+            try:
+                doc_text = extract_document_text(file_bytes, filename, content_type)
+                if doc_text:
+                    extracted_texts.append(f"--- Document: {filename} ---\n{doc_text}")
+            except Exception:
+                pass
 
-    has_text = bool(extracted_text and len(extracted_text.strip()) >= 10)
-    has_image = bool(image_data_url and len(image_data_url) > 100)
+    unified_extracted_text = "\n\n".join(extracted_texts).strip()
+    has_text = bool(unified_extracted_text and len(unified_extracted_text) >= 10)
+    has_image = bool(primary_image_data_url and len(primary_image_data_url) > 100)
 
     # If file couldn't be parsed into text/image, raise a clear actionable error
     if not has_text and not has_image:
         raise HTTPException(
             status_code=400,
-            detail=f"Unreadable Attachment: No readable text or images found in '{filename}'. Please check that the file is not blank, or generate directly using syllabus topics without file upload."
+            detail=f"Unreadable Attachment: No readable text or images could be extracted from uploaded files. Please ensure files are clear documents/images, or generate directly using syllabus topics without file upload."
         )
 
     try:
         response = await groq_service.generate_question_paper_with_attachment(
             req=req,
-            extracted_text=extracted_text,
-            image_data_url=image_data_url
+            extracted_text=unified_extracted_text,
+            image_data_url=primary_image_data_url
         )
         if user_email: response.user_email = user_email
         await _save_paper_for_user(user_email, response.dict())

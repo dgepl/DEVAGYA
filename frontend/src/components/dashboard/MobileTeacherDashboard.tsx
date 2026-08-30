@@ -34,7 +34,7 @@ export function MobileTeacherDashboard() {
     { name: "AI Assignment Maker", sub: "Homework & Ruled Lines PDF", href: "/dashboard/assignments", icon: FileText, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", type: "Studio" },
     { name: "Teacher Mentor AI", sub: "Pedagogy & Lesson AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "AI Tool" },
     { name: "Question Generator", sub: "NCERT Exam Papers", href: "/dashboard/generator", icon: Sparkles, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Generator" },
-    { name: "OCR Scanner", sub: "Book Page to Test", href: "/dashboard/ocr", icon: Scan, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", type: "Vision OCR" },
+    { name: "Lesson Planner AI", sub: "Pedagogical Outlines", href: "/dashboard/lesson-planner", icon: BookOpen, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", type: "Curriculum AI" },
     { name: "Skill Enhance Practice", sub: "Practice Mock Tests", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Practice" },
     { name: "Skill Enhance Program", sub: "Official Certification", href: "/dashboard/teacher-olympiad", icon: Trophy, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100", type: "Certification" },
     { name: "Video Consultation", sub: "Live 1-on-1 Mentoring", href: "/dashboard/video-consultation", icon: Video, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "Consultation" },
@@ -314,20 +314,20 @@ export function MobileTeacherDashboard() {
                 </div>
               </Link>
 
-              {/* Card 3: OCR Scanner */}
+              {/* Card 3: Lesson Planner AI */}
               <Link
-                href="/dashboard/ocr"
+                href="/dashboard/lesson-planner"
                 className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-cyan-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
               >
                 <div className="w-9 h-9 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600">
-                  <Scan className="w-5 h-5" />
+                  <BookOpen className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">OCR Scanner</h3>
-                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Book Page to Test</p>
+                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Lesson Planner</h3>
+                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Pedagogical Outlines</p>
                 </div>
                 <div className="flex justify-end pt-1">
-                  <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-full bg-cyan-50 text-cyan-600 flex items-center justify-center">
                     <ArrowRight className="w-3 h-3" />
                   </div>
                 </div>

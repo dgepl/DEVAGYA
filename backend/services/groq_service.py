@@ -78,8 +78,11 @@ class GroqAIService:
         is_math = "math" in subj_lower
         is_science = any(k in subj_lower for k in ["sci", "phys", "chem", "bio"])
         is_lang = any(k in subj_lower for k in ["eng", "hindi", "sanskrit", "language"])
+        has_attached_source = bool(req.custom_instructions and any(k in req.custom_instructions.lower() for k in ["attached source", "attached reference", "document text:", "source material"]))
 
-        if is_math:
+        if has_attached_source:
+            subject_directive = f"CRITICAL MANDATE: All questions MUST be created strictly, exclusively, and solely from the attached reference document/source material provided in the instructions below. Do NOT use external pre-selected curriculum topics beyond what is in the attached source material."
+        elif is_math:
             subject_directive = f"CRITICAL: This is a MATHEMATICS examination paper for {req.class_name}. All questions MUST be authentic CBSE/NCERT Math problems based strictly on '{req.chapter}'. Use LaTeX ($...$) for algebraic expressions, fractions, powers, and equations."
         elif is_science:
             subject_directive = f"CRITICAL: This is a {req.subject.upper()} examination paper for {req.class_name}. All questions MUST strictly test scientific concepts, laws, chemical equations, diagrams, and definitions for '{req.chapter}'. Do NOT generate pure mathematics algebra questions unless explicitly physics."

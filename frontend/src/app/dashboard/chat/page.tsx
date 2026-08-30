@@ -21,7 +21,8 @@ import {
   StopCircle,
   Globe,
   Volume2,
-  VolumeX
+  VolumeX,
+  FileText
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
@@ -52,6 +53,7 @@ interface AttachedImage {
   id: string;
   name: string;
   dataUrl: string;
+  isPdf?: boolean;
 }
 
 const getApiBase = () => {
@@ -230,18 +232,25 @@ export default function ChatStudioPage() {
 
   const handleFiles = (files: FileList | null) => {
     if (!files || streaming) return;
-    const accepted = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp"];
     const remaining = MAX_IMAGES - attached.length;
     Array.from(files)
       .slice(0, remaining)
       .forEach((file) => {
-        if (!accepted.includes(file.type)) return;
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        const isImage = file.type.startsWith("image/");
+        
         const reader = new FileReader();
-        reader.onload = () =>
+        reader.onload = () => {
           setAttached((prev) => [
             ...prev,
-            { id: `img-${Date.now()}-${Math.random()}`, name: file.name, dataUrl: reader.result as string }
+            { 
+              id: `file-${Date.now()}-${Math.random()}`, 
+              name: file.name, 
+              dataUrl: reader.result as string,
+              isPdf: isPdf || !isImage
+            }
           ]);
+        };
         reader.readAsDataURL(file);
       });
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -633,16 +642,23 @@ export default function ChatStudioPage() {
 
         {/* Input Bar */}
         <form onSubmit={handleSend} className="p-4 border-t border-slate-200 bg-white">
-          {/* Attached image previews */}
+          {/* Attached image & PDF previews */}
           {attached.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2.5">
               {attached.map((img) => (
                 <div key={img.id} className="relative group">
-                  <img src={img.dataUrl} alt={img.name} className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-sm" />
+                  {img.isPdf ? (
+                    <div className="w-16 h-16 rounded-xl border border-indigo-200 bg-indigo-50 flex flex-col items-center justify-center p-1 text-center shadow-xs">
+                      <FileText className="w-6 h-6 text-indigo-600 mb-0.5" />
+                      <span className="text-[9px] font-bold text-indigo-900 truncate max-w-[50px]">{img.name}</span>
+                    </div>
+                  ) : (
+                    <img src={img.dataUrl} alt={img.name} className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-sm" />
+                  )}
                   <button
                     type="button"
                     onClick={() => setAttached((prev) => prev.filter((a) => a.id !== img.id))}
-                    className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"
+                    className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -652,7 +668,7 @@ export default function ChatStudioPage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 flex items-center justify-center transition-colors"
+                  className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <ImageIcon className="w-5 h-5" />
                 </button>
@@ -664,7 +680,7 @@ export default function ChatStudioPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf,.pdf,.doc,.docx,.txt"
               multiple
               className="hidden"
               onChange={(e) => handleFiles(e.target.files)}
@@ -673,8 +689,8 @@ export default function ChatStudioPage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={streaming || attached.length >= MAX_IMAGES}
-              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0"
-              title="Attach an image (up to 4)"
+              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 disabled:opacity-40 transition-colors shrink-0 cursor-pointer"
+              title="Attach images or PDF documents (up to 4)"
             >
               <Paperclip className="w-4 h-4" />
             </button>

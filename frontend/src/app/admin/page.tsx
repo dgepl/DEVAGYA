@@ -76,6 +76,9 @@ export default function SuperAdminPage() {
   const [papersList, setPapersList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState("all");
+  const [filterGrade, setFilterGrade] = useState("all");
+  const [filterSubject, setFilterSubject] = useState("all");
+  const [filterBoard, setFilterBoard] = useState("all");
   const [loadingData, setLoadingData] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [selectedUserDetail, setSelectedUserDetail] = useState<any | null>(null);
@@ -744,11 +747,58 @@ export default function SuperAdminPage() {
   };
 
   const filteredUsers = usersList.filter((u) => {
+    const q = searchQuery.toLowerCase().trim();
     const matchesSearch = 
-      (u.full_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.email || "").toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      (u.full_name || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q) ||
+      (u.school_name || u.child_school || "").toLowerCase().includes(q) ||
+      (u.phone || "").toLowerCase().includes(q) ||
+      (u.district || "").toLowerCase().includes(q) ||
+      (u.state || "").toLowerCase().includes(q);
+
     const matchesRole = filterRole === "all" || u.role === filterRole;
-    return matchesSearch && matchesRole;
+
+    const uClasses = (u.classes || u.child_class || u.category_level || "").toLowerCase();
+    let matchesGrade = true;
+    if (filterGrade !== "all") {
+      if (filterGrade === "primary") {
+        matchesGrade = uClasses.includes("primary") || ["class 1", "class 2", "class 3", "class 4", "class 5", "grade 1", "grade 2", "grade 3", "grade 4", "grade 5"].some(k => uClasses.includes(k));
+      } else if (filterGrade === "middle") {
+        matchesGrade = uClasses.includes("middle") || ["class 6", "class 7", "class 8", "grade 6", "grade 7", "grade 8"].some(k => uClasses.includes(k));
+      } else if (filterGrade === "secondary") {
+        matchesGrade = uClasses.includes("secondary") || ["class 9", "class 10", "grade 9", "grade 10"].some(k => uClasses.includes(k));
+      } else if (filterGrade === "senior") {
+        matchesGrade = uClasses.includes("senior") || ["class 11", "class 12", "grade 11", "grade 12"].some(k => uClasses.includes(k));
+      } else {
+        matchesGrade = uClasses.includes(filterGrade.toLowerCase());
+      }
+    }
+
+    const uSubj = (u.subject || u.target_exam || u.tso_subject || "").toLowerCase();
+    let matchesSubject = true;
+    if (filterSubject !== "all") {
+      if (filterSubject === "science") {
+        matchesSubject = ["sci", "phys", "chem", "bio"].some(k => uSubj.includes(k));
+      } else if (filterSubject === "mathematics") {
+        matchesSubject = ["math", "algebra", "geom"].some(k => uSubj.includes(k));
+      } else if (filterSubject === "social") {
+        matchesSubject = ["soc", "hist", "geog", "civic", "pol"].some(k => uSubj.includes(k));
+      } else if (filterSubject === "english") {
+        matchesSubject = uSubj.includes("eng");
+      } else if (filterSubject === "hindi") {
+        matchesSubject = uSubj.includes("hin");
+      } else if (filterSubject === "computer") {
+        matchesSubject = ["comp", "ai", "it", "code", "cs"].some(k => uSubj.includes(k));
+      } else {
+        matchesSubject = uSubj.includes(filterSubject.toLowerCase());
+      }
+    }
+
+    const uBoard = (u.board || u.child_board || "cbse").toLowerCase();
+    const matchesBoard = filterBoard === "all" || uBoard.includes(filterBoard.toLowerCase());
+
+    return matchesSearch && matchesRole && matchesGrade && matchesSubject && matchesBoard;
   });
 
   // Admin Auth Gate
@@ -2217,32 +2267,97 @@ export default function SuperAdminPage() {
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 font-sans">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <h3 className="text-lg font-black text-slate-900">Registered Supabase User Profiles ({filteredUsers.length})</h3>
-              <p className="text-xs text-slate-500 font-medium">Inspect educator institutional credentials, school logos, active roles, and cloud profiles</p>
+              <h3 className="text-lg font-black text-slate-900">Registered Supabase User Profiles ({filteredUsers.length} of {usersList.length})</h3>
+              <p className="text-xs text-slate-500 font-medium">Filter educators by grade levels, teaching subjects, affiliated schools, and roles</p>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Search Bar */}
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search name, email, school..."
-                  className="bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-900 w-48 sm:w-64"
+                  placeholder="Search name, email, school, city..."
+                  className="bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-900 w-44 sm:w-56 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
+              {/* Role Filter */}
               <select
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 cursor-pointer"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
               >
                 <option value="all">All Roles</option>
                 <option value="teacher">Teachers</option>
                 <option value="student">Students</option>
                 <option value="parent">Parents</option>
               </select>
+
+              {/* Grade / Level Filter */}
+              <select
+                value={filterGrade}
+                onChange={(e) => setFilterGrade(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
+              >
+                <option value="all">All Grades / Levels</option>
+                <option value="primary">Primary (Classes 1–5)</option>
+                <option value="middle">Middle (Classes 6–8)</option>
+                <option value="secondary">Secondary (Classes 9–10)</option>
+                <option value="senior">Senior Sec (Classes 11–12)</option>
+                <option value="class 6">Class 6</option>
+                <option value="class 7">Class 7</option>
+                <option value="class 8">Class 8</option>
+                <option value="class 9">Class 9</option>
+                <option value="class 10">Class 10</option>
+                <option value="class 11">Class 11</option>
+                <option value="class 12">Class 12</option>
+              </select>
+
+              {/* Subject Filter */}
+              <select
+                value={filterSubject}
+                onChange={(e) => setFilterSubject(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
+              >
+                <option value="all">All Subjects</option>
+                <option value="science">Science (Physics/Chem/Bio)</option>
+                <option value="mathematics">Mathematics</option>
+                <option value="social">Social Science</option>
+                <option value="english">English</option>
+                <option value="hindi">Hindi</option>
+                <option value="computer">Computer Science / AI</option>
+              </select>
+
+              {/* Board Filter */}
+              <select
+                value={filterBoard}
+                onChange={(e) => setFilterBoard(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
+              >
+                <option value="all">All Boards</option>
+                <option value="cbse">CBSE</option>
+                <option value="icse">ICSE</option>
+                <option value="state">State Board</option>
+              </select>
+
+              {/* Reset Filter Button */}
+              {(searchQuery || filterRole !== "all" || filterGrade !== "all" || filterSubject !== "all" || filterBoard !== "all") && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterRole("all");
+                    setFilterGrade("all");
+                    setFilterSubject("all");
+                    setFilterBoard("all");
+                  }}
+                  className="px-2.5 py-1.5 text-[11px] font-extrabold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl cursor-pointer transition-colors"
+                >
+                  Reset
+                </button>
+              )}
             </div>
           </div>
 

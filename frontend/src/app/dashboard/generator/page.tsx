@@ -105,9 +105,9 @@ export default function GeneratorPage() {
     }
   }, [user]);
 
-  // File Attachment State
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // File Attachment State (Optional Multi-Select Support)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<{ id: string; name: string; url?: string; isImage: boolean; sizeStr: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Active Paper, History Modal & Mobile View State
@@ -130,36 +130,43 @@ export default function GeneratorPage() {
   const calculatedTotal = (parsedMcqs * 1) + (parsedShort * 3) + (parsedLong * 5);
   const requestedTotal = parseInt(totalMarks) || 0;
 
-  useEffect(() => {
-    if (ocrDraftText) {
-      setCustomPrompt(`Based on OCR scanned textbook extract:\n${ocrDraftText}`);
-    }
-  }, [ocrDraftText]);
+  const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-  // Clean form when leaving page
-  useEffect(() => {
-    return () => {
-      setOcrDraftText("");
-    };
-  }, [setOcrDraftText]);
+    const newFilesList = Array.from(files).slice(0, 5 - selectedFiles.length);
+    const newPreviews = newFilesList.map((f) => {
+      const isImg = f.type.startsWith("image/");
+      const sizeFormatted = (f.size / 1024).toFixed(1) + " KB";
+      return {
+        id: `file-${Date.now()}-${Math.random()}`,
+        name: f.name,
+        url: isImg ? URL.createObjectURL(f) : undefined,
+        isImage: isImg,
+        sizeStr: sizeFormatted
+      };
+    });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSelectedFile(file);
-    if (file.type.startsWith("image/")) {
-      setPreviewUrl(URL.createObjectURL(file));
-    } else {
-      setPreviewUrl(null);
-    }
+    setSelectedFiles((prev) => [...prev, ...newFilesList]);
+    setFilePreviews((prev) => [...prev, ...newPreviews]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
+  const removeFileAtIndex = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFilePreviews((prev) => {
+      const target = prev[index];
+      if (target?.url) URL.revokeObjectURL(target.url);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const removeAllFiles = () => {
+    filePreviews.forEach((p) => {
+      if (p.url) URL.revokeObjectURL(p.url);
+    });
+    setSelectedFiles([]);
+    setFilePreviews([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -172,62 +179,58 @@ export default function GeneratorPage() {
     setTotalMarks("");
     setTimeMins("");
     setCustomPrompt("");
-    removeFile();
+    removeAllFiles();
     setShowMobilePaperModal(false);
   };
 
-  const handleGenerate = async (forceSyllabus: boolean = false) => {
+  const handleGenerate = async () => {
     setError(null);
 
     // 1. Mandatory Fields Validation Check
     if (!schoolName.trim()) {
-      setError("Custom Institution Name is compulsory. Please enter your school or institution name.");
+      setError("Custom Institution Name is required. Please enter your school or institution name.");
       return;
     }
     if (!title.trim()) {
-      setError("Assessment Title is compulsory. Please enter an exam/assessment title.");
-      return;
-    }
-    if (!className.trim()) {
-      setError("Grade / Class is compulsory. Please select a class.");
-      return;
-    }
-    if (!subject.trim()) {
-      setError("Subject is compulsory. Please select a subject from the CBSE/NCERT curriculum.");
-      return;
-    }
-    if (!chapter.trim()) {
-      setError("Topic / Chapter is compulsory. Please select or enter a chapter/topic.");
+      setError("Assessment Title is required. Please enter an exam/assessment title.");
       return;
     }
 
-    const hasOcrContext = Boolean(ocrDraftText || (customPrompt && customPrompt.includes("Based on OCR scanned textbook extract:")));
-
-    // If no file and no OCR context, and user hasn't explicitly chosen direct syllabus generation
-    if (!hasOcrContext && !selectedFile && !forceSyllabus) {
-      setError("Reference Document Recommended: Please attach a textbook photo or PDF above, or click 'Generate from CBSE Syllabus' to synthesize directly from curriculum.");
-      if (fileInputRef.current?.parentElement) {
-        fileInputRef.current.parentElement.scrollIntoView({ behavior: "smooth", block: "center" });
+    // If no files are attached, grade, subject, and chapter are required to synthesize from NCERT curriculum
+    if (selectedFiles.length === 0) {
+      if (!className.trim()) {
+        setError("Grade / Class is required. Please select a class.");
+        return;
       }
-      return;
+      if (!subject.trim()) {
+        setError("Subject is required. Please select a subject from the CBSE/NCERT curriculum.");
+        return;
+      }
+      if (!chapter.trim()) {
+        setError("Topic / Chapter is required. Please select or enter a chapter/topic.");
+        return;
+      }
     }
 
     setLoading(true);
 
     const targetSchoolName = schoolName.trim();
     const targetTitle = title.trim();
-    const targetClass = className.trim();
-    const targetSubject = subject.trim();
-    const targetChapter = chapter.trim();
+    const targetClass = className.trim() || "Class 10";
+    const targetSubject = subject.trim() || "General Studies";
+    const targetChapter = chapter.trim() || "General Syllabus";
     const finalMarks = requestedTotal > 0 ? requestedTotal : (calculatedTotal > 0 ? calculatedTotal : 25);
     const finalTime = parseInt(timeMins) || (finalMarks <= 25 ? 45 : (finalMarks <= 50 ? 90 : 180));
 
     try {
       let res: GeneratedPaperResponse;
 
-      if (selectedFile) {
+      if (selectedFiles.length > 0) {
+        // Multi-File Attachment Mode: AI creates questions strictly and exclusively from uploaded files
         const formData = new FormData();
-        formData.append("file", selectedFile);
+        selectedFiles.forEach((f) => {
+          formData.append("files", f);
+        });
         formData.append("school_name", targetSchoolName);
         formData.append("school_logo", user.schoolLogo || "");
         formData.append("title", targetTitle);
@@ -245,6 +248,7 @@ export default function GeneratorPage() {
 
         res = await generateQuestionPaperFromFile(formData);
       } else {
+        // Direct Curriculum Mode: Synthesize directly from selected Class, Subject, Chapter and Topics
         res = await generateQuestionPaper({
           school_name: targetSchoolName,
           school_logo: user.schoolLogo,
@@ -949,76 +953,92 @@ export default function GeneratorPage() {
             </div>
           </div>
 
-          {/* 6. Custom File Attachment (OCR / Syllabus Extract) */}
+          {/* 6. Custom Multi-File / Reference Attachment (Optional) */}
           <div className="space-y-2">
-            {(() => {
-              const hasOcr = Boolean(ocrDraftText || (customPrompt && customPrompt.includes("Based on OCR scanned textbook extract:")));
-              return (
-                <label className="block text-xs font-bold text-slate-700 flex flex-wrap items-center justify-between gap-1">
-                  <span className="flex items-center gap-1.5 flex-wrap">
-                    <Upload className="w-4 h-4 text-indigo-600" />
-                    <span>Attach Reference Document / Image</span>
-                    {hasOcr ? (
-                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
-                        ✓ Provided via OCR Scanner (Optional)
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-black text-amber-850 bg-amber-100 border border-amber-300 text-amber-900 px-2 py-0.5 rounded-md">
-                        Compulsory *
-                      </span>
-                    )}
-                  </span>
-                  {selectedFile && (
-                    <button
-                      type="button"
-                      onClick={removeFile}
-                      className="text-[10px] text-rose-600 font-extrabold hover:underline flex items-center gap-0.5 cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" /> Remove
-                    </button>
-                  )}
-                </label>
-              );
-            })()}
+            <div className="flex items-center justify-between gap-1">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Upload className="w-4 h-4 text-indigo-600" />
+                <span>Attach Reference Photos / PDFs</span>
+                <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
+                  Optional (Multi-Select)
+                </span>
+              </label>
+              {selectedFiles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={removeAllFiles}
+                  className="text-[10px] text-rose-600 font-extrabold hover:underline flex items-center gap-0.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" /> Clear All ({selectedFiles.length})
+                </button>
+              )}
+            </div>
 
-            {!selectedFile ? (
+            <p className="text-[11px] text-slate-500 font-medium">
+              {selectedFiles.length > 0
+                ? "💡 Attached files active: AI will synthesize exam questions exclusively from the contents of these documents/photos."
+                : "💡 Optional: If you do not attach files, questions will be generated directly from the Class, Subject & Chapter selected above."}
+            </p>
+
+            {/* Hidden Multi-file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFilesSelect}
+              accept="image/*,.pdf,.docx,.txt,application/pdf"
+              multiple
+              className="hidden"
+            />
+
+            {selectedFiles.length === 0 ? (
               <div 
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/30 rounded-2xl p-4 text-center cursor-pointer transition-all"
               >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept="image/*,.pdf,.docx,.txt"
-                  className="hidden"
-                />
                 <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-slate-700">Click to upload textbook photo or PDF</p>
-                <p className="text-[10px] text-slate-400 font-medium">Supports PNG, JPG, PDF (Up to 15MB)</p>
+                <p className="text-xs font-bold text-slate-700">Click to upload textbook photos or PDFs (Multi-select enabled)</p>
+                <p className="text-[10px] text-slate-400 font-medium">Select 1 or more images / PDF worksheets (Up to 5 files)</p>
               </div>
             ) : (
-              <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-2xl flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  {previewUrl ? (
-                    <img src={previewUrl} alt="Preview" className="w-10 h-10 object-cover rounded-lg border border-indigo-200 shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                      <FileText className="w-5 h-5" />
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {filePreviews.map((p, idx) => (
+                    <div key={p.id} className="p-2.5 bg-indigo-50/80 border border-indigo-200 rounded-2xl flex items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {p.isImage && p.url ? (
+                          <img src={p.url} alt="Preview" className="w-9 h-9 object-cover rounded-lg border border-indigo-200 shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">{p.name}</p>
+                          <p className="text-[10px] text-slate-500 font-medium">{p.sizeStr}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFileAtIndex(idx)}
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0"
+                        title="Remove file"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 truncate">{selectedFile.name}</p>
-                    <p className="text-[10px] text-slate-500 font-medium">{(selectedFile.size / 1024).toFixed(1)} KB</p>
-                  </div>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={removeFile}
-                  className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+
+                {selectedFiles.length < 5 && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-2 border border-dashed border-indigo-300 hover:bg-indigo-50/50 rounded-xl text-xs font-bold text-indigo-700 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Attach More Photos or PDFs ({selectedFiles.length}/5)</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1066,13 +1086,13 @@ export default function GeneratorPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        removeFile();
+                        removeAllFiles();
                         setError(null);
                       }}
                       className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Remove File & Generate from Syllabus</span>
+                      <span>Remove Attachments & Generate from Syllabus</span>
                     </button>
                     <button
                       type="button"
@@ -1080,7 +1100,7 @@ export default function GeneratorPage() {
                       className="px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100/50 text-rose-800 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Upload className="w-3.5 h-3.5 text-rose-600" />
-                      <span>Upload Another File</span>
+                      <span>Upload Other Files</span>
                     </button>
                   </>
                 ) : (
@@ -1093,14 +1113,17 @@ export default function GeneratorPage() {
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>Retry Generation Now</span>
                     </button>
-                    {selectedFile && (
+                    {selectedFiles.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => handleGenerate(true)}
+                        onClick={() => {
+                          removeAllFiles();
+                          handleGenerate();
+                        }}
                         className="px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100/50 text-rose-800 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Try from Syllabus Direct</span>
+                        <span>Generate from NCERT Syllabus (No Attachment)</span>
                       </button>
                     )}
                   </>

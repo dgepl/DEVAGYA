@@ -12,7 +12,7 @@ import {
   Brain,
   Layers,
   GraduationCap,
-  ScanText,
+  FileText,
   Bot,
   Target
 } from "lucide-react";
@@ -52,7 +52,7 @@ export function MobileBottomDock() {
       { label: "Dashboard", href: "/dashboard", icon: Home },
       { label: "Generator", href: "/dashboard/generator", icon: Zap },
       { label: "TEACHER AI", href: "/dashboard/agents?agent=teacher_mentor", icon: Bot, central: true, agentCode: "teacher_mentor" },
-      { label: "OCR Scan", href: "/dashboard/ocr", icon: ScanText },
+      { label: "Assignments", href: "/dashboard/assignments", icon: FileText },
       { label: "Profile", href: "/dashboard/profile", icon: User }
     ];
   };

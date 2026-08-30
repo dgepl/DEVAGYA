@@ -22,7 +22,8 @@ import {
   Video, 
   MessageSquare, 
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  FileText
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
@@ -140,8 +141,8 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
                       <span className="flex items-center gap-2.5"><Sparkles className="w-4 h-4 text-amber-500" /> Question Generator</span>
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     </Link>
-                    <Link href="/dashboard/ocr" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                      <span className="flex items-center gap-2.5"><ScanText className="w-4 h-4 text-cyan-600" /> OCR Textbook Scanner</span>
+                    <Link href="/dashboard/assignments" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><FileText className="w-4 h-4 text-cyan-600" /> AI Assignment Maker</span>
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     </Link>
                   </>
