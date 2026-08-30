@@ -254,3 +254,50 @@ async def delete_paper(paper_id: str):
     if result.get("status") == "success":
         return result
     raise HTTPException(status_code=400, detail=result.get("message", "Failed to delete paper"))
+
+# --- PLATFORM & AI TOOLS CONFIGURATION MANAGEMENT ---
+import os
+import json
+
+TOOLS_STORE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "platform_tools_config.json")
+
+def _load_tools_store() -> List[Dict[str, Any]]:
+    if not os.path.exists(TOOLS_STORE_PATH):
+        return []
+    try:
+        with open(TOOLS_STORE_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def _save_tools_store(tools_data: List[Dict[str, Any]]):
+    os.makedirs(os.path.dirname(TOOLS_STORE_PATH), exist_ok=True)
+    with open(TOOLS_STORE_PATH, "w", encoding="utf-8") as f:
+        json.dump(tools_data, f, indent=2, ensure_ascii=False)
+
+class ToolsUpdatePayload(BaseModel):
+    tools: List[Dict[str, Any]]
+
+@router.get("/tools")
+async def get_all_platform_tools():
+    """Get all platform tool configurations, custom titles, greetings, and coming soon flags."""
+    tools = _load_tools_store()
+    return {
+        "status": "success",
+        "count": len(tools),
+        "tools": tools
+    }
+
+@router.put("/tools")
+async def update_all_platform_tools(payload: ToolsUpdatePayload):
+    """Admin update for platform tools configuration with instant persistence."""
+    try:
+        _save_tools_store(payload.tools)
+        return {
+            "status": "success",
+            "message": "Platform tools configuration updated successfully",
+            "count": len(payload.tools)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to persist tool configurations: {str(e)}")
+

@@ -119,15 +119,6 @@ export default function TeacherDashboardOverviewPage() {
       badge: "Core Studio"
     },
     {
-      code: "lesson_planner",
-      href: "/dashboard/lesson-planner",
-      name: "Lesson Planner AI",
-      desc: "Pedagogical outlines, 5E inquiry models, and competency-based classroom teaching structures.",
-      icon: BookOpen,
-      color: "from-cyan-500 to-blue-600",
-      badge: "Pedagogy AI"
-    },
-    {
       code: "teacher_olympiad",
       href: "/dashboard/teacher-olympiad",
       name: "Skill Enhance Program",

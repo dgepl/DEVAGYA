@@ -33,8 +33,24 @@ import {
   Clock,
   Calendar,
   CalendarClock,
-  Zap
+  Zap,
+  Rocket,
+  ToggleLeft,
+  ToggleRight,
+  Edit3,
+  Filter,
+  Brain,
+  HeartHandshake,
+  Activity,
+  Video,
+  SlidersHorizontal,
+  LayoutGrid,
+  Table as TableIcon,
+  Tag,
+  MessageSquare
 } from "lucide-react";
+import { useToolConfigStore, ToolItem } from "@/store/useToolConfigStore";
+import { ComingSoonView } from "@/components/common/ComingSoonView";
 
 export default function SuperAdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -50,7 +66,22 @@ export default function SuperAdminPage() {
   };
 
   // Main Tab State
-  const [adminTab, setAdminTab] = useState<"olympiad" | "paper_studio" | "users" | "analytics">("paper_studio");
+  const [adminTab, setAdminTab] = useState<"tools_hub" | "paper_studio" | "olympiad" | "users" | "analytics">("tools_hub");
+
+  // Platform Tools Hub State
+  const { tools, updateTool, toggleComingSoon, setAllComingSoon, resetToDefaults, fetchFromServer, saveToServer } = useToolConfigStore();
+  const [toolRoleFilter, setToolRoleFilter] = useState<"all" | "teacher" | "student" | "parent" | "admin">("all");
+  const [toolStatusFilter, setToolStatusFilter] = useState<"all" | "active" | "coming_soon">("all");
+  const [toolSearch, setToolSearch] = useState("");
+  const [toolViewMode, setToolViewMode] = useState<"grid" | "table">("grid");
+  const [editingTool, setEditingTool] = useState<ToolItem | null>(null);
+  const [previewComingSoonTool, setPreviewComingSoonTool] = useState<ToolItem | null>(null);
+  const [savingToolForm, setSavingToolForm] = useState(false);
+
+  // Sync tools on mount
+  useEffect(() => {
+    fetchFromServer();
+  }, []);
 
   // Paper Studio Sub-Tab State
   const [paperStudioSubTab, setPaperStudioSubTab] = useState<"tso_100_ai" | "manual_builder" | "repository">("tso_100_ai");
@@ -945,11 +976,21 @@ export default function SuperAdminPage() {
       </div>
 
       {/* ADMIN CONTROL MAIN TABS */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
+        <button
+          onClick={() => setAdminTab("tools_hub")}
+          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            adminTab === "tools_hub" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <SlidersHorizontal className="w-4 h-4 text-cyan-300" />
+          <span>Platform & AI Tools Hub ({tools.length})</span>
+        </button>
+
         <button
           onClick={() => setAdminTab("paper_studio")}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
-            adminTab === "paper_studio" ? "bg-indigo-600 text-white shadow-md" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            adminTab === "paper_studio" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
           }`}
         >
           <Wand2 className="w-4 h-4 text-amber-300" />
@@ -958,8 +999,8 @@ export default function SuperAdminPage() {
 
         <button
           onClick={() => setAdminTab("olympiad")}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
-            adminTab === "olympiad" ? "bg-indigo-600 text-white shadow-md" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            adminTab === "olympiad" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
           }`}
         >
           <Trophy className="w-4 h-4 text-amber-400" />
@@ -968,16 +1009,308 @@ export default function SuperAdminPage() {
 
         <button
           onClick={() => setAdminTab("users")}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
-            adminTab === "users" ? "bg-indigo-600 text-white shadow-md" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            adminTab === "users" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-4 h-4 text-teal-300" />
           <span>User Profiles & Role Control ({usersList.length})</span>
         </button>
       </div>
 
+      {/* ========================================================================= */}
+      {/* TAB 0: PLATFORM & AI TOOLS HUB (FEATURE MANAGEMENT & COMING SOON CONTROL) */}
+      {/* ========================================================================= */}
+      {adminTab === "tools_hub" && (
+        <div className="space-y-6">
+          
+          {/* TOP CONTROLS & FILTER BAR */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-5">
+            
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-black uppercase tracking-wider">
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Central Feature Registry</span>
+                </div>
+                <h2 className="text-xl font-black text-slate-900">AI & Platform Tools Management Hub</h2>
+                <p className="text-xs text-slate-500 font-medium">
+                  Organized separately for Teacher, Student, Parent, and Admin roles. Customize titles, greetings, badges, and toggle Coming Soon modes live.
+                </p>
+              </div>
+
+              {/* Action Toolbar */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm("Set all platform tools to LIVE & ACTIVE?")) {
+                      setAllComingSoon("all", false);
+                      setActionMsg("✅ All platform tools set to LIVE & ACTIVE!");
+                      setTimeout(() => setActionMsg(null), 4000);
+                    }
+                  }}
+                  className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Activate All</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm("Reset all tool titles, badges, and greetings to factory defaults?")) {
+                      resetToDefaults();
+                      setActionMsg("✅ Reset all tool configurations to default!");
+                      setTimeout(() => setActionMsg(null), 4000);
+                    }
+                  }}
+                  className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Reset Defaults</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ROLE FILTER PILLS */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold text-slate-400 mr-2 flex items-center gap-1">
+                <Filter className="w-3.5 h-3.5" /> Role Scope:
+              </span>
+
+              {[
+                { key: "all", label: "All Tools", count: tools.length, color: "text-slate-700 bg-slate-100" },
+                { key: "teacher", label: "Teacher Tools", count: tools.filter(t => t.role === "teacher").length, color: "text-indigo-700 bg-indigo-50 border-indigo-200" },
+                { key: "student", label: "Student Tools", count: tools.filter(t => t.role === "student").length, color: "text-purple-700 bg-purple-50 border-purple-200" },
+                { key: "parent", label: "Parent Tools", count: tools.filter(t => t.role === "parent").length, color: "text-rose-700 bg-rose-50 border-rose-200" },
+                { key: "admin", label: "Admin Tools", count: tools.filter(t => t.role === "admin").length, color: "text-teal-700 bg-teal-50 border-teal-200" },
+              ].map((pill) => (
+                <button
+                  key={pill.key}
+                  onClick={() => setToolRoleFilter(pill.key as any)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer border ${
+                    toolRoleFilter === pill.key
+                      ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                      : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
+                  }`}
+                >
+                  <span>{pill.label}</span>
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                    toolRoleFilter === pill.key ? "bg-white/20 text-white" : pill.color
+                  }`}>
+                    {pill.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* SEARCH & STATUS FILTER ROW */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              <div className="relative w-full sm:w-96">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  value={toolSearch}
+                  onChange={(e) => setToolSearch(e.target.value)}
+                  placeholder="Search tool by name, category, badge..."
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200 text-xs">
+                  <button
+                    onClick={() => setToolStatusFilter("all")}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      toolStatusFilter === "all" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    All ({tools.length})
+                  </button>
+                  <button
+                    onClick={() => setToolStatusFilter("active")}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      toolStatusFilter === "active" ? "bg-white text-emerald-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    ● Live ({tools.filter(t => !t.is_coming_soon).length})
+                  </button>
+                  <button
+                    onClick={() => setToolStatusFilter("coming_soon")}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      toolStatusFilter === "coming_soon" ? "bg-white text-amber-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    ⚡ Coming Soon ({tools.filter(t => t.is_coming_soon).length})
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* TOOLS GRID */}
+          {(() => {
+            const filtered = tools.filter((t) => {
+              const matchesRole = toolRoleFilter === "all" || t.role === toolRoleFilter;
+              const matchesStatus = 
+                toolStatusFilter === "all" || 
+                (toolStatusFilter === "active" && !t.is_coming_soon) || 
+                (toolStatusFilter === "coming_soon" && t.is_coming_soon);
+              const q = toolSearch.toLowerCase().trim();
+              const matchesSearch = 
+                !q || 
+                t.name.toLowerCase().includes(q) || 
+                t.description.toLowerCase().includes(q) || 
+                t.category.toLowerCase().includes(q) || 
+                t.badge.toLowerCase().includes(q) ||
+                (t.greeting || "").toLowerCase().includes(q);
+              return matchesRole && matchesStatus && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+                  <SlidersHorizontal className="w-10 h-10 text-slate-300 mx-auto" />
+                  <h3 className="text-base font-extrabold text-slate-800">No matching tools found</h3>
+                  <p className="text-xs text-slate-400">Try adjusting your role filter or search keywords.</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filtered.map((tool) => {
+                  const roleBadgeColor = 
+                    tool.role === "teacher" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                    tool.role === "student" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                    tool.role === "parent" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                    "bg-teal-50 text-teal-700 border-teal-200";
+
+                  return (
+                    <div 
+                      key={tool.id} 
+                      className={`bg-white rounded-3xl border transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-md ${
+                        tool.is_coming_soon ? "border-amber-300/80 bg-gradient-to-b from-amber-50/20 to-white" : "border-slate-200 hover:border-indigo-200"
+                      }`}
+                    >
+                      {/* CARD TOP BANNER */}
+                      <div className="p-5 pb-3 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-10 h-10 rounded-2xl bg-gradient-to-tr ${tool.color} text-white flex items-center justify-center shadow-md shrink-0`}>
+                              <Sparkles className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border ${roleBadgeColor}`}>
+                                  {tool.role}
+                                </span>
+                                <span className="text-[9px] font-black uppercase tracking-wider bg-slate-900 text-white px-1.5 py-0.5 rounded-md">
+                                  {tool.badge}
+                                </span>
+                              </div>
+                              <h3 className="text-sm font-extrabold text-slate-900 leading-snug mt-0.5">{tool.name}</h3>
+                            </div>
+                          </div>
+
+                          {/* Coming Soon Switch */}
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                toggleComingSoon(tool.id);
+                                setActionMsg(`Toggled Coming Soon status for "${tool.name}"`);
+                                setTimeout(() => setActionMsg(null), 3000);
+                              }}
+                              className={`px-2.5 py-1 rounded-xl text-[10.5px] font-black flex items-center gap-1.5 transition-all cursor-pointer border ${
+                                tool.is_coming_soon
+                                  ? "bg-amber-500 text-slate-950 border-amber-400 shadow-sm"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                              }`}
+                            >
+                              {tool.is_coming_soon ? (
+                                <>
+                                  <Rocket className="w-3 h-3 text-slate-950 animate-bounce" />
+                                  <span>COMING SOON</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />
+                                  <span>LIVE ACTIVE</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Category & Route */}
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono pt-1">
+                          <span className="text-slate-600 font-semibold">{tool.category}</span>
+                          <span className="truncate max-w-[140px] text-slate-400">{tool.path}</span>
+                        </div>
+
+                        {/* Description */}
+                        <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
+                          {tool.description}
+                        </p>
+
+                        {/* Greeting / Instructions Preview */}
+                        {tool.greeting && (
+                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-500 italic line-clamp-2">
+                            "{tool.greeting}"
+                          </div>
+                        )}
+
+                        {/* Coming Soon Status Details if active */}
+                        {tool.is_coming_soon && (
+                          <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1 text-xs">
+                            <div className="flex items-center justify-between font-extrabold text-[11px]">
+                              <span>⚡ Coming Soon Mode Active</span>
+                              <span className="text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded-md font-mono">{tool.coming_soon_eta || "Releasing Soon"}</span>
+                            </div>
+                            <p className="text-[11px] text-amber-800 leading-tight">
+                              {tool.coming_soon_title || "Feature Upgrade in Progress"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* CARD BOTTOM ACTION BAR */}
+                      <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingTool({ ...tool })}
+                          className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Edit Config</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPreviewComingSoonTool({ ...tool })}
+                          className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Preview Coming Soon</span>
+                        </button>
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* TAB 1: SUPER ADMIN PAPER STUDIO */}
+      {/* ========================================================================= */}
       {adminTab === "paper_studio" && (
         <div className="space-y-6">
           
@@ -2853,6 +3186,253 @@ export default function SuperAdminPage() {
             </form>
 
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDIT TOOL CONFIGURATION (TITLE, BADGE, GREETING, COMING SOON)     */}
+      {/* ========================================================================= */}
+      {editingTool && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200 my-8">
+            
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-black uppercase tracking-wider">
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Configure Tool Metadata</span>
+                </div>
+                <h2 className="text-xl font-black text-slate-900">Edit Tool: {editingTool.name}</h2>
+                <p className="text-xs text-slate-400 font-mono">Tool ID: {editingTool.id} | Route: {editingTool.path}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setEditingTool(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateTool(editingTool.id, editingTool);
+                setActionMsg(`✅ Saved configuration updates for "${editingTool.name}"!`);
+                setEditingTool(null);
+                setTimeout(() => setActionMsg(null), 4000);
+              }}
+              className="space-y-5"
+            >
+              
+              {/* Row 1: Name & Role */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                    Tool Title / Display Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editingTool.name}
+                    onChange={(e) => setEditingTool({ ...editingTool, name: e.target.value })}
+                    required
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                    Role Category
+                  </label>
+                  <select
+                    value={editingTool.role}
+                    onChange={(e) => setEditingTool({ ...editingTool, role: e.target.value as any })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                  >
+                    <option value="teacher">Teacher Tool</option>
+                    <option value="student">Student Tool</option>
+                    <option value="parent">Parent Tool</option>
+                    <option value="admin">Admin Tool</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Category & Badge */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                    Category Tag
+                  </label>
+                  <input
+                    type="text"
+                    value={editingTool.category}
+                    onChange={(e) => setEditingTool({ ...editingTool, category: e.target.value })}
+                    placeholder="e.g. Assessment & Exam, Pedagogy, Spaced Repetition"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                    Pill Badge (e.g. PRO, NEW, BETA, CORE)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingTool.badge}
+                    onChange={(e) => setEditingTool({ ...editingTool, badge: e.target.value })}
+                    placeholder="PRO, NEW, HOT, CORE STUDIO"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                  Tool Description & Subtitle
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingTool.description}
+                  onChange={(e) => setEditingTool({ ...editingTool, description: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                />
+              </div>
+
+              {/* Greeting Message */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                  AI Welcome Greeting / Instructions Message
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingTool.greeting || ""}
+                  onChange={(e) => setEditingTool({ ...editingTool, greeting: e.target.value })}
+                  placeholder="Greeting shown when users open or interact with this AI agent..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                />
+              </div>
+
+              {/* COMING SOON CONFIGURATION BLOCK */}
+              <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <Rocket className="w-4 h-4 text-amber-600" />
+                      <span>Coming Soon Status Toggle</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800">
+                      When enabled, users opening this tool see a modern, professional Coming Soon teaser page.
+                    </p>
+                  </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingTool.is_coming_soon}
+                      onChange={(e) => setEditingTool({ ...editingTool, is_coming_soon: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+
+                {editingTool.is_coming_soon && (
+                  <div className="space-y-3 pt-3 border-t border-amber-200/60 animate-in fade-in">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-amber-900 mb-1">
+                          Coming Soon Teaser Title
+                        </label>
+                        <input
+                          type="text"
+                          value={editingTool.coming_soon_title || ""}
+                          onChange={(e) => setEditingTool({ ...editingTool, coming_soon_title: e.target.value })}
+                          placeholder="e.g. Next-Gen 3.0 Engine Releasing"
+                          className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 font-semibold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-amber-900 mb-1">
+                          Estimated Timeline / Release ETA
+                        </label>
+                        <input
+                          type="text"
+                          value={editingTool.coming_soon_eta || ""}
+                          onChange={(e) => setEditingTool({ ...editingTool, coming_soon_eta: e.target.value })}
+                          placeholder="e.g. Releasing Next Week, Q2 2026"
+                          className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 font-semibold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-900 mb-1">
+                        Coming Soon Explanation / Feature Teaser
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={editingTool.coming_soon_message || ""}
+                        onChange={(e) => setEditingTool({ ...editingTool, coming_soon_message: e.target.value })}
+                        placeholder="Describe the exciting upgrades coming to this tool..."
+                        className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingTool(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Save Tool Configuration</span>
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: LIVE PREVIEW OF COMING SOON USER EXPERIENCE                       */}
+      {/* ========================================================================= */}
+      {previewComingSoonTool && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl flex items-center justify-between pb-3 text-white">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold">
+              <Eye className="w-4 h-4 text-indigo-400" />
+              <span>Live User Experience Preview ({previewComingSoonTool.name})</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setPreviewComingSoonTool(null)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer"
+            >
+              ✕ Close Preview
+            </button>
+          </div>
+
+          <ComingSoonView
+            tool={previewComingSoonTool}
+            backUrl="#"
+          />
         </div>
       )}
 

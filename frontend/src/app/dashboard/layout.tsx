@@ -37,9 +37,12 @@ import {
   Compass,
   Flame,
   Search,
-  Video
+  Video,
+  Rocket
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useToolConfigStore } from "@/store/useToolConfigStore";
+import { ComingSoonView } from "@/components/common/ComingSoonView";
 import { useEffect, useState, Suspense } from "react";
 import { SmartSearchBar } from "@/components/search/SmartSearchBar";
 import { PageTransition } from "@/components/ui/PageTransition";
@@ -51,9 +54,22 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, logout, initSession, syncProfileFromServer } = useAppStore();
+  const { user, logout, initSession, syncProfileFromServer, switchRole } = useAppStore();
+  const { tools, getToolByPath, fetchFromServer } = useToolConfigStore();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleRoleSwitch = (newRole: "teacher" | "student" | "parent") => {
+    switchRole(newRole);
+    if (newRole === "student") router.push("/dashboard/student");
+    else if (newRole === "parent") router.push("/dashboard/parent");
+    else router.push("/dashboard");
+  };
+
+  useEffect(() => {
+    fetchFromServer();
+  }, []);
+
   const isAgentsPage = pathname?.startsWith("/dashboard/agents");
   const isAIChatPage = 
     pathname?.startsWith("/dashboard/agents") ||
@@ -62,6 +78,25 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     pathname?.startsWith("/dashboard/student/tutor") ||
     pathname?.startsWith("/dashboard/parent/coach") ||
     pathname?.startsWith("/dashboard/teacher-olympiad");
+
+  const agentParam = searchParams.get("agent");
+
+  // Check if current active page is marked as Coming Soon by Admin
+  const currentComingSoonTool = (() => {
+    if (
+      pathname === "/dashboard" || 
+      pathname === "/dashboard/student" || 
+      pathname === "/dashboard/parent" ||
+      pathname === "/dashboard/profile"
+    ) {
+      return null;
+    }
+    const matched = getToolByPath(pathname, agentParam || undefined);
+    if (matched && matched.is_coming_soon) {
+      return matched;
+    }
+    return null;
+  })();
 
   useEffect(() => {
     setMounted(true);
@@ -145,7 +180,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     { label: "AI Assignment Maker", href: "/dashboard/assignments", icon: FileText },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
-    { label: "Lesson Planner AI", href: "/dashboard/lesson-planner", icon: BookOpen },
     { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
@@ -187,70 +221,46 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       {/* DESKTOP & TABLET SIDEBAR */}
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-slate-200 p-4 space-y-6 fixed inset-y-0 z-40 bg-white/95 backdrop-blur-xl">
         
-        {/* Brand Header - Prominent Logo */}
         <Link href="/" className="flex items-center justify-start px-2 py-1 group transition-transform active:scale-98">
           <DevgyaLogo size="md" showText={true} />
         </Link>
-
-        {/* Primary Nav */}
         <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
           {navItems.map((item) => {
-            // Match active state: for agent links compare full path+query, for others just pathname
             const itemUrl = new URL(item.href, "http://x");
             const isActive = item.href.includes("?") 
               ? pathname === itemUrl.pathname && itemUrl.search === `?${searchParams.toString()}`
               : pathname === item.href;
+            
+            const itemAgent = item.href.includes("agent=") ? item.href.split("agent=")[1] : undefined;
+            const matchedNavTool = getToolByPath(itemUrl.pathname, itemAgent);
+            const isItemComingSoon = matchedNavTool?.is_coming_soon;
+
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                   isActive
                     ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 }`}
               >
-                <item.icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-500'}`} />
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3 truncate">
+                  <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-500'}`} />
+                  <span className="truncate">{matchedNavTool?.name || item.label}</span>
+                </div>
+
+                {isItemComingSoon && (
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                    SOON
+                  </span>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* User Card, Profile & Logout */}
         <div className="pt-3 border-t border-slate-200 space-y-1.5">
-          <Link
-            href="/dashboard/profile"
-            className="p-2.5 bg-slate-50 hover:bg-indigo-50/80 hover:border-indigo-200 rounded-xl border border-slate-200 flex items-center gap-3 transition-all group cursor-pointer"
-            title="Edit Profile & Branding"
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 group-hover:from-indigo-500 group-hover:to-purple-500 flex items-center justify-center font-black text-white text-xs shadow-xs overflow-hidden border border-white shrink-0">
-              {user.avatarUrl && user.avatarUrl.trim().length > 0 ? (
-                <img src={user.avatarUrl} alt={user.name || "User"} className="w-full h-full object-cover" />
-              ) : (
-                <span>{user.name?.trim() ? user.name.trim().charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : "U")}</span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-700 truncate">{user.name || "Educator"}</p>
-              <p className="text-[10px] text-indigo-600 font-bold capitalize truncate">
-                {user.role ? user.role.replace('_', ' ') : "Teacher"}
-              </p>
-            </div>
-          </Link>
-
-          <Link
-            href="/dashboard/profile"
-            className={`w-full px-3 py-2 text-xs font-bold flex items-center gap-2.5 rounded-xl transition-all cursor-pointer ${
-              pathname === "/dashboard/profile"
-                ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs"
-                : "text-slate-600 hover:text-indigo-600 hover:bg-slate-100"
-            }`}
-          >
-            <Settings className="w-4 h-4 text-slate-500" />
-            <span>Profile & Settings</span>
-          </Link>
-
           <button
             onClick={handleSignOut}
             className="w-full px-3 py-1.5 text-xs text-slate-600 hover:text-red-600 font-bold flex items-center gap-2.5 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
@@ -259,58 +269,88 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             <span>Sign Out</span>
           </button>
         </div>
-
       </aside>
 
-      {/* MAIN CONTENT AREA */}
       <div className="flex-1 md:pl-64 flex flex-col min-h-screen pb-20 md:pb-8">
         
-        {/* NATIVE MOBILE HEADER */}
         <MobileTopHeader />
         
-        {/* TOP BAR WITH ROLE SWITCHER & PROFILE CHIP (DESKTOP ONLY) */}
-        <header className="hidden md:flex h-16 border-b border-slate-200 bg-white/85 backdrop-blur-md px-4 sm:px-6 items-center justify-between sticky top-0 z-30 gap-4">
+        <header className="hidden md:flex h-16 border-b border-slate-200 px-6 sm:px-8 items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
           
-          <SmartSearchBar />
+          <div className="flex-1 max-w-lg">
+            <SmartSearchBar />
+          </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4 ml-4">
             
-            {/* FIXED USER ROLE BADGE */}
-            <div className="flex items-center gap-1.5 bg-indigo-50 px-3 py-1.5 rounded-2xl border border-indigo-200 text-xs font-extrabold text-indigo-700">
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-              <span className="capitalize">{user.role || "User"} Portal</span>
+            <div className="flex items-center p-1 bg-slate-100 border border-slate-200/80 rounded-2xl shadow-inner">
+              <button
+                onClick={() => handleRoleSwitch('teacher')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  user.role === 'teacher' 
+                    ? 'bg-white text-indigo-700 shadow-xs border border-indigo-100' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Teacher</span>
+              </button>
+
+              <button
+                onClick={() => handleRoleSwitch('student')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  user.role === 'student' 
+                    ? 'bg-white text-purple-700 shadow-xs border border-purple-100' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-purple-600" />
+                <span>Student</span>
+              </button>
+
+              <button
+                onClick={() => handleRoleSwitch('parent')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  user.role === 'parent' 
+                    ? 'bg-white text-rose-700 shadow-xs border border-rose-100' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                <HeartHandshake className="w-3.5 h-3.5 text-rose-600" />
+                <span>Parent</span>
+              </button>
             </div>
 
-            {/* DESKTOP PROFILE AVATAR SHORTCUT */}
             <Link
               href="/dashboard/profile"
-              className="flex items-center gap-2.5 bg-slate-50 hover:bg-indigo-50/80 px-2.5 py-1 rounded-2xl border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer shadow-xs active:scale-95"
+              className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer group"
               title="View Profile"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center text-xs font-black shadow-xs overflow-hidden border border-white shrink-0">
+              <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center font-black text-white text-xs shadow-xs overflow-hidden">
                 {user.avatarUrl && user.avatarUrl.trim().length > 0 ? (
                   <img src={user.avatarUrl} alt={user.name || "User"} className="w-full h-full object-cover" />
                 ) : (
                   <span>{user.name?.trim() ? user.name.trim().charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : "U")}</span>
                 )}
               </div>
-              <div className="hidden lg:block text-left pr-1">
-                <p className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">{user.name || "User"}</p>
-                <p className="text-[10px] text-slate-400 capitalize leading-none">{user.role || "teacher"}</p>
-              </div>
             </Link>
 
           </div>
         </header>
 
-        {/* PAGE CONTENT WITH SMOOTH ANIMATIONS */}
         <main className={`${isAgentsPage ? 'p-2 sm:p-3' : 'p-3 sm:p-6 lg:p-8'} flex-1 w-full max-w-full overflow-x-hidden`}>
-          <PageTransition>
-            {children}
-          </PageTransition>
+          {currentComingSoonTool ? (
+            <ComingSoonView
+              tool={currentComingSoonTool}
+              backUrl={user?.role === "student" ? "/dashboard/student" : user?.role === "parent" ? "/dashboard/parent" : "/dashboard"}
+            />
+          ) : (
+            <PageTransition>
+              {children}
+            </PageTransition>
+          )}
         </main>
 
-        {/* DASHBOARD BOTTOM DEVELOPER FOOTER - Hidden on AI Chat & Exam screens for immersive full-height experience */}
         {!isAIChatPage && (
           <footer className="mt-auto px-4 sm:px-8 py-2.5 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[11px] text-slate-500 font-medium">
             <p>&copy; 2026 DEVGYA Global Edutech Private Limited. All Rights Reserved.</p>

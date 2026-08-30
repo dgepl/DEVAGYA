@@ -48,7 +48,7 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
     { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { label: "Generator", href: "/dashboard/generator", icon: Sparkles },
     { label: "Speed Dial", href: "/dashboard/generator", isSpeedDial: true, icon: Zap },
-    { label: "Lesson Plan", href: "/dashboard/lesson-planner", icon: BookOpen },
+    { label: "Skill Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "AI Mentor", href: "/dashboard/agents?agent=teacher_mentor", icon: Bot },
   ];
 

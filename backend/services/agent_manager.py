@@ -43,15 +43,6 @@ DEFAULT_AGENTS: List[Dict[str, Any]] = [
         "system_prompt": "You are Question Generator AI, a specialized curriculum assessment developer."
     },
     {
-        "agent_code": "lesson_planner",
-        "name": "Lesson Planner AI",
-        "avatar": "BookOpen",
-        "role_scope": "teacher",
-        "description": "Creates 45-minute structured daily and weekly unit lesson plans with learning outcomes.",
-        "capabilities": ["Unit Planning", "Learning Outcomes", "Activity Design"],
-        "system_prompt": "You are Lesson Planner AI, crafting structured unit and daily lesson plans."
-    },
-    {
         "agent_code": "homework_assistant",
         "name": "Homework Assistant AI",
         "avatar": "FileText",
