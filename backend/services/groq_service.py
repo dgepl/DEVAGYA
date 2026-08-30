@@ -1,5 +1,6 @@
 import json
 import re
+import asyncio
 import logging
 from typing import List, Dict, Any, Optional
 from groq import Groq
@@ -431,13 +432,16 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
         extracted_text: str = "",
         image_data_url: Optional[str] = None
     ) -> GeneratedPaperResponse:
-        """Generate Exam Question Paper derived directly from user inputs and PDF/photo attachment with parallel chunked synthesis."""
-        detect_prompt = """Analyze this study material/worksheet.
+        """Generate Exam Question Paper derived STRICTLY and EXCLUSIVELY from attached PDF/documents or photos, ignoring form dropdowns."""
+        if not extracted_text and not image_data_url:
+            return await self.generate_question_paper(req)
+
+        detect_prompt = """Analyze this attached study material/document/worksheet.
 Extract:
-1. Real Subject (e.g., Science, Mathematics, English, Social Science)
-2. Real Chapter / Topic Name
-3. Exam Title
-4. Concise Key Concepts & Core Content Summary (max 400 words)
+1. True Subject Name (e.g. Mathematics, Science, Physics, Chemistry, Biology, English, Hindi, Social Science, Commerce, Computer Science)
+2. True Chapter / Unit / Topic Title covered in the document
+3. Appropriate Exam Title
+4. Concise Comprehensive Summary & Key Concepts/Formulas/Passages (up to 800 words)
 
 Return valid JSON ONLY:
 {
@@ -447,20 +451,23 @@ Return valid JSON ONLY:
   "summary": "..."
 }"""
 
+        detected_subject = ""
+        detected_chapter = ""
+        detected_title = ""
+        attachment_summary = ""
+
         if image_data_url:
             user_content = [
                 {"type": "text", "text": detect_prompt},
                 {"type": "image_url", "image_url": {"url": image_data_url}}
             ]
-        elif extracted_text and extracted_text.strip():
-            user_content = f"{detect_prompt}\n\nDocument Text:\n{extracted_text[:6000]}"
         else:
-            return await self.generate_question_paper(req)
+            user_content = f"{detect_prompt}\n\nDocument Text:\n{extracted_text[:8000]}"
 
         try:
             raw_meta = await ai_provider.chat_completion(
                 messages=[
-                    {"role": "system", "content": "You are DEVGYA's curriculum metadata and concept extractor. Return JSON."},
+                    {"role": "system", "content": "You are DEVGYA's curriculum metadata and concept extractor. Return valid JSON."},
                     {"role": "user", "content": user_content}
                 ],
                 temperature=0.2,
@@ -468,21 +475,306 @@ Return valid JSON ONLY:
                 response_format_json=True
             )
             parsed_meta = robust_json_parser(raw_meta)
-            if parsed_meta.get("subject") and str(parsed_meta["subject"]).lower() not in ["general", "general studies"]:
-                req.subject = str(parsed_meta["subject"])
-            if parsed_meta.get("chapter") and str(parsed_meta["chapter"]).lower() not in ["general syllabus", "general"]:
-                req.chapter = str(parsed_meta["chapter"])
-            if parsed_meta.get("title"):
-                req.title = str(parsed_meta["title"])
-
-            summary_text = parsed_meta.get("summary", "")
-            if summary_text:
-                existing_inst = req.custom_instructions or ""
-                req.custom_instructions = f"{existing_inst}\n\nStrictly base questions on this attached source material summary:\n{summary_text}".strip()
+            detected_subject = str(parsed_meta.get("subject") or "").strip()
+            detected_chapter = str(parsed_meta.get("chapter") or "").strip()
+            detected_title = str(parsed_meta.get("title") or "").strip()
+            attachment_summary = str(parsed_meta.get("summary") or "").strip()
         except Exception as meta_err:
-            logger.warning(f"[Attachment Meta Notice] {meta_err}")
+            logger.warning(f"[Attachment Meta Detection Notice] {meta_err}")
 
-        return await self.generate_question_paper(req)
+        # Fallback values if detection was partial
+        final_subject = detected_subject if (detected_subject and detected_subject.lower() not in ["general", "general studies"]) else (req.subject or "Attached Reference Material")
+        final_chapter = detected_chapter if (detected_chapter and detected_chapter.lower() not in ["general", "general syllabus"]) else (req.chapter or "Document Content")
+        final_title = detected_title if detected_title else str(req.title or f"{final_subject} Examination Paper")
+
+        # Source context block to inject into all question generation tasks
+        if extracted_text and extracted_text.strip():
+            source_context = f"=== ATTACHED SOURCE DOCUMENT CONTENT ===\n{extracted_text[:9000]}\n=== END SOURCE DOCUMENT CONTENT ==="
+        elif attachment_summary:
+            source_context = f"=== ATTACHED REFERENCE MATERIAL SUMMARY ===\n{attachment_summary}\n=== END REFERENCE MATERIAL SUMMARY ==="
+        else:
+            source_context = "=== ATTACHED REFERENCE MATERIAL ===\n[Derive all questions from the attached visual document]\n=== END REFERENCE MATERIAL ==="
+
+        teacher_notes = str(req.custom_instructions or "").strip()
+
+        target_mcq = max(0, req.num_mcqs)
+        target_short = max(0, req.num_short)
+        target_long = max(0, req.num_long)
+
+        sem = asyncio.Semaphore(4)
+
+        async def _call_attachment_llm(prompt_text: str) -> str:
+            async with sem:
+                # If image exists and text is minimal, pass image directly to vision model
+                if image_data_url and (not extracted_text or len(extracted_text) < 100):
+                    content = [
+                        {"type": "text", "text": prompt_text},
+                        {"type": "image_url", "image_url": {"url": image_data_url}}
+                    ]
+                else:
+                    content = prompt_text
+
+                return await ai_provider.chat_completion(
+                    messages=[
+                        {
+                            "role": "system", 
+                            "content": (
+                                "You are DEVGYA's Master Document Assessment Engine. "
+                                "CRITICAL RULE: You MUST create exam questions STRICTLY and EXCLUSIVELY from the provided attached source document / image. "
+                                "Completely IGNORE any external pre-selected curriculum topics or subjects not in the source. Return valid JSON only."
+                            )
+                        },
+                        {"role": "user", "content": content}
+                    ],
+                    temperature=0.3,
+                    max_tokens=3500,
+                    response_format_json=True
+                )
+
+        tasks = []
+
+        def _get_chunks(cnt: int, size: int) -> List[int]:
+            res = []
+            while cnt > 0:
+                take = min(cnt, size)
+                res.append(take)
+                cnt -= take
+            return res
+
+        def _dedup_q_list(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            seen_texts = set()
+            out = []
+            for item in items:
+                t = str(item.get("question_text", "")).strip()
+                norm = re.sub(r'[^a-zA-Z0-9\s]', '', t.lower())
+                k = " ".join(norm.split())
+                if not k or k in seen_texts or len(k) < 8:
+                    continue
+                seen_texts.add(k)
+                out.append(item)
+            return out
+
+        # 1. MCQ Tasks from Attachment
+        mcq_chunks = _get_chunks(target_mcq, 8)
+        for i, c_mcq in enumerate(mcq_chunks):
+            mcq_prompt = f"""CRITICAL MANDATE:
+You MUST formulate EXACTLY {c_mcq} Multiple Choice Questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
+Do NOT create questions about unrelated topics. Every single question, option, and answer must directly evaluate facts, concepts, definitions, or problems in this attached source.
+
+{source_context}
+{f"Teacher Notes: {teacher_notes}" if teacher_notes else ""}
+Difficulty: {req.difficulty}
+Batch Part: {i+1} of {len(mcq_chunks)}
+
+MANDATORY QUANTITY:
+- EXACTLY {c_mcq} MCQs (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation derived from the attached text).
+
+JSON FORMAT ONLY:
+{{
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "mcq",
+      "question_text": "...",
+      "options": ["(A)...", "(B)...", "(C)...", "(D)..."],
+      "answer": "(A)...",
+      "explanation": "...",
+      "marks": 1
+    }}
+  ]
+}}"""
+            tasks.append(_call_attachment_llm(mcq_prompt))
+
+        # 2. Short Answer Tasks from Attachment
+        short_chunks = _get_chunks(target_short, 5)
+        for i, c_short in enumerate(short_chunks):
+            short_prompt = f"""CRITICAL MANDATE:
+You MUST formulate EXACTLY {c_short} Short Answer Questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
+Do NOT create questions about unrelated topics. Every single question and model answer must be derived directly from the attached source.
+
+{source_context}
+{f"Teacher Notes: {teacher_notes}" if teacher_notes else ""}
+Difficulty: {req.difficulty}
+Batch Part: {i+1} of {len(short_chunks)}
+
+MANDATORY QUANTITY:
+- EXACTLY {c_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with complete step-by-step scoring rubric/model answer derived from the attached source).
+
+JSON FORMAT ONLY:
+{{
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "short",
+      "question_text": "...",
+      "options": null,
+      "answer": "...",
+      "explanation": "...",
+      "marks": 3
+    }}
+  ]
+}}"""
+            tasks.append(_call_attachment_llm(short_prompt))
+
+        # 3. Long Answer / HOTS Tasks from Attachment
+        long_chunks = _get_chunks(target_long, 4)
+        for i, c_long in enumerate(long_chunks):
+            long_prompt = f"""CRITICAL MANDATE:
+You MUST formulate EXACTLY {c_long} Long Answer / In-depth Analytical Questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
+Do NOT create questions about unrelated topics. Every single question, multi-step problem, or essay prompt must derive directly from the attached source.
+
+{source_context}
+{f"Teacher Notes: {teacher_notes}" if teacher_notes else ""}
+Difficulty: {req.difficulty}
+Batch Part: {i+1} of {len(long_chunks)}
+
+MANDATORY QUANTITY:
+- EXACTLY {c_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with detailed explanation, analysis, or multi-step solution derived from the attached source).
+
+JSON FORMAT ONLY:
+{{
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "long",
+      "question_text": "...",
+      "options": null,
+      "answer": "...",
+      "explanation": "...",
+      "marks": 5
+    }}
+  ]
+}}"""
+            tasks.append(_call_attachment_llm(long_prompt))
+
+        raw_responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        extracted_raw_questions = []
+        exceptions_encountered = []
+        for resp in raw_responses:
+            if isinstance(resp, str):
+                parsed = robust_json_parser(resp)
+                extracted_raw_questions.extend(parsed.get("questions") or [])
+            elif isinstance(resp, Exception):
+                exceptions_encountered.append(resp)
+
+        # If zero questions were synthesized and exceptions were encountered, raise specific categorized error
+        if not extracted_raw_questions and exceptions_encountered:
+            status_code, detail = format_ai_exception_detail(exceptions_encountered[0], "Question Paper Synthesis with Attachment")
+            raise HTTPException(status_code=status_code, detail=detail)
+
+        # Clean and categorize
+        mcqs, shorts, longs = [], [], []
+        for q in extracted_raw_questions:
+            if not isinstance(q, dict):
+                continue
+            q_text = str(q.get("question_text") or q.get("question") or "").strip()
+            if not q_text:
+                continue
+            q_type = str(q.get("question_type") or "").lower()
+            opts = q.get("options") if isinstance(q.get("options"), list) and len(q.get("options")) >= 2 else None
+            ans = str(q.get("answer") or "Refer to step-by-step model solution based on attached document.")
+            exp = str(q.get("explanation") or "Derived directly from attached source material.")
+
+            if "mcq" in q_type or opts:
+                mcqs.append({
+                    "question_type": "mcq",
+                    "question_text": q_text,
+                    "marks": 1,
+                    "options": opts,
+                    "answer": ans,
+                    "explanation": exp
+                })
+            elif "long" in q_type or int(q.get("marks") or 0) >= 5:
+                longs.append({
+                    "question_type": "long",
+                    "question_text": q_text,
+                    "marks": 5,
+                    "options": None,
+                    "answer": ans,
+                    "explanation": exp
+                })
+            else:
+                shorts.append({
+                    "question_type": "short",
+                    "question_text": q_text,
+                    "marks": 3,
+                    "options": None,
+                    "answer": ans,
+                    "explanation": exp
+                })
+
+        mcqs = _dedup_q_list(mcqs)
+        shorts = _dedup_q_list(shorts)
+        longs = _dedup_q_list(longs)
+
+        # Assemble final indexed questions
+        final_qs = []
+        q_num = 1
+        for q in mcqs[:target_mcq]:
+            final_qs.append(QuestionItem(
+                id=q_num,
+                question_number=q_num,
+                question_type="mcq",
+                question_text=q["question_text"],
+                marks=1,
+                options=q.get("options") or ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"],
+                answer=q.get("answer") or "(A)",
+                explanation=q.get("explanation")
+            ))
+            q_num += 1
+
+        for q in shorts[:target_short]:
+            final_qs.append(QuestionItem(
+                id=q_num,
+                question_number=q_num,
+                question_type="short",
+                question_text=q["question_text"],
+                marks=3,
+                options=None,
+                answer=q.get("answer") or "Refer to step-by-step model solution based on attached document.",
+                explanation=q.get("explanation")
+            ))
+            q_num += 1
+
+        for q in longs[:target_long]:
+            final_qs.append(QuestionItem(
+                id=q_num,
+                question_number=q_num,
+                question_type="long",
+                question_text=q["question_text"],
+                marks=5,
+                options=None,
+                answer=q.get("answer") or "Detailed analytical derivation based on attached document.",
+                explanation=q.get("explanation")
+            ))
+            q_num += 1
+
+        if not final_qs:
+            raise HTTPException(
+                status_code=500,
+                detail="⚠️ AI Generation Notice: The AI engine was unable to synthesize questions from the attached document. Please check the document clarity and try again."
+            )
+
+        calc_marks = sum(q.marks for q in final_qs)
+        return GeneratedPaperResponse(
+            title=final_title,
+            class_name=str(req.class_name or "Class 10"),
+            subject=final_subject,
+            chapter=final_chapter,
+            difficulty=str(req.difficulty or "medium"),
+            total_marks=calc_marks if calc_marks > 0 else int(req.total_marks or 40),
+            time_allowed_mins=int(req.time_allowed_mins or 90),
+            instructions=[
+                "All questions are compulsory and derived from the attached reference material.",
+                "Section A comprises MCQs of 1 mark each.",
+                "Section B comprises Short Answer questions of 3 marks each.",
+                "Section C comprises Long Answer / Analytical questions of 5 marks each."
+            ],
+            questions=final_qs,
+            school_name=str(req.school_name or "DEVGYA GLOBAL ACADEMY"),
+            user_email=req.user_email
+        )
 
     async def socratic_chat(self, question: str, subject: str = "Science", grade: str = "Class 10", action: str = "normal") -> dict:
         """Socratic AI Tutor method: Guides students with hints and guiding questions without giving direct answers."""

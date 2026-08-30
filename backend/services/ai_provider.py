@@ -81,7 +81,7 @@ class AIProviderService:
             "max_tokens": min(max_tokens, 2500)
         }
         
-        if response_format_json and not has_imgs:
+        if response_format_json and not has_imgs and "qwen" not in str(selected_model).lower():
             payload["response_format"] = {"type": "json_object"}
 
         async with httpx.AsyncClient(timeout=45.0) as client:
