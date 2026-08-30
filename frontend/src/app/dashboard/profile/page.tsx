@@ -162,35 +162,43 @@ function ProfileContent() {
 
   const userRole = user.role || "teacher";
 
+  const { syncProfileFromServer } = useAppStore();
+
+  useEffect(() => {
+    if (user?.email) {
+      syncProfileFromServer(user.email);
+    }
+  }, [user?.email]);
+
   useEffect(() => {
     if (user && user.email) {
-      if (user.name) setName(user.name);
-      if (user.email) setEmail(user.email);
-      if (user.schoolName) setSchoolName(user.schoolName);
-      if (user.board) setBoard(user.board);
-      if (user.classes) setClasses(user.classes);
-      if (user.subject) setSubject(user.subject);
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setSchoolName(user.schoolName || "");
+      setBoard(user.board || "CBSE");
+      setClasses(user.classes || "Class 10");
+      setSubject(user.subject || "Science");
       
-      if (user.avatarUrl) setAvatarUrl(user.avatarUrl);
-      if (user.schoolLogo) setSchoolLogo(user.schoolLogo);
+      setAvatarUrl(user.avatarUrl || "");
+      setSchoolLogo(user.schoolLogo || "");
 
-      if (user.targetExam) setTargetExam(user.targetExam);
-      if (user.strongSubject) setStrongSubject(user.strongSubject);
-      if (user.weakSubject) setWeakSubject(user.weakSubject);
-      if (user.dailyGoalHours) setDailyGoalHours(user.dailyGoalHours);
-      if (user.studyMotto) setStudyMotto(user.studyMotto);
-      if (user.preferredLanguage) setPreferredLanguage(user.preferredLanguage);
+      setTargetExam(user.targetExam || "");
+      setStrongSubject(user.strongSubject || "");
+      setWeakSubject(user.weakSubject || "");
+      setDailyGoalHours(user.dailyGoalHours || "2");
+      setStudyMotto(user.studyMotto || "");
+      setPreferredLanguage(user.preferredLanguage || "english");
 
-      if (user.childName) setChildName(user.childName);
-      if (user.childSchool) setChildSchool(user.childSchool);
-      if (user.childClass) setChildClass(user.childClass);
-      if (user.childBoard) setChildBoard(user.childBoard);
-      if (user.parentRelation) setParentRelation(user.parentRelation);
-      if (user.phone) setPhone(user.phone);
-      if (user.parentingFocus) setParentingFocus(user.parentingFocus);
+      setChildName(user.childName || "");
+      setChildSchool(user.childSchool || "");
+      setChildClass(user.childClass || "Class 10");
+      setChildBoard(user.childBoard || "CBSE");
+      setParentRelation(user.parentRelation || "Father");
+      setPhone(user.phone || "");
+      setParentingFocus(user.parentingFocus || "");
       if (user.weeklyReportAlerts !== undefined) setWeeklyReportAlerts(user.weeklyReportAlerts);
     }
-  }, [user?.email, user?.avatarUrl, user?.schoolLogo, user?.name, user?.schoolName]);
+  }, [user]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

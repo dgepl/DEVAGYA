@@ -114,8 +114,30 @@ class SupabaseService:
     ) -> Dict[str, Any]:
         """Save teacher, student, or parent profile metadata to local store and sync directly to Supabase Cloud."""
         email_clean = email.strip().lower()
-        current = _teacher_profiles_store.get(email_clean, {})
+        current = _teacher_profiles_store.get(email_clean, {}).copy()
         
+        # 1. If available in Supabase, load existing unpacked cloud metadata first to prevent any field loss
+        if SERVICE_KEY:
+            try:
+                with httpx.Client(timeout=6.0) as client:
+                    get_res = client.get(f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{email_clean}&select=*", headers=headers)
+                    if get_res.status_code == 200:
+                        rows = get_res.json()
+                        if rows:
+                            raw_av = rows[0].get("avatar_url")
+                            if raw_av and isinstance(raw_av, str) and raw_av.startswith("{") and raw_av.endswith("}"):
+                                try:
+                                    parsed_meta = json.loads(raw_av)
+                                    if isinstance(parsed_meta, dict):
+                                        for k, v in parsed_meta.items():
+                                            if k not in current or not current[k]:
+                                                current[k] = v
+                                except Exception:
+                                    pass
+            except Exception as load_err:
+                logger.warning(f"Existing Supabase profile load notice: {load_err}")
+
+        # 2. Update with new provided values
         if full_name: current["full_name"] = full_name
         if school_name is not None: current["school_name"] = school_name
         if board is not None: current["board"] = board
@@ -128,13 +150,13 @@ class SupabaseService:
             if v is not None:
                 current[k] = v
         
-        current["updated_at"] = os.getenv("APP_TIME", "2026-08-23T10:00:00")
+        current["updated_at"] = os.getenv("APP_TIME", "2026-08-30T10:00:00")
         current["is_profile_complete"] = True
 
         _teacher_profiles_store[email_clean] = current
         _save_teacher_profiles(_teacher_profiles_store)
 
-        # Sync permanently to Supabase Cloud PostgreSQL
+        # 3. Sync permanently to Supabase Cloud PostgreSQL
         if SERVICE_KEY:
             try:
                 meta_json = json.dumps(current)
@@ -147,12 +169,11 @@ class SupabaseService:
                         headers={**headers, "Prefer": "return=representation"},
                         json=patch_payload
                     )
-                    # If row doesn't exist in Supabase profiles table, insert it
+                    # If row doesn't exist in Supabase profiles table, insert it (omitting 'id' so Supabase generates a valid UUID)
                     if patch_res.status_code in (200, 204):
                         rows = patch_res.json() if patch_res.status_code == 200 else []
                         if not rows:
                             insert_row = {
-                                "id": f"usr-{email_clean.split('@')[0]}",
                                 "email": email_clean,
                                 "full_name": full_name or email_clean.split('@')[0].capitalize(),
                                 "role": current.get("role", "teacher"),
@@ -165,7 +186,7 @@ class SupabaseService:
                                 json=insert_row
                             )
             except Exception as sync_err:
-                logger.warn(f"Supabase Cloud profile sync notice: {sync_err}")
+                logger.warning(f"Supabase Cloud profile sync notice: {sync_err}")
 
         return current
 
@@ -203,15 +224,21 @@ class SupabaseService:
                 try:
                     unpacked = json.loads(raw_avatar)
                     if isinstance(unpacked, dict):
+                        for k, v in unpacked.items():
+                            profile_data[k] = v
+
                         # Extract clean image URL if present
                         inner_avatar = unpacked.get("avatar_url", "")
                         if isinstance(inner_avatar, str) and (inner_avatar.startswith("http") or inner_avatar.startswith("data:image")):
                             profile_data["avatar_url"] = inner_avatar
                         else:
                             profile_data["avatar_url"] = ""
-                        for k, v in unpacked.items():
-                            if k != "avatar_url":
-                                profile_data[k] = v
+
+                        inner_logo = unpacked.get("school_logo", "")
+                        if isinstance(inner_logo, str) and (inner_logo.startswith("http") or inner_logo.startswith("data:image")):
+                            profile_data["school_logo"] = inner_logo
+                        else:
+                            profile_data["school_logo"] = profile_data.get("school_logo", "")
                 except Exception:
                     profile_data["avatar_url"] = ""
             elif not raw_avatar or not (isinstance(raw_avatar, str) and (raw_avatar.startswith("http") or raw_avatar.startswith("data:image"))):

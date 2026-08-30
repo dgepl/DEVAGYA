@@ -66,6 +66,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMounted(true);
     initSession();
+    if (user?.email) {
+      syncProfileFromServer(user.email);
+    }
 
     // Auto-sync profile on window focus or tab visibility change across multiple devices
     const handleFocus = () => {
