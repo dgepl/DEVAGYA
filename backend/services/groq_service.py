@@ -436,12 +436,13 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
         if not extracted_text and not image_data_url:
             return await self.generate_question_paper(req)
 
-        detect_prompt = """Analyze this attached study material/document/worksheet.
+        detect_prompt = """You are DEVGYA's Master Document Vision OCR & Assessment Extractor.
+Carefully examine and transcribe this attached study material / document / worksheet photo.
 Extract:
-1. True Subject Name (e.g. Mathematics, Science, Physics, Chemistry, Biology, English, Hindi, Social Science, Commerce, Computer Science)
+1. True Subject Name (e.g. Mathematics, Science, Physics, Chemistry, Biology, History, Geography, English, Hindi, Social Science, Computer Science)
 2. True Chapter / Unit / Topic Title covered in the document
 3. Appropriate Exam Title
-4. Concise Comprehensive Summary & Key Concepts/Formulas/Passages (up to 800 words)
+4. Complete Detailed Transcription & Breakdown of all readable text, formulas, equations, definitions, problems, and concepts (up to 1500 words)
 
 Return valid JSON ONLY:
 {
@@ -462,16 +463,16 @@ Return valid JSON ONLY:
                 {"type": "image_url", "image_url": {"url": image_data_url}}
             ]
         else:
-            user_content = f"{detect_prompt}\n\nDocument Text:\n{extracted_text[:8000]}"
+            user_content = f"{detect_prompt}\n\nAttached Document Content:\n{extracted_text[:9000]}"
 
         try:
             raw_meta = await ai_provider.chat_completion(
                 messages=[
-                    {"role": "system", "content": "You are DEVGYA's curriculum metadata and concept extractor. Return valid JSON."},
+                    {"role": "system", "content": "You are DEVGYA's curriculum metadata and visual content extractor. Return valid JSON."},
                     {"role": "user", "content": user_content}
                 ],
                 temperature=0.2,
-                max_tokens=1500,
+                max_tokens=2000,
                 response_format_json=True
             )
             parsed_meta = robust_json_parser(raw_meta)
@@ -491,9 +492,9 @@ Return valid JSON ONLY:
         if extracted_text and extracted_text.strip():
             source_context = f"=== ATTACHED SOURCE DOCUMENT CONTENT ===\n{extracted_text[:9000]}\n=== END SOURCE DOCUMENT CONTENT ==="
         elif attachment_summary:
-            source_context = f"=== ATTACHED REFERENCE MATERIAL SUMMARY ===\n{attachment_summary}\n=== END REFERENCE MATERIAL SUMMARY ==="
+            source_context = f"=== ATTACHED SOURCE MATERIAL (TRANSCRIBED FROM IMAGE) ===\n{attachment_summary}\n=== END ATTACHED SOURCE MATERIAL ==="
         else:
-            source_context = "=== ATTACHED REFERENCE MATERIAL ===\n[Derive all questions from the attached visual document]\n=== END REFERENCE MATERIAL ==="
+            source_context = "=== ATTACHED REFERENCE MATERIAL ===\n[Derive all questions from the attached document]\n=== END REFERENCE MATERIAL ==="
 
         teacher_notes = str(req.custom_instructions or "").strip()
 
@@ -505,26 +506,17 @@ Return valid JSON ONLY:
 
         async def _call_attachment_llm(prompt_text: str) -> str:
             async with sem:
-                # If image exists and text is minimal, pass image directly to vision model
-                if image_data_url and (not extracted_text or len(extracted_text) < 100):
-                    content = [
-                        {"type": "text", "text": prompt_text},
-                        {"type": "image_url", "image_url": {"url": image_data_url}}
-                    ]
-                else:
-                    content = prompt_text
-
                 return await ai_provider.chat_completion(
                     messages=[
                         {
                             "role": "system", 
                             "content": (
                                 "You are DEVGYA's Master Document Assessment Engine. "
-                                "CRITICAL RULE: You MUST create exam questions STRICTLY and EXCLUSIVELY from the provided attached source document / image. "
+                                "CRITICAL RULE: You MUST create exam questions STRICTLY and EXCLUSIVELY from the provided attached source document / transcription. "
                                 "Completely IGNORE any external pre-selected curriculum topics or subjects not in the source. Return valid JSON only."
                             )
                         },
-                        {"role": "user", "content": content}
+                        {"role": "user", "content": prompt_text}
                     ],
                     temperature=0.3,
                     max_tokens=3500,
