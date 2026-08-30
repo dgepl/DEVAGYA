@@ -144,6 +144,16 @@ def extract_document_text(file_bytes: bytes, filename: str, content_type: str = 
 def strip_emojis_for_pdf(raw: str) -> str:
     if not raw:
         return ""
+    t = str(raw)
+    
+    # 1. Normalize bullet/box/checkbox glyphs that turn into tofu boxes
+    t = re.sub(r'[\u25A0-\u25FF\u274F-\u2752\u2B1A-\u2B1F\u25CB\u25CF\u25E6\u2022\u2023\u2043\u25AA\u25AB\u25FB-\u25FE]', '•', t)
+    t = re.sub(r'[\u2713\u2714\u2705\u2611]', '✔', t)
+    t = re.sub(r'[\u2794\u27A4\u279C\u279E\u2192\u2799\u279B\u279F]', '→', t)
+    t = re.sub(r'[\u2728\u2B50\u2605\u2730\u2736\u2740]', '★', t)
+    t = re.sub(r'[\U0001F539\U0001F538\U0001F537\U0001F536\U0001F4CD\U0001F4CC\U0001F449\U0001F44D]', '•', t)
+
+    # 2. Strip remaining unsupported high-plane emojis
     emoji_pattern = re.compile(
         "["
         "\U00010000-\U0010FFFF"
@@ -155,7 +165,138 @@ def strip_emojis_for_pdf(raw: str) -> str:
         "]+",
         flags=re.UNICODE
     )
-    return emoji_pattern.sub("", str(raw))
+    return emoji_pattern.sub("", t)
+
+def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
+    """
+    Parses a Mermaid diagram (graph LR, flowchart TD, mindmap) and converts it into
+    a visual, publication-grade block card diagram flowable in ReportLab PDF.
+    """
+    lines = [l.strip() for l in str(mermaid_code).strip().split("\n") if l.strip()]
+    if not lines:
+        return None
+    
+    connections = []
+    node_labels = {}
+    
+    for line in lines:
+        if line.startswith(("```", "graph", "flowchart", "subgraph", "end", "%%", "classDef", "style")):
+            continue
+        
+        parts = re.split(r'\s*-->\s*|\s*->\s*|\s*--\s*|\s*==>\s*', line)
+        if len(parts) >= 2:
+            step_nodes = []
+            for p in parts:
+                p = p.strip()
+                m = re.match(r'^([a-zA-Z0-9_-]+)\s*[\[\(\{]([^\]\)\}]+)[\]\)\}]$', p)
+                if m:
+                    n_id, label = m.group(1), m.group(2)
+                    node_labels[n_id] = label
+                    step_nodes.append(label)
+                else:
+                    clean_p = node_labels.get(p, p)
+                    step_nodes.append(clean_p)
+            connections.append(step_nodes)
+        else:
+            m = re.match(r'^([a-zA-Z0-9_-]+)\s*[\[\(\{]([^\]\)\}]+)[\]\)\}]$', line)
+            if m:
+                node_labels[m.group(1)] = m.group(2)
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'DiagTitle',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=9.5,
+        leading=13,
+        textColor=colors.HexColor("#1E1B4B")
+    )
+    node_style = ParagraphStyle(
+        'DiagNode',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=8.5,
+        leading=11,
+        alignment=1,
+        textColor=colors.HexColor("#312E81")
+    )
+    arrow_style = ParagraphStyle(
+        'DiagArrow',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=12,
+        leading=14,
+        alignment=1,
+        textColor=colors.HexColor("#4F46E5")
+    )
+
+    flow_table_rows = []
+    
+    # Diagram Header Banner
+    flow_table_rows.append([
+        Paragraph("<b>VISUAL CONCEPT & CIRCUIT FLOW DIAGRAM</b>", title_style)
+    ])
+
+    if connections:
+        for idx, conn in enumerate(connections):
+            row_cells = []
+            col_widths = []
+            
+            for i, node_text in enumerate(conn):
+                clean_node = clean_md_to_reportlab(strip_emojis_for_pdf(node_text))
+                card_data = [[Paragraph(clean_node, node_style)]]
+                card_table = Table(card_data, colWidths=[max(80, min(140, available_width / (len(conn) * 1.5)))])
+                card_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EEF2FF")),
+                    ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#818CF8")),
+                    ('PADDING', (0,0), (-1,-1), 4),
+                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ]))
+                row_cells.append(card_table)
+                col_widths.append(max(85, min(145, available_width / (len(conn) * 1.5))))
+
+                if i < len(conn) - 1:
+                    row_cells.append(Paragraph("->", arrow_style))
+                    col_widths.append(25)
+
+            conn_table = Table([row_cells], colWidths=col_widths)
+            conn_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('PADDING', (0,0), (-1,-1), 2),
+            ]))
+            flow_table_rows.append([conn_table])
+    elif node_labels:
+        # Standalone components/nodes
+        row_cells = []
+        col_widths = []
+        for n_id, label in list(node_labels.items())[:6]:
+            clean_node = clean_md_to_reportlab(strip_emojis_for_pdf(label))
+            card_data = [[Paragraph(clean_node, node_style)]]
+            card_table = Table(card_data, colWidths=[90])
+            card_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EEF2FF")),
+                ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#818CF8")),
+                ('PADDING', (0,0), (-1,-1), 4),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ]))
+            row_cells.append(card_table)
+            col_widths.append(95)
+        conn_table = Table([row_cells], colWidths=col_widths)
+        flow_table_rows.append([conn_table])
+
+    if len(flow_table_rows) <= 1:
+        return None
+
+    diag_table = Table(flow_table_rows, colWidths=[available_width])
+    diag_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#F8FAFC")),
+        ('BOX', (0,0), (-1,-1), 1.2, colors.HexColor("#C7D2FE")),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
+        ('PADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+    ]))
+    return diag_table
 
 def clean_md_to_reportlab(text: str) -> str:
     """
@@ -371,10 +512,10 @@ def clean_md_to_reportlab(text: str) -> str:
     
     t = re.sub(r'[\u0900-\u097F\uA8E0-\uA8FF\u200C\u200D]+(?:\s+[\u0900-\u097F\uA8E0-\uA8FF\u200C\u200D]+)*', _wrap_devanagari, t)
 
-    # 19. Balance unclosed tags
+    # 19. Balance unclosed tags safely using word boundaries
     for tag in ["b", "i", "u", "sup", "sub", "font"]:
-        open_t = t.count(f"<{tag}")
-        close_t = t.count(f"</{tag}>")
+        open_t = len(re.findall(rf'<{tag}(?:\s[^>]*)?>', t, re.IGNORECASE))
+        close_t = len(re.findall(rf'</{tag}>', t, re.IGNORECASE))
         if open_t > close_t:
             t += f"</{tag}>" * (open_t - close_t)
 
@@ -623,8 +764,31 @@ class PDFGeneratorService:
             q_elements = []
 
             raw_q = strip_emojis_for_pdf(q.question_text or "")
-            q_text_formatted = clean_md_to_reportlab(raw_q)
-            q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_text_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
+            
+            # Check if question text contains a Mermaid diagram
+            mermaid_match = re.search(r'```(?:mermaid|graph|flowchart)?\s*([\s\S]*?)```', raw_q, re.IGNORECASE)
+            if mermaid_match:
+                mermaid_code = mermaid_match.group(1).strip()
+                text_before = raw_q[:mermaid_match.start()].strip()
+                text_after = raw_q[mermaid_match.end():].strip()
+
+                if text_before:
+                    q_formatted = clean_md_to_reportlab(text_before)
+                    q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
+                else:
+                    q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
+
+                diag_flow = parse_mermaid_to_flowable(mermaid_code, available_width=510)
+                if diag_flow:
+                    q_elements.append(Spacer(1, 4))
+                    q_elements.append(diag_flow)
+                    q_elements.append(Spacer(1, 4))
+
+                if text_after:
+                    q_elements.append(Paragraph(clean_md_to_reportlab(text_after), q_text_style))
+            else:
+                q_text_formatted = clean_md_to_reportlab(raw_q)
+                q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_text_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
 
             if q.options:
                 q_elements.append(Spacer(1, 2))
@@ -929,9 +1093,63 @@ class PDFGeneratorService:
         raw_lines = content.split("\n")
         in_table_block = False
         table_rows = []
+        in_code_fence = False
+        fence_lang = ""
+        fence_lines = []
+        page_width = A4[0] - (2 * margins)
 
         for raw_line in raw_lines:
             line = raw_line.strip()
+
+            # Handle Code Blocks & Mermaid Diagrams
+            if in_code_fence:
+                if line.startswith("```"):
+                    in_code_fence = False
+                    code_str = "\n".join(fence_lines)
+                    if fence_lang in ["mermaid", "graph", "flowchart"] or "-->" in code_str or "->" in code_str:
+                        diag_flow = parse_mermaid_to_flowable(code_str, available_width=page_width)
+                        if diag_flow:
+                            story.append(Spacer(1, 3))
+                            story.append(diag_flow)
+                            story.append(Spacer(1, 4))
+                    else:
+                        # Render code block in monospaced box
+                        code_cells = [[Paragraph(clean_md_to_reportlab(code_str), body_style)]]
+                        code_tbl = Table(code_cells, colWidths=[page_width])
+                        code_tbl.setStyle(TableStyle([
+                            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8FAFC")),
+                            ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#CBD5E1")),
+                            ('PADDING', (0,0), (-1,-1), 6),
+                        ]))
+                        story.append(code_tbl)
+                        story.append(Spacer(1, 4))
+                    fence_lines = []
+                    fence_lang = ""
+                else:
+                    fence_lines.append(raw_line)
+                continue
+
+            if line.startswith("```"):
+                if in_table_block and table_rows:
+                    try:
+                        t_flow = Table(table_rows)
+                        t_flow.setStyle(TableStyle([
+                            ('BACKGROUND', (0,0), (-1,0), th["bg_meta"]),
+                            ('BOX', (0,0), (-1,-1), 1, th["border"]),
+                            ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
+                            ('PADDING', (0,0), (-1,-1), 4),
+                        ]))
+                        story.append(t_flow)
+                        story.append(Spacer(1, 4))
+                    except Exception:
+                        pass
+                    in_table_block = False
+                    table_rows = []
+                in_code_fence = True
+                fence_lang = line.replace("```", "").strip().lower()
+                fence_lines = []
+                continue
+
             if not line:
                 if in_table_block and table_rows:
                     # Flush table
@@ -1009,7 +1227,7 @@ class PDFGeneratorService:
             else:
                 story.append(build_safe_paragraph(line, body_style))
 
-        # Flush any trailing table
+        # Flush any trailing table or code block
         if in_table_block and table_rows:
             try:
                 t_flow = Table(table_rows)
@@ -1022,6 +1240,13 @@ class PDFGeneratorService:
                 story.append(t_flow)
             except Exception:
                 pass
+
+        if in_code_fence and fence_lines:
+            code_str = "\n".join(fence_lines)
+            if fence_lang in ["mermaid", "graph", "flowchart"] or "-->" in code_str or "->" in code_str:
+                diag_flow = parse_mermaid_to_flowable(code_str, available_width=page_width)
+                if diag_flow:
+                    story.append(diag_flow)
 
         doc.build(story, canvasmaker=NumberedCanvas)
         pdf_bytes = buffer.getvalue()
@@ -1350,10 +1575,32 @@ def _generate_assignment_worksheet_pdf(self, assignment: Dict[str, Any], config:
         # Question Stem
         q_num = q.get("question_number", 1)
         q_marks = q.get("marks", 1)
-        q_text = str(q.get("question_text", "")).strip()
+        raw_q_text = str(q.get("question_text", "")).strip()
         marks_badge = f"**[{q_marks} {'Mark' if q_marks == 1 else 'Marks'}]**"
-        full_q_str = f"**Q{q_num}.** {q_text}   {marks_badge}"
-        story.append(build_safe_paragraph(full_q_str, q_stem_style))
+
+        # Check if question contains a Mermaid diagram
+        mermaid_match = re.search(r'```(?:mermaid|graph|flowchart)?\s*([\s\S]*?)```', raw_q_text, re.IGNORECASE)
+        if mermaid_match:
+            mermaid_code = mermaid_match.group(1).strip()
+            text_before = raw_q_text[:mermaid_match.start()].strip()
+            text_after = raw_q_text[mermaid_match.end():].strip()
+
+            if text_before:
+                story.append(build_safe_paragraph(f"**Q{q_num}.** {text_before}   {marks_badge}", q_stem_style))
+            else:
+                story.append(build_safe_paragraph(f"**Q{q_num}.**   {marks_badge}", q_stem_style))
+
+            diag_flow = parse_mermaid_to_flowable(mermaid_code, available_width=page_width)
+            if diag_flow:
+                story.append(Spacer(1, 3))
+                story.append(diag_flow)
+                story.append(Spacer(1, 4))
+
+            if text_after:
+                story.append(build_safe_paragraph(text_after, q_stem_style))
+        else:
+            full_q_str = f"**Q{q_num}.** {raw_q_text}   {marks_badge}"
+            story.append(build_safe_paragraph(full_q_str, q_stem_style))
 
         q_type = str(q.get("question_type", "short")).lower()
 
