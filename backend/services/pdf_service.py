@@ -283,12 +283,41 @@ def _render_mermaid_fallback_table(mermaid_code: str, available_width: float = 4
     ]))
     return diag_table
 
+def _sanitize_mermaid_code(code: str) -> str:
+    if not code:
+        return ""
+    clean = str(code).replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-").replace("\u00a0", " ").strip()
+    
+    # Auto-quote unquoted bracket labels: ID[Label with (parens)] -> ID["Label with (parens)"]
+    def _quote_bracket_label(m):
+        node_id, label = m.group(1), m.group(2).strip()
+        if label.startswith('"') and label.endswith('"'):
+            return m.group(0)
+        if any(c in label for c in '()"`:,;/'):
+            clean_l = label.replace('"', "'")
+            return f'{node_id}["{clean_l}"]'
+        return m.group(0)
+
+    clean = re.sub(r'([a-zA-Z0-9_-]+)\s*\[([^"\n\]]+)\]', _quote_bracket_label, clean)
+
+    def _quote_paren_label(m):
+        node_id, label = m.group(1), m.group(2).strip()
+        if label.startswith('"') and label.endswith('"'):
+            return m.group(0)
+        if any(c in label for c in '()"`:,;/'):
+            clean_l = label.replace('"', "'")
+            return f'{node_id}("{clean_l}")'
+        return m.group(0)
+
+    clean = re.sub(r'([a-zA-Z0-9_-]+)\s*\(([^"\n\)]+)\)', _quote_paren_label, clean)
+    return clean
+
 def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
     """
     Renders Mermaid diagrams into a crystal-clear vector/high-DPI PNG image matching the web UI
     using @mermaid-js/mermaid-cli, then embeds it in a styled ReportLab Flowable card.
     """
-    code_clean = str(mermaid_code).strip()
+    code_clean = _sanitize_mermaid_code(str(mermaid_code).strip())
     if not code_clean:
         return None
     

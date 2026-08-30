@@ -29,6 +29,40 @@ if (typeof window !== "undefined") {
   }
 }
 
+function sanitizeMermaidCode(code: string): string {
+  if (!code) return "";
+  let clean = code
+    .replace(/\u2011/g, "-")
+    .replace(/\u2013/g, "-")
+    .replace(/\u2014/g, "-")
+    .replace(/\u00a0/g, " ")
+    .trim();
+
+  // Auto-quote unquoted node labels with brackets: NodeID[Label with (parens)] -> NodeID["Label with (parens)"]
+  clean = clean.replace(/([a-zA-Z0-9_-]+)\s*\[([^"\n\]]+)\]/g, (match, id, label) => {
+    const trimmed = label.trim();
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
+    if (/[()"'`:,;/]/.test(trimmed)) {
+      const escaped = trimmed.replace(/"/g, "'");
+      return `${id}["${escaped}"]`;
+    }
+    return match;
+  });
+
+  // Auto-quote unquoted round brackets: NodeID(Label with (parens)) -> NodeID("Label with (parens)")
+  clean = clean.replace(/([a-zA-Z0-9_-]+)\s*\(([^"\n\)]+)\)/g, (match, id, label) => {
+    const trimmed = label.trim();
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
+    if (/[()"'`:,;/]/.test(trimmed)) {
+      const escaped = trimmed.replace(/"/g, "'");
+      return `${id}("${escaped}")`;
+    }
+    return match;
+  });
+
+  return clean;
+}
+
 // Interactive Mermaid Diagram Component
 function MermaidDiagram({ code }: { code: string }) {
   const [svgHtml, setSvgHtml] = useState<string>("");
@@ -40,7 +74,7 @@ function MermaidDiagram({ code }: { code: string }) {
 
   useEffect(() => {
     let isMounted = true;
-    const cleanCode = code.trim();
+    const cleanCode = sanitizeMermaidCode(code);
     if (!cleanCode) return;
 
     const renderDiagram = async () => {
