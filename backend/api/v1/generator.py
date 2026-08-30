@@ -2,8 +2,8 @@ import os
 import io
 import base64
 import json
-from typing import Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
+from typing import Optional, List
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
 from PIL import Image
 from schemas.question import GeneratePaperRequest, GeneratedPaperResponse
 from services.groq_service import groq_service
@@ -60,24 +60,35 @@ async def generate_paper(request: GeneratePaperRequest):
         raise HTTPException(status_code=status_code, detail=detail)
 
 @router.post("/generate-from-file", response_model=GeneratedPaperResponse)
-async def generate_paper_from_file(
-    file: Optional[UploadFile] = File(None),
-    files: Optional[List[UploadFile]] = File(None),
-    title: str = Form("Periodic Assessment Exam"),
-    class_name: str = Form("Class 10"),
-    subject: str = Form("Science"),
-    chapter: str = Form("General Syllabus"),
-    difficulty: str = Form("medium"),
-    total_marks: int = Form(40),
-    time_allowed_mins: int = Form(90),
-    num_mcqs: int = Form(4),
-    num_short: int = Form(2),
-    num_long: int = Form(1),
-    school_name: str = Form("DEVGYA GLOBAL ACADEMY"),
-    custom_instructions: str = Form(""),
-    user_email: str = Form("")
-):
+async def generate_paper_from_file(request: Request):
     """Generate Question Paper with optional multi-file reference PDFs/Photos or direct prompt."""
+    form = await request.form()
+
+    title = str(form.get("title") or "Periodic Assessment Exam")
+    class_name = str(form.get("class_name") or "Class 10")
+    subject = str(form.get("subject") or "Science")
+    chapter = str(form.get("chapter") or "General Syllabus")
+    difficulty = str(form.get("difficulty") or "medium")
+    
+    try: total_marks = int(form.get("total_marks") or 40)
+    except (ValueError, TypeError): total_marks = 40
+
+    try: time_allowed_mins = int(form.get("time_allowed_mins") or 90)
+    except (ValueError, TypeError): time_allowed_mins = 90
+
+    try: num_mcqs = int(form.get("num_mcqs") or 4)
+    except (ValueError, TypeError): num_mcqs = 4
+
+    try: num_short = int(form.get("num_short") or 2)
+    except (ValueError, TypeError): num_short = 2
+
+    try: num_long = int(form.get("num_long") or 1)
+    except (ValueError, TypeError): num_long = 1
+
+    school_name = str(form.get("school_name") or "DEVGYA GLOBAL ACADEMY")
+    custom_instructions = str(form.get("custom_instructions") or "")
+    user_email = str(form.get("user_email") or "")
+
     req = GeneratePaperRequest(
         title=title,
         class_name=class_name,
@@ -94,12 +105,18 @@ async def generate_paper_from_file(
         user_email=user_email
     )
 
-    # Collect all uploaded files
+    # Collect all uploaded files from form
     uploaded_files: List[UploadFile] = []
-    if files:
-        uploaded_files.extend([f for f in files if f and f.filename])
-    if file and file.filename and file not in uploaded_files:
-        uploaded_files.append(file)
+    
+    # Check multi-file array
+    for f in form.getlist("files"):
+        if isinstance(f, UploadFile) and f.filename:
+            uploaded_files.append(f)
+
+    # Check single file fallback
+    single_file = form.get("file")
+    if isinstance(single_file, UploadFile) and single_file.filename and single_file not in uploaded_files:
+        uploaded_files.append(single_file)
 
     # If no file is attached, generate directly from prompt/syllabus
     if not uploaded_files:
