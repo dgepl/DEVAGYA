@@ -54,17 +54,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, logout, initSession, syncProfileFromServer, switchRole } = useAppStore();
+  const { user, logout, initSession, syncProfileFromServer } = useAppStore();
   const { tools, getToolByPath, fetchFromServer } = useToolConfigStore();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const handleRoleSwitch = (newRole: "teacher" | "student" | "parent") => {
-    switchRole(newRole);
-    if (newRole === "student") router.push("/dashboard/student");
-    else if (newRole === "parent") router.push("/dashboard/parent");
-    else router.push("/dashboard");
-  };
 
   useEffect(() => {
     fetchFromServer();
@@ -160,7 +153,17 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         router.replace("/dashboard/parent");
       }
     } else if (user.role === "teacher") {
-      if (pathname.startsWith("/dashboard/student") || pathname.startsWith("/dashboard/parent")) {
+      const isTeacherAllowed = 
+        pathname === "/dashboard" ||
+        pathname.startsWith("/dashboard/generator") ||
+        pathname.startsWith("/dashboard/assignments") ||
+        pathname.startsWith("/dashboard/teacher-olympiad") ||
+        pathname.startsWith("/dashboard/agents") ||
+        pathname === "/dashboard/chat" ||
+        pathname === "/dashboard/video-consultation" ||
+        pathname === "/dashboard/profile";
+
+      if (!isTeacherAllowed) {
         router.replace("/dashboard");
       }
     }
@@ -283,42 +286,18 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-3 sm:gap-4 ml-4">
             
-            <div className="flex items-center p-1 bg-slate-100 border border-slate-200/80 rounded-2xl shadow-inner">
-              <button
-                onClick={() => handleRoleSwitch('teacher')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  user.role === 'teacher' 
-                    ? 'bg-white text-indigo-700 shadow-xs border border-indigo-100' 
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                }`}
-              >
-                <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Teacher</span>
-              </button>
-
-              <button
-                onClick={() => handleRoleSwitch('student')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  user.role === 'student' 
-                    ? 'bg-white text-purple-700 shadow-xs border border-purple-100' 
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5 text-purple-600" />
-                <span>Student</span>
-              </button>
-
-              <button
-                onClick={() => handleRoleSwitch('parent')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  user.role === 'parent' 
-                    ? 'bg-white text-rose-700 shadow-xs border border-rose-100' 
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                }`}
-              >
-                <HeartHandshake className="w-3.5 h-3.5 text-rose-600" />
-                <span>Parent</span>
-              </button>
+            {/* VERIFIED LOCKED USER ROLE BADGE */}
+            <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border text-xs font-black shadow-xs ${
+              user.role === 'teacher' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+              user.role === 'student' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+              user.role === 'parent' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+              'bg-slate-900 text-white border-slate-800'
+            }`}>
+              {user.role === 'teacher' && <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />}
+              {user.role === 'student' && <Users className="w-3.5 h-3.5 text-purple-600" />}
+              {user.role === 'parent' && <HeartHandshake className="w-3.5 h-3.5 text-rose-600" />}
+              {user.role === 'super_admin' && <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />}
+              <span className="capitalize">{user.role ? user.role.replace('_', ' ') : 'Teacher'} Portal</span>
             </div>
 
             <Link
