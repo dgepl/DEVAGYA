@@ -17,25 +17,33 @@ from schemas.question import GeneratedPaperResponse
 # Register Unicode & Math fonts for multi-script and mathematical rendering
 UNICODE_FONT_NAME = "Helvetica"
 UNICODE_BOLD_FONT_NAME = "Helvetica-Bold"
+from reportlab.pdfbase.pdfmetrics import registerFontFamily
+
 MATH_FONT_NAME = "Helvetica"
+UNICODE_FONT_NAME = "Helvetica"
+UNICODE_BOLD_FONT_NAME = "Helvetica-Bold"
 
 try:
-    # 1. Register Academic Math & Latin Font (with full calculus glyphs: ∫, ∑, ∏, √, θ, Ω, ±)
-    math_font_candidates = [
-        "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/segoeui.ttf",
-        "C:/Windows/Fonts/tahoma.ttf",
-        "C:/Windows/Fonts/calibri.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSerif.ttf"
-    ]
-    for mfp in math_font_candidates:
-        if os.path.exists(mfp):
-            pdfmetrics.registerFont(TTFont("AcademicMathFont", mfp))
-            MATH_FONT_NAME = "AcademicMathFont"
-            UNICODE_FONT_NAME = "AcademicMathFont"
-            UNICODE_BOLD_FONT_NAME = "AcademicMathFont"
-            break
+    # 1. Register Academic Math & Latin Font with full Bold/Italic Family Support
+    if os.path.exists("C:/Windows/Fonts/arial.ttf"):
+        pdfmetrics.registerFont(TTFont("AcademicMathFont", "C:/Windows/Fonts/arial.ttf"))
+        bold_path = "C:/Windows/Fonts/arialbd.ttf" if os.path.exists("C:/Windows/Fonts/arialbd.ttf") else "C:/Windows/Fonts/arial.ttf"
+        italic_path = "C:/Windows/Fonts/ariali.ttf" if os.path.exists("C:/Windows/Fonts/ariali.ttf") else "C:/Windows/Fonts/arial.ttf"
+        bolditalic_path = "C:/Windows/Fonts/arialbi.ttf" if os.path.exists("C:/Windows/Fonts/arialbi.ttf") else "C:/Windows/Fonts/arial.ttf"
+        pdfmetrics.registerFont(TTFont("AcademicMathFont-Bold", bold_path))
+        pdfmetrics.registerFont(TTFont("AcademicMathFont-Italic", italic_path))
+        pdfmetrics.registerFont(TTFont("AcademicMathFont-BoldItalic", bolditalic_path))
+        registerFontFamily("AcademicMathFont", normal="AcademicMathFont", bold="AcademicMathFont-Bold", italic="AcademicMathFont-Italic", boldItalic="AcademicMathFont-BoldItalic")
+        MATH_FONT_NAME = "AcademicMathFont"
+        UNICODE_FONT_NAME = "AcademicMathFont"
+        UNICODE_BOLD_FONT_NAME = "AcademicMathFont-Bold"
+    elif os.path.exists("C:/Windows/Fonts/segoeui.ttf"):
+        pdfmetrics.registerFont(TTFont("AcademicMathFont", "C:/Windows/Fonts/segoeui.ttf"))
+        pdfmetrics.registerFont(TTFont("AcademicMathFont-Bold", "C:/Windows/Fonts/segoeuib.ttf" if os.path.exists("C:/Windows/Fonts/segoeuib.ttf") else "C:/Windows/Fonts/segoeui.ttf"))
+        registerFontFamily("AcademicMathFont", normal="AcademicMathFont", bold="AcademicMathFont-Bold")
+        MATH_FONT_NAME = "AcademicMathFont"
+        UNICODE_FONT_NAME = "AcademicMathFont"
+        UNICODE_BOLD_FONT_NAME = "AcademicMathFont-Bold"
 
     # 2. Register Devanagari Font (Hindi / Sanskrit)
     devanagari_candidates = [
@@ -141,17 +149,21 @@ def extract_document_text(file_bytes: bytes, filename: str, content_type: str = 
         text = text[:35000] + f"\n\n[...Truncated remaining text of {filename} for prompt context size limit...]"
     return text
 
+import tempfile
+import subprocess
+from PIL import Image as PILImage
+
 def strip_emojis_for_pdf(raw: str) -> str:
     if not raw:
         return ""
     t = str(raw)
     
     # 1. Normalize bullet/box/checkbox glyphs that turn into tofu boxes
-    t = re.sub(r'[\u25A0-\u25FF\u274F-\u2752\u2B1A-\u2B1F\u25CB\u25CF\u25E6\u2022\u2023\u2043\u25AA\u25AB\u25FB-\u25FE]', '•', t)
+    t = re.sub(r'[\u25A0-\u25FF\u274F-\u2752\u2B1A-\u2B1F\u25CB\u25CF\u25E6\u2022\u2023\u2043\u25AA\u25AB\u25FB-\u25FE]', '&bull;', t)
     t = re.sub(r'[\u2713\u2714\u2705\u2611]', '✔', t)
     t = re.sub(r'[\u2794\u27A4\u279C\u279E\u2192\u2799\u279B\u279F]', '→', t)
     t = re.sub(r'[\u2728\u2B50\u2605\u2730\u2736\u2740]', '★', t)
-    t = re.sub(r'[\U0001F539\U0001F538\U0001F537\U0001F536\U0001F4CD\U0001F4CC\U0001F449\U0001F44D]', '•', t)
+    t = re.sub(r'[\U0001F539\U0001F538\U0001F537\U0001F536\U0001F4CD\U0001F4CC\U0001F449\U0001F44D]', '&bull;', t)
 
     # 2. Strip remaining unsupported high-plane emojis
     emoji_pattern = re.compile(
@@ -167,11 +179,7 @@ def strip_emojis_for_pdf(raw: str) -> str:
     )
     return emoji_pattern.sub("", t)
 
-def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
-    """
-    Parses a Mermaid diagram (graph LR, flowchart TD, mindmap) and converts it into
-    a visual, publication-grade block card diagram flowable in ReportLab PDF.
-    """
+def _render_mermaid_fallback_table(mermaid_code: str, available_width: float = 480):
     lines = [l.strip() for l in str(mermaid_code).strip().split("\n") if l.strip()]
     if not lines:
         return None
@@ -231,17 +239,12 @@ def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
     )
 
     flow_table_rows = []
-    
-    # Diagram Header Banner
-    flow_table_rows.append([
-        Paragraph("<b>VISUAL CONCEPT & CIRCUIT FLOW DIAGRAM</b>", title_style)
-    ])
+    flow_table_rows.append([Paragraph("<b>VISUAL CONCEPT & CIRCUIT FLOW DIAGRAM</b>", title_style)])
 
     if connections:
         for idx, conn in enumerate(connections):
             row_cells = []
             col_widths = []
-            
             for i, node_text in enumerate(conn):
                 clean_node = clean_md_to_reportlab(strip_emojis_for_pdf(node_text))
                 card_data = [[Paragraph(clean_node, node_style)]]
@@ -256,7 +259,7 @@ def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
                 col_widths.append(max(85, min(145, available_width / (len(conn) * 1.5))))
 
                 if i < len(conn) - 1:
-                    row_cells.append(Paragraph("->", arrow_style))
+                    row_cells.append(Paragraph("→", arrow_style))
                     col_widths.append(25)
 
             conn_table = Table([row_cells], colWidths=col_widths)
@@ -266,24 +269,6 @@ def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
                 ('PADDING', (0,0), (-1,-1), 2),
             ]))
             flow_table_rows.append([conn_table])
-    elif node_labels:
-        # Standalone components/nodes
-        row_cells = []
-        col_widths = []
-        for n_id, label in list(node_labels.items())[:6]:
-            clean_node = clean_md_to_reportlab(strip_emojis_for_pdf(label))
-            card_data = [[Paragraph(clean_node, node_style)]]
-            card_table = Table(card_data, colWidths=[90])
-            card_table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EEF2FF")),
-                ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#818CF8")),
-                ('PADDING', (0,0), (-1,-1), 4),
-                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ]))
-            row_cells.append(card_table)
-            col_widths.append(95)
-        conn_table = Table([row_cells], colWidths=col_widths)
-        flow_table_rows.append([conn_table])
 
     if len(flow_table_rows) <= 1:
         return None
@@ -298,6 +283,70 @@ def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
     ]))
     return diag_table
 
+def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
+    """
+    Renders Mermaid diagrams into a crystal-clear vector/high-DPI PNG image matching the web UI
+    using @mermaid-js/mermaid-cli, then embeds it in a styled ReportLab Flowable card.
+    """
+    code_clean = str(mermaid_code).strip()
+    if not code_clean:
+        return None
+    
+    mmd_path = None
+    out_png = None
+    try:
+        with tempfile.NamedTemporaryFile('w', suffix='.mmd', delete=False, encoding='utf-8') as f:
+            f.write(code_clean)
+            mmd_path = f.name
+        
+        out_png = mmd_path.replace('.mmd', '.png')
+        cmd = f'npx @mermaid-js/mermaid-cli -i "{mmd_path}" -o "{out_png}" -b white -s 2 -q'
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+        
+        if os.path.exists(out_png) and os.path.getsize(out_png) > 0:
+            with PILImage.open(out_png) as pimg:
+                orig_w, orig_h = pimg.size
+            
+            target_w = min(available_width - 24, orig_w / 2.0)
+            target_h = (target_w / (orig_w / 2.0)) * (orig_h / 2.0)
+            
+            rl_img = RLImage(out_png, width=target_w, height=target_h)
+            
+            styles = getSampleStyleSheet()
+            title_style = ParagraphStyle(
+                'DiagTitle',
+                parent=styles['Normal'],
+                fontName=UNICODE_BOLD_FONT_NAME,
+                fontSize=9,
+                leading=12,
+                textColor=colors.HexColor('#1E1B4B')
+            )
+            card_data = [
+                [Paragraph('<b>VISUAL DIAGRAM & FLOW</b>', title_style)],
+                [rl_img]
+            ]
+            diag_tbl = Table(card_data, colWidths=[available_width])
+            diag_tbl.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F8FAFC')),
+                ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#C7D2FE')),
+                ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+                ('ALIGN', (0,1), (-1,1), 'CENTER'),
+                ('VALIGN', (0,1), (-1,1), 'MIDDLE'),
+                ('PADDING', (0,0), (-1,-1), 6),
+                ('BOTTOMPADDING', (0,1), (-1,1), 8),
+            ]))
+            return diag_tbl
+    except Exception as e:
+        pass
+    finally:
+        if mmd_path and os.path.exists(mmd_path):
+            try:
+                os.remove(mmd_path)
+            except Exception:
+                pass
+
+    return _render_mermaid_fallback_table(code_clean, available_width)
+
 def clean_md_to_reportlab(text: str) -> str:
     """
     Transforms raw academic text, LaTeX equations, Physics vectors, chemical formulas,
@@ -307,7 +356,7 @@ def clean_md_to_reportlab(text: str) -> str:
         return ""
     t = str(text)
     
-    # 1. Strip emojis (prevent black squares)
+    # 1. Strip emojis & normalize box bullets (prevent black squares)
     t = strip_emojis_for_pdf(t)
 
     # 2. Normalize smart punctuation and dashes
@@ -324,20 +373,15 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\\[|\\\]|\\\(|\\\)', '', t)
 
     # 4. Physics Vector Notation & Accents (e.g. \vec{A} -> A⃗, \hat{i} -> î, \bar{x} -> x̄)
-    # Unit vectors
     t = re.sub(r'\\hat\{\s*i\s*\}|\\hat\s+i(?![a-zA-Z])', 'î', t)
     t = re.sub(r'\\hat\{\s*j\s*\}|\\hat\s+j(?![a-zA-Z])', 'ĵ', t)
     t = re.sub(r'\\hat\{\s*k\s*\}|\\hat\s+k(?![a-zA-Z])', 'k̂', t)
     t = re.sub(r'\\hat\{\s*n\s*\}|\\hat\s+n(?![a-zA-Z])', 'n̂', t)
     t = re.sub(r'\\hat\{\s*r\s*\}|\\hat\s+r(?![a-zA-Z])', 'r̂', t)
     t = re.sub(r'\\hat\{\s*([a-zA-Z0-9]+)\s*\}', r'\1̂', t)
-
-    # Vectors with arrow
     t = re.sub(r'\\overrightarrow\{\s*([^{}]+)\s*\}', r'\1⃗', t)
     t = re.sub(r'\\vec\{\s*([^{}]+)\s*\}', r'\1⃗', t)
     t = re.sub(r'\\vec\s+([a-zA-Z])(?![a-zA-Z])', r'\1⃗', t)
-
-    # Bar / Overline / Dot / Tilde accents
     t = re.sub(r'\\overline\{\s*([^{}]+)\s*\}', r'\1̄', t)
     t = re.sub(r'\\bar\{\s*([^{}]+)\s*\}', r'\1̄', t)
     t = re.sub(r'\\bar\s+([a-zA-Z])(?![a-zA-Z])', r'\1̄', t)
@@ -345,7 +389,7 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\dot\{\s*([^{}]+)\s*\}', r'\1̇', t)
     t = re.sub(r'\\tilde\{\s*([^{}]+)\s*\}', r'\1̃', t)
 
-    # 5. Greek symbols & Physical Constants (using (?![a-zA-Z]) to match before underscores & operators)
+    # 5. Greek symbols & Physical Constants
     greek_symbols = [
         (r'\\alpha(?![a-zA-Z])', 'α'), (r'\\beta(?![a-zA-Z])', 'β'), (r'\\gamma(?![a-zA-Z])', 'γ'), (r'\\Gamma(?![a-zA-Z])', 'Γ'),
         (r'\\delta(?![a-zA-Z])', 'δ'), (r'\\Delta(?![a-zA-Z])', 'Δ'), (r'\\varepsilon(?![a-zA-Z])', 'ε'), (r'\\epsilon(?![a-zA-Z])', 'ε'),
@@ -362,7 +406,7 @@ def clean_md_to_reportlab(text: str) -> str:
     for pattern_str, repl in greek_symbols:
         t = re.sub(pattern_str, repl, t)
 
-    # 6. Trigonometry, Logarithms & Mathematical Functions (Strip leading backslash)
+    # 6. Trigonometry, Logarithms & Mathematical Functions
     math_functions = [
         r'\\sin(?![a-zA-Z])', r'\\cos(?![a-zA-Z])', r'\\tan(?![a-zA-Z])', r'\\cot(?![a-zA-Z])', r'\\sec(?![a-zA-Z])', r'\\csc(?![a-zA-Z])',
         r'\\arcsin(?![a-zA-Z])', r'\\arccos(?![a-zA-Z])', r'\\arctan(?![a-zA-Z])', r'\\sinh(?![a-zA-Z])', r'\\cosh(?![a-zA-Z])', r'\\tanh(?![a-zA-Z])',
@@ -372,14 +416,13 @@ def clean_md_to_reportlab(text: str) -> str:
     for fn in math_functions:
         t = re.sub(fn, lambda m: m.group(0)[1:], t)
 
-    # Limits: \lim_{x \to 0} -> lim(x → 0)
     t = re.sub(r'\\lim_\{([^}]+)\}', r'lim(\1)', t)
     t = re.sub(r'\\lim(?![a-zA-Z])', 'lim', t)
 
     # 7. Mathematical & Logical Operators
     math_ops = [
         (r'\\times(?![a-zA-Z])', '×'), (r'\\div(?![a-zA-Z])', '÷'), (r'\\pm(?![a-zA-Z])', '±'), (r'\\mp(?![a-zA-Z])', '∓'),
-        (r'\\cdot(?![a-zA-Z])', '·'), (r'\\bullet(?![a-zA-Z])', '•'), (r'\\approx(?![a-zA-Z])', '≈'), (r'\\neq(?![a-zA-Z])', '≠'), (r'\\ne(?![a-zA-Z])', '≠'),
+        (r'\\cdot(?![a-zA-Z])', '·'), (r'\\bullet(?![a-zA-Z])', '&bull;'), (r'\\approx(?![a-zA-Z])', '≈'), (r'\\neq(?![a-zA-Z])', '≠'), (r'\\ne(?![a-zA-Z])', '≠'),
         (r'\\leq(?![a-zA-Z])', '≤'), (r'\\le(?![a-zA-Z])', '≤'), (r'\\geq(?![a-zA-Z])', '≥'), (r'\\ge(?![a-zA-Z])', '≥'),
         (r'\\ll(?![a-zA-Z])', '≪'), (r'\\gg(?![a-zA-Z])', '≫'), (r'\\equiv(?![a-zA-Z])', '≡'), (r'\\cong(?![a-zA-Z])', '≅'),
         (r'\\propto(?![a-zA-Z])', '∝'), (r'\\sim(?![a-zA-Z])', '~'),
@@ -418,7 +461,7 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\mathbb\{([^{}]+)\}', r'\1', t)
     t = re.sub(r'\\mathcal\{([^{}]+)\}', r'\1', t)
 
-    # 10. Fractions and Roots (Iterative multi-pass to handle nested fractions and roots)
+    # 10. Fractions and Roots
     def _format_fraction(m):
         num = m.group(1).strip()
         den = m.group(2).strip()
@@ -431,7 +474,7 @@ def clean_md_to_reportlab(text: str) -> str:
         t = re.sub(r'\\sqrt\[([^{}]+)\]\{([^{}]+)\}', r'<sup>\1</sup>√(\2)', t)
         t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
 
-    # 11. Unicode Superscript mapping for common mathematical exponents (e.g. x^2 -> x², 10^{-3} -> 10⁻³)
+    # 11. Exponents & Superscripts
     SUPERSCRIPT_MAP = {
         '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
         '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
@@ -449,7 +492,7 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\^\{([^{}]+)\}', _replace_super, t)
     t = re.sub(r'\^([0-9a-zA-Z+\-]+)', _replace_super, t)
 
-    # 12. Subscripts / Indices / Chemical formulas: H_2O -> H₂O, \varepsilon_0 -> ε₀
+    # 12. Subscripts / Indices
     SUBSCRIPT_MAP = {
         '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
         '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
@@ -489,9 +532,22 @@ def clean_md_to_reportlab(text: str) -> str:
     t = re.sub(r'\\quad(?![a-zA-Z])', '  ', t)
     t = re.sub(r'\\qquad(?![a-zA-Z])', '    ', t)
     
-    # Strip stray backslashes before regular characters (e.g. \%, \$, \_, \&, \#)
     t = re.sub(r'\\([%$\&_#{}])', r'\1', t)
     t = re.sub(r'\\\s+', ' ', t)
+
+    # Normalize bullet points and dots
+    t = re.sub(r'^\s*[-*•+]\s+', '&bull;&nbsp; ', t, flags=re.MULTILINE)
+    t = re.sub(r'(?:<br\s*/?>|&lt;br\s*/?&gt;)\s*[-*•+]\s+', '<br/>&bull;&nbsp; ', t, flags=re.IGNORECASE)
+    t = re.sub(r'[\u2022\u25CF\u25E6\u2219\u2023\u2043]', '&bull;', t)
+
+    # Clean stray unmatched bold asterisks like "Q4 - Title**" -> "<b>Q4 - Title</b>"
+    if t.count('**') % 2 != 0:
+        if t.startswith('**'):
+            t = t[2:]
+        elif t.endswith('**'):
+            t = t[:-2]
+        else:
+            t = t.replace('**', '')
 
     # 14. Convert Markdown bold **text** to <b>text</b>
     t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t)
