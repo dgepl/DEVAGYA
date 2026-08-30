@@ -53,10 +53,23 @@ export interface GeneratedPaperResponse {
 }
 
 function parseErrorMessage(errData: any, fallback: string, status?: number): string {
+  // 1. Prioritize crystal-clear backend detail message if provided
+  if (errData) {
+    if (typeof errData.detail === "string" && errData.detail.trim()) return errData.detail;
+    if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+      const first = errData.detail[0];
+      if (typeof first === "string") return first;
+      if (first && first.msg) return first.msg;
+    }
+    if (typeof errData.error === "string" && errData.error.trim()) return errData.error;
+    if (typeof errData.message === "string" && errData.message.trim()) return errData.message;
+  }
+
+  // 2. Specific HTTP Status Code explanations
   if (status === 429) {
     return (
       "⚠️ AI Rate Limit Reached: The AI provider is temporarily busy handling high request volume. " +
-      "Please wait 10–15 seconds and try again."
+      "Please wait 10–15 seconds and click Generate again."
     );
   }
   if (status === 413) {
@@ -78,16 +91,6 @@ function parseErrorMessage(errData: any, fallback: string, status?: number): str
     );
   }
 
-  if (errData) {
-    if (typeof errData.detail === "string" && errData.detail.trim()) return errData.detail;
-    if (Array.isArray(errData.detail) && errData.detail.length > 0) {
-      const first = errData.detail[0];
-      if (typeof first === "string") return first;
-      if (first && first.msg) return first.msg;
-    }
-    if (typeof errData.error === "string" && errData.error.trim()) return errData.error;
-    if (typeof errData.message === "string" && errData.message.trim()) return errData.message;
-  }
   return fallback;
 }
 
@@ -100,7 +103,7 @@ export async function generateQuestionPaper(payload: GeneratePaperPayload): Prom
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(parseErrorMessage(errData, "Failed to generate question paper", res.status));
+      throw new Error(parseErrorMessage(errData, "⚠️ AI Generation Error: Failed to generate question paper. Please try again.", res.status));
     }
     return res.json();
   } catch (e: any) {
@@ -119,7 +122,7 @@ export async function generateQuestionPaperFromFile(formData: FormData): Promise
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(parseErrorMessage(errData, "Unable to read attached file or generate question paper", res.status));
+      throw new Error(parseErrorMessage(errData, "⚠️ AI Generation Error: Failed to synthesize question paper from attachments. Please check connection and try again.", res.status));
     }
     return res.json();
   } catch (e: any) {

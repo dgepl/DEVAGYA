@@ -228,10 +228,18 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
         raw_responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         extracted_raw_questions = []
+        exceptions_encountered = []
         for resp in raw_responses:
             if isinstance(resp, str):
                 parsed = robust_json_parser(resp)
                 extracted_raw_questions.extend(parsed.get("questions") or [])
+            elif isinstance(resp, Exception):
+                exceptions_encountered.append(resp)
+
+        # If zero questions were synthesized and exceptions were encountered, raise specific categorized error
+        if not extracted_raw_questions and exceptions_encountered:
+            status_code, detail = format_ai_exception_detail(exceptions_encountered[0], "Question Paper Synthesis")
+            raise HTTPException(status_code=status_code, detail=detail)
 
         # Clean and categorize
         mcqs, shorts, longs = [], [], []
@@ -391,7 +399,11 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
                 answer=q.get("answer") or "Detailed derivation/analytical solution.",
                 explanation=q.get("explanation")
             ))
-            q_num += 1
+        if not final_qs:
+            raise HTTPException(
+                status_code=500,
+                detail="⚠️ AI Generation Notice: The AI engine was unable to synthesize valid questions for this topic. Please try clicking Generate again or modifying your topic/instructions."
+            )
 
         calc_marks = sum(q.marks for q in final_qs)
         return GeneratedPaperResponse(
