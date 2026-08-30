@@ -501,26 +501,43 @@ export function AgentMarketplace() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, streaming]);
 
-  // Refresh conversations for the selected agent
-  const refreshConversations = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `${API_BASE}/agents/conversations?user_id=${encodeURIComponent(user.id)}&agent_code=${encodeURIComponent(selectedAgentCode)}`
-      );
-      const data = await res.json();
-      setConversations(data.conversations || []);
-    } catch (e) {
-      console.error("Failed to load agent chat history", e);
-    }
-  }, [user.id, selectedAgentCode]);
+  // Cache to avoid loading history repeatedly for the same agent
+  const convCacheRef = useRef<Record<string, Conversation[]>>({});
+  const isFetchingHistoryRef = useRef(false);
 
-  // Load conversations when history opens or agent changes
+  // Refresh conversations for the selected agent
+  const refreshConversations = useCallback(
+    async (force = false) => {
+      if (!force && convCacheRef.current[selectedAgentCode]) {
+        setConversations(convCacheRef.current[selectedAgentCode]);
+        return;
+      }
+      if (isFetchingHistoryRef.current) return;
+      isFetchingHistoryRef.current = true;
+      try {
+        const res = await fetch(
+          `${API_BASE}/agents/conversations?user_id=${encodeURIComponent(user.id)}&agent_code=${encodeURIComponent(selectedAgentCode)}`
+        );
+        const data = await res.json();
+        const list = data.conversations || [];
+        convCacheRef.current[selectedAgentCode] = list;
+        setConversations(list);
+      } catch (e) {
+        console.error("Failed to load agent chat history", e);
+      } finally {
+        isFetchingHistoryRef.current = false;
+      }
+    },
+    [user.id, selectedAgentCode]
+  );
+
+  // Load conversations only when history panel is opened or agent changes while history is open
   useEffect(() => {
     if (historyOpen) {
       setLoadingHistory(true);
-      refreshConversations().finally(() => setLoadingHistory(false));
+      refreshConversations(true).finally(() => setLoadingHistory(false));
     }
-  }, [historyOpen, refreshConversations]);
+  }, [historyOpen, selectedAgentCode, refreshConversations]);
 
   // Load a past conversation
   const loadConversation = useCallback(

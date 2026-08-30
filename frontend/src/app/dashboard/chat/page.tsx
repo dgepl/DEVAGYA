@@ -210,21 +210,30 @@ export default function ChatStudioPage() {
   };
 
   useEffect(() => {
+    let isMounted = true;
     (async () => {
       setLoadingHistory(true);
-      await refreshConversations();
-      setLoadingHistory(false);
-    })();
-  }, [refreshConversations]);
-
-  useEffect(() => {
-    if (!loadingHistory && !didAutoLoad.current) {
-      didAutoLoad.current = true;
-      if (conversations.length > 0) {
-        loadConversation(conversations[0].id);
+      try {
+        const res = await fetch(`${API_BASE}/chat/conversations?user_id=${encodeURIComponent(user.id)}`);
+        const data = await res.json();
+        const list = data.conversations || [];
+        if (isMounted) {
+          setConversations(list);
+          if (!didAutoLoad.current && list.length > 0) {
+            didAutoLoad.current = true;
+            loadConversation(list[0].id);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load chat history", e);
+      } finally {
+        if (isMounted) setLoadingHistory(false);
       }
-    }
-  }, [loadingHistory, conversations, loadConversation]);
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [user.id, loadConversation]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });

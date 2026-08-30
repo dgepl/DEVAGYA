@@ -63,42 +63,33 @@ class ChatHistoryService:
     def list_conversations(
         self, user_id: str, agent_code: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Return all conversations for a user, newest first, optionally filtered by agent_code."""
+        """Return all conversations for a user in a single optimized Supabase query (no N+1 loop)."""
         try:
             url = f"{SUPABASE_URL}/rest/v1/chat_conversations"
-            params = f"user_id=eq.{user_id}&select=*&order=updated_at.desc"
+            params = f"user_id=eq.{user_id}&select=*,chat_messages(count)&order=updated_at.desc&limit=50"
             if agent_code is not None:
                 params += f"&agent_code=eq.{agent_code}"
             else:
                 params += "&agent_code=is.null"
 
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=6.0) as client:
                 res = client.get(f"{url}?{params}", headers=HEADERS)
                 if res.status_code == 200:
                     convs = res.json()
-                    # Attach message_count for each conversation
                     for conv in convs:
-                        conv["message_count"] = self._get_message_count(conv["id"])
+                        cm = conv.get("chat_messages")
+                        if isinstance(cm, list) and len(cm) > 0:
+                            conv["message_count"] = cm[0].get("count", 0)
+                        elif isinstance(cm, dict):
+                            conv["message_count"] = cm.get("count", 0)
+                        else:
+                            conv["message_count"] = 0
+                        # Remove internal joined array
+                        conv.pop("chat_messages", None)
                     return convs
         except Exception as e:
             logger.error(f"list_conversations error: {e}")
         return []
-
-    def _get_message_count(self, conversation_id: str) -> int:
-        try:
-            url = f"{SUPABASE_URL}/rest/v1/chat_messages?conversation_id=eq.{conversation_id}&sender=eq.user&select=id"
-            headers_count = {**HEADERS, "Prefer": "count=exact"}
-            with httpx.Client(timeout=5.0) as client:
-                res = client.get(url, headers=headers_count)
-                # Use content-range header for count
-                cr = res.headers.get("content-range", "")
-                if "/" in cr:
-                    total = cr.split("/")[-1]
-                    if total != "*":
-                        return int(total)
-                return len(res.json()) if res.status_code == 200 else 0
-        except Exception:
-            return 0
 
     def get_conversation(
         self, conversation_id: str, user_id: str
