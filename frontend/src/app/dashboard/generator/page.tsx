@@ -191,13 +191,13 @@ export default function GeneratorPage() {
       setError("Custom Institution Name is required. Please enter your school or institution name.");
       return;
     }
-    if (!title.trim()) {
-      setError("Assessment Title is required. Please enter an exam/assessment title.");
-      return;
-    }
 
-    // If no files are attached, grade, subject, and chapter are required to synthesize from NCERT curriculum
+    // If no files are attached, title, grade, subject, and chapter are required to synthesize from NCERT curriculum
     if (selectedFiles.length === 0) {
+      if (!title.trim()) {
+        setError("Assessment Title is required. Please enter an exam/assessment title.");
+        return;
+      }
       if (!className.trim()) {
         setError("Grade / Class is required. Please select a class.");
         return;
@@ -215,10 +215,10 @@ export default function GeneratorPage() {
     setLoading(true);
 
     const targetSchoolName = schoolName.trim();
-    const targetTitle = title.trim();
+    const targetTitle = title.trim() || "Assessment Paper";
     const targetClass = className.trim() || "Class 10";
-    const targetSubject = subject.trim() || "General Studies";
-    const targetChapter = chapter.trim() || "General Syllabus";
+    const targetSubject = subject.trim() || "General";
+    const targetChapter = chapter.trim() || "Document Content";
     const finalMarks = requestedTotal > 0 ? requestedTotal : (calculatedTotal > 0 ? calculatedTotal : 25);
     const finalTime = parseInt(timeMins) || (finalMarks <= 25 ? 45 : (finalMarks <= 50 ? 90 : 180));
 
@@ -786,96 +786,133 @@ export default function GeneratorPage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Assessment Title <span className="text-rose-500 font-bold">*</span>
+                Assessment Title {selectedFiles.length === 0 && <span className="text-rose-500 font-bold">*</span>}
               </label>
               <input
                 type="text"
-                required
+                required={selectedFiles.length === 0}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Term-1 Periodic Unit Test"
+                placeholder={selectedFiles.length > 0 ? "Auto-detected from attachment if empty" : "e.g. Term-1 Periodic Unit Test"}
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
               />
             </div>
           </div>
 
-          {/* 2. Class & Subject (Dynamic CBSE/NCERT Dropdowns) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Grade / Class <span className="text-rose-500 font-bold">*</span>
-              </label>
-              <select
-                value={className}
-                onChange={(e) => handleClassChange(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
-              >
-                <option value="">Select Class</option>
-                {availableClasses.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
+          {/* Conditional Layout: Auto-Scan Banner if attachments exist, else CBSE/NCERT Dropdowns */}
+          {selectedFiles.length > 0 ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 border border-indigo-200/80 rounded-2xl flex items-start gap-3.5 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                  <Sparkles className="w-5 h-5 animate-pulse" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">AI Auto-Scan Active</h4>
+                    <span className="text-[10px] font-black bg-indigo-600 text-white px-2 py-0.5 rounded-full">
+                      {selectedFiles.length} {selectedFiles.length === 1 ? "Attachment" : "Attachments"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-indigo-900 font-medium mt-1 leading-relaxed">
+                    Subject, Grade/Class, Chapter & Content will be <strong>automatically scanned & extracted</strong> directly from your attached {selectedFiles.length === 1 ? "document / image" : "documents / images"}. Manual curriculum selection is not required!
+                  </p>
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Subject (for {className || "Class"}) <span className="text-rose-500 font-bold">*</span>
-              </label>
-              <select
-                value={subject}
-                onChange={(e) => handleSubjectChange(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
-              >
-                <option value="">Select Subject</option>
-                {availableSubjects.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* 3. Chapter & Difficulty */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Topic / Chapter (CBSE / NCERT) <span className="text-rose-500 font-bold">*</span>
-              </label>
-              {availableChapters.length > 0 ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Difficulty Level</label>
                 <select
-                  value={chapter}
-                  onChange={(e) => setChapter(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 capitalize cursor-pointer transition"
                 >
-                  <option value="">Select Chapter / Topic</option>
-                  {availableChapters.map((ch) => (
-                    <option key={ch} value={ch}>{ch}</option>
-                  ))}
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
                 </select>
-              ) : (
-                <input
-                  type="text"
-                  required
-                  value={chapter}
-                  onChange={(e) => setChapter(e.target.value)}
-                  placeholder="e.g. Acids, Bases & Salts"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-                />
-              )}
+              </div>
             </div>
+          ) : (
+            <>
+              {/* 2. Class & Subject (Dynamic CBSE/NCERT Dropdowns) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Grade / Class <span className="text-rose-500 font-bold">*</span>
+                  </label>
+                  <select
+                    value={className}
+                    onChange={(e) => handleClassChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+                  >
+                    <option value="">Select Class</option>
+                    {availableClasses.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Difficulty Level</label>
-              <select
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 capitalize cursor-pointer transition"
-              >
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-          </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Subject (for {className || "Class"}) <span className="text-rose-500 font-bold">*</span>
+                  </label>
+                  <select
+                    value={subject}
+                    onChange={(e) => handleSubjectChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+                  >
+                    <option value="">Select Subject</option>
+                    {availableSubjects.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 3. Chapter & Difficulty */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Topic / Chapter (CBSE / NCERT) <span className="text-rose-500 font-bold">*</span>
+                  </label>
+                  {availableChapters.length > 0 ? (
+                    <select
+                      value={chapter}
+                      onChange={(e) => setChapter(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+                    >
+                      <option value="">Select Chapter / Topic</option>
+                      {availableChapters.map((ch) => (
+                        <option key={ch} value={ch}>{ch}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      value={chapter}
+                      onChange={(e) => setChapter(e.target.value)}
+                      placeholder="e.g. Acids, Bases & Salts"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Difficulty Level</label>
+                  <select
+                    value={difficulty}
+                    onChange={(e) => setDifficulty(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 capitalize cursor-pointer transition"
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* 4. Marks & Time */}
           <div className="grid grid-cols-2 gap-4">
