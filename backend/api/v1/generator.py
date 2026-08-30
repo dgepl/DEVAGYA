@@ -2,7 +2,7 @@ import os
 import io
 import base64
 import json
-from typing import Optional, List
+from typing import Optional, List, Any
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
 from PIL import Image
 from schemas.question import GeneratePaperRequest, GeneratedPaperResponse
@@ -105,18 +105,11 @@ async def generate_paper_from_file(request: Request):
         user_email=user_email
     )
 
-    # Collect all uploaded files from form
-    uploaded_files: List[UploadFile] = []
-    
-    # Check multi-file array
-    for f in form.getlist("files"):
-        if isinstance(f, UploadFile) and f.filename:
-            uploaded_files.append(f)
-
-    # Check single file fallback
-    single_file = form.get("file")
-    if isinstance(single_file, UploadFile) and single_file.filename and single_file not in uploaded_files:
-        uploaded_files.append(single_file)
+    # Collect all uploaded files from form regardless of field name (files, files[], file, attachment, etc.)
+    uploaded_files: List[Any] = []
+    for k, v in form.multi_items():
+        if hasattr(v, "filename") and getattr(v, "filename", None) and v not in uploaded_files:
+            uploaded_files.append(v)
 
     # If no file is attached, generate directly from prompt/syllabus
     if not uploaded_files:
@@ -132,10 +125,14 @@ async def generate_paper_from_file(request: Request):
             raise HTTPException(status_code=status_code, detail=detail)
 
     extracted_texts: List[str] = []
-    primary_image_data_url: Optional[str] = None
+    image_data_urls: List[str] = []
 
     for f_item in uploaded_files:
         try:
+            try:
+                await f_item.seek(0)
+            except Exception:
+                pass
             file_bytes = await f_item.read()
         except Exception:
             continue
@@ -157,35 +154,34 @@ async def generate_paper_from_file(request: Request):
                 img.save(buf, format="JPEG", quality=80)
                 enc = base64.b64encode(buf.getvalue()).decode("ascii")
                 img_url = f"data:image/jpeg;base64,{enc}"
-                if not primary_image_data_url:
-                    primary_image_data_url = img_url
+                image_data_urls.append(img_url)
             except Exception as img_err:
                 pass
         elif ext == ".pdf" or "pdf" in content_type:
             try:
                 pdf_text, pdf_img_url = extract_pdf_content(file_bytes)
-                if pdf_text:
+                if pdf_text and len(pdf_text.strip()) > 10:
                     extracted_texts.append(f"--- Document: {filename} ---\n{pdf_text}")
-                if pdf_img_url and not primary_image_data_url:
-                    primary_image_data_url = pdf_img_url
+                if pdf_img_url:
+                    image_data_urls.append(pdf_img_url)
             except Exception:
                 try:
                     doc_text = extract_document_text(file_bytes, filename, content_type)
-                    if doc_text:
+                    if doc_text and len(doc_text.strip()) > 10:
                         extracted_texts.append(f"--- Document: {filename} ---\n{doc_text}")
                 except Exception:
                     pass
         else:
             try:
                 doc_text = extract_document_text(file_bytes, filename, content_type)
-                if doc_text:
+                if doc_text and len(doc_text.strip()) > 10:
                     extracted_texts.append(f"--- Document: {filename} ---\n{doc_text}")
             except Exception:
                 pass
 
     unified_extracted_text = "\n\n".join(extracted_texts).strip()
     has_text = bool(unified_extracted_text and len(unified_extracted_text) >= 10)
-    has_image = bool(primary_image_data_url and len(primary_image_data_url) > 100)
+    has_image = bool(image_data_urls and len(image_data_urls) > 0)
 
     # If file couldn't be parsed into text/image, raise a clear actionable error
     if not has_text and not has_image:
@@ -198,7 +194,7 @@ async def generate_paper_from_file(request: Request):
         response = await groq_service.generate_question_paper_with_attachment(
             req=req,
             extracted_text=unified_extracted_text,
-            image_data_url=primary_image_data_url
+            image_data_urls=image_data_urls
         )
         if user_email: response.user_email = user_email
         await _save_paper_for_user(user_email, response.dict())

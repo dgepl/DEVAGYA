@@ -430,26 +430,33 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
         self,
         req: GeneratePaperRequest,
         extracted_text: str = "",
-        image_data_url: Optional[str] = None
+        image_data_url: Optional[str] = None,
+        image_data_urls: Optional[List[str]] = None
     ) -> GeneratedPaperResponse:
         """Generate Exam Question Paper derived STRICTLY and EXCLUSIVELY from attached PDF/documents or photos, ignoring form dropdowns."""
-        if not extracted_text and not image_data_url:
+        all_image_urls = []
+        if image_data_urls:
+            all_image_urls.extend([u for u in image_data_urls if u and len(u) > 100])
+        if image_data_url and len(image_data_url) > 100 and image_data_url not in all_image_urls:
+            all_image_urls.append(image_data_url)
+
+        if not extracted_text and not all_image_urls:
             return await self.generate_question_paper(req)
 
         detect_prompt = """You are DEVGYA's Master Document Vision OCR & Assessment Extractor.
-Carefully examine and transcribe this attached study material / document / worksheet photo.
+Carefully examine and transcribe the attached study material / document / worksheet / photo.
 Extract:
-1. True Subject Name (e.g. Mathematics, Science, Physics, Chemistry, Biology, History, Geography, English, Hindi, Social Science, Computer Science)
+1. True Subject Name (e.g. Mathematics, Science, Physics, Chemistry, Biology, History, Geography, English, Hindi, Social Science, Computer Science, Economics)
 2. True Chapter / Unit / Topic Title covered in the document
 3. Appropriate Exam Title
-4. Complete Detailed Transcription & Breakdown of all readable text, formulas, equations, definitions, problems, and concepts (up to 1500 words)
+4. Full Exhaustive Content Transcription & Breakdown of all readable text, formulas, equations, definitions, problems, and concepts (up to 2000 words)
 
-Return valid JSON ONLY:
+Return valid JSON ONLY with these exact keys:
 {
   "subject": "...",
   "chapter": "...",
   "title": "...",
-  "summary": "..."
+  "extracted_content": "Full complete detailed transcription of every sentence, formula, question, definition, and concept from the document/image without skipping any details"
 }"""
 
         detected_subject = ""
@@ -457,11 +464,12 @@ Return valid JSON ONLY:
         detected_title = ""
         attachment_summary = ""
 
-        if image_data_url:
-            user_content = [
-                {"type": "text", "text": detect_prompt},
-                {"type": "image_url", "image_url": {"url": image_data_url}}
-            ]
+        if all_image_urls:
+            user_content = [{"type": "text", "text": detect_prompt}]
+            for img_u in all_image_urls[:4]:
+                user_content.append({"type": "image_url", "image_url": {"url": img_u}})
+            if extracted_text and extracted_text.strip():
+                user_content.append({"type": "text", "text": f"\n\nAdditional Extracted Document Text:\n{extracted_text[:6000]}"})
         else:
             user_content = f"{detect_prompt}\n\nAttached Document Content:\n{extracted_text[:9000]}"
 
@@ -472,29 +480,33 @@ Return valid JSON ONLY:
                     {"role": "user", "content": user_content}
                 ],
                 temperature=0.2,
-                max_tokens=2000,
+                max_tokens=2500,
                 response_format_json=True
             )
             parsed_meta = robust_json_parser(raw_meta)
             detected_subject = str(parsed_meta.get("subject") or "").strip()
             detected_chapter = str(parsed_meta.get("chapter") or "").strip()
             detected_title = str(parsed_meta.get("title") or "").strip()
-            attachment_summary = str(parsed_meta.get("summary") or "").strip()
+            attachment_summary = str(parsed_meta.get("extracted_content") or parsed_meta.get("summary") or "").strip()
         except Exception as meta_err:
             logger.warning(f"[Attachment Meta Detection Notice] {meta_err}")
 
-        # Fallback values if detection was partial
-        final_subject = detected_subject if (detected_subject and detected_subject.lower() not in ["general", "general studies"]) else (req.subject or "Attached Reference Material")
-        final_chapter = detected_chapter if (detected_chapter and detected_chapter.lower() not in ["general", "general syllabus"]) else (req.chapter or "Document Content")
-        final_title = detected_title if detected_title else str(req.title or f"{final_subject} Examination Paper")
+        # Final metadata: strictly derived from document detection, never falling back to form curriculum
+        final_subject = detected_subject if (detected_subject and detected_subject.lower() not in ["general", "general studies", "unknown"]) else (req.subject or "Reference Document")
+        final_chapter = detected_chapter if (detected_chapter and detected_chapter.lower() not in ["general", "general syllabus", "unknown"]) else (req.chapter or "Attached Content")
+        final_title = detected_title if detected_title else f"{final_subject} Assessment Paper"
 
         # Source context block to inject into all question generation tasks
+        combined_source = ""
         if extracted_text and extracted_text.strip():
-            source_context = f"=== ATTACHED SOURCE DOCUMENT CONTENT ===\n{extracted_text[:9000]}\n=== END SOURCE DOCUMENT CONTENT ==="
-        elif attachment_summary:
-            source_context = f"=== ATTACHED SOURCE MATERIAL (TRANSCRIBED FROM IMAGE) ===\n{attachment_summary}\n=== END ATTACHED SOURCE MATERIAL ==="
-        else:
-            source_context = "=== ATTACHED REFERENCE MATERIAL ===\n[Derive all questions from the attached document]\n=== END REFERENCE MATERIAL ==="
+            combined_source += f"=== DIGITAL DOCUMENT TEXT ===\n{extracted_text[:12000]}\n\n"
+        if attachment_summary:
+            combined_source += f"=== ATTACHED MATERIAL TRANSCRIPTION & CONCEPTS ===\n{attachment_summary}\n\n"
+
+        if not combined_source.strip():
+            combined_source = "=== ATTACHED REFERENCE MATERIAL ===\n[Derive all questions from the attached document/image]\n"
+
+        source_context = f"=== ATTACHED SOURCE REFERENCE MATERIAL ===\n{combined_source.strip()}\n=== END ATTACHED SOURCE REFERENCE MATERIAL ==="
 
         teacher_notes = str(req.custom_instructions or "").strip()
 
