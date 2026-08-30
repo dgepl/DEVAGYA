@@ -1749,5 +1749,382 @@ def _generate_assignment_worksheet_pdf(self, assignment: Dict[str, Any], config:
     buffer.close()
     return pdf_bytes
 
+def _decode_school_logo(logo_data: Optional[str], max_w: float = 60, max_h: float = 40):
+    if not logo_data:
+        return None
+    try:
+        if str(logo_data).startswith("data:image"):
+            header, b64_data = logo_data.split(",", 1)
+            raw = base64.b64decode(b64_data)
+            img_io = io.BytesIO(raw)
+            with PILImage.open(img_io) as pil_img:
+                w, h = pil_img.size
+            scale = min(max_w / w, max_h / h, 1.0)
+            return RLImage(io.BytesIO(raw), width=w * scale, height=h * scale)
+        elif os.path.exists(str(logo_data)):
+            return RLImage(str(logo_data), width=max_w, height=max_h)
+    except Exception:
+        pass
+    return None
+
+def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
+    title = str(payload.get("title") or "Classroom Practice Worksheet").strip()
+    subject = str(payload.get("subject") or "General").strip()
+    class_name = str(payload.get("class_name") or "Class 10").strip()
+    chapter = str(payload.get("chapter") or "").strip()
+    content = str(payload.get("content") or "").strip()
+    theme_name = str(payload.get("theme") or "cbse").lower()
+    font_size_mode = str(payload.get("font_size") or "standard").lower()
+    include_student_header = payload.get("include_student_header", True)
+    school_name = str(payload.get("school_name") or "DEVGYA GLOBAL EDUTECH").strip()
+    school_logo = payload.get("school_logo")
+
+    THEME_COLORS = {
+        "cbse": {
+            "primary": colors.HexColor("#1E3A8A"),      # Navy 900
+            "secondary": colors.HexColor("#2563EB"),    # Blue 600
+            "border": colors.HexColor("#BFDBFE"),       # Blue 200
+            "bg_meta": colors.HexColor("#EFF6FF"),      # Light Sky
+            "box_bg": colors.HexColor("#F8FAFC"),
+            "table_header": colors.HexColor("#1E3A8A"),
+            "table_header_text": colors.white,
+            "table_row_even": colors.HexColor("#F8FAFC"),
+            "table_row_odd": colors.HexColor("#FFFFFF")
+        },
+        "modern": {
+            "primary": colors.HexColor("#4338CA"),      # Indigo 700
+            "secondary": colors.HexColor("#6366F1"),    # Indigo 500
+            "border": colors.HexColor("#C7D2FE"),       # Indigo 200
+            "bg_meta": colors.HexColor("#EEF2FF"),
+            "box_bg": colors.HexColor("#FAFAFA"),
+            "table_header": colors.HexColor("#4338CA"),
+            "table_header_text": colors.white,
+            "table_row_even": colors.HexColor("#F5F3FF"),
+            "table_row_odd": colors.HexColor("#FFFFFF")
+        },
+        "minimalist": {
+            "primary": colors.HexColor("#0F172A"),      # Slate 900
+            "secondary": colors.HexColor("#475569"),    # Slate 600
+            "border": colors.HexColor("#CBD5E1"),       # Slate 300
+            "bg_meta": colors.HexColor("#F1F5F9"),
+            "box_bg": colors.HexColor("#F8FAFC"),
+            "table_header": colors.HexColor("#0F172A"),
+            "table_header_text": colors.white,
+            "table_row_even": colors.HexColor("#F8FAFC"),
+            "table_row_odd": colors.HexColor("#FFFFFF")
+        },
+        "emerald": {
+            "primary": colors.HexColor("#065F46"),      # Emerald 800
+            "secondary": colors.HexColor("#059669"),    # Emerald 600
+            "border": colors.HexColor("#A7F3D0"),       # Emerald 200
+            "bg_meta": colors.HexColor("#ECFDF5"),
+            "box_bg": colors.HexColor("#F0FDF4"),
+            "table_header": colors.HexColor("#065F46"),
+            "table_header_text": colors.white,
+            "table_row_even": colors.HexColor("#ECFDF5"),
+            "table_row_odd": colors.HexColor("#FFFFFF")
+        }
+    }
+
+    th = THEME_COLORS.get(theme_name, THEME_COLORS["cbse"])
+
+    # Font sizing
+    if font_size_mode == "compact":
+        body_font_size = 8.5
+        body_leading = 12.0
+        h1_size, h1_lead = 13.0, 16.0
+        h2_size, h2_lead = 11.0, 14.0
+        h3_size, h3_lead = 9.5, 13.0
+    elif font_size_mode == "large":
+        body_font_size = 10.5
+        body_leading = 15.0
+        h1_size, h1_lead = 15.0, 19.0
+        h2_size, h2_lead = 13.0, 17.0
+        h3_size, h3_lead = 11.0, 15.0
+    else:
+        body_font_size = 9.5
+        body_leading = 13.5
+        h1_size, h1_lead = 14.0, 18.0
+        h2_size, h2_lead = 12.0, 15.5
+        h3_size, h3_lead = 10.5, 14.0
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=32,
+        rightMargin=32,
+        topMargin=34,
+        bottomMargin=36
+    )
+    page_width = 595.27 - 64  # A4 width minus margins = ~531pt
+
+    styles = getSampleStyleSheet()
+
+    school_style = ParagraphStyle(
+        'WS_School',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=13,
+        leading=16,
+        alignment=1,
+        textColor=th["primary"]
+    )
+    title_style = ParagraphStyle(
+        'WS_Title',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=11,
+        leading=14,
+        alignment=1,
+        textColor=th["secondary"]
+    )
+    meta_style = ParagraphStyle(
+        'WS_Meta',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=8.5,
+        leading=11,
+        alignment=1,
+        textColor=colors.HexColor("#475569")
+    )
+    h1_style = ParagraphStyle(
+        'WS_H1',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=h1_size,
+        leading=h1_lead,
+        textColor=th["primary"],
+        spaceBefore=8,
+        spaceAfter=4
+    )
+    h2_style = ParagraphStyle(
+        'WS_H2',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=h2_size,
+        leading=h2_lead,
+        textColor=th["secondary"],
+        spaceBefore=6,
+        spaceAfter=3
+    )
+    h3_style = ParagraphStyle(
+        'WS_H3',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=h3_size,
+        leading=h3_lead,
+        textColor=colors.HexColor("#1E293B"),
+        spaceBefore=4,
+        spaceAfter=2
+    )
+    body_style = ParagraphStyle(
+        'WS_Body',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=body_font_size,
+        leading=body_leading,
+        textColor=colors.HexColor("#1E293B"),
+        spaceBefore=2,
+        spaceAfter=3
+    )
+    bullet_style = ParagraphStyle(
+        'WS_Bullet',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=body_font_size,
+        leading=body_leading,
+        leftIndent=12,
+        textColor=colors.HexColor("#1E293B"),
+        spaceBefore=1.5,
+        spaceAfter=1.5
+    )
+    table_cell_style = ParagraphStyle(
+        'WS_TableCell',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=body_font_size - 1,
+        leading=body_leading - 2,
+        textColor=colors.HexColor("#1E293B")
+    )
+    table_header_style = ParagraphStyle(
+        'WS_TableHead',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=body_font_size - 0.5,
+        leading=body_leading - 1.5,
+        textColor=th["table_header_text"]
+    )
+
+    story = []
+
+    # 1. HEADER BANNER
+    logo_flowable = _decode_school_logo(school_logo, max_w=50, max_h=35)
+    header_left = []
+    if logo_flowable:
+        header_left.append(logo_flowable)
+    else:
+        header_left.append(Paragraph(f"<b>DEVGYA</b>", school_style))
+
+    sub_info = f"<b>{subject}</b> | <b>{class_name}</b>"
+    if chapter:
+        sub_info += f" | <i>{chapter}</i>"
+
+    header_center = [
+        Paragraph(school_name.upper(), school_style),
+        Paragraph(title, title_style),
+        Paragraph(sub_info, meta_style)
+    ]
+
+    header_table = Table([[header_left[0] if header_left else "", header_center]], colWidths=[65, page_width - 65])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (0,0), 'CENTER'),
+        ('ALIGN', (1,0), (1,0), 'CENTER'),
+        ('BACKGROUND', (0,0), (-1,-1), th["bg_meta"]),
+        ('BOX', (0,0), (-1,-1), 1.2, th["primary"]),
+        ('PADDING', (0,0), (-1,-1), 5),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 6))
+
+    # 2. STUDENT METADATA BOX (if enabled)
+    if include_student_header:
+        meta_row1 = [
+            Paragraph("<b>Student Name:</b> ___________________________", meta_style),
+            Paragraph("<b>Roll No:</b> ____________", meta_style),
+            Paragraph(f"<b>Class:</b> {class_name}", meta_style),
+            Paragraph("<b>Date:</b> ____________", meta_style),
+        ]
+        meta_table = Table([meta_row1], colWidths=[page_width * 0.40, page_width * 0.20, page_width * 0.20, page_width * 0.20])
+        meta_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), th["box_bg"]),
+            ('BOX', (0,0), (-1,-1), 0.8, th["border"]),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ]))
+        story.append(meta_table)
+        story.append(Spacer(1, 8))
+
+    # 3. CONTENT PARSER
+    lines = content.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+
+        if not stripped:
+            i += 1
+            continue
+
+        # Check for Mermaid code block
+        if stripped.startswith("```mermaid") or (stripped.startswith("```") and "mermaid" in stripped.lower()):
+            mermaid_lines = []
+            i += 1
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                mermaid_lines.append(lines[i])
+                i += 1
+            i += 1 # skip closing ```
+            mermaid_code = "\n".join(mermaid_lines).strip()
+            if mermaid_code:
+                diag = parse_mermaid_to_flowable(mermaid_code, available_width=page_width)
+                if diag:
+                    story.append(Spacer(1, 4))
+                    story.append(diag)
+                    story.append(Spacer(1, 6))
+            continue
+
+        # Check for Markdown Table: | Col 1 | Col 2 |
+        if stripped.startswith("|") and stripped.endswith("|"):
+            table_lines = []
+            while i < len(lines) and lines[i].strip().startswith("|") and lines[i].strip().endswith("|"):
+                table_lines.append(lines[i].strip())
+                i += 1
+            
+            # Parse table rows
+            parsed_rows = []
+            for tl in table_lines:
+                # skip divider row |---|---|
+                if re.match(r'^\|[\s\-:|]+\|$', tl):
+                    continue
+                cells = [c.strip() for c in tl.split("|")[1:-1]]
+                parsed_rows.append(cells)
+
+            if parsed_rows:
+                num_cols = max(len(r) for r in parsed_rows)
+                col_w = page_width / float(num_cols)
+                
+                table_data = []
+                for r_idx, row in enumerate(parsed_rows):
+                    row_data = []
+                    for c_idx in range(num_cols):
+                        c_text = row[c_idx] if c_idx < len(row) else ""
+                        c_style = table_header_style if r_idx == 0 else table_cell_style
+                        row_data.append(build_safe_paragraph(c_text, c_style))
+                    table_data.append(row_data)
+
+                rl_table = Table(table_data, colWidths=[col_w] * num_cols)
+                rl_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,0), th["table_header"]),
+                    ('BOX', (0,0), (-1,-1), 1, th["border"]),
+                    ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
+                    ('PADDING', (0,0), (-1,-1), 4),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('ROWBACKGROUNDS', (0,1), (-1,-1), [th["table_row_even"], th["table_row_odd"]]),
+                ]))
+                story.append(Spacer(1, 4))
+                story.append(rl_table)
+                story.append(Spacer(1, 6))
+            continue
+
+        # Headings
+        if stripped.startswith("### "):
+            h_text = stripped[4:].strip()
+            story.append(build_safe_paragraph(h_text, h3_style))
+            i += 1
+            continue
+        elif stripped.startswith("## "):
+            h_text = stripped[3:].strip()
+            story.append(Spacer(1, 4))
+            story.append(build_safe_paragraph(h_text, h2_style))
+            story.append(HRFlowable(width="100%", thickness=0.8, color=th["border"], spaceBefore=1, spaceAfter=4))
+            i += 1
+            continue
+        elif stripped.startswith("# "):
+            h_text = stripped[2:].strip()
+            story.append(Spacer(1, 6))
+            story.append(build_safe_paragraph(h_text, h1_style))
+            story.append(HRFlowable(width="100%", thickness=1.2, color=th["primary"], spaceBefore=1, spaceAfter=5))
+            i += 1
+            continue
+
+        # Bullet list items
+        if stripped.startswith(("- ", "* ", "• ", "+ ")):
+            item_text = stripped[2:].strip()
+            bullet_p = f"&bull;&nbsp; {item_text}"
+            story.append(build_safe_paragraph(bullet_p, bullet_style))
+            i += 1
+            continue
+
+        # Numbered list items
+        num_match = re.match(r'^(\d+[\.\)])\s*(.*)$', stripped)
+        if num_match:
+            n_prefix, n_text = num_match.group(1), num_match.group(2)
+            num_p = f"<b>{n_prefix}</b> {n_text}"
+            story.append(build_safe_paragraph(num_p, bullet_style))
+            i += 1
+            continue
+
+        # General Paragraph
+        story.append(build_safe_paragraph(stripped, body_style))
+        i += 1
+
+    doc.build(story, canvasmaker=NumberedCanvas)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes
+
 PDFGeneratorService.generate_assignment_worksheet_pdf = _generate_assignment_worksheet_pdf
+PDFGeneratorService.generate_worksheet_pdf = _generate_worksheet_pdf
 pdf_generator_service = PDFGeneratorService()
