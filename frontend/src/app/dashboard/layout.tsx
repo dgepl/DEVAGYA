@@ -274,7 +274,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex-1 md:pl-64 flex flex-col min-h-screen pb-32 md:pb-8">
+      <div className="flex-1 md:pl-64 flex flex-col min-h-screen pb-36 md:pb-8">
         
         <MobileTopHeader />
         
@@ -331,7 +331,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </main>
 
         {!isAIChatPage && (
-          <footer className="mt-auto px-4 sm:px-8 py-3 mb-6 md:mb-0 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[11px] text-slate-500 font-medium">
+          <footer className="mt-auto px-4 sm:px-8 py-3 mb-12 md:mb-0 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[11px] text-slate-500 font-medium">
             <p>&copy; 2026 DEVGYA Global Edutech Private Limited. All Rights Reserved.</p>
             <p className="text-slate-500 font-medium">
               Designed &amp; Developed by <span className="text-indigo-600 font-bold">Pratikk Yadav and Team (+91 8307224756)</span>

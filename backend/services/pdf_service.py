@@ -665,7 +665,17 @@ def build_safe_paragraph(text: str, style, is_bold_prefix: Optional[str] = None)
     if is_bold_prefix:
         raw_str = f"**{is_bold_prefix}** {raw_str}"
     cleaned = clean_md_to_reportlab(raw_str)
-    return Paragraph(cleaned, style)
+    try:
+        return Paragraph(cleaned, style)
+    except Exception:
+        try:
+            # Fallback to plain XML escaped text
+            safe_text = html.escape(raw_str).replace("\n", "<br/>")
+            return Paragraph(safe_text, style)
+        except Exception:
+            # Ultimate fallback to plain ASCII
+            ascii_text = raw_str.encode("ascii", "ignore").decode("ascii").replace("\n", " ")
+            return Paragraph(html.escape(ascii_text), style)
 
 
 class PDFGeneratorService:
@@ -2149,46 +2159,51 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
                 parsed_rows.append(cells)
 
             if parsed_rows:
-                num_cols = max(len(r) for r in parsed_rows)
-                
-                # Proportional column width estimation based on cell content length
-                col_max_lens = [0] * num_cols
-                for row in parsed_rows:
-                    for c_idx in range(num_cols):
-                        c_text = row[c_idx] if c_idx < len(row) else ""
-                        col_max_lens[c_idx] = max(col_max_lens[c_idx], len(str(c_text)))
+                try:
+                    num_cols = max(len(r) for r in parsed_rows)
+                    
+                    # Proportional column width estimation based on cell content length
+                    col_max_lens = [0] * num_cols
+                    for row in parsed_rows:
+                        for c_idx in range(num_cols):
+                            c_text = row[c_idx] if c_idx < len(row) else ""
+                            col_max_lens[c_idx] = max(col_max_lens[c_idx], len(str(c_text)))
 
-                total_len = sum(max(l, 8) for l in col_max_lens) or 1
-                col_widths = []
-                for l in col_max_lens:
-                    raw_w = (max(l, 8) / float(total_len)) * page_width
-                    col_widths.append(max(38.0, min(page_width - 40.0, raw_w)))
+                    total_len = sum(max(l, 8) for l in col_max_lens) or 1
+                    col_widths = []
+                    for l in col_max_lens:
+                        raw_w = (max(l, 8) / float(total_len)) * page_width
+                        col_widths.append(max(38.0, min(page_width - 40.0, raw_w)))
 
-                # Normalize to exact available width
-                scale_w = page_width / sum(col_widths)
-                final_col_widths = [w * scale_w for w in col_widths]
+                    # Normalize to exact available width
+                    scale_w = page_width / sum(col_widths)
+                    final_col_widths = [w * scale_w for w in col_widths]
 
-                table_data = []
-                for r_idx, row in enumerate(parsed_rows):
-                    row_data = []
-                    for c_idx in range(num_cols):
-                        c_text = row[c_idx] if c_idx < len(row) else ""
-                        c_style = table_header_style if r_idx == 0 else table_cell_style
-                        row_data.append(build_safe_paragraph(c_text, c_style))
-                    table_data.append(row_data)
+                    table_data = []
+                    for r_idx, row in enumerate(parsed_rows):
+                        row_data = []
+                        for c_idx in range(num_cols):
+                            c_text = row[c_idx] if c_idx < len(row) else ""
+                            c_style = table_header_style if r_idx == 0 else table_cell_style
+                            row_data.append(build_safe_paragraph(c_text, c_style))
+                        table_data.append(row_data)
 
-                rl_table = Table(table_data, colWidths=final_col_widths, repeatRows=1)
-                rl_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0,0), (-1,0), th["table_header"]),
-                    ('BOX', (0,0), (-1,-1), 1, th["border"]),
-                    ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
-                    ('PADDING', (0,0), (-1,-1), 4),
-                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                    ('ROWBACKGROUNDS', (0,1), (-1,-1), [th["table_row_even"], th["table_row_odd"]]),
-                ]))
-                story.append(Spacer(1, 4))
-                story.append(rl_table)
-                story.append(Spacer(1, 6))
+                    rl_table = Table(table_data, colWidths=final_col_widths, repeatRows=1)
+                    rl_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0,0), (-1,0), th["table_header"]),
+                        ('BOX', (0,0), (-1,-1), 1, th["border"]),
+                        ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
+                        ('PADDING', (0,0), (-1,-1), 4),
+                        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                        ('ROWBACKGROUNDS', (0,1), (-1,-1), [th["table_row_even"], th["table_row_odd"]]),
+                    ]))
+                    story.append(Spacer(1, 4))
+                    story.append(rl_table)
+                    story.append(Spacer(1, 6))
+                except Exception as tbl_err:
+                    logger.warning(f"Table rendering notice: {tbl_err}")
+                    for row in parsed_rows:
+                        story.append(build_safe_paragraph(" | ".join(row), body_style))
             continue
 
         # Headings
@@ -2233,10 +2248,28 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
         story.append(build_safe_paragraph(stripped, body_style))
         i += 1
 
-    doc.build(story, canvasmaker=NumberedCanvas)
-    pdf_bytes = buffer.getvalue()
-    buffer.close()
-    return pdf_bytes
+    try:
+        doc.build(story, canvasmaker=NumberedCanvas)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+    except Exception as build_err:
+        logger.error(f"Worksheet PDF build error: {build_err}, building with safe fallback layout")
+        fallback_buffer = io.BytesIO()
+        doc_fb = SimpleDocTemplate(fallback_buffer, pagesize=A4, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=45)
+        fallback_story = [
+            Paragraph(f"<b>{school_name}</b>", school_style),
+            Paragraph(f"<b>{title}</b>", title_style),
+            Paragraph(f"<b>{subject}</b> | <b>{class_name}</b>", meta_style),
+            Spacer(1, 10)
+        ]
+        for line in lines:
+            if line.strip():
+                fallback_story.append(Paragraph(html.escape(line.strip()), body_style))
+        doc_fb.build(fallback_story, canvasmaker=NumberedCanvas)
+        pdf_bytes = fallback_buffer.getvalue()
+        fallback_buffer.close()
+        return pdf_bytes
 
 PDFGeneratorService.generate_assignment_worksheet_pdf = _generate_assignment_worksheet_pdf
 PDFGeneratorService.generate_worksheet_pdf = _generate_worksheet_pdf
