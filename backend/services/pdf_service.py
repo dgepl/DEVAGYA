@@ -2090,8 +2090,24 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
 
             if parsed_rows:
                 num_cols = max(len(r) for r in parsed_rows)
-                col_w = page_width / float(num_cols)
                 
+                # Proportional column width estimation based on cell content length
+                col_max_lens = [0] * num_cols
+                for row in parsed_rows:
+                    for c_idx in range(num_cols):
+                        c_text = row[c_idx] if c_idx < len(row) else ""
+                        col_max_lens[c_idx] = max(col_max_lens[c_idx], len(str(c_text)))
+
+                total_len = sum(max(l, 8) for l in col_max_lens) or 1
+                col_widths = []
+                for l in col_max_lens:
+                    raw_w = (max(l, 8) / float(total_len)) * page_width
+                    col_widths.append(max(38.0, min(page_width - 40.0, raw_w)))
+
+                # Normalize to exact available width
+                scale_w = page_width / sum(col_widths)
+                final_col_widths = [w * scale_w for w in col_widths]
+
                 table_data = []
                 for r_idx, row in enumerate(parsed_rows):
                     row_data = []
@@ -2101,13 +2117,13 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
                         row_data.append(build_safe_paragraph(c_text, c_style))
                     table_data.append(row_data)
 
-                rl_table = Table(table_data, colWidths=[col_w] * num_cols)
+                rl_table = Table(table_data, colWidths=final_col_widths, repeatRows=1)
                 rl_table.setStyle(TableStyle([
                     ('BACKGROUND', (0,0), (-1,0), th["table_header"]),
                     ('BOX', (0,0), (-1,-1), 1, th["border"]),
                     ('INNERGRID', (0,0), (-1,-1), 0.5, th["border"]),
                     ('PADDING', (0,0), (-1,-1), 4),
-                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
                     ('ROWBACKGROUNDS', (0,1), (-1,-1), [th["table_row_even"], th["table_row_odd"]]),
                 ]))
                 story.append(Spacer(1, 4))

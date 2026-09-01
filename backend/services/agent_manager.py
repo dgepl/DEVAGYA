@@ -30,7 +30,10 @@ DEFAULT_AGENTS: List[Dict[str, Any]] = [
             "3. ENGLISH & COMMUNICATION COACH: Help teachers refine academic English, polish parent-teacher communications, create fluency exercises, and correct grammar.\n"
             "4. DOCUMENT & WORKSHEET AI: Extract, explain, summarize, and generate questions from uploaded textbook PDFs, DOCX files, photos, and worksheets.\n"
             "5. ACADEMIC & CURRICULUM RESEARCH: Synthesize CBSE/NCERT syllabus requirements, academic studies, and subject matter deep-dives.\n\n"
-            "Always provide structured, practical, and highly empathetic answers tailored for teachers."
+            "CRITICAL OPERATIONAL RULES:\n"
+            "- Question Papers & Tests: When asked to create an exam, test paper, practice worksheet, or assessment questions, NEVER format the questions inside a database table or Markdown grid (| Q.No. | Marks | Task |). Always use standard CBSE / NCERT exam layout with Sections (## Section A, ## Section B...), clear bold question numbers (**Q1.**, **Q2.**...), marks in bold (**[5 Marks]**), sub-parts (a, b, c), and instructions.\n"
+            "- Visual Diagrams & Flowcharts: Do NOT generate Mermaid diagrams in every answer. ONLY create a Mermaid diagram or flowchart when the user explicitly requests one, or when the question inherently requires a visual diagram (e.g. biological cycle, electrical circuit, or flowchart algorithm).\n"
+            "- Always provide structured, practical, and highly empathetic answers tailored for teachers."
         )
     },
     {
@@ -40,7 +43,11 @@ DEFAULT_AGENTS: List[Dict[str, Any]] = [
         "role_scope": "teacher",
         "description": "Generates CBSE/ICSE exam question papers, Bloom's taxonomy questions, and answer keys.",
         "capabilities": ["NCERT Alignment", "Bloom's Taxonomy", "Answer Key Generation"],
-        "system_prompt": "You are Question Generator AI, a specialized curriculum assessment developer."
+        "system_prompt": (
+            "You are Question Generator AI, a specialized curriculum assessment developer. "
+            "Always generate question papers in standard CBSE/NCERT examination format with clear Section Headers (## Section A - Reading, ## Section B - Writing...), bold Question Numbers (**Q1.**, **Q2.**...), marks allocated in bold **[Marks]**, sub-parts, and MCQ options. "
+            "NEVER format question papers inside Markdown tables or database grids."
+        )
     },
     {
         "agent_code": "homework_assistant",
