@@ -4,10 +4,14 @@ import re
 import html
 import zipfile
 import base64
+import shutil
+import tempfile
+import subprocess
 import logging
 from typing import Optional, List, Dict, Any
 import xml.etree.ElementTree as ET
 import httpx
+from PIL import Image as PILImage
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, Flowable, Image as RLImage
 from reportlab.lib import colors
@@ -326,16 +330,23 @@ def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
             mmd_path = f.name
         
         out_png = mmd_path.replace('.mmd', '.png')
-        cmd = f'npx @mermaid-js/mermaid-cli -i "{mmd_path}" -o "{out_png}" -b white -s 2 -q'
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+        npx_bin = shutil.which("npx") or "npx"
+        cmd = f'"{npx_bin}" @mermaid-js/mermaid-cli -i "{mmd_path}" -o "{out_png}" -b white -s 2 -q'
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=20)
         
         if os.path.exists(out_png) and os.path.getsize(out_png) > 0:
             with PILImage.open(out_png) as pimg:
                 orig_w, orig_h = pimg.size
             
-            target_w = min(available_width - 24, orig_w / 2.0)
+            target_w = min(available_width - 20, max(280.0, orig_w / 2.0))
             target_h = (target_w / (orig_w / 2.0)) * (orig_h / 2.0)
             
+            # Guard against overly tall diagrams exceeding a single page
+            max_allowed_h = 360.0
+            if target_h > max_allowed_h:
+                target_w = target_w * (max_allowed_h / target_h)
+                target_h = max_allowed_h
+
             rl_img = RLImage(out_png, width=target_w, height=target_h)
             
             styles = getSampleStyleSheet()
@@ -348,7 +359,7 @@ def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
                 textColor=colors.HexColor('#1E1B4B')
             )
             card_data = [
-                [Paragraph('<b>VISUAL DIAGRAM & FLOW</b>', title_style)],
+                [Paragraph('<font color="#10B981">&bull;</font> <b>VISUAL DIAGRAM & FLOW</b>', title_style)],
                 [rl_img]
             ]
             diag_tbl = Table(card_data, colWidths=[available_width])
@@ -363,7 +374,7 @@ def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
             ]))
             return diag_tbl
     except Exception as e:
-        pass
+        logger.warning(f"Mermaid CLI execution notice: {e}")
     finally:
         if mmd_path and os.path.exists(mmd_path):
             try:
