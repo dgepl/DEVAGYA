@@ -2,6 +2,7 @@ import io
 import os
 import re
 import html
+import json
 import zipfile
 import base64
 import shutil
@@ -316,7 +317,7 @@ def _sanitize_mermaid_code(code: str) -> str:
 def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
     """
     Renders Mermaid diagrams into a crystal-clear vector/high-DPI PNG image matching the web UI
-    using @mermaid-js/mermaid-cli, then embeds it in a styled ReportLab Flowable card.
+    using @mermaid-js/mermaid-cli with Puppeteer sandbox flags, then embeds it in a styled ReportLab Flowable card.
     """
     code_clean = _sanitize_mermaid_code(str(mermaid_code).strip())
     if not code_clean:
@@ -324,15 +325,28 @@ def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
     
     mmd_path = None
     out_png = None
+    cfg_path = None
     try:
         with tempfile.NamedTemporaryFile('w', suffix='.mmd', delete=False, encoding='utf-8') as f:
             f.write(code_clean)
             mmd_path = f.name
         
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8') as f_cfg:
+            json.dump({
+                "args": [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--font-render-hinting=none"
+                ]
+            }, f_cfg)
+            cfg_path = f_cfg.name
+        
         out_png = mmd_path.replace('.mmd', '.png')
         npx_bin = shutil.which("npx") or "npx"
-        cmd = f'"{npx_bin}" @mermaid-js/mermaid-cli -i "{mmd_path}" -o "{out_png}" -b white -s 2 -q'
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=20)
+        cmd = f'"{npx_bin}" @mermaid-js/mermaid-cli -i "{mmd_path}" -o "{out_png}" -p "{cfg_path}" -b white -s 2 -q'
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=25)
         
         if os.path.exists(out_png) and os.path.getsize(out_png) > 0:
             with PILImage.open(out_png) as pimg:
@@ -379,6 +393,11 @@ def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
         if mmd_path and os.path.exists(mmd_path):
             try:
                 os.remove(mmd_path)
+            except Exception:
+                pass
+        if cfg_path and os.path.exists(cfg_path):
+            try:
+                os.remove(cfg_path)
             except Exception:
                 pass
 
@@ -2066,22 +2085,52 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
             i += 1
             continue
 
-        # Check for Mermaid code block
-        if stripped.startswith("```mermaid") or (stripped.startswith("```") and "mermaid" in stripped.lower()):
-            mermaid_lines = []
+        # Check for Code Blocks & Mermaid Diagrams
+        if stripped.startswith("```"):
+            fence_lang = stripped[3:].strip().lower()
+            code_lines = []
             i += 1
             while i < len(lines) and not lines[i].strip().startswith("```"):
-                mermaid_lines.append(lines[i])
+                code_lines.append(lines[i])
                 i += 1
-            i += 1 # skip closing ```
-            mermaid_code = "\n".join(mermaid_lines).strip()
-            if mermaid_code:
-                diag = parse_mermaid_to_flowable(mermaid_code, available_width=page_width)
+            if i < len(lines):
+                i += 1  # skip closing ```
+            
+            code_str = "\n".join(code_lines).strip()
+            if not code_str:
+                continue
+
+            # Check if this code block is a Mermaid diagram
+            is_mermaid = (
+                fence_lang in ["mermaid", "graph", "flowchart", "sequencediagram", "mindmap", "pie", "classdiagram", "erdiagram", "gantt", "gitgraph", "journey", "quadrantchart"]
+                or "-->" in code_str
+                or "->>" in code_str
+                or "flowchart" in code_str.lower()
+                or "graph " in code_str.lower()
+                or "mindmap" in code_str.lower()
+                or "sequencediagram" in code_str.lower()
+            )
+
+            if is_mermaid:
+                diag = parse_mermaid_to_flowable(code_str, available_width=page_width)
                 if diag:
                     story.append(Spacer(1, 4))
                     story.append(diag)
                     story.append(Spacer(1, 6))
-            continue
+                continue
+            else:
+                # Regular code block formatted nicely
+                code_p = f"<font face='Courier' size='8'>{html.escape(code_str).replace(chr(10), '<br/>')}</font>"
+                code_table = Table([[Paragraph(code_p, body_style)]], colWidths=[page_width])
+                code_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+                    ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor('#CBD5E1')),
+                    ('PADDING', (0,0), (-1,-1), 6),
+                ]))
+                story.append(Spacer(1, 4))
+                story.append(code_table)
+                story.append(Spacer(1, 6))
+                continue
 
         # Check for Markdown Table: | Col 1 | Col 2 |
         if stripped.startswith("|") and stripped.endswith("|"):
