@@ -81,12 +81,12 @@ export function Footer() {
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
           
           <div className="space-y-1 text-center md:text-left">
-            <p className="text-slate-400 font-medium">
+            <p className="text-xs text-slate-400 font-medium">
               &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.
             </p>
-            <p className="text-[12px] font-bold text-slate-300 flex items-center justify-center md:justify-start gap-1.5">
-              <Code2 className="w-3.5 h-3.5 text-cyan-400 inline" />
-              <span>Designed and Developed by <strong className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300">Pratikk Yadav and Team +91 8307224756</strong></span>
+            <p className="text-[10px] md:text-xs font-semibold text-slate-400 flex items-center justify-center md:justify-start gap-1.5">
+              <Code2 className="w-3 h-3 text-cyan-400 inline" />
+              <span>Designed and Developed by <strong className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300">Pratikk Yadav and Team +91 8307224756</strong></span>
             </p>
           </div>
 
