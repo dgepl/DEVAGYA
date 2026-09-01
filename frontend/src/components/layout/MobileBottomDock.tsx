@@ -51,7 +51,7 @@ export function MobileBottomDock() {
     return [
       { label: "Dashboard", href: "/dashboard", icon: Home },
       { label: "Generator", href: "/dashboard/generator", icon: Zap },
-      { label: "TEACHER AI", href: "/dashboard/agents?agent=teacher_mentor", icon: Bot, central: true, agentCode: "teacher_mentor" },
+      { label: "Teacher AI", href: "/dashboard/agents?agent=teacher_mentor", icon: Sparkles, central: true, agentCode: "teacher_mentor" },
       { label: "Assignments", href: "/dashboard/assignments", icon: FileText },
       { label: "Profile", href: "/dashboard/profile", icon: User }
     ];
@@ -60,8 +60,8 @@ export function MobileBottomDock() {
   const tabs = getTabs();
 
   return (
-    <nav className="fixed bottom-2 left-2 right-2 z-50 bg-white/90 backdrop-blur-2xl border border-slate-200/90 px-3 py-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-full md:hidden">
-      <div className="flex items-center justify-around max-w-md mx-auto relative">
+    <nav className="fixed bottom-2.5 left-3 right-3 z-50 bg-white/95 backdrop-blur-xl border border-slate-200/90 px-3 py-1.5 shadow-[0_10px_35px_rgba(0,0,0,0.12)] rounded-full md:hidden">
+      <div className="flex items-center justify-between max-w-md mx-auto relative">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           let isActive = false;
@@ -77,12 +77,16 @@ export function MobileBottomDock() {
               <Link
                 key={`central-${tab.href}-${idx}`}
                 href={tab.href}
-                className="relative -top-5 flex flex-col items-center group shrink-0"
+                className="relative -top-3.5 flex flex-col items-center group shrink-0"
               >
-                <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-rose-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/35 border-2 border-white group-active:scale-90 transition-transform">
-                  <Icon className="w-6 h-6 animate-pulse" />
+                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-blue-700 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 ring-4 ring-white/90 group-active:scale-95 transition-all ${
+                  isActive ? "ring-indigo-200" : ""
+                }`}>
+                  <Icon className="w-5 h-5 text-indigo-100 group-hover:scale-110 transition-transform" />
                 </div>
-                <span className="text-[10px] font-black text-indigo-700 tracking-tight mt-0.5 uppercase">
+                <span className={`text-[10px] tracking-tight mt-1 font-bold ${
+                  isActive ? "text-indigo-700 font-extrabold" : "text-slate-700"
+                }`}>
                   {tab.label}
                 </span>
               </Link>

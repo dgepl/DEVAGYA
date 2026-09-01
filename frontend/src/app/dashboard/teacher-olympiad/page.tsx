@@ -469,8 +469,12 @@ export default function TeacherOlympiadPage() {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }, [timeLeft]);
 
-  // Start Real 60-Minute Exam with Re-Attempt & Active Paper Lock Guard
-  const handleStartExam = async () => {
+  // Rules & Protocol Modal State
+  const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
+  const [rulesAgreed, setRulesAgreed] = useState<boolean>(false);
+
+  // Open Rules Modal before starting exam
+  const handleStartExam = () => {
     if (!paperData || !questions || questions.length === 0) {
       alert("🔒 Assessment Hall Inactive: No official question paper has been published by the administration yet for this subject. Please check back when the exam window is activated.");
       return;
@@ -482,6 +486,15 @@ export default function TeacherOlympiadPage() {
       return;
     }
 
+    setRulesAgreed(false);
+    setShowRulesModal(true);
+  };
+
+  // Start Real 60-Minute Exam after candidate confirms and clicks continue
+  const handleProceedStartExam = async () => {
+    if (!rulesAgreed) return;
+    setShowRulesModal(false);
+
     // Try requesting fullscreen
     try {
       if (document.documentElement.requestFullscreen) {
@@ -490,6 +503,11 @@ export default function TeacherOlympiadPage() {
     } catch (e) {}
 
     setTimeLeft(60 * 60);
+    setProctorWarnings(0);
+    setTabSwitches(0);
+    setFullscreenExits(0);
+    setIsAutoTerminated(false);
+    setAutoTerminatedReason("");
     setExamStarted(true);
     setActiveTab("exam");
     setCurrentIdx(0);
@@ -937,6 +955,179 @@ export default function TeacherOlympiadPage() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* EXAMINATION RULES & SECURITY PROTOCOLS PRE-FLIGHT MODAL */}
+      {/* ============================================================ */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            {/* MODAL HEADER */}
+            <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shadow-sm">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                    Official Assessment Protocol
+                  </span>
+                  <h2 className="text-base sm:text-lg font-black text-white">
+                    Skill Enhance Program 2026 — Rules & Guidelines
+                  </h2>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(false)}
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* SCROLLABLE RULES CONTENT */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-slate-800 text-xs">
+              
+              {/* SUMMARY HIGHLIGHTS */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-2xl text-center">
+                  <Clock className="w-4 h-4 text-indigo-600 mx-auto mb-1" />
+                  <span className="text-[10px] text-slate-500 font-bold block">Duration</span>
+                  <span className="text-xs font-black text-indigo-950">60 Minutes</span>
+                </div>
+                <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-2xl text-center">
+                  <FileText className="w-4 h-4 text-blue-600 mx-auto mb-1" />
+                  <span className="text-[10px] text-slate-500 font-bold block">Questions</span>
+                  <span className="text-xs font-black text-blue-950">100 MCQs</span>
+                </div>
+                <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-2xl text-center">
+                  <Camera className="w-4 h-4 text-emerald-600 mx-auto mb-1" />
+                  <span className="text-[10px] text-slate-500 font-bold block">Proctoring</span>
+                  <span className="text-xs font-black text-emerald-950">AI WebCam</span>
+                </div>
+                <div className="p-3 bg-rose-50/70 border border-rose-100 rounded-2xl text-center">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 mx-auto mb-1" />
+                  <span className="text-[10px] text-slate-500 font-bold block">Warning Limit</span>
+                  <span className="text-xs font-black text-rose-700">Max 5 Warnings</span>
+                </div>
+              </div>
+
+              {/* SECTION 1: WHAT IS ALLOWED */}
+              <div className="p-4 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl space-y-2.5">
+                <div className="flex items-center gap-2 text-emerald-900 font-black text-xs uppercase tracking-wide">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>1. What is Allowed & Recommended (✓)</span>
+                </div>
+                <ul className="space-y-1.5 pl-6 list-disc text-[11px] text-slate-700 font-medium leading-relaxed">
+                  <li>
+                    <strong className="text-slate-900">60-Minute Continuous Window:</strong> You will have exactly 60 minutes to attempt all 100 questions (Part A: Pedagogy & Part B: Core Subject).
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">Free Navigation:</strong> Jump between questions using the Question Palette, change options, and mark questions for review before submitting.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">Real-Time Autosave:</strong> Every option selected is saved automatically to secure cloud storage.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">Environment:</strong> Ensure a quiet, well-lit room with your face clearly visible to the webcam throughout the exam.
+                  </li>
+                </ul>
+              </div>
+
+              {/* SECTION 2: WHAT IS NOT ALLOWED */}
+              <div className="p-4 bg-rose-50/60 border border-rose-200/80 rounded-2xl space-y-2.5">
+                <div className="flex items-center gap-2 text-rose-900 font-black text-xs uppercase tracking-wide">
+                  <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>2. What is Strictly Prohibited (❌ Violations)</span>
+                </div>
+                <ul className="space-y-1.5 pl-6 list-disc text-[11px] text-slate-700 font-medium leading-relaxed">
+                  <li>
+                    <strong className="text-rose-950">Exiting Full-Screen:</strong> The assessment must remain in Full-Screen mode. Pressing Escape or minimizing the browser will be flagged immediately.
+                  </li>
+                  <li>
+                    <strong className="text-rose-950">Tab & App Switching:</strong> Opening new browser tabs, switching windows, or opening external software (calculators, search engines, messengers) is prohibited.
+                  </li>
+                  <li>
+                    <strong className="text-rose-950">Leaving Camera View / Obstruction:</strong> Stepping away from the camera, covering the webcam, or multiple people in frame triggers proctoring security flags.
+                  </li>
+                  <li>
+                    <strong className="text-rose-950">Copy-Paste & Keyboard Shortcuts:</strong> Clipboard operations, right-click context menus, and developer tools are completely locked.
+                  </li>
+                </ul>
+              </div>
+
+              {/* SECTION 3: 5-WARNING TERMINATION POLICY */}
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl space-y-2.5">
+                <div className="flex items-center gap-2 text-amber-950 font-black text-xs uppercase tracking-wide">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>3. Warning System & 5-Warning Termination Policy (⚠️ CRITICAL)</span>
+                </div>
+                <div className="space-y-2 text-[11px] text-slate-800 leading-relaxed font-medium">
+                  <p>
+                    Every time a security violation occurs (tab switch, window minimize, exiting fullscreen, or face loss), a 
+                    <strong className="text-rose-700"> Live High-Visibility Warning Modal</strong> will appear on screen.
+                  </p>
+                  <div className="p-3 bg-white/90 rounded-xl border border-amber-200 flex items-start gap-2.5">
+                    <div className="w-6 h-6 rounded-lg bg-rose-600 text-white font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      5
+                    </div>
+                    <div className="text-[11px]">
+                      <strong className="text-rose-700 font-black block">AUTOMATIC SUBMISSION AT 5 WARNINGS:</strong>
+                      If you accumulate <strong className="text-slate-900">5 total security warnings</strong>, the system will 
+                      <strong className="text-rose-700"> IMMEDIATELY TERMINATE</strong> your assessment and 
+                      <strong className="text-rose-700"> AUTOMATICALLY SUBMIT</strong> your answers with a permanent violation record. 
+                      You will <strong>NOT</strong> be allowed to restart or retake the exam.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: CANDIDATE UNDERTAKING */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rulesAgreed}
+                    onChange={(e) => setRulesAgreed(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 mt-0.5 cursor-pointer shrink-0"
+                  />
+                  <span className="text-[11px] font-bold text-slate-800 leading-snug">
+                    I confirm that I have read and understood all the examination rules, allowed features, and the 
+                    <strong className="text-rose-600 font-black"> 5-Warning Auto-Submission Policy</strong>. 
+                    I agree to maintain academic honesty and take the exam in full-screen with my webcam active.
+                  </span>
+                </label>
+              </div>
+
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(false)}
+                className="px-5 py-2.5 border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                Cancel / Return
+              </button>
+
+              <button
+                type="button"
+                disabled={!rulesAgreed}
+                onClick={handleProceedStartExam}
+                className="px-7 py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all cursor-pointer active:scale-95"
+              >
+                <span>Continue & Start Paper (60 Mins)</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+          </div>
         </div>
       )}
 
