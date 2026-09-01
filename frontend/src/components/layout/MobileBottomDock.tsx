@@ -60,8 +60,8 @@ export function MobileBottomDock() {
   const tabs = getTabs();
 
   return (
-    <nav className="fixed bottom-2.5 left-3 right-3 z-50 bg-white/95 backdrop-blur-xl border border-slate-200/90 px-3 py-1.5 shadow-[0_10px_35px_rgba(0,0,0,0.12)] rounded-full md:hidden">
-      <div className="flex items-center justify-between max-w-md mx-auto relative">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/98 backdrop-blur-2xl border-t border-slate-200/90 px-2.5 pt-1.5 pb-2.5 shadow-[0_-4px_25px_rgba(0,0,0,0.07)] rounded-t-2xl md:hidden">
+      <div className="flex items-center justify-around max-w-md mx-auto relative">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           let isActive = false;
@@ -77,14 +77,14 @@ export function MobileBottomDock() {
               <Link
                 key={`central-${tab.href}-${idx}`}
                 href={tab.href}
-                className="relative -top-3.5 flex flex-col items-center group shrink-0"
+                className="flex flex-col items-center group shrink-0 py-0.5 px-2.5"
               >
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-blue-700 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 ring-4 ring-white/90 group-active:scale-95 transition-all ${
-                  isActive ? "ring-indigo-200" : ""
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-blue-700 text-white flex items-center justify-center shadow-md shadow-indigo-600/25 border border-indigo-500/30 group-active:scale-95 transition-all ${
+                  isActive ? "ring-2 ring-indigo-400/50" : ""
                 }`}>
-                  <Icon className="w-5 h-5 text-indigo-100 group-hover:scale-110 transition-transform" />
+                  <Icon className="w-5 h-5 text-white group-hover:scale-105 transition-transform" />
                 </div>
-                <span className={`text-[10px] tracking-tight mt-1 font-bold ${
+                <span className={`text-[10px] tracking-tight mt-0.5 font-bold ${
                   isActive ? "text-indigo-700 font-extrabold" : "text-slate-700"
                 }`}>
                   {tab.label}
@@ -97,11 +97,13 @@ export function MobileBottomDock() {
             <Link
               key={`${tab.href}-${idx}`}
               href={tab.href}
-              className={`flex flex-col items-center py-1 px-3 rounded-2xl transition-all relative active:scale-95 ${
-                isActive ? "text-indigo-600 font-extrabold" : "text-slate-500 font-medium hover:text-slate-900"
+              className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition-all relative active:scale-95 ${
+                isActive 
+                  ? "text-indigo-600 font-extrabold bg-indigo-50/70" 
+                  : "text-slate-500 font-semibold hover:text-slate-900"
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? "text-indigo-600 scale-110" : ""}`} />
+              <Icon className={`w-5 h-5 ${isActive ? "text-indigo-600 scale-105" : ""}`} />
               <span className="text-[10px] tracking-tight mt-0.5 font-bold">
                 {tab.label}
               </span>

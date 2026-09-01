@@ -225,7 +225,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-slate-200 p-4 space-y-6 fixed inset-y-0 z-40 bg-white/95 backdrop-blur-xl">
         
         <Link href="/" className="flex items-center justify-start px-2 py-1 group transition-transform active:scale-98">
-          <DevgyaLogo size="md" showText={true} />
+          <DevgyaLogo size="lg" className="scale-105 origin-left" showText={true} />
         </Link>
         <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
           {navItems.map((item) => {
@@ -274,7 +274,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex-1 md:pl-64 flex flex-col min-h-screen pb-20 md:pb-8">
+      <div className="flex-1 md:pl-64 flex flex-col min-h-screen pb-32 md:pb-8">
         
         <MobileTopHeader />
         
@@ -331,7 +331,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </main>
 
         {!isAIChatPage && (
-          <footer className="mt-auto px-4 sm:px-8 py-2.5 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[11px] text-slate-500 font-medium">
+          <footer className="mt-auto px-4 sm:px-8 py-3 mb-6 md:mb-0 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[11px] text-slate-500 font-medium">
             <p>&copy; 2026 DEVGYA Global Edutech Private Limited. All Rights Reserved.</p>
             <p className="text-slate-500 font-medium">
               Designed &amp; Developed by <span className="text-indigo-600 font-bold">Pratikk Yadav and Team (+91 8307224756)</span>
