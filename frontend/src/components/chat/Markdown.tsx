@@ -39,25 +39,18 @@ function sanitizeMermaidCode(code: string): string {
     .trim();
 
   // Auto-quote unquoted node labels with brackets: NodeID[Label with (parens)] -> NodeID["Label with (parens)"]
-  clean = clean.replace(/([a-zA-Z0-9_-]+)\s*\[([^"\n\]]+)\]/g, (match, id, label) => {
+  // ONLY if not already inside quotes!
+  clean = clean.replace(/(?:^|[\s\n>|;])([a-zA-Z0-9_-]+)\s*\[([^"\n\]]+)\]/g, (fullMatch, id, label) => {
     const trimmed = label.trim();
-    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      return fullMatch;
+    }
     if (/[()"'`:,;/]/.test(trimmed)) {
       const escaped = trimmed.replace(/"/g, "'");
-      return `${id}["${escaped}"]`;
+      const prefix = fullMatch.slice(0, fullMatch.indexOf(id));
+      return `${prefix}${id}["${escaped}"]`;
     }
-    return match;
-  });
-
-  // Auto-quote unquoted round brackets: NodeID(Label with (parens)) -> NodeID("Label with (parens)")
-  clean = clean.replace(/([a-zA-Z0-9_-]+)\s*\(([^"\n\)]+)\)/g, (match, id, label) => {
-    const trimmed = label.trim();
-    if (trimmed.startsWith('"') && trimmed.endsWith('"')) return match;
-    if (/[()"'`:,;/]/.test(trimmed)) {
-      const escaped = trimmed.replace(/"/g, "'");
-      return `${id}("${escaped}")`;
-    }
-    return match;
+    return fullMatch;
   });
 
   return clean;

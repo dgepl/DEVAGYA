@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   FileText, 
   Download, 
@@ -9,7 +9,10 @@ import {
   Check, 
   Type, 
   Building2, 
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Trash2,
+  ImageIcon
 } from "lucide-react";
 import { downloadWorksheetPDF, GenerateWorksheetPdfPayload } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
@@ -76,10 +79,29 @@ export function WorksheetPdfModal({
   const [fontSize, setFontSize] = useState<"compact" | "standard" | "large">("standard");
   const [includeHeaderBar, setIncludeHeaderBar] = useState(true);
   const [schoolName, setSchoolName] = useState(user.schoolName || "DEVGYA GLOBAL ACADEMY");
+  const [schoolLogo, setSchoolLogo] = useState<string>(user.schoolLogo || "");
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user.schoolLogo && !schoolLogo) {
+      setSchoolLogo(user.schoolLogo);
+    }
+  }, [user.schoolLogo]);
+
   if (!isOpen) return null;
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSchoolLogo(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleDownload = async () => {
     setGenerating(true);
@@ -95,7 +117,7 @@ export function WorksheetPdfModal({
         font_size: fontSize,
         include_student_header: includeHeaderBar,
         school_name: schoolName.trim() || "DEVGYA GLOBAL EDUTECH",
-        school_logo: user.schoolLogo
+        school_logo: schoolLogo || user.schoolLogo || ""
       };
 
       await downloadWorksheetPDF(payload);
@@ -274,29 +296,82 @@ export function WorksheetPdfModal({
           </div>
 
           {/* 4. SCHOOL BRANDING */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase text-slate-700 flex items-center gap-1.5">
                 <Building2 className="w-4 h-4 text-indigo-600" />
                 School / Institution Branding
               </span>
-              {user.schoolLogo ? (
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold">
-                  ✓ Custom Logo Attached
+              {schoolLogo ? (
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                  <Check className="w-3 h-3 text-emerald-600" />
+                  Custom Logo Attached
                 </span>
               ) : (
                 <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-bold">
-                  Standard Seal
+                  Standard Emblem
                 </span>
               )}
             </div>
-            <input
-              type="text"
-              value={schoolName}
-              onChange={(e) => setSchoolName(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-indigo-500"
-              placeholder="e.g. DELHI PUBLIC SCHOOL RK PURAM"
-            />
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              {/* Logo Preview & Upload */}
+              <div className="flex items-center gap-2">
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="hidden"
+                />
+                <div 
+                  onClick={() => logoInputRef.current?.click()}
+                  className="w-12 h-12 rounded-xl border border-dashed border-indigo-300 bg-white hover:bg-indigo-50/50 flex items-center justify-center cursor-pointer transition-all shrink-0 overflow-hidden shadow-xs group"
+                  title="Click to upload/change school logo"
+                >
+                  {schoolLogo ? (
+                    <img src={schoolLogo} alt="School Logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                      <ImageIcon className="w-4 h-4" />
+                      <span className="text-[8px] font-bold mt-0.5">Logo</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Upload className="w-3 h-3" />
+                    {schoolLogo ? "Change Logo" : "Upload Logo"}
+                  </button>
+                  {schoolLogo && (
+                    <button
+                      type="button"
+                      onClick={() => setSchoolLogo("")}
+                      className="text-[10px] font-bold text-rose-500 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* School Name Input */}
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-indigo-500 text-xs"
+                  placeholder="e.g. DELHI PUBLIC SCHOOL RK PURAM"
+                />
+              </div>
+            </div>
           </div>
 
         </div>

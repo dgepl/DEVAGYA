@@ -3,8 +3,11 @@ import os
 import re
 import html
 import zipfile
+import base64
+import logging
 from typing import Optional, List, Dict, Any
 import xml.etree.ElementTree as ET
+import httpx
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, Flowable, Image as RLImage
 from reportlab.lib import colors
@@ -13,6 +16,8 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from schemas.question import GeneratedPaperResponse
+
+logger = logging.getLogger("pdf_service")
 
 # Register Unicode & Math fonts for multi-script and mathematical rendering
 UNICODE_FONT_NAME = "Helvetica"
@@ -196,19 +201,22 @@ def _render_mermaid_fallback_table(mermaid_code: str, available_width: float = 4
             step_nodes = []
             for p in parts:
                 p = p.strip()
-                m = re.match(r'^([a-zA-Z0-9_-]+)\s*[\[\(\{]([^\]\)\}]+)[\]\)\}]$', p)
+                # Strip leading |edge_label| if present
+                p = re.sub(r'^\|[^|\n]+\|\s*', '', p)
+                m = re.match(r'^([a-zA-Z0-9_-]+)\s*[\[\(\{](?:\"|\')?([^\]\)\}]+?)(?:\"|\')?[\]\)\}]$', p)
                 if m:
-                    n_id, label = m.group(1), m.group(2)
+                    n_id, label = m.group(1), m.group(2).strip(' "\'')
                     node_labels[n_id] = label
                     step_nodes.append(label)
                 else:
-                    clean_p = node_labels.get(p, p)
+                    clean_p = node_labels.get(p, p).strip(' "\'')
                     step_nodes.append(clean_p)
             connections.append(step_nodes)
         else:
-            m = re.match(r'^([a-zA-Z0-9_-]+)\s*[\[\(\{]([^\]\)\}]+)[\]\)\}]$', line)
+            p = re.sub(r'^\|[^|\n]+\|\s*', '', line)
+            m = re.match(r'^([a-zA-Z0-9_-]+)\s*[\[\(\{](?:\"|\')?([^\]\)\}]+?)(?:\"|\')?[\]\)\}]$', p)
             if m:
-                node_labels[m.group(1)] = m.group(2)
+                node_labels[m.group(1)] = m.group(2).strip(' "\'')
 
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -288,7 +296,7 @@ def _sanitize_mermaid_code(code: str) -> str:
         return ""
     clean = str(code).replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-").replace("\u00a0", " ").strip()
     
-    # Auto-quote unquoted bracket labels: ID[Label with (parens)] -> ID["Label with (parens)"]
+    # Auto-quote unquoted bracket labels ONLY if not already inside quotes
     def _quote_bracket_label(m):
         node_id, label = m.group(1), m.group(2).strip()
         if label.startswith('"') and label.endswith('"'):
@@ -298,18 +306,7 @@ def _sanitize_mermaid_code(code: str) -> str:
             return f'{node_id}["{clean_l}"]'
         return m.group(0)
 
-    clean = re.sub(r'([a-zA-Z0-9_-]+)\s*\[([^"\n\]]+)\]', _quote_bracket_label, clean)
-
-    def _quote_paren_label(m):
-        node_id, label = m.group(1), m.group(2).strip()
-        if label.startswith('"') and label.endswith('"'):
-            return m.group(0)
-        if any(c in label for c in '()"`:,;/'):
-            clean_l = label.replace('"', "'")
-            return f'{node_id}("{clean_l}")'
-        return m.group(0)
-
-    clean = re.sub(r'([a-zA-Z0-9_-]+)\s*\(([^"\n\)]+)\)', _quote_paren_label, clean)
+    clean = re.sub(r'(?:^|[\s\n>|;])([a-zA-Z0-9_-]+)\s*\[([^"\n\]]+)\]', _quote_bracket_label, clean)
     return clean
 
 def parse_mermaid_to_flowable(mermaid_code: str, available_width: float = 480):
@@ -504,36 +501,35 @@ def clean_md_to_reportlab(text: str) -> str:
         t = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', t)
 
     # 11. Exponents & Superscripts
-    SUPERSCRIPT_MAP = {
-        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-        '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
-        'n': 'ⁿ', 'i': 'ⁱ', 'x': 'ˣ', 'y': 'ʸ', 'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ',
-        'm': 'ᵐ', 'p': 'ᵖ', 't': 'ᵗ', 'k': 'ᵏ', 'o': 'ᵒ', 'r': 'ʳ', 's': 'ˢ'
+    UNICODE_TO_SUB = {
+        '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
+        '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
+        '₊': '+', '₋': '-', '₌': '=', '₍': '(', '₎': ')',
+        'ₐ': 'a', 'ₑ': 'e', 'ₒ': 'o', 'ₓ': 'x', 'ₕ': 'h', 'ₖ': 'k', 'ₗ': 'l', 'ₘ': 'm', 'ₙ': 'n', 'ₚ': 'p', 'ₛ': 's', 'ₜ': 't', 'ᵢ': 'i', 'ⱼ': 'j', 'ᵣ': 'r', 'ᵤ': 'u', 'ᵥ': 'v'
     }
 
+    UNICODE_TO_SUPER = {
+        '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+        '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+        '⁺': '+', '⁻': '-', '⁼': '=', '⁽': '(', '⁾': ')',
+        'ⁿ': 'n', 'ⁱ': 'i', 'ˣ': 'x', 'ʸ': 'y', 'ᵃ': 'a', 'ᵇ': 'b', 'ᶜ': 'c', 'ᵈ': 'd', 'ᵉ': 'e', 'ᵐ': 'm', 'ᵖ': 'p', 'ᵗ': 't'
+    }
+
+    # Convert any raw Unicode subscripts (e.g. CO₂, H₂O, O₂) to <sub>...</sub> in ReportLab XML
+    t = re.sub(r'[₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₒₓₕₖₗₘₙₚₛₜᵢⱼᵣᵤᵥ]+', lambda m: f"<sub>{''.join(UNICODE_TO_SUB.get(c, c) for c in m.group(0))}</sub>", t)
+
+    # Convert any raw Unicode superscripts (e.g. x², 10⁻³) to <sup>...</sup> in ReportLab XML
+    t = re.sub(r'[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱˣʸᵃᵇᶜᵈᵉᵐᵖᵗ]+', lambda m: f"<sup>{''.join(UNICODE_TO_SUPER.get(c, c) for c in m.group(0))}</sup>", t)
+
     def _replace_super(m):
-        content = m.group(1)
-        if all(c in SUPERSCRIPT_MAP for c in content):
-            return ''.join(SUPERSCRIPT_MAP[c] for c in content)
-        return f"<sup>{content}</sup>"
+        return f"<sup>{m.group(1)}</sup>"
 
     t = re.sub(r'\^\{([^{}]+)\}', _replace_super, t)
     t = re.sub(r'\^([0-9a-zA-Z+\-]+)', _replace_super, t)
 
     # 12. Subscripts / Indices
-    SUBSCRIPT_MAP = {
-        '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
-        '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
-        '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎',
-        'a': 'ₐ', 'e': 'ₑ', 'o': 'ₒ', 'x': 'ₓ', 'h': 'ₕ', 'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'p': 'ₚ', 's': 'ₛ', 't': 'ₜ', 'i': 'ᵢ', 'j': 'ⱼ', 'r': 'ᵣ', 'u': 'ᵤ', 'v': 'ᵥ'
-    }
-
     def _replace_sub(m):
-        content = m.group(1)
-        if all(c in SUBSCRIPT_MAP for c in content):
-            return ''.join(SUBSCRIPT_MAP[c] for c in content)
-        return f"<sub>{content}</sub>"
+        return f"<sub>{m.group(1)}</sub>"
 
     for _ in range(4):
         t = re.sub(r'_\{([^{}]+)\}', _replace_sub, t)
@@ -1752,19 +1748,42 @@ def _generate_assignment_worksheet_pdf(self, assignment: Dict[str, Any], config:
 def _decode_school_logo(logo_data: Optional[str], max_w: float = 60, max_h: float = 40):
     if not logo_data:
         return None
+    s = str(logo_data).strip()
+    if not s:
+        return None
     try:
-        if str(logo_data).startswith("data:image"):
-            header, b64_data = logo_data.split(",", 1)
+        if s.startswith("data:image"):
+            header, b64_data = s.split(",", 1)
             raw = base64.b64decode(b64_data)
             img_io = io.BytesIO(raw)
             with PILImage.open(img_io) as pil_img:
                 w, h = pil_img.size
-            scale = min(max_w / w, max_h / h, 1.0)
-            return RLImage(io.BytesIO(raw), width=w * scale, height=h * scale)
-        elif os.path.exists(str(logo_data)):
-            return RLImage(str(logo_data), width=max_w, height=max_h)
-    except Exception:
-        pass
+            scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
+            return RLImage(io.BytesIO(raw), width=max(10, w * scale), height=max(10, h * scale))
+        elif s.startswith("http://") or s.startswith("https://"):
+            with httpx.Client(timeout=4.0) as client:
+                resp = client.get(s)
+                if resp.status_code == 200:
+                    raw = resp.content
+                    img_io = io.BytesIO(raw)
+                    with PILImage.open(img_io) as pil_img:
+                        w, h = pil_img.size
+                    scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
+                    return RLImage(io.BytesIO(raw), width=max(10, w * scale), height=max(10, h * scale))
+        elif os.path.exists(s):
+            with PILImage.open(s) as pil_img:
+                w, h = pil_img.size
+            scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
+            return RLImage(s, width=max(10, w * scale), height=max(10, h * scale))
+        elif len(s) > 100:
+            raw = base64.b64decode(s)
+            img_io = io.BytesIO(raw)
+            with PILImage.open(img_io) as pil_img:
+                w, h = pil_img.size
+            scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
+            return RLImage(io.BytesIO(raw), width=max(10, w * scale), height=max(10, h * scale))
+    except Exception as e:
+        logger.warning(f"Logo decode notice: {e}")
     return None
 
 def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
@@ -1888,6 +1907,15 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
         alignment=1,
         textColor=colors.HexColor("#475569")
     )
+    logo_badge_style = ParagraphStyle(
+        'WS_LogoBadge',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=9,
+        leading=11,
+        alignment=1,
+        textColor=th["primary"]
+    )
     h1_style = ParagraphStyle(
         'WS_H1',
         parent=styles['Normal'],
@@ -1959,12 +1987,21 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
     story = []
 
     # 1. HEADER BANNER
-    logo_flowable = _decode_school_logo(school_logo, max_w=50, max_h=35)
+    logo_flowable = _decode_school_logo(school_logo, max_w=55, max_h=38)
     header_left = []
     if logo_flowable:
         header_left.append(logo_flowable)
     else:
-        header_left.append(Paragraph(f"<b>DEVGYA</b>", school_style))
+        badge_cell = [[Paragraph("<b>DEVGYA</b>", logo_badge_style)]]
+        badge_table = Table(badge_cell, colWidths=[60])
+        badge_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), th["bg_meta"]),
+            ('BOX', (0,0), (-1,-1), 1, th["border"]),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('PADDING', (0,0), (-1,-1), 4),
+        ]))
+        header_left.append(badge_table)
 
     sub_info = f"<b>{subject}</b> | <b>{class_name}</b>"
     if chapter:
@@ -1976,7 +2013,7 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
         Paragraph(sub_info, meta_style)
     ]
 
-    header_table = Table([[header_left[0] if header_left else "", header_center]], colWidths=[65, page_width - 65])
+    header_table = Table([[header_left[0], header_center]], colWidths=[65, page_width - 65])
     header_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('ALIGN', (0,0), (0,0), 'CENTER'),
