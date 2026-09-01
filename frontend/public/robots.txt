@@ -3,4 +3,18 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
 Sitemap: https://devgya.in/sitemap.xml
+Host: https://devgya.in
