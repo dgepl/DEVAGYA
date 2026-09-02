@@ -13,11 +13,11 @@ services:
       - key: AI_API_KEY
         sync: false
       - key: AI_BASE_URL
-        value: https://api.groq.com/openai/v1
+        value: https://generativelanguage.googleapis.com/v1beta/openai
       - key: AI_MODEL
-        value: openai/gpt-oss-120b
+        value: gemini-3.6-flash
       - key: AI_VISION_MODEL
-        value: qwen/qwen3.6-27b
+        value: gemini-3.6-flash
       - key: SUPABASE_URL
         value: https://amlvyskjrencrolnppgs.supabase.co
       - key: SUPABASE_ANON_KEY

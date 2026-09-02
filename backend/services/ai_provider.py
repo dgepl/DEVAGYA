@@ -85,7 +85,9 @@ class AIProviderService:
             payload["response_format"] = {"type": "json_object"}
 
         async with httpx.AsyncClient(timeout=45.0) as client:
-            if has_imgs:
+            if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
+                models_to_try = [selected_model, "gemini-3.6-flash"]
+            elif has_imgs:
                 models_to_try = [selected_model, "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
             else:
                 models_to_try = [selected_model, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
@@ -193,7 +195,12 @@ class AIProviderService:
         
         # Build candidate fallback models list
         fallback_models = [selected_model]
-        for alt_m in ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]:
+        if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
+            candidate_fallbacks = ["gemini-3.6-flash"]
+        else:
+            candidate_fallbacks = ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
+
+        for alt_m in candidate_fallbacks:
             if alt_m not in fallback_models:
                 fallback_models.append(alt_m)
 
