@@ -33,11 +33,11 @@ class AIProviderService:
 
     @property
     def model(self) -> str:
-        return os.getenv("AI_MODEL", "openai/gpt-oss-120b")
+        return os.getenv("AI_MODEL", "gemini-3.5-flash-lite")
 
     @property
     def vision_model(self) -> str:
-        return os.getenv("AI_VISION_MODEL", "qwen/qwen3.8-27b")
+        return os.getenv("AI_VISION_MODEL", "gemini-3.5-flash-lite")
 
     def build_vision_content(self, text: str, image_data_urls: List[str]) -> List[Dict[str, Any]]:
         """Build an OpenAI-style multi-part message content for vision-capable models."""
@@ -86,7 +86,7 @@ class AIProviderService:
 
         async with httpx.AsyncClient(timeout=45.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-2.0-flash", "gemini-flash-latest", "gemini-3.6-flash"]
+                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.5-flash"]
             elif has_imgs:
                 models_to_try = [selected_model, "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
             else:
@@ -196,7 +196,7 @@ class AIProviderService:
         # Build candidate fallback models list
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-3.6-flash"]
+            candidate_fallbacks = ["gemini-3.5-flash-lite", "gemini-3.5-flash"]
         else:
             candidate_fallbacks = ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 

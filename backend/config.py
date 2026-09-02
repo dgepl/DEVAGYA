@@ -8,10 +8,10 @@ class Settings(BaseSettings):
     APP_NAME: str = "DEVGYA GLOBAL AI Engine"
     API_V1_STR: str = "/api/v1"
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", os.getenv("AI_API_KEY", ""))
-    GROQ_MODEL: str = os.getenv("AI_MODEL", "openai/gpt-oss-120b")
+    GROQ_MODEL: str = os.getenv("AI_MODEL", "gemini-3.5-flash-lite")
     AI_API_KEY: str = os.getenv("AI_API_KEY", os.getenv("GROQ_API_KEY", ""))
-    AI_BASE_URL: str = os.getenv("AI_BASE_URL", "https://api.groq.com/openai/v1")
-    AI_MODEL: str = os.getenv("AI_MODEL", "openai/gpt-oss-120b")
+    AI_BASE_URL: str = os.getenv("AI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
+    AI_MODEL: str = os.getenv("AI_MODEL", "gemini-3.5-flash-lite")
     CLOUDINARY_CLOUD_NAME: str = os.getenv("CLOUDINARY_CLOUD_NAME", "demo")
     CLOUDINARY_API_KEY: str = os.getenv("CLOUDINARY_API_KEY", "")
     CLOUDINARY_API_SECRET: str = os.getenv("CLOUDINARY_API_SECRET", "")
