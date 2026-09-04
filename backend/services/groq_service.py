@@ -957,8 +957,15 @@ Return valid JSON ONLY with these exact keys:
         teacher_notes = str(req.custom_instructions or "").strip()
 
         target_mcq = max(0, req.num_mcqs)
+        target_fill = max(0, req.num_fill_in_the_blanks)
+        target_ar = max(0, req.num_assertion_reason)
         target_short = max(0, req.num_short)
         target_long = max(0, req.num_long)
+        target_case = max(0, req.num_case_study)
+
+        fill_marks = req.fill_marks or 1
+        ar_marks = req.ar_marks or 2
+        case_marks = req.case_marks or 4
 
         sem = asyncio.Semaphore(4)
 
@@ -1005,9 +1012,10 @@ Return valid JSON ONLY with these exact keys:
             return out
 
         # 1. MCQ Tasks from Attachment
-        mcq_chunks = _get_chunks(target_mcq, 8)
-        for i, c_mcq in enumerate(mcq_chunks):
-            mcq_prompt = f"""CRITICAL MANDATE:
+        if target_mcq > 0:
+            mcq_chunks = _get_chunks(target_mcq, 8)
+            for i, c_mcq in enumerate(mcq_chunks):
+                mcq_prompt = f"""CRITICAL MANDATE:
 You MUST formulate EXACTLY {c_mcq} Multiple Choice Questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
 Do NOT create questions about unrelated topics. Every single question, option, and answer must directly evaluate facts, concepts, definitions, or problems in this attached source.
 
@@ -1033,12 +1041,87 @@ JSON FORMAT ONLY:
     }}
   ]
 }}"""
-            tasks.append(_call_attachment_llm(mcq_prompt))
+                tasks.append(_call_attachment_llm(mcq_prompt))
 
-        # 2. Short Answer Tasks from Attachment
-        short_chunks = _get_chunks(target_short, 5)
-        for i, c_short in enumerate(short_chunks):
-            short_prompt = f"""CRITICAL MANDATE:
+        # 2. Fill in the Blanks Tasks from Attachment
+        if target_fill > 0:
+            fill_chunks = _get_chunks(target_fill, 5)
+            for i, c_fill in enumerate(fill_chunks):
+                fill_prompt = f"""CRITICAL MANDATE:
+You MUST formulate EXACTLY {c_fill} Fill in the Blanks Questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
+Every sentence must contain exactly one blank indicated by '_______'.
+
+{source_context}
+{f"Teacher Notes: {teacher_notes}" if teacher_notes else ""}
+Difficulty: {req.difficulty}
+Batch Part: {i+1} of {len(fill_chunks)}
+
+MANDATORY QUANTITY:
+- EXACTLY {c_fill} Fill in the Blanks (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with missing term as answer and explanation derived from the attached text).
+
+JSON FORMAT ONLY:
+{{
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "fill_in_the_blanks",
+      "question_text": "Sentence with _______ representing the missing key term.",
+      "options": null,
+      "answer": "Missing term",
+      "explanation": "...",
+      "marks": {fill_marks}
+    }}
+  ]
+}}"""
+                tasks.append(_call_attachment_llm(fill_prompt))
+
+        # 3. Assertion-Reason Tasks from Attachment
+        if target_ar > 0:
+            ar_chunks = _get_chunks(target_ar, 4)
+            for i, c_ar in enumerate(ar_chunks):
+                ar_prompt = f"""CRITICAL MANDATE:
+You MUST formulate EXACTLY {c_ar} Assertion-Reason Questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
+Each question MUST state Assertion (A) and Reason (R) derived directly from the attached facts.
+
+{source_context}
+{f"Teacher Notes: {teacher_notes}" if teacher_notes else ""}
+Difficulty: {req.difficulty}
+Batch Part: {i+1} of {len(ar_chunks)}
+
+CBSE STANDARD OPTIONS FOR ASSERTION-REASON:
+- (A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).
+- (B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).
+- (C) Assertion (A) is true but Reason (R) is false.
+- (D) Assertion (A) is false but Reason (R) is true.
+
+JSON FORMAT ONLY:
+{{
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "assertion_reason",
+      "question_text": "Assertion (A): ...\\nReason (R): ...",
+      "assertion_text": "...",
+      "reason_text": "...",
+      "options": [
+        "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+        "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+        "(C) Assertion (A) is true but Reason (R) is false.",
+        "(D) Assertion (A) is false but Reason (R) is true."
+      ],
+      "answer": "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+      "explanation": "...",
+      "marks": {ar_marks}
+    }}
+  ]
+}}"""
+                tasks.append(_call_attachment_llm(ar_prompt))
+
+        # 4. Short Answer Tasks from Attachment
+        if target_short > 0:
+            short_chunks = _get_chunks(target_short, 5)
+            for i, c_short in enumerate(short_chunks):
+                short_prompt = f"""CRITICAL MANDATE:
 You MUST formulate EXACTLY {c_short} Short Answer Questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
 Do NOT create questions about unrelated topics. Every single question and model answer must be derived directly from the attached source.
 
@@ -1064,12 +1147,13 @@ JSON FORMAT ONLY:
     }}
   ]
 }}"""
-            tasks.append(_call_attachment_llm(short_prompt))
+                tasks.append(_call_attachment_llm(short_prompt))
 
-        # 3. Long Answer / HOTS Tasks from Attachment
-        long_chunks = _get_chunks(target_long, 4)
-        for i, c_long in enumerate(long_chunks):
-            long_prompt = f"""CRITICAL MANDATE:
+        # 5. Long Answer / HOTS Tasks from Attachment
+        if target_long > 0:
+            long_chunks = _get_chunks(target_long, 4)
+            for i, c_long in enumerate(long_chunks):
+                long_prompt = f"""CRITICAL MANDATE:
 You MUST formulate EXACTLY {c_long} Long Answer / In-depth Analytical Questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
 Do NOT create questions about unrelated topics. Every single question, multi-step problem, or essay prompt must derive directly from the attached source.
 
@@ -1095,7 +1179,45 @@ JSON FORMAT ONLY:
     }}
   ]
 }}"""
-            tasks.append(_call_attachment_llm(long_prompt))
+                tasks.append(_call_attachment_llm(long_prompt))
+
+        # 6. Case Study Tasks from Attachment
+        if target_case > 0:
+            case_chunks = _get_chunks(target_case, 2)
+            for i, c_case in enumerate(case_chunks):
+                case_prompt = f"""CRITICAL MANDATE:
+You MUST formulate EXACTLY {c_case} Case Study / Contextual Reading Comprehension Questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
+Provide a clear reading passage or real-world scenario directly from the attached text, followed by 2-3 structured sub-questions.
+
+{source_context}
+{f"Teacher Notes: {teacher_notes}" if teacher_notes else ""}
+Difficulty: {req.difficulty}
+Batch Part: {i+1} of {len(case_chunks)}
+
+JSON FORMAT ONLY:
+{{
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "case_study",
+      "case_passage": "Contextual scenario or reading passage extracted directly from the attached source...",
+      "question_text": "Read the passage above and answer the following questions:\\n(i) ...\\n(ii) ...\\n(iii) ...",
+      "sub_questions": ["(i) ...", "(ii) ...", "(iii) ..."],
+      "options": null,
+      "answer": "(i) Model answer 1\\n(ii) Model answer 2",
+      "explanation": "...",
+      "marks": {case_marks}
+    }}
+  ]
+}}"""
+                tasks.append(_call_attachment_llm(case_prompt))
+
+        # If user did not request any specific count, default to at least 4 MCQs and 2 Short
+        if not tasks:
+            mcq_prompt = f"""Formulate 4 MCQs and 2 Short questions from this attached material:
+{source_context}
+JSON format only: {{"questions": [...]}}"""
+            tasks.append(_call_attachment_llm(mcq_prompt))
 
         raw_responses = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -1113,8 +1235,8 @@ JSON FORMAT ONLY:
             status_code, detail = format_ai_exception_detail(exceptions_encountered[0], "Question Paper Synthesis with Attachment")
             raise HTTPException(status_code=status_code, detail=detail)
 
-        # Clean and categorize
-        mcqs, shorts, longs = [], [], []
+        # Clean and categorize into all 6 types
+        mcqs, fills, ars, shorts, longs, cases = [], [], [], [], [], []
         for q in extracted_raw_questions:
             if not isinstance(q, dict):
                 continue
@@ -1126,7 +1248,38 @@ JSON FORMAT ONLY:
             ans = str(q.get("answer") or "Refer to step-by-step model solution based on attached document.")
             exp = str(q.get("explanation") or "Derived directly from attached source material.")
 
-            if "mcq" in q_type or opts:
+            if "case" in q_type or q.get("case_passage"):
+                cases.append({
+                    "question_type": "case_study",
+                    "question_text": q_text,
+                    "case_passage": q.get("case_passage"),
+                    "sub_questions": q.get("sub_questions"),
+                    "marks": case_marks,
+                    "options": None,
+                    "answer": ans,
+                    "explanation": exp
+                })
+            elif "assertion" in q_type or "ar" in q_type or q.get("assertion_text"):
+                ars.append({
+                    "question_type": "assertion_reason",
+                    "question_text": q_text,
+                    "assertion_text": q.get("assertion_text"),
+                    "reason_text": q.get("reason_text"),
+                    "marks": ar_marks,
+                    "options": opts,
+                    "answer": ans,
+                    "explanation": exp
+                })
+            elif "fill" in q_type:
+                fills.append({
+                    "question_type": "fill_in_the_blanks",
+                    "question_text": q_text,
+                    "marks": fill_marks,
+                    "options": None,
+                    "answer": ans,
+                    "explanation": exp
+                })
+            elif "mcq" in q_type or opts:
                 mcqs.append({
                     "question_type": "mcq",
                     "question_text": q_text,
@@ -1155,12 +1308,17 @@ JSON FORMAT ONLY:
                 })
 
         mcqs = _dedup_q_list(mcqs)
+        fills = _dedup_q_list(fills)
+        ars = _dedup_q_list(ars)
         shorts = _dedup_q_list(shorts)
         longs = _dedup_q_list(longs)
+        cases = _dedup_q_list(cases)
 
-        # Assemble final indexed questions
+        # Assemble final indexed questions in strict CBSE Board section order
         final_qs = []
         q_num = 1
+
+        # Section A: MCQs
         for q in mcqs[:target_mcq]:
             final_qs.append(QuestionItem(
                 id=q_num,
@@ -1174,6 +1332,37 @@ JSON FORMAT ONLY:
             ))
             q_num += 1
 
+        # Section B: Fill in the Blanks
+        for q in fills[:target_fill]:
+            final_qs.append(QuestionItem(
+                id=q_num,
+                question_number=q_num,
+                question_type="fill_in_the_blanks",
+                question_text=q["question_text"],
+                marks=fill_marks,
+                options=None,
+                answer=q.get("answer") or "Model term.",
+                explanation=q.get("explanation")
+            ))
+            q_num += 1
+
+        # Section C: Assertion-Reason
+        for q in ars[:target_ar]:
+            final_qs.append(QuestionItem(
+                id=q_num,
+                question_number=q_num,
+                question_type="assertion_reason",
+                question_text=q["question_text"],
+                assertion_text=q.get("assertion_text"),
+                reason_text=q.get("reason_text"),
+                marks=ar_marks,
+                options=q.get("options"),
+                answer=q.get("answer") or "(A) Both Assertion (A) and Reason (R) are true...",
+                explanation=q.get("explanation")
+            ))
+            q_num += 1
+
+        # Section D: Short Answer
         for q in shorts[:target_short]:
             final_qs.append(QuestionItem(
                 id=q_num,
@@ -1187,6 +1376,7 @@ JSON FORMAT ONLY:
             ))
             q_num += 1
 
+        # Section E: Long Answer / HOTS
         for q in longs[:target_long]:
             final_qs.append(QuestionItem(
                 id=q_num,
@@ -1200,6 +1390,22 @@ JSON FORMAT ONLY:
             ))
             q_num += 1
 
+        # Section F: Case Study
+        for q in cases[:target_case]:
+            final_qs.append(QuestionItem(
+                id=q_num,
+                question_number=q_num,
+                question_type="case_study",
+                question_text=q["question_text"],
+                case_passage=q.get("case_passage"),
+                sub_questions=q.get("sub_questions"),
+                marks=case_marks,
+                options=None,
+                answer=q.get("answer") or "Sub-question model answers.",
+                explanation=q.get("explanation")
+            ))
+            q_num += 1
+
         if not final_qs:
             raise HTTPException(
                 status_code=500,
@@ -1207,6 +1413,29 @@ JSON FORMAT ONLY:
             )
 
         calc_marks = sum(q.marks for q in final_qs)
+
+        # Dynamic Section Instructions
+        instructions = ["All questions are compulsory and derived strictly from the attached reference material."]
+        sec_idx = ord('A')
+        if target_mcq > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Multiple Choice Questions of 1 mark each.")
+            sec_idx += 1
+        if target_fill > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Fill in the Blanks Questions of {fill_marks} mark(s) each.")
+            sec_idx += 1
+        if target_ar > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Assertion-Reason Questions of {ar_marks} marks each.")
+            sec_idx += 1
+        if target_short > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Short Answer Questions of 3 marks each.")
+            sec_idx += 1
+        if target_long > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Long Answer Questions of 5 marks each.")
+            sec_idx += 1
+        if target_case > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Case Study / Contextual Questions of {case_marks} marks each.")
+            sec_idx += 1
+
         return GeneratedPaperResponse(
             title=final_title,
             class_name=str(req.class_name or "Class 10"),
@@ -1215,12 +1444,7 @@ JSON FORMAT ONLY:
             difficulty=str(req.difficulty or "medium"),
             total_marks=calc_marks if calc_marks > 0 else int(req.total_marks or 40),
             time_allowed_mins=int(req.time_allowed_mins or 90),
-            instructions=[
-                "All questions are compulsory and derived from the attached reference material.",
-                "Section A comprises MCQs of 1 mark each.",
-                "Section B comprises Short Answer questions of 3 marks each.",
-                "Section C comprises Long Answer / Analytical questions of 5 marks each."
-            ],
+            instructions=instructions,
             questions=final_qs,
             school_name=str(req.school_name or "DEVGYA GLOBAL ACADEMY"),
             user_email=req.user_email

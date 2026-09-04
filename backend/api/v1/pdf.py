@@ -35,19 +35,32 @@ async def generate_pdf(payload: Dict[str, Any] = Body(...), include_answers: boo
             
             q_id = idx + 1
             q_num = int(q.get("question_number") or idx + 1)
-            q_type = str(q.get("question_type") or "mcq").lower()
-            if "short" in q_type:
+            raw_type = str(q.get("question_type") or "mcq").lower()
+            if "case" in raw_type:
+                q_type = "case_study"
+            elif "assertion" in raw_type or "reason" in raw_type or raw_type == "ar":
+                q_type = "assertion_reason"
+            elif "fill" in raw_type or "blank" in raw_type:
+                q_type = "fill_in_the_blanks"
+            elif "short" in raw_type:
                 q_type = "short"
-            elif "long" in q_type:
+            elif "long" in raw_type:
                 q_type = "long"
             else:
                 q_type = "mcq"
 
             q_text = str(q.get("question_text") or q.get("question") or f"Question #{q_num}")
-            marks = int(q.get("marks") or (1 if q_type == "mcq" else 3 if q_type == "short" else 5))
+            default_marks = 1 if q_type in ("mcq", "fill_in_the_blanks") else 2 if q_type == "assertion_reason" else 3 if q_type == "short" else 4 if q_type == "case_study" else 5
+            marks = int(q.get("marks") or default_marks)
             
             raw_opts = q.get("options")
             options = [str(o) for o in raw_opts] if isinstance(raw_opts, list) and len(raw_opts) >= 2 else None
+            assertion_text = str(q.get("assertion_text")) if q.get("assertion_text") else None
+            reason_text = str(q.get("reason_text")) if q.get("reason_text") else None
+            case_passage = str(q.get("case_passage")) if q.get("case_passage") else None
+            raw_sub = q.get("sub_questions")
+            sub_questions = [str(sq) for sq in raw_sub] if isinstance(raw_sub, list) and raw_sub else None
+
             answer = str(q.get("answer") or "Refer to detailed solution.")
             explanation = str(q.get("explanation")) if q.get("explanation") else None
 
@@ -58,6 +71,10 @@ async def generate_pdf(payload: Dict[str, Any] = Body(...), include_answers: boo
                 question_text=q_text,
                 marks=marks,
                 options=options,
+                assertion_text=assertion_text,
+                reason_text=reason_text,
+                case_passage=case_passage,
+                sub_questions=sub_questions,
                 answer=answer,
                 explanation=explanation
             ))

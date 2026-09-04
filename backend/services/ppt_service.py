@@ -15,7 +15,8 @@ from fastapi import HTTPException
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether,
+    Image as RLImage
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
@@ -187,6 +188,27 @@ def _get_image_for_keyword(keyword: str) -> str:
     if any(k in kw for k in ["econ", "market", "trade", "finance", "money"]):
         return "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&auto=format&fit=crop&q=80"
     return "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80"
+
+
+_IMAGE_CACHE: Dict[str, bytes] = {}
+
+def _download_image_bytes(url: Optional[str]) -> Optional[bytes]:
+    """Downloads image bytes from URL with short timeout and in-memory caching."""
+    if not url or not str(url).startswith(("http://", "https://")):
+        return None
+    url_str = str(url).strip()
+    if url_str in _IMAGE_CACHE:
+        return _IMAGE_CACHE[url_str]
+    try:
+        import httpx
+        with httpx.Client(timeout=4.5, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) as client:
+            resp = client.get(url_str)
+            if resp.status_code == 200 and len(resp.content) > 1000:
+                _IMAGE_CACHE[url_str] = resp.content
+                return resp.content
+    except Exception as e:
+        logger.warning(f"Failed downloading slide image from {url_str}: {e}")
+    return None
 
 
 class PPTGeneratorService:
@@ -703,34 +725,67 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                     p_line.font.color.rgb = RGBColor(30, 41, 59)
                     p_line.space_after = Pt(10)
 
-                # Right Image Box / Caption Info Card
-                card_img = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.7), content_top, Inches(3.8), content_height)
-                card_img.fill.solid()
-                card_img.fill.fore_color.rgb = c_primary
-                card_img.line.fill.background()
+                # Right Real Educational Image or Concept Card
+                img_data = _download_image_bytes(s.image_url) if s.image_url else None
+                pic_inserted = False
+                if img_data:
+                    try:
+                        # Real picture insertion
+                        slide.shapes.add_picture(
+                            io.BytesIO(img_data),
+                            Inches(8.6), content_top,
+                            Inches(3.9), content_height - Inches(0.75)
+                        )
+                        # Clean caption badge below image
+                        cap_shape = slide.shapes.add_shape(
+                            MSO_SHAPE.ROUNDED_RECTANGLE,
+                            Inches(8.6), content_top + content_height - Inches(0.65),
+                            Inches(3.9), Inches(0.65)
+                        )
+                        cap_shape.fill.solid()
+                        cap_shape.fill.fore_color.rgb = c_card
+                        cap_shape.line.color.rgb = RGBColor(226, 232, 240)
+                        tf_c = cap_shape.text_frame
+                        tf_c.word_wrap = True
+                        tf_c.margin_top = Inches(0.08)
+                        tf_c.margin_left = Inches(0.15)
+                        p_cap = tf_c.paragraphs[0]
+                        p_cap.text = s.image_caption or s.image_keyword or "Visual Reference"
+                        p_cap.font.size = Pt(10)
+                        p_cap.font.color.rgb = RGBColor(51, 65, 85)
+                        pic_inserted = True
+                    except Exception as pic_err:
+                        logger.warning(f"PPTX picture insertion failed: {pic_err}")
+                        pic_inserted = False
 
-                tf_img = card_img.text_frame
-                tf_img.word_wrap = True
-                tf_img.margin_left = Inches(0.3)
-                tf_img.margin_right = Inches(0.3)
-                tf_img.vertical_anchor = MSO_ANCHOR.MIDDLE
+                if not pic_inserted:
+                    card_img = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.7), content_top, Inches(3.8), content_height)
+                    card_img.fill.solid()
+                    card_img.fill.fore_color.rgb = c_primary
+                    card_img.line.fill.background()
 
-                p_ik = tf_img.paragraphs[0]
-                p_ik.text = f"VISUAL FOCUS"
-                p_ik.font.size = Pt(11)
-                p_ik.font.bold = True
-                p_ik.font.color.rgb = c_accent
+                    tf_img = card_img.text_frame
+                    tf_img.word_wrap = True
+                    tf_img.margin_left = Inches(0.3)
+                    tf_img.margin_right = Inches(0.3)
+                    tf_img.vertical_anchor = MSO_ANCHOR.MIDDLE
 
-                p_cap = tf_img.add_paragraph()
-                p_cap.text = s.image_caption or s.image_keyword
-                p_cap.font.size = Pt(14)
-                p_cap.font.bold = True
-                p_cap.font.color.rgb = RGBColor(255, 255, 255)
+                    p_ik = tf_img.paragraphs[0]
+                    p_ik.text = f"VISUAL FOCUS"
+                    p_ik.font.size = Pt(11)
+                    p_ik.font.bold = True
+                    p_ik.font.color.rgb = c_accent
 
-                p_link = tf_img.add_paragraph()
-                p_link.text = f"Topic: {pres_data.topic}\nAudience: {pres_data.target_audience}"
-                p_link.font.size = Pt(10)
-                p_link.font.color.rgb = RGBColor(203, 213, 225)
+                    p_cap = tf_img.add_paragraph()
+                    p_cap.text = s.image_caption or s.image_keyword
+                    p_cap.font.size = Pt(14)
+                    p_cap.font.bold = True
+                    p_cap.font.color.rgb = RGBColor(255, 255, 255)
+
+                    p_link = tf_img.add_paragraph()
+                    p_link.text = f"Topic: {pres_data.topic}\nAudience: {pres_data.target_audience}"
+                    p_link.font.size = Pt(10)
+                    p_link.font.color.rgb = RGBColor(203, 213, 225)
 
             # Speaker Notes in PPTX
             if s.speaker_notes:
@@ -886,15 +941,31 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                     bullets_p.append(Paragraph(f"• {clean_md_to_reportlab(strip_emojis_for_pdf(b))}", bullet_style))
                     bullets_p.append(Spacer(1, 4))
 
-                callout_p = [
-                    Paragraph(f"<b>VISUAL CONCEPT FOCUS:</b>", cat_badge_style),
-                    Spacer(1, 4),
-                    Paragraph(clean_md_to_reportlab(strip_emojis_for_pdf(s.image_caption or s.image_keyword)), bullet_style),
-                    Spacer(1, 8),
-                    Paragraph(f"<i>Keywords: {strip_emojis_for_pdf(s.image_keyword)}</i>", notes_style)
-                ]
+                img_data = _download_image_bytes(s.image_url) if s.image_url else None
+                pic_inserted = False
+                if img_data:
+                    try:
+                        rl_pic = RLImage(io.BytesIO(img_data), width=230, height=135)
+                        callout_p = [
+                            rl_pic,
+                            Spacer(1, 4),
+                            Paragraph(clean_md_to_reportlab(strip_emojis_for_pdf(s.image_caption or s.image_keyword or "Visual Guide")), notes_style)
+                        ]
+                        pic_inserted = True
+                    except Exception as img_err:
+                        logger.warning(f"PDF slide image rendering failed: {img_err}")
+                        pic_inserted = False
 
-                card_table = Table([[bullets_p, callout_p]], colWidths=[520, 240])
+                if not pic_inserted:
+                    callout_p = [
+                        Paragraph(f"<b>VISUAL CONCEPT FOCUS:</b>", cat_badge_style),
+                        Spacer(1, 4),
+                        Paragraph(clean_md_to_reportlab(strip_emojis_for_pdf(s.image_caption or s.image_keyword)), bullet_style),
+                        Spacer(1, 8),
+                        Paragraph(f"<i>Keywords: {strip_emojis_for_pdf(s.image_keyword)}</i>", notes_style)
+                    ]
+
+                card_table = Table([[bullets_p, callout_p]], colWidths=[510, 250])
                 card_table.setStyle(TableStyle([
                     ('BACKGROUND', (0,0), (0,0), colors.HexColor(theme["card_bg"])),
                     ('BACKGROUND', (1,0), (1,0), colors.HexColor("#F8FAFC")),

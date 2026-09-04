@@ -886,7 +886,7 @@ class PDFGeneratorService:
         others = [q for q in paper.questions if q not in mcqs and q not in fills and q not in ars and q not in shorts and q not in longs and q not in cases]
 
         import html
-        def render_question_block(q):
+        def render_question_block(q, q_num: int):
             q_elements = []
 
             raw_q = strip_emojis_for_pdf(q.question_text or "")
@@ -915,9 +915,9 @@ class PDFGeneratorService:
 
                 if text_before:
                     q_formatted = clean_md_to_reportlab(text_before)
-                    q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
+                    q_elements.append(Paragraph(f"<b>Q{q_num}.</b> {q_formatted} <font color='#4338CA'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
                 else:
-                    q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
+                    q_elements.append(Paragraph(f"<b>Q{q_num}.</b> <font color='#4338CA'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
 
                 diag_flow = parse_mermaid_to_flowable(mermaid_code, available_width=510)
                 if diag_flow:
@@ -929,8 +929,30 @@ class PDFGeneratorService:
                     q_elements.append(Paragraph(clean_md_to_reportlab(text_after), q_text_style))
             else:
                 q_text_formatted = clean_md_to_reportlab(raw_q)
-                q_elements.append(Paragraph(f"<b>Q{q.question_number}.</b> {q_text_formatted} <font color='#6366F1'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
+                q_elements.append(Paragraph(f"<b>Q{q_num}.</b> {q_text_formatted} <font color='#4338CA'><b>[{q.marks} Mark{'s' if q.marks > 1 else ''}]</b></font>", q_text_style))
 
+            # Assertion-Reason specific fields if present
+            if q.question_type in ('assertion_reason', 'ar'):
+                if getattr(q, 'assertion_text', None):
+                    a_clean = clean_md_to_reportlab(strip_emojis_for_pdf(str(q.assertion_text)))
+                    q_elements.append(Spacer(1, 2))
+                    q_elements.append(Paragraph(f"<b>Assertion (A):</b> {a_clean}", option_style))
+                if getattr(q, 'reason_text', None):
+                    r_clean = clean_md_to_reportlab(strip_emojis_for_pdf(str(q.reason_text)))
+                    q_elements.append(Spacer(1, 2))
+                    q_elements.append(Paragraph(f"<b>Reason (R):</b> {r_clean}", option_style))
+
+            # Case Study sub-questions if present
+            if getattr(q, 'sub_questions', None) and isinstance(q.sub_questions, list):
+                q_elements.append(Spacer(1, 3))
+                romans = ["(i)", "(ii)", "(iii)", "(iv)", "(v)", "(vi)"]
+                for sub_idx, sub_q in enumerate(q.sub_questions):
+                    r_label = romans[sub_idx] if sub_idx < len(romans) else f"({sub_idx + 1})"
+                    sub_clean = clean_md_to_reportlab(strip_emojis_for_pdf(str(sub_q)))
+                    q_elements.append(Paragraph(f"<b>{r_label}</b> {sub_clean}", option_style))
+                    q_elements.append(Spacer(1, 2))
+
+            # MCQ options if present
             if q.options:
                 q_elements.append(Spacer(1, 2))
                 for opt in q.options:
@@ -949,48 +971,58 @@ class PDFGeneratorService:
             q_elements.append(Spacer(1, 8))
             return q_elements
 
+        # Continuous ascending question numbering (Q1, Q2, Q3, ... QN) across all sections
+        running_q_num = 1
         sec_char = ord('A')
+
         if mcqs:
-            story.append(Paragraph(f"SECTION {chr(sec_char)}: MULTIPLE CHOICE QUESTIONS", section_style))
+            story.append(Paragraph(f"SECTION {chr(sec_char)}: MULTIPLE CHOICE QUESTIONS (1 Mark Each)", section_style))
             sec_char += 1
             for q in mcqs:
-                story.extend(render_question_block(q))
+                story.extend(render_question_block(q, running_q_num))
+                running_q_num += 1
 
         if fills:
-            story.append(Paragraph(f"SECTION {chr(sec_char)}: FILL IN THE BLANKS", section_style))
+            story.append(Paragraph(f"SECTION {chr(sec_char)}: FILL IN THE BLANKS (1 Mark Each)", section_style))
             sec_char += 1
             for q in fills:
-                story.extend(render_question_block(q))
+                story.extend(render_question_block(q, running_q_num))
+                running_q_num += 1
 
         if ars:
             story.append(Paragraph(f"SECTION {chr(sec_char)}: ASSERTION-REASON QUESTIONS", section_style))
             sec_char += 1
             for q in ars:
-                story.extend(render_question_block(q))
+                story.extend(render_question_block(q, running_q_num))
+                running_q_num += 1
 
         if shorts:
             story.append(Paragraph(f"SECTION {chr(sec_char)}: SHORT ANSWER QUESTIONS", section_style))
             sec_char += 1
             for q in shorts:
-                story.extend(render_question_block(q))
+                story.extend(render_question_block(q, running_q_num))
+                running_q_num += 1
 
         if longs:
             story.append(Paragraph(f"SECTION {chr(sec_char)}: LONG ANSWER / HOTS QUESTIONS", section_style))
             sec_char += 1
             for q in longs:
-                story.extend(render_question_block(q))
+                story.extend(render_question_block(q, running_q_num))
+                running_q_num += 1
 
         if cases:
             story.append(Paragraph(f"SECTION {chr(sec_char)}: CASE STUDY / COMPETENCY-BASED QUESTIONS", section_style))
             sec_char += 1
             for q in cases:
-                story.extend(render_question_block(q))
+                story.extend(render_question_block(q, running_q_num))
+                running_q_num += 1
 
         if others:
             story.append(Paragraph(f"SECTION {chr(sec_char)}: ADDITIONAL QUESTIONS", section_style))
             sec_char += 1
             for q in others:
-                story.extend(render_question_block(q))
+                story.extend(render_question_block(q, running_q_num))
+                running_q_num += 1
 
         doc.build(story, canvasmaker=NumberedCanvas)
         pdf_bytes = buffer.getvalue()

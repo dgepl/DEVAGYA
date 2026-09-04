@@ -173,16 +173,15 @@ async def generate_paper_from_file(request: Request):
         if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
             try:
                 img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
-                if img.width > 1280:
-                    h = int(img.height * 1280 / img.width)
-                    img = img.resize((1280, h))
+                img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
                 buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=80)
+                img.save(buf, format="JPEG", quality=75, optimize=True)
                 enc = base64.b64encode(buf.getvalue()).decode("ascii")
                 img_url = f"data:image/jpeg;base64,{enc}"
-                image_data_urls.append(img_url)
+                if len(image_data_urls) < 5:
+                    image_data_urls.append(img_url)
             except Exception as img_err:
-                pass
+                logger.warning(f"Failed to process image attachment {filename}: {img_err}")
         elif ext == ".pdf" or "pdf" in content_type:
             try:
                 pdf_text, pdf_img_url = extract_pdf_content(file_bytes)

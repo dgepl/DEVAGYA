@@ -127,6 +127,8 @@ export default function GeneratorPage() {
 
   // Execution State
   const [loading, setLoading] = useState(false);
+  const [progressPercentage, setProgressPercentage] = useState(0);
+  const [progressStage, setProgressStage] = useState("");
   const [downloadingStudent, setDownloadingStudent] = useState(false);
   const [downloadingTeacher, setDownloadingTeacher] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -230,6 +232,30 @@ export default function GeneratorPage() {
     }
 
     setLoading(true);
+    setProgressPercentage(8);
+    setProgressStage(selectedFiles.length > 0 ? "Reading & extracting pages from attached documents..." : "Analyzing CBSE/NCERT curriculum standards & guidelines...");
+
+    const progressInterval = setInterval(() => {
+      setProgressPercentage((prev) => {
+        if (prev >= 94) return prev;
+        const jump = Math.floor(Math.random() * 4) + 2; // +2% to +5%
+        const nextVal = Math.min(94, prev + jump);
+
+        if (selectedFiles.length > 0) {
+          if (nextVal < 25) setProgressStage("Reading and scanning uploaded files & images...");
+          else if (nextVal < 50) setProgressStage("Analyzing document text & syllabus key concepts...");
+          else if (nextVal < 75) setProgressStage("Synthesizing questions across all sections (MCQs, Fills, Assertion-Reason, Short, Long, Case Study)...");
+          else if (nextVal < 90) setProgressStage("Formulating official marking scheme & step-by-step solutions...");
+          else setProgressStage("Finalizing structured paper layout & verifying continuous numbering...");
+        } else {
+          if (nextVal < 25) setProgressStage("Analyzing NCERT syllabus & Bloom's taxonomy difficulty...");
+          else if (nextVal < 55) setProgressStage("Formulating section-wise questions & Mermaid diagram scenarios...");
+          else if (nextVal < 80) setProgressStage("Formulating detailed step-by-step solutions & marking keys...");
+          else setProgressStage("Finalizing layout and verifying continuous line-wise question numbering...");
+        }
+        return nextVal;
+      });
+    }, 450);
 
     const targetSchoolName = schoolName.trim();
     const targetTitle = title.trim() || "Assessment Paper";
@@ -301,13 +327,21 @@ export default function GeneratorPage() {
       if (user.schoolLogo && !res.school_logo) {
         res.school_logo = user.schoolLogo;
       }
+      
+      clearInterval(progressInterval);
+      setProgressPercentage(100);
+      setProgressStage("Question Paper successfully synthesized!");
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
       setPaper(res);
       savePaper(res);
       setShowMobilePaperModal(true);
     } catch (err: any) {
+      clearInterval(progressInterval);
       console.error("Generation error:", err);
       setError(err.message || "Failed to generate AI paper. Please check connection.");
     } finally {
+      clearInterval(progressInterval);
       setLoading(false);
     }
   };
@@ -1470,17 +1504,54 @@ export default function GeneratorPage() {
             </div>
           )}
 
+          {/* LIVE PROGRESS STATUS CARD DURING GENERATION */}
+          {loading && (
+            <div className="p-4 bg-gradient-to-br from-indigo-900 via-indigo-800 to-purple-900 text-white rounded-2xl shadow-xl space-y-3 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-black uppercase tracking-wider text-indigo-200">
+                    AI Paper Synthesis Active
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-0.5 font-black">
+                  <span className="text-2xl text-white font-extrabold tracking-tight">{progressPercentage}</span>
+                  <span className="text-xs text-indigo-300 font-bold">%</span>
+                </div>
+              </div>
+
+              {/* Glowing animated progress bar */}
+              <div className="w-full bg-slate-900/60 rounded-full h-3.5 p-0.5 border border-indigo-500/30 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 h-full rounded-full transition-all duration-300 ease-out shadow-sm shadow-emerald-500/50"
+                  style={{ width: `${progressPercentage}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-indigo-200 font-medium">
+                <div className="flex items-center gap-1.5 truncate">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400 shrink-0" />
+                  <span className="truncate">{progressStage}</span>
+                </div>
+                <span className="shrink-0 font-bold text-indigo-300 ml-2">Real-time</span>
+              </div>
+            </div>
+          )}
+
           {/* GENERATE BUTTON */}
           <button
             type="button"
             onClick={() => handleGenerate()}
             disabled={loading}
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-75 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
             {loading ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Synthesizing Question Paper...</span>
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-300" />
+                <span>Synthesizing Question Paper ({progressPercentage}%)...</span>
               </>
             ) : (
               <>

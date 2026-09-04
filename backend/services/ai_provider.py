@@ -1,5 +1,7 @@
 import os
+import re
 import json
+import asyncio
 import logging
 from typing import List, Dict, Any, AsyncGenerator, Optional
 import httpx
@@ -74,6 +76,16 @@ class AIProviderService:
         
         has_imgs = self._has_images(messages)
         selected_model = model or (self.vision_model if has_imgs else self.model)
+
+        # High-performance native vision for Google Gemini provider
+        if has_imgs and ("googleapis" in self.base_url or "gemini" in str(selected_model).lower()):
+            try:
+                native_res = await self._gemini_native_vision(messages, temperature, max_tokens, key)
+                if native_res and len(native_res.strip()) > 5:
+                    return native_res
+            except Exception as native_err:
+                logger.warning(f"Native Gemini vision fallback notice: {native_err}")
+
         payload: Dict[str, Any] = {
             "model": selected_model,
             "messages": self._optimize_messages(messages),
@@ -86,7 +98,7 @@ class AIProviderService:
 
         async with httpx.AsyncClient(timeout=45.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"]
+                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-flash-latest"]
             elif has_imgs:
                 models_to_try = [selected_model, "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
             else:
@@ -140,6 +152,74 @@ class AIProviderService:
             logger.error(f"All AI models failed in chat_completion: {last_error}")
             if last_error:
                 raise last_error
+            return ""
+
+    async def _gemini_native_vision(
+        self,
+        messages: List[Dict[str, Any]],
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+        api_key: str = ""
+    ) -> str:
+        """Direct native Google Gemini generateContent for robust, fast multi-image OCR & transcription."""
+        parts = []
+        for msg in messages:
+            content = msg.get("content")
+            if isinstance(content, str):
+                if content.strip():
+                    parts.append({"text": content.strip()})
+            elif isinstance(content, list):
+                for p in content:
+                    if p.get("type") == "text":
+                        t = p.get("text", "").strip()
+                        if t:
+                            parts.append({"text": t})
+                    elif p.get("type") == "image_url":
+                        url_val = (p.get("image_url") or {}).get("url", "")
+                        if "base64," in url_val:
+                            mime = "image/jpeg"
+                            if "data:image/png" in url_val:
+                                mime = "image/png"
+                            elif "data:image/webp" in url_val:
+                                mime = "image/webp"
+                            b64_data = url_val.split("base64,")[1].strip()
+                            parts.append({
+                                "inline_data": {
+                                    "mime_type": mime,
+                                    "data": b64_data
+                                }
+                            })
+
+        payload = {
+            "contents": [{"parts": parts}],
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": min(max_tokens or 4096, 8192)
+            }
+        }
+
+        candidate_models = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-flash-latest"]
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            for m in candidate_models:
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+                    res = await client.post(url, json=payload)
+                    if res.status_code == 200:
+                        data = res.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts_out = candidates[0].get("content", {}).get("parts", [])
+                            text_parts = [p.get("text", "") for p in parts_out if "text" in p]
+                            raw_text = "".join(text_parts).strip()
+                            clean_text = re.sub(r'<think>[\s\S]*?</think>', '', raw_text).strip()
+                            if clean_text:
+                                return clean_text
+                    elif res.status_code in (503, 429, 404):
+                        logger.warning(f"Gemini vision model {m} ({res.status_code}), trying next fallback...")
+                        continue
+                except Exception as ex:
+                    logger.warning(f"Gemini vision model {m} error: {ex}, trying fallback...")
+                    continue
             return ""
 
     def _optimize_messages(self, messages: List[Dict[str, Any]], max_turns: int = 6) -> List[Dict[str, Any]]:
