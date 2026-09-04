@@ -25,7 +25,8 @@ import {
   Activity,
   Search,
   Video,
-  Trophy
+  Trophy,
+  Sliders
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF, GeneratedPaperResponse } from "@/lib/api";
@@ -91,6 +92,15 @@ export default function TeacherDashboardOverviewPage() {
   );
 
   const teacherTools = [
+    {
+      code: "ppt_generator",
+      href: "/dashboard/ppt-generator",
+      name: "AI PPT Generator",
+      desc: "Generate highly editable, image-rich slide decks on any study topic with live presentation & PDF preview.",
+      icon: Sliders,
+      color: "from-purple-600 to-indigo-700",
+      badge: "New Studio"
+    },
     {
       code: "teacher_mentor",
       href: "/dashboard/agents?agent=teacher_mentor",

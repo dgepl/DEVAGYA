@@ -18,6 +18,13 @@ export interface GeneratePaperPayload {
   num_mcqs: number;
   num_short: number;
   num_long: number;
+  num_assertion_reason?: number;
+  num_fill_in_the_blanks?: number;
+  num_case_study?: number;
+  ar_marks?: number;
+  fill_marks?: number;
+  case_marks?: number;
+  question_type_instructions?: string;
   school_name: string;
   school_logo?: string;
   custom_instructions?: string;
@@ -31,6 +38,10 @@ export interface QuestionItem {
   question_text: string;
   marks: number;
   options?: string[];
+  assertion_text?: string;
+  reason_text?: string;
+  case_passage?: string;
+  sub_questions?: string[];
   answer: string;
   explanation?: string;
 }
@@ -631,4 +642,111 @@ export async function downloadAssignmentPDF(
   }
   return res.blob();
 }
+
+// ==========================================
+// AI PPT PRESENTATION GENERATOR API CLIENT
+// ==========================================
+
+export interface SlideItem {
+  slide_number: number;
+  layout: string; // 'title_bullets' | 'two_column' | 'stat_highlight' | 'process_timeline' | 'quote_insight' | 'split_image_text'
+  category: string;
+  title: string;
+  subtitle?: string | null;
+  bullets: string[];
+  left_column?: { title: string; bullets: string[] } | null;
+  right_column?: { title: string; bullets: string[] } | null;
+  metrics?: { value: string; label: string }[] | null;
+  timeline_steps?: { step: number; title: string; desc: string }[] | null;
+  quote?: { text: string; author: string } | null;
+  image_keyword: string;
+  image_url?: string | null;
+  image_caption?: string | null;
+  speaker_notes: string;
+}
+
+export interface GeneratePPTRequest {
+  topic: string;
+  target_audience?: string;
+  num_slides?: number;
+  tone?: string;
+  language?: string;
+  theme?: string;
+  teacher_guidance?: string;
+  user_email?: string;
+}
+
+export interface PresentationData {
+  id?: string;
+  title: string;
+  subtitle: string;
+  topic: string;
+  target_audience: string;
+  num_slides: number;
+  theme: string;
+  language: string;
+  teacher_guidance?: string | null;
+  slides: SlideItem[];
+  created_at?: string;
+}
+
+export interface RefineSlideRequest {
+  slide: SlideItem;
+  instruction: string;
+  topic: string;
+  target_audience?: string;
+}
+
+export async function generatePPT(payload: GeneratePPTRequest): Promise<PresentationData> {
+  const res = await fetch(`${getApiBase()}/ppt/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to generate AI presentation"));
+  }
+  return res.json();
+}
+
+export async function refinePPTSlide(payload: RefineSlideRequest): Promise<SlideItem> {
+  const res = await fetch(`${getApiBase()}/ppt/refine-slide`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to refine slide with AI"));
+  }
+  return res.json();
+}
+
+export async function downloadPPTX(data: PresentationData): Promise<Blob> {
+  const res = await fetch(`${getApiBase()}/ppt/export-pptx`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to export PowerPoint PPTX"));
+  }
+  return res.blob();
+}
+
+export async function downloadPPTPDF(data: PresentationData): Promise<Blob> {
+  const res = await fetch(`${getApiBase()}/ppt/export-pdf`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to export Presentation PDF"));
+  }
+  return res.blob();
+}
+
 

@@ -62,6 +62,15 @@ export default function GeneratorPage() {
   const [numMcqs, setNumMcqs] = useState<string>("4");
   const [numShort, setNumShort] = useState<string>("2");
   const [numLong, setNumLong] = useState<string>("1");
+  const [numAssertionReason, setNumAssertionReason] = useState<string>("2");
+  const [numFillInTheBlanks, setNumFillInTheBlanks] = useState<string>("2");
+  const [numCaseStudy, setNumCaseStudy] = useState<string>("1");
+  const [arMarks, setArMarks] = useState<string>("2");
+  const [fillMarks, setFillMarks] = useState<string>("1");
+  const [caseMarks, setCaseMarks] = useState<string>("4");
+  const [activeQuestionTypes, setActiveQuestionTypes] = useState<string[]>([]);
+  const [questionTypeGuidance, setQuestionTypeGuidance] = useState<string>("");
+  const [showAddTypeDropdown, setShowAddTypeDropdown] = useState<boolean>(false);
   const [customPrompt, setCustomPrompt] = useState("");
   const [showAnswerKey, setShowAnswerKey] = useState(true);
 
@@ -127,7 +136,15 @@ export default function GeneratorPage() {
   const parsedMcqs = parseInt(numMcqs) || 0;
   const parsedShort = parseInt(numShort) || 0;
   const parsedLong = parseInt(numLong) || 0;
-  const calculatedTotal = (parsedMcqs * 1) + (parsedShort * 3) + (parsedLong * 5);
+  const parsedAR = activeQuestionTypes.includes("assertion_reason") ? (parseInt(numAssertionReason) || 0) : 0;
+  const parsedFill = activeQuestionTypes.includes("fill_in_the_blanks") ? (parseInt(numFillInTheBlanks) || 0) : 0;
+  const parsedCase = activeQuestionTypes.includes("case_study") ? (parseInt(numCaseStudy) || 0) : 0;
+  const parsedARMarks = parseInt(arMarks) || 2;
+  const parsedFillMarks = parseInt(fillMarks) || 1;
+  const parsedCaseMarks = parseInt(caseMarks) || 4;
+
+  const calculatedTotal = (parsedMcqs * 1) + (parsedShort * 3) + (parsedLong * 5) +
+    (parsedAR * parsedARMarks) + (parsedFill * parsedFillMarks) + (parsedCase * parsedCaseMarks);
   const requestedTotal = parseInt(totalMarks) || 0;
 
   const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,6 +260,13 @@ export default function GeneratorPage() {
         formData.append("num_mcqs", parsedMcqs.toString());
         formData.append("num_short", parsedShort.toString());
         formData.append("num_long", parsedLong.toString());
+        formData.append("num_assertion_reason", parsedAR.toString());
+        formData.append("num_fill_in_the_blanks", parsedFill.toString());
+        formData.append("num_case_study", parsedCase.toString());
+        formData.append("ar_marks", parsedARMarks.toString());
+        formData.append("fill_marks", parsedFillMarks.toString());
+        formData.append("case_marks", parsedCaseMarks.toString());
+        formData.append("question_type_instructions", questionTypeGuidance);
         formData.append("custom_instructions", customPrompt);
         formData.append("user_email", user.email || "");
 
@@ -262,6 +286,13 @@ export default function GeneratorPage() {
           num_mcqs: parsedMcqs,
           num_short: parsedShort,
           num_long: parsedLong,
+          num_assertion_reason: parsedAR,
+          num_fill_in_the_blanks: parsedFill,
+          num_case_study: parsedCase,
+          ar_marks: parsedARMarks,
+          fill_marks: parsedFillMarks,
+          case_marks: parsedCaseMarks,
+          question_type_instructions: questionTypeGuidance,
           custom_instructions: customPrompt,
           user_email: user.email || ""
         });
@@ -519,8 +550,25 @@ export default function GeneratorPage() {
                 <div className="flex items-start justify-between gap-3">
                   
                   <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-black text-indigo-700">
-                      <span>Q{index + 1}. ({q.question_type.toUpperCase()})</span>
+                    <div className="flex items-center gap-2 text-xs font-black">
+                      <span className="text-slate-900">Q{index + 1}.</span>
+                      {q.question_type === "assertion_reason" ? (
+                        <span className="bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-md text-[10px] font-black">
+                          ASSERTION-REASON
+                        </span>
+                      ) : q.question_type === "fill_in_the_blanks" ? (
+                        <span className="bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-md text-[10px] font-black">
+                          FILL IN THE BLANKS
+                        </span>
+                      ) : q.question_type === "case_study" ? (
+                        <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md text-[10px] font-black">
+                          CASE STUDY
+                        </span>
+                      ) : (
+                        <span className="bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded-md text-[10px] font-black">
+                          {q.question_type.toUpperCase()}
+                        </span>
+                      )}
                       {isEditing ? (
                         <input
                           type="number"
@@ -530,16 +578,38 @@ export default function GeneratorPage() {
                           title="Edit Question Marks"
                         />
                       ) : (
-                        <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md text-[10px]">
+                        <span className="bg-slate-200/70 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-bold">
                           {q.marks} Mark{q.marks > 1 ? "s" : ""}
                         </span>
                       )}
                     </div>
 
+                    {/* CASE STUDY PASSAGE (IF PRESENT) */}
+                    {(q.case_passage || (isEditing && q.question_type === "case_study")) && (
+                      <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1">
+                        <span className="text-[10px] font-extrabold text-amber-900 flex items-center gap-1">
+                          📖 Case Scenario / Reading Passage:
+                        </span>
+                        {isEditing ? (
+                          <textarea
+                            rows={3}
+                            value={q.case_passage || ""}
+                            onChange={(e) => handleUpdateQuestion(q.id, { case_passage: e.target.value })}
+                            className="w-full bg-white border border-amber-300 rounded-lg p-2 text-xs font-bold text-slate-900"
+                            placeholder="Enter case study passage..."
+                          />
+                        ) : (
+                          <div className="text-xs text-slate-800 font-medium leading-relaxed italic">
+                            <Markdown content={q.case_passage || ""} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* QUESTION TEXT */}
                     {isEditing ? (
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Question Text</label>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Question Text / Sub-Questions</label>
                         <textarea
                           rows={3}
                           value={q.question_text}
@@ -988,6 +1058,237 @@ export default function GeneratorPage() {
                 />
               </div>
             </div>
+
+            {/* DYNAMICALLY ADDED QUESTION TYPES */}
+            {activeQuestionTypes.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <span className="text-[11px] font-extrabold text-indigo-900 block">Custom Question Types Configured:</span>
+                
+                {/* 1. Assertion-Reason */}
+                {activeQuestionTypes.includes("assertion_reason") && (
+                  <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-black text-purple-900">
+                        <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                        <span>Assertion-Reason (A/R)</span>
+                        <span className="text-[10px] bg-purple-200 text-purple-800 font-bold px-1.5 py-0.5 rounded">CBSE Standard</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveQuestionTypes(prev => prev.filter(t => t !== "assertion_reason"))}
+                        className="text-[10px] text-rose-600 font-extrabold hover:underline cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 mb-0.5">Questions Count</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={numAssertionReason}
+                          onChange={(e) => setNumAssertionReason(e.target.value)}
+                          className="w-full bg-white border border-purple-300 rounded-lg py-1 text-xs font-black text-center text-slate-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 mb-0.5">Marks Per Question</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={arMarks}
+                          onChange={(e) => setArMarks(e.target.value)}
+                          className="w-full bg-white border border-purple-300 rounded-lg py-1 text-xs font-black text-center text-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Fill in the Blanks */}
+                {activeQuestionTypes.includes("fill_in_the_blanks") && (
+                  <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-black text-blue-900">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <span>Fill in the Blanks</span>
+                        <span className="text-[10px] bg-blue-200 text-blue-800 font-bold px-1.5 py-0.5 rounded">Objective</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveQuestionTypes(prev => prev.filter(t => t !== "fill_in_the_blanks"))}
+                        className="text-[10px] text-rose-600 font-extrabold hover:underline cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 mb-0.5">Questions Count</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={numFillInTheBlanks}
+                          onChange={(e) => setNumFillInTheBlanks(e.target.value)}
+                          className="w-full bg-white border border-blue-300 rounded-lg py-1 text-xs font-black text-center text-slate-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 mb-0.5">Marks Per Question</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={5}
+                          value={fillMarks}
+                          onChange={(e) => setFillMarks(e.target.value)}
+                          className="w-full bg-white border border-blue-300 rounded-lg py-1 text-xs font-black text-center text-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Case Study */}
+                {activeQuestionTypes.includes("case_study") && (
+                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-black text-amber-900">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        <span>Case Study / Passage-Based</span>
+                        <span className="text-[10px] bg-amber-200 text-amber-800 font-bold px-1.5 py-0.5 rounded">Competency</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveQuestionTypes(prev => prev.filter(t => t !== "case_study"))}
+                        className="text-[10px] text-rose-600 font-extrabold hover:underline cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 mb-0.5">Questions Count</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={numCaseStudy}
+                          onChange={(e) => setNumCaseStudy(e.target.value)}
+                          className="w-full bg-white border border-amber-300 rounded-lg py-1 text-xs font-black text-center text-slate-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 mb-0.5">Marks Per Question</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={caseMarks}
+                          onChange={(e) => setCaseMarks(e.target.value)}
+                          className="w-full bg-white border border-amber-300 rounded-lg py-1 text-xs font-black text-center text-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dedicated Teacher Guidance for Question Types */}
+                <div className="pt-1">
+                  <label className="block text-[10px] font-extrabold text-slate-600 mb-1">
+                    🎯 Teacher Guidance for Custom Question Types:
+                  </label>
+                  <input
+                    type="text"
+                    value={questionTypeGuidance}
+                    onChange={(e) => setQuestionTypeGuidance(e.target.value)}
+                    placeholder="e.g. Focus Case Study on real-world practical scenario; make Assertion-Reason tricky"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ADD QUESTION TYPE ACTION BUTTON */}
+            {activeQuestionTypes.length < 3 && (
+              <div className="relative pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAddTypeDropdown(!showAddTypeDropdown)}
+                  className="w-full py-2 px-3 border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/50 hover:bg-indigo-50 rounded-xl text-xs font-extrabold text-indigo-700 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add Question Type</span>
+                </button>
+
+                {showAddTypeDropdown && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 space-y-1">
+                    {!activeQuestionTypes.includes("assertion_reason") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveQuestionTypes(prev => [...prev, "assertion_reason"]);
+                          setShowAddTypeDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-purple-50 text-xs font-bold text-slate-800 flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-purple-600 font-black">🧩</span>
+                          <div>
+                            <div className="font-extrabold text-purple-950">Assertion-Reason (A/R)</div>
+                            <div className="text-[10px] text-slate-500">Statement A & R with standard CBSE options</div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">+ Add</span>
+                      </button>
+                    )}
+
+                    {!activeQuestionTypes.includes("fill_in_the_blanks") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveQuestionTypes(prev => [...prev, "fill_in_the_blanks"]);
+                          setShowAddTypeDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-xs font-bold text-slate-800 flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-600 font-black">✏️</span>
+                          <div>
+                            <div className="font-extrabold text-blue-950">Fill in the Blanks</div>
+                            <div className="text-[10px] text-slate-500">Sentence with underlined blank & key term answer</div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">+ Add</span>
+                      </button>
+                    )}
+
+                    {!activeQuestionTypes.includes("case_study") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveQuestionTypes(prev => [...prev, "case_study"]);
+                          setShowAddTypeDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-amber-50 text-xs font-bold text-slate-800 flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-600 font-black">📖</span>
+                          <div>
+                            <div className="font-extrabold text-amber-950">Case Study / Passage-Based</div>
+                            <div className="text-[10px] text-slate-500">Real-world contextual story + sub-questions</div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">+ Add</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 6. Custom Multi-File / Reference Attachment (Optional) */}

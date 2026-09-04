@@ -85,8 +85,27 @@ async def generate_paper_from_file(request: Request):
     try: num_long = int(form.get("num_long") or 1)
     except (ValueError, TypeError): num_long = 1
 
+    try: num_assertion_reason = int(form.get("num_assertion_reason") or 0)
+    except (ValueError, TypeError): num_assertion_reason = 0
+
+    try: num_fill_in_the_blanks = int(form.get("num_fill_in_the_blanks") or 0)
+    except (ValueError, TypeError): num_fill_in_the_blanks = 0
+
+    try: num_case_study = int(form.get("num_case_study") or 0)
+    except (ValueError, TypeError): num_case_study = 0
+
+    try: ar_marks = int(form.get("ar_marks") or 2)
+    except (ValueError, TypeError): ar_marks = 2
+
+    try: fill_marks = int(form.get("fill_marks") or 1)
+    except (ValueError, TypeError): fill_marks = 1
+
+    try: case_marks = int(form.get("case_marks") or 4)
+    except (ValueError, TypeError): case_marks = 4
+
     school_name = str(form.get("school_name") or "DEVGYA GLOBAL ACADEMY")
     custom_instructions = str(form.get("custom_instructions") or "")
+    question_type_instructions = str(form.get("question_type_instructions") or "")
     user_email = str(form.get("user_email") or "")
 
     req = GeneratePaperRequest(
@@ -100,6 +119,13 @@ async def generate_paper_from_file(request: Request):
         num_mcqs=num_mcqs,
         num_short=num_short,
         num_long=num_long,
+        num_assertion_reason=num_assertion_reason,
+        num_fill_in_the_blanks=num_fill_in_the_blanks,
+        num_case_study=num_case_study,
+        ar_marks=ar_marks,
+        fill_marks=fill_marks,
+        case_marks=case_marks,
+        question_type_instructions=question_type_instructions,
         school_name=school_name,
         custom_instructions=custom_instructions,
         user_email=user_email

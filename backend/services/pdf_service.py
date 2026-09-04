@@ -878,14 +878,34 @@ class PDFGeneratorService:
 
         # Separate into Sections
         mcqs = [q for q in paper.questions if q.question_type == 'mcq']
+        fills = [q for q in paper.questions if q.question_type in ('fill_in_the_blanks', 'fill_blanks', 'fill')]
+        ars = [q for q in paper.questions if q.question_type in ('assertion_reason', 'ar')]
         shorts = [q for q in paper.questions if q.question_type == 'short']
         longs = [q for q in paper.questions if q.question_type == 'long']
+        cases = [q for q in paper.questions if q.question_type in ('case_study', 'case')]
+        others = [q for q in paper.questions if q not in mcqs and q not in fills and q not in ars and q not in shorts and q not in longs and q not in cases]
+
         import html
         def render_question_block(q):
             q_elements = []
 
             raw_q = strip_emojis_for_pdf(q.question_text or "")
             
+            # Check if case study has passage
+            if q.question_type in ('case_study', 'case') and getattr(q, "case_passage", None):
+                passage_text = clean_md_to_reportlab(strip_emojis_for_pdf(str(q.case_passage)))
+                passage_table = Table(
+                    [[Paragraph(f"<b>CASE STUDY SCENARIO / CONTEXT:</b><br/>{passage_text}", instruction_style)]],
+                    colWidths=[520]
+                )
+                passage_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F1F5F9")),
+                    ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E1")),
+                    ('PADDING', (0,0), (-1,-1), 8),
+                ]))
+                q_elements.append(passage_table)
+                q_elements.append(Spacer(1, 4))
+
             # Check if question text contains a Mermaid diagram
             mermaid_match = re.search(r'```(?:mermaid|graph|flowchart)?\s*([\s\S]*?)```', raw_q, re.IGNORECASE)
             if mermaid_match:
@@ -929,19 +949,47 @@ class PDFGeneratorService:
             q_elements.append(Spacer(1, 8))
             return q_elements
 
+        sec_char = ord('A')
         if mcqs:
-            story.append(Paragraph("SECTION A: MULTIPLE CHOICE QUESTIONS", section_style))
+            story.append(Paragraph(f"SECTION {chr(sec_char)}: MULTIPLE CHOICE QUESTIONS", section_style))
+            sec_char += 1
             for q in mcqs:
                 story.extend(render_question_block(q))
 
+        if fills:
+            story.append(Paragraph(f"SECTION {chr(sec_char)}: FILL IN THE BLANKS", section_style))
+            sec_char += 1
+            for q in fills:
+                story.extend(render_question_block(q))
+
+        if ars:
+            story.append(Paragraph(f"SECTION {chr(sec_char)}: ASSERTION-REASON QUESTIONS", section_style))
+            sec_char += 1
+            for q in ars:
+                story.extend(render_question_block(q))
+
         if shorts:
-            story.append(Paragraph("SECTION B: SHORT ANSWER QUESTIONS", section_style))
+            story.append(Paragraph(f"SECTION {chr(sec_char)}: SHORT ANSWER QUESTIONS", section_style))
+            sec_char += 1
             for q in shorts:
                 story.extend(render_question_block(q))
 
         if longs:
-            story.append(Paragraph("SECTION C: LONG ANSWER QUESTIONS", section_style))
+            story.append(Paragraph(f"SECTION {chr(sec_char)}: LONG ANSWER / HOTS QUESTIONS", section_style))
+            sec_char += 1
             for q in longs:
+                story.extend(render_question_block(q))
+
+        if cases:
+            story.append(Paragraph(f"SECTION {chr(sec_char)}: CASE STUDY / COMPETENCY-BASED QUESTIONS", section_style))
+            sec_char += 1
+            for q in cases:
+                story.extend(render_question_block(q))
+
+        if others:
+            story.append(Paragraph(f"SECTION {chr(sec_char)}: ADDITIONAL QUESTIONS", section_style))
+            sec_char += 1
+            for q in others:
                 story.extend(render_question_block(q))
 
         doc.build(story, canvasmaker=NumberedCanvas)

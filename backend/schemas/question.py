@@ -10,6 +10,8 @@ class QuestionItem(BaseModel):
     options: Optional[List[str]] = None # For MCQs
     assertion_text: Optional[str] = None # For Assertion-Reason
     reason_text: Optional[str] = None # For Assertion-Reason
+    case_passage: Optional[str] = None # For Case Study passage
+    sub_questions: Optional[List[str]] = None # For Case Study sub-questions
     answer: str
     explanation: Optional[str] = None
 
@@ -24,6 +26,13 @@ class GeneratePaperRequest(BaseModel):
     num_mcqs: int = Field(default=10)
     num_short: int = Field(default=5)
     num_long: int = Field(default=3)
+    num_assertion_reason: int = Field(default=0)
+    num_fill_in_the_blanks: int = Field(default=0)
+    num_case_study: int = Field(default=0)
+    ar_marks: int = Field(default=2)
+    fill_marks: int = Field(default=1)
+    case_marks: int = Field(default=4)
+    question_type_instructions: Optional[str] = None
     school_name: str = Field(default="Apex International Academy")
     school_logo: Optional[str] = None
     custom_instructions: Optional[str] = None

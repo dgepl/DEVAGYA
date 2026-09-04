@@ -38,7 +38,8 @@ import {
   Flame,
   Search,
   Video,
-  Rocket
+  Rocket,
+  Sliders
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -156,6 +157,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       const isTeacherAllowed = 
         pathname === "/dashboard" ||
         pathname.startsWith("/dashboard/generator") ||
+        pathname.startsWith("/dashboard/ppt-generator") ||
         pathname.startsWith("/dashboard/assignments") ||
         pathname.startsWith("/dashboard/teacher-olympiad") ||
         pathname.startsWith("/dashboard/agents") ||
@@ -180,8 +182,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   // Role-based Nav Specifications — each agent is a direct sidebar link
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "AI Assignment Maker", href: "/dashboard/assignments", icon: FileText },
+    { label: "AI PPT Generator", href: "/dashboard/ppt-generator", icon: Sliders },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
+    { label: "AI Assignment Maker", href: "/dashboard/assignments", icon: FileText },
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
     { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },

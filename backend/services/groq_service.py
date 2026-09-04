@@ -116,6 +116,14 @@ class GroqAIService:
         target_mcq = max(0, req.num_mcqs)
         target_short = max(0, req.num_short)
         target_long = max(0, req.num_long)
+        target_ar = max(0, getattr(req, "num_assertion_reason", 0))
+        target_fill = max(0, getattr(req, "num_fill_in_the_blanks", 0))
+        target_case = max(0, getattr(req, "num_case_study", 0))
+
+        ar_marks = getattr(req, "ar_marks", 2) or 2
+        fill_marks = getattr(req, "fill_marks", 1) or 1
+        case_marks = getattr(req, "case_marks", 4) or 4
+        q_guidance = getattr(req, "question_type_instructions", "") or ""
 
         sem = asyncio.Semaphore(4)
 
@@ -164,7 +172,90 @@ JSON FORMAT ONLY:
 You MUST produce ALL {c_mcq} MCQs in the 'questions' list."""
             tasks.append(_call_llm(mcq_prompt))
 
-        # 2. Short Answer Tasks (in chunks of 5)
+        # 2. Fill in the Blanks Tasks (in chunks of 6)
+        fill_chunks = _get_chunks(target_fill, 6)
+        for i, c_fill in enumerate(fill_chunks):
+            fill_prompt = f"""{subject_directive}
+
+Generate EXACTLY {c_fill} Fill in the Blanks Questions for {req.class_name} {req.subject}.
+Chapter / Syllabus: {req.chapter}
+Difficulty: {req.difficulty}
+Batch Part: {i+1} of {len(fill_chunks)}
+{f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
+{f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
+
+CRITICAL FORMAT:
+- Each question text MUST have a clear blank line designated by '_______'.
+- Do NOT provide multiple choice options.
+- The 'answer' must be the exact correct term/phrase.
+- Marks: {fill_marks}
+
+JSON FORMAT ONLY:
+{{
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "fill_in_the_blanks",
+      "question_text": "The fundamental unit of life in all living organisms is _______.",
+      "options": null,
+      "answer": "cell",
+      "explanation": "Cells are the basic structural and functional units of life.",
+      "marks": {fill_marks}
+    }}
+  ]
+}}
+You MUST produce ALL {c_fill} Fill in the Blanks questions in the 'questions' list."""
+            tasks.append(_call_llm(fill_prompt))
+
+        # 3. Assertion-Reason Tasks (in chunks of 5)
+        ar_chunks = _get_chunks(target_ar, 5)
+        for i, c_ar in enumerate(ar_chunks):
+            ar_prompt = f"""{subject_directive}
+
+Generate EXACTLY {c_ar} CBSE/NCERT Assertion-Reason Questions for {req.class_name} {req.subject}.
+Chapter / Syllabus: {req.chapter}
+Difficulty: {req.difficulty}
+Batch Part: {i+1} of {len(ar_chunks)}
+{f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
+{f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
+
+CRITICAL CBSE ASSERTION-REASON FORMAT:
+- Provide an 'assertion_text' (Assertion A) and 'reason_text' (Reason R).
+- 'options' must be the 4 standard CBSE choices:
+  [
+    "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+    "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+    "(C) Assertion (A) is true but Reason (R) is false.",
+    "(D) Assertion (A) is false but Reason (R) is true."
+  ]
+- 'question_text' must present Assertion (A) and Reason (R) clearly.
+- Marks: {ar_marks}
+
+JSON FORMAT ONLY:
+{{
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "assertion_reason",
+      "question_text": "Assertion (A): Plants appear green to the human eye.\\nReason (R): Chlorophyll pigment absorbs green wavelength of visible light and reflects blue and red.",
+      "assertion_text": "Plants appear green to the human eye.",
+      "reason_text": "Chlorophyll pigment absorbs green wavelength of visible light and reflects blue and red.",
+      "options": [
+        "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+        "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+        "(C) Assertion (A) is true but Reason (R) is false.",
+        "(D) Assertion (A) is false but Reason (R) is true."
+      ],
+      "answer": "(C) Assertion (A) is true but Reason (R) is false.",
+      "explanation": "Chlorophyll absorbs blue and red wavelengths and reflects green light, which is why plants appear green.",
+      "marks": {ar_marks}
+    }}
+  ]
+}}
+You MUST produce ALL {c_ar} Assertion-Reason questions in the 'questions' list."""
+            tasks.append(_call_llm(ar_prompt))
+
+        # 4. Short Answer Tasks (in chunks of 5)
         short_chunks = _get_chunks(target_short, 5)
         for i, c_short in enumerate(short_chunks):
             short_prompt = f"""{subject_directive}
@@ -195,7 +286,7 @@ JSON FORMAT ONLY:
 You MUST produce ALL {c_short} Short Answer questions in the 'questions' list."""
             tasks.append(_call_llm(short_prompt))
 
-        # 3. Long Answer / HOTS Tasks (in chunks of 4)
+        # 5. Long Answer / HOTS Tasks (in chunks of 4)
         long_chunks = _get_chunks(target_long, 4)
         for i, c_long in enumerate(long_chunks):
             long_prompt = f"""{subject_directive}
@@ -226,6 +317,48 @@ JSON FORMAT ONLY:
 You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
             tasks.append(_call_llm(long_prompt))
 
+        # 6. Case Study / Passage-based Tasks (in chunks of 2)
+        case_chunks = _get_chunks(target_case, 2)
+        for i, c_case in enumerate(case_chunks):
+            case_prompt = f"""{subject_directive}
+
+Generate EXACTLY {c_case} Competency-Based Case Study Questions for {req.class_name} {req.subject}.
+Chapter / Syllabus: {req.chapter}
+Difficulty: {req.difficulty}
+Batch Part: {i+1} of {len(case_chunks)}
+{f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
+{f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
+
+CRITICAL FORMAT:
+- Provide an authentic real-world or experimental case study scenario passage (120-200 words) under 'case_passage'.
+- Provide 3 to 4 analytical sub-questions under 'sub_questions' (e.g., ["(i) Explain why...", "(ii) What happens if...", "(iii) Deduce the relationship..."]).
+- 'question_text' must present the scenario followed by the sub-questions clearly.
+- 'answer' must be step-by-step model solutions addressing each sub-question.
+- Marks: {case_marks}
+
+JSON FORMAT ONLY:
+{{
+  "questions": [
+    {{
+      "question_number": 1,
+      "question_type": "case_study",
+      "case_passage": "A research team investigates...",
+      "sub_questions": [
+        "(i) Identify the principle demonstrated in the scenario. (1 Mark)",
+        "(ii) State one limitation of this observation. (1 Mark)",
+        "(iii) How would the outcome change under controlled conditions? (2 Marks)"
+      ],
+      "question_text": "Read the following case study carefully and answer the questions that follow:\\n\\n[Passage]\\n\\nQuestions:\\n(i)...\\n(ii)...\\n(iii)...",
+      "options": null,
+      "answer": "(i) Principle: ...\\n(ii) Limitation: ...\\n(iii) Under controlled conditions: ...",
+      "explanation": "Detailed analytical rationale.",
+      "marks": {case_marks}
+    }}
+  ]
+}}
+You MUST produce ALL {c_case} Case Study questions in the 'questions' list."""
+            tasks.append(_call_llm(case_prompt))
+
         raw_responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         extracted_raw_questions = []
@@ -243,7 +376,7 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
             raise HTTPException(status_code=status_code, detail=detail)
 
         # Clean and categorize
-        mcqs, shorts, longs = [], [], []
+        mcqs, fills, ars, shorts, longs, cases = [], [], [], [], [], []
         for q in extracted_raw_questions:
             if not isinstance(q, dict):
                 continue
@@ -255,7 +388,55 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
             ans = str(q.get("answer") or "Refer to step-by-step model solution.")
             exp = str(q.get("explanation") or "NCERT aligned explanation.")
 
-            if "mcq" in q_type or opts:
+            if "assertion" in q_type or "reason" in q_type or (q.get("assertion_text") and q.get("reason_text")):
+                std_ar_opts = [
+                    "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                    "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                    "(C) Assertion (A) is true but Reason (R) is false.",
+                    "(D) Assertion (A) is false but Reason (R) is true."
+                ]
+                a_txt = str(q.get("assertion_text") or "").strip()
+                r_txt = str(q.get("reason_text") or "").strip()
+                if not a_txt and "assertion" in q_text.lower():
+                    # extract assertion and reason if embedded
+                    parts = q_text.split("Reason (R):")
+                    if len(parts) == 2:
+                        a_txt = parts[0].replace("Assertion (A):", "").strip()
+                        r_txt = parts[1].strip()
+                formatted_q_text = f"Assertion (A): {a_txt}\nReason (R): {r_txt}" if a_txt and r_txt else q_text
+                ars.append({
+                    "question_type": "assertion_reason",
+                    "question_text": formatted_q_text,
+                    "assertion_text": a_txt or None,
+                    "reason_text": r_txt or None,
+                    "marks": ar_marks,
+                    "options": opts or std_ar_opts,
+                    "answer": ans,
+                    "explanation": exp
+                })
+            elif "fill" in q_type or "blank" in q_type:
+                fills.append({
+                    "question_type": "fill_in_the_blanks",
+                    "question_text": q_text,
+                    "marks": fill_marks,
+                    "options": None,
+                    "answer": ans,
+                    "explanation": exp
+                })
+            elif "case" in q_type or q.get("case_passage") or q.get("sub_questions"):
+                sub_qs = q.get("sub_questions") if isinstance(q.get("sub_questions"), list) else None
+                passage = str(q.get("case_passage") or "").strip()
+                cases.append({
+                    "question_type": "case_study",
+                    "question_text": q_text,
+                    "case_passage": passage or None,
+                    "sub_questions": sub_qs,
+                    "marks": case_marks,
+                    "options": None,
+                    "answer": ans,
+                    "explanation": exp
+                })
+            elif "mcq" in q_type or opts:
                 mcqs.append({
                     "question_type": "mcq",
                     "question_text": q_text,
@@ -284,16 +465,22 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                 })
 
         mcqs = _dedup_q_list(mcqs)
+        fills = _dedup_q_list(fills)
+        ars = _dedup_q_list(ars)
         shorts = _dedup_q_list(shorts)
         longs = _dedup_q_list(longs)
+        cases = _dedup_q_list(cases)
 
         # Multi-round deficit fulfillment in safe small chunks
-        for _ in range(3):
+        for _ in range(2):
             miss_mcq = max(0, target_mcq - len(mcqs))
+            miss_fill = max(0, target_fill - len(fills))
+            miss_ar = max(0, target_ar - len(ars))
             miss_short = max(0, target_short - len(shorts))
             miss_long = max(0, target_long - len(longs))
+            miss_case = max(0, target_case - len(cases))
 
-            if miss_mcq <= 0 and miss_short <= 0 and miss_long <= 0:
+            if miss_mcq <= 0 and miss_fill <= 0 and miss_ar <= 0 and miss_short <= 0 and miss_long <= 0 and miss_case <= 0:
                 break
 
             supp_tasks = []
@@ -303,6 +490,20 @@ You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
                         f"""{subject_directive}
 Generate EXACTLY {chunk} unique Multiple Choice Questions for {req.class_name} {req.subject}, {req.chapter}.
 JSON ONLY: {{"questions": [{{"question_type": "mcq", "question_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "answer": "...", "explanation": "...", "marks": 1}}]}}"""
+                    ))
+            if miss_fill > 0:
+                for chunk in _get_chunks(miss_fill, 6):
+                    supp_tasks.append(_call_llm(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Fill in the Blanks Questions with '_______' for {req.class_name} {req.subject}, {req.chapter}.
+JSON ONLY: {{"questions": [{{"question_type": "fill_in_the_blanks", "question_text": "... _______ ...", "answer": "...", "explanation": "...", "marks": {fill_marks}}}]}}"""
+                    ))
+            if miss_ar > 0:
+                for chunk in _get_chunks(miss_ar, 5):
+                    supp_tasks.append(_call_llm(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Assertion-Reason Questions for {req.class_name} {req.subject}, {req.chapter}.
+JSON ONLY: {{"questions": [{{"question_type": "assertion_reason", "assertion_text": "...", "reason_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "answer": "(A)...", "explanation": "...", "marks": {ar_marks}}}]}}"""
                     ))
             if miss_short > 0:
                 for chunk in _get_chunks(miss_short, 5):
@@ -318,6 +519,13 @@ JSON ONLY: {{"questions": [{{"question_type": "short", "question_text": "...", "
 Generate EXACTLY {chunk} unique Long Answer / HOTS (5 Marks) Questions for {req.class_name} {req.subject}, {req.chapter}.
 JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "answer": "...", "explanation": "...", "marks": 5}}]}}"""
                     ))
+            if miss_case > 0:
+                for chunk in _get_chunks(miss_case, 2):
+                    supp_tasks.append(_call_llm(
+                        f"""{subject_directive}
+Generate EXACTLY {chunk} unique Case Study Questions for {req.class_name} {req.subject}, {req.chapter}.
+JSON ONLY: {{"questions": [{{"question_type": "case_study", "case_passage": "...", "sub_questions": ["(i)...", "(ii)..."], "question_text": "...", "answer": "...", "explanation": "...", "marks": {case_marks}}}]}}"""
+                    ))
 
             supp_resps = await asyncio.gather(*supp_tasks, return_exceptions=True)
             for s_resp in supp_resps:
@@ -328,7 +536,43 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
                         stext = str(sq.get("question_text") or sq.get("question") or "").strip()
                         if not stext:
                             continue
-                        if "mcq" in stype:
+                        if "assertion" in stype or "reason" in stype:
+                            ars.append({
+                                "question_type": "assertion_reason",
+                                "question_text": stext,
+                                "assertion_text": sq.get("assertion_text"),
+                                "reason_text": sq.get("reason_text"),
+                                "marks": ar_marks,
+                                "options": sq.get("options") or [
+                                    "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                                    "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                                    "(C) Assertion (A) is true but Reason (R) is false.",
+                                    "(D) Assertion (A) is false but Reason (R) is true."
+                                ],
+                                "answer": str(sq.get("answer", "(A)")),
+                                "explanation": str(sq.get("explanation", ""))
+                            })
+                        elif "fill" in stype:
+                            fills.append({
+                                "question_type": "fill_in_the_blanks",
+                                "question_text": stext,
+                                "marks": fill_marks,
+                                "options": None,
+                                "answer": str(sq.get("answer", "")),
+                                "explanation": str(sq.get("explanation", ""))
+                            })
+                        elif "case" in stype:
+                            cases.append({
+                                "question_type": "case_study",
+                                "question_text": stext,
+                                "case_passage": sq.get("case_passage"),
+                                "sub_questions": sq.get("sub_questions"),
+                                "marks": case_marks,
+                                "options": None,
+                                "answer": str(sq.get("answer", "")),
+                                "explanation": str(sq.get("explanation", ""))
+                            })
+                        elif "mcq" in stype:
                             mcqs.append({
                                 "question_type": "mcq",
                                 "question_text": stext,
@@ -357,12 +601,17 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
                             })
 
             mcqs = _dedup_q_list(mcqs)
+            fills = _dedup_q_list(fills)
+            ars = _dedup_q_list(ars)
             shorts = _dedup_q_list(shorts)
             longs = _dedup_q_list(longs)
+            cases = _dedup_q_list(cases)
 
-        # Assemble final indexed questions matching exact requested count
+        # Assemble final indexed questions matching exact requested counts
         final_qs = []
         q_num = 1
+
+        # 1. MCQs
         for q in mcqs[:target_mcq]:
             final_qs.append(QuestionItem(
                 id=q_num,
@@ -376,6 +625,37 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
             ))
             q_num += 1
 
+        # 2. Fill in the Blanks
+        for q in fills[:target_fill]:
+            final_qs.append(QuestionItem(
+                id=q_num,
+                question_number=q_num,
+                question_type="fill_in_the_blanks",
+                question_text=q["question_text"],
+                marks=fill_marks,
+                options=None,
+                answer=q.get("answer") or "Model answer.",
+                explanation=q.get("explanation")
+            ))
+            q_num += 1
+
+        # 3. Assertion-Reason
+        for q in ars[:target_ar]:
+            final_qs.append(QuestionItem(
+                id=q_num,
+                question_number=q_num,
+                question_type="assertion_reason",
+                question_text=q["question_text"],
+                assertion_text=q.get("assertion_text"),
+                reason_text=q.get("reason_text"),
+                marks=ar_marks,
+                options=q.get("options"),
+                answer=q.get("answer") or "(A) Both Assertion (A) and Reason (R) are true...",
+                explanation=q.get("explanation")
+            ))
+            q_num += 1
+
+        # 4. Short Answer
         for q in shorts[:target_short]:
             final_qs.append(QuestionItem(
                 id=q_num,
@@ -389,6 +669,7 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
             ))
             q_num += 1
 
+        # 5. Long Answer / HOTS
         for q in longs[:target_long]:
             final_qs.append(QuestionItem(
                 id=q_num,
@@ -400,6 +681,24 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
                 answer=q.get("answer") or "Detailed derivation/analytical solution.",
                 explanation=q.get("explanation")
             ))
+            q_num += 1
+
+        # 6. Case Study
+        for q in cases[:target_case]:
+            final_qs.append(QuestionItem(
+                id=q_num,
+                question_number=q_num,
+                question_type="case_study",
+                question_text=q["question_text"],
+                case_passage=q.get("case_passage"),
+                sub_questions=q.get("sub_questions"),
+                marks=case_marks,
+                options=None,
+                answer=q.get("answer") or "Sub-question model answers.",
+                explanation=q.get("explanation")
+            ))
+            q_num += 1
+
         if not final_qs:
             raise HTTPException(
                 status_code=500,
@@ -407,6 +706,29 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
             )
 
         calc_marks = sum(q.marks for q in final_qs)
+
+        # Dynamic Section Instructions
+        instructions = ["All questions are compulsory."]
+        sec_idx = ord('A')
+        if target_mcq > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Multiple Choice Questions of 1 mark each.")
+            sec_idx += 1
+        if target_fill > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Fill in the Blanks Questions of {fill_marks} mark(s) each.")
+            sec_idx += 1
+        if target_ar > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Assertion-Reason Questions of {ar_marks} mark(s) each.")
+            sec_idx += 1
+        if target_short > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Short Answer Questions of 3 marks each.")
+            sec_idx += 1
+        if target_long > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Long Answer / HOTS Questions of 5 marks each.")
+            sec_idx += 1
+        if target_case > 0:
+            instructions.append(f"Section {chr(sec_idx)} comprises Competency-Based Case Study Questions of {case_marks} marks each.")
+            sec_idx += 1
+
         return GeneratedPaperResponse(
             title=str(req.title or f"{req.subject} Examination Paper"),
             class_name=str(req.class_name or "Class 10"),
@@ -415,12 +737,7 @@ JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "a
             difficulty=str(req.difficulty or "medium"),
             total_marks=calc_marks if calc_marks > 0 else int(req.total_marks or 80),
             time_allowed_mins=int(req.time_allowed_mins or 180),
-            instructions=[
-                "All questions are compulsory.",
-                "Section A comprises MCQs of 1 mark each.",
-                "Section B comprises Short Answer questions of 3 marks each.",
-                "Section C comprises Long Answer / HOTS questions of 5 marks each."
-            ],
+            instructions=instructions,
             questions=final_qs,
             school_name=str(req.school_name or "DEVGYA GLOBAL ACADEMY"),
             user_email=req.user_email
