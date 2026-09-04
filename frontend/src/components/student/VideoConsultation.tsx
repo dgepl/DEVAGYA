@@ -120,6 +120,7 @@ export function VideoConsultation() {
   const pendingSpeechRef = useRef<string>("");
   const silenceTimerRef = useRef<any>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => { inCallRef.current = inCall; }, [inCall]);
   useEffect(() => { micOnRef.current = micOn; }, [micOn]);
@@ -138,7 +139,11 @@ export function VideoConsultation() {
   // Complete teardown when user exits the page, switches routes, or closes the tab
   useEffect(() => {
     const handleExit = () => {
-      // 1. Immediately cut AI speech synthesis
+      // 1. Immediately cut AI speech synthesis & neural audio
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
@@ -447,15 +452,21 @@ export function VideoConsultation() {
     startListeningRef.current = startListening;
   }, [startListening]);
 
-  // Hindi Natural Speech Output (TTS)
+  // Hindi Natural Speech Output (TTS) with Indian Neural Engine & Web Speech Fallback
   const speak = useCallback((text: string) => {
-    if (!speakerOn || typeof window === "undefined" || !("speechSynthesis" in window)) {
+    if (!speakerOn) {
       if (inCallRef.current && micOnRef.current) startListeningRef.current();
       return;
     }
 
     stopListening();
-    window.speechSynthesis.cancel();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
 
     const spokenText = cleanHindiTextForSpeech(text);
     if (!spokenText) {
@@ -465,42 +476,75 @@ export function VideoConsultation() {
 
     lastAiSpokenCleanRef.current = spokenText.slice(0, 40);
 
-    const utt = new SpeechSynthesisUtterance(spokenText);
-    utt.lang = "hi-IN";
-    utt.rate = 1.0;
-    utt.pitch = 1.05;
+    // Helper: Browser speech synthesis fallback
+    const fallbackBrowserSpeech = () => {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        isAiSpeakingRef.current = false;
+        setAiSpeaking(false);
+        return;
+      }
+      const utt = new SpeechSynthesisUtterance(spokenText);
+      utt.lang = "hi-IN";
+      utt.rate = 1.0;
+      utt.pitch = 1.05;
+      const voice = getHindiVoice();
+      if (voice) utt.voice = voice;
 
-    const voice = getHindiVoice();
-    if (voice) utt.voice = voice;
-
-    utt.onstart = () => {
-      isAiSpeakingRef.current = true;
-      setAiSpeaking(true);
-      stopListening();
+      utt.onstart = () => {
+        isAiSpeakingRef.current = true;
+        setAiSpeaking(true);
+        stopListening();
+      };
+      utt.onend = () => {
+        isAiSpeakingRef.current = false;
+        setAiSpeaking(false);
+        aiSpeakingCooldownRef.current = Date.now() + 800;
+        setTimeout(() => {
+          if (inCallRef.current && micOnRef.current) startListeningRef.current();
+        }, 400);
+      };
+      utt.onerror = () => {
+        isAiSpeakingRef.current = false;
+        setAiSpeaking(false);
+        setTimeout(() => {
+          if (inCallRef.current && micOnRef.current) startListeningRef.current();
+        }, 400);
+      };
+      window.speechSynthesis.speak(utt);
     };
 
-    utt.onend = () => {
-      isAiSpeakingRef.current = false;
-      setAiSpeaking(false);
-      aiSpeakingCooldownRef.current = Date.now() + 800;
-      setTimeout(() => {
-        if (inCallRef.current && micOnRef.current) {
-          startListeningRef.current();
-        }
-      }, 400);
-    };
+    // Primary: Microsoft hi-IN-SwaraNeural via backend streaming
+    try {
+      const streamUrl = `${API_BASE}/tts/speak?voice=hi-IN-SwaraNeural&text=${encodeURIComponent(spokenText)}`;
+      const audio = new Audio(streamUrl);
+      currentAudioRef.current = audio;
 
-    utt.onerror = () => {
-      isAiSpeakingRef.current = false;
-      setAiSpeaking(false);
-      setTimeout(() => {
-        if (inCallRef.current && micOnRef.current) {
-          startListeningRef.current();
-        }
-      }, 400);
-    };
+      audio.onplay = () => {
+        isAiSpeakingRef.current = true;
+        setAiSpeaking(true);
+        stopListening();
+      };
 
-    window.speechSynthesis.speak(utt);
+      audio.onended = () => {
+        isAiSpeakingRef.current = false;
+        setAiSpeaking(false);
+        currentAudioRef.current = null;
+        aiSpeakingCooldownRef.current = Date.now() + 800;
+        setTimeout(() => {
+          if (inCallRef.current && micOnRef.current) startListeningRef.current();
+        }, 400);
+      };
+
+      audio.onerror = () => {
+        fallbackBrowserSpeech();
+      };
+
+      audio.play().catch(() => {
+        fallbackBrowserSpeech();
+      });
+    } catch {
+      fallbackBrowserSpeech();
+    }
   }, [speakerOn, stopListening]);
 
   useEffect(() => {

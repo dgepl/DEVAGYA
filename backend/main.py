@@ -39,6 +39,7 @@ from api.v1.xp import router as xp_router
 from api.v1.olympiad import router as olympiad_router
 from api.v1.assignment import router as assignment_router
 from api.v1.ppt import router as ppt_router
+from api.v1.tts import router as tts_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -129,6 +130,7 @@ app.include_router(xp_router, prefix=settings.API_V1_STR)
 app.include_router(olympiad_router, prefix=settings.API_V1_STR)
 app.include_router(assignment_router, prefix=settings.API_V1_STR)
 app.include_router(ppt_router, prefix=settings.API_V1_STR)
+app.include_router(tts_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():

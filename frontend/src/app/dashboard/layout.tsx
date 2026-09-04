@@ -39,7 +39,8 @@ import {
   Search,
   Video,
   Rocket,
-  Sliders
+  Sliders,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -69,6 +70,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     pathname?.startsWith("/dashboard/agents") ||
     pathname?.startsWith("/dashboard/chat") ||
     pathname?.startsWith("/dashboard/video-consultation") ||
+    pathname?.startsWith("/dashboard/english-coach") ||
     pathname?.startsWith("/dashboard/student/tutor") ||
     pathname?.startsWith("/dashboard/parent/coach") ||
     pathname?.startsWith("/dashboard/teacher-olympiad");
@@ -163,6 +165,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         pathname.startsWith("/dashboard/agents") ||
         pathname === "/dashboard/chat" ||
         pathname === "/dashboard/video-consultation" ||
+        pathname.startsWith("/dashboard/english-coach") ||
         pathname === "/dashboard/profile";
 
       if (!isTeacherAllowed) {
@@ -188,7 +191,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
     { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
-    { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
+    { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
   ];
 
   if (user.role === "student") {

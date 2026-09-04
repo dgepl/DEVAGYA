@@ -22,7 +22,8 @@ import {
   FolderOpen,
   X,
   FileCheck,
-  Sliders
+  Sliders,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF } from "@/lib/api";
@@ -38,7 +39,7 @@ export function MobileTeacherDashboard() {
     { name: "Question Generator", sub: "NCERT Exam Papers", href: "/dashboard/generator", icon: Sparkles, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Generator" },
     { name: "Skill Enhance Practice", sub: "Practice Mock Tests", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Practice" },
     { name: "Skill Enhance Program", sub: "Official Certification", href: "/dashboard/teacher-olympiad", icon: Trophy, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100", type: "Certification" },
-    { name: "Video Consultation", sub: "Live 1-on-1 Mentoring", href: "/dashboard/video-consultation", icon: Video, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "Consultation" },
+    { name: "English Speaking Coach", sub: "Live Spoken Fluency & Practice", href: "/dashboard/english-coach", icon: Headphones, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "Speaking Coach" },
     { name: "Analytics AI", sub: "Class Score Radar", href: "/dashboard/agents?agent=analytics_assistant", icon: TrendingUp, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Analytics" },
     { name: "English Coach", sub: "Academic Polish", href: "/dashboard/agents?agent=english_coach", icon: Bot, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100", type: "AI Coach" },
   ];
@@ -372,17 +373,17 @@ export function MobileTeacherDashboard() {
                 </div>
               </Link>
 
-              {/* Card 6: Video Consultation */}
+              {/* Card 6: English Speaking Coach */}
               <Link
-                href="/dashboard/video-consultation"
+                href="/dashboard/english-coach"
                 className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-rose-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
               >
                 <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
-                  <Video className="w-5 h-5" />
+                  <Headphones className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Video Consultation</h3>
-                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Live 1-on-1 Mentoring</p>
+                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">English Speaking Coach</h3>
+                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Live Spoken Fluency & Practice</p>
                 </div>
                 <div className="flex justify-end pt-1">
                   <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">

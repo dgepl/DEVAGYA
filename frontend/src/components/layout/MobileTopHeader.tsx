@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   Bell,
   CheckCircle2,
-  Sliders
+  Sliders,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
@@ -154,7 +155,7 @@ export function MobileTopHeader() {
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
     { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
-    { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
+    { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
   ];
 
   if (role === "student") {

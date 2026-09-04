@@ -26,7 +26,8 @@ import {
   Search,
   Video,
   Trophy,
-  Sliders
+  Sliders,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF, GeneratedPaperResponse } from "@/lib/api";
@@ -147,13 +148,13 @@ export default function TeacherDashboardOverviewPage() {
       badge: "Practice Zone"
     },
     {
-      code: "video-consultation",
-      href: "/dashboard/video-consultation",
-      name: "Video Consultation",
-      desc: "Schedule 1-on-1 virtual mentoring, video consultations & AI voice sessions.",
-      icon: Video,
+      code: "english-coach",
+      href: "/dashboard/english-coach",
+      name: "English Speaking Coach",
+      desc: "Live spoken English fluency, classroom instruction phrasing & PTM conversation practice with authentic Indian accent.",
+      icon: Headphones,
       color: "from-rose-500 to-red-600",
-      badge: "Live Video"
+      badge: "Live Spoken AI"
     }
   ];
 
@@ -173,7 +174,7 @@ export default function TeacherDashboardOverviewPage() {
   const filteredTools = teacherTools.filter(t => {
     if (desktopFilter === "generator" && t.code !== "generator") return false;
     if (desktopFilter === "olympiad" && !t.code.includes("olympiad")) return false;
-    if (desktopFilter === "ai" && !["teacher_mentor", "video-consultation"].includes(t.code)) return false;
+    if (desktopFilter === "ai" && !["teacher_mentor", "video-consultation", "english-coach"].includes(t.code)) return false;
     if (desktopFilter === "ocr" && t.code !== "ocr") return false;
 
     if (!qClean) return true;
