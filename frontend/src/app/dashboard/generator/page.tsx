@@ -337,9 +337,55 @@ export default function GeneratorPage() {
       savePaper(res);
       setShowMobilePaperModal(true);
     } catch (err: any) {
-      clearInterval(progressInterval);
-      console.error("Generation error:", err);
-      setError(err.message || "Failed to generate AI paper. Please check connection.");
+      console.warn("Initial generation fetch notice, checking server for synthesized paper...", err);
+
+      // Intelligent Server-Side Verification:
+      // If client browser connection dropped or reverse proxy briefly timed out while the backend was completing the paper,
+      // verify server paper history before showing any error.
+      let recoveredPaper: GeneratedPaperResponse | null = null;
+      try {
+        setProgressStage("Checking with server for synthesized paper...");
+        const targetEmail = user?.email || "guest@devgya.com";
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) {
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+          const checkRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "/api/v1"}/generator/history?email=${encodeURIComponent(targetEmail.trim().toLowerCase())}`);
+          if (checkRes.ok) {
+            const histData = await checkRes.json();
+            const papersList = histData.papers || [];
+            if (papersList.length > 0) {
+              const latest = papersList[0];
+              const isTitleMatch = latest.title?.toLowerCase() === targetTitle.toLowerCase();
+              const isClassMatch = latest.class_name === targetClass;
+              const isSubjectMatch = latest.subject === targetSubject;
+              if ((isTitleMatch && isClassMatch) || (isClassMatch && isSubjectMatch)) {
+                recoveredPaper = latest;
+                break;
+              }
+            }
+          }
+        }
+      } catch (recoveryErr) {
+        console.warn("Recovery history check failed:", recoveryErr);
+      }
+
+      if (recoveredPaper) {
+        clearInterval(progressInterval);
+        setProgressPercentage(100);
+        setProgressStage("Question Paper successfully retrieved!");
+        if (user.schoolLogo && !recoveredPaper.school_logo) {
+          recoveredPaper.school_logo = user.schoolLogo;
+        }
+        setPaper(recoveredPaper);
+        savePaper(recoveredPaper);
+        setShowMobilePaperModal(true);
+        setError(null);
+      } else {
+        clearInterval(progressInterval);
+        console.error("Generation error:", err);
+        setError(err.message || "Failed to generate AI paper. Please check connection.");
+      }
     } finally {
       clearInterval(progressInterval);
       setLoading(false);

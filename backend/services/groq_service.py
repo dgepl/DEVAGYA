@@ -352,7 +352,7 @@ Batch Part: {i+1} of {len(case_chunks)}
 CRITICAL FORMAT:
 - Provide an authentic real-world or experimental case study scenario passage (120-200 words) under 'case_passage'.
 - Provide 3 to 4 analytical sub-questions under 'sub_questions' (e.g., ["(i) Explain why...", "(ii) What happens if...", "(iii) Deduce the relationship..."]).
-- 'question_text' must present the scenario followed by the sub-questions clearly.
+- 'question_text' must be ONLY the directive intro line (e.g. "Read the following case study carefully and answer the questions that follow:"). Do NOT repeat the passage inside 'question_text'.
 - 'answer' must be step-by-step model solutions addressing each sub-question.
 - Marks: {case_marks}
 
@@ -368,7 +368,7 @@ JSON FORMAT ONLY:
         "(ii) State one limitation of this observation. (1 Mark)",
         "(iii) How would the outcome change under controlled conditions? (2 Marks)"
       ],
-      "question_text": "Read the following case study carefully and answer the questions that follow:\\n\\n[Passage]\\n\\nQuestions:\\n(i)...\\n(ii)...\\n(iii)...",
+      "question_text": "Read the following case study carefully and answer the questions that follow:",
       "options": null,
       "answer": "(i) Principle: ...\\n(ii) Limitation: ...\\n(iii) Under controlled conditions: ...",
       "explanation": "Detailed analytical rationale.",
@@ -446,11 +446,29 @@ You MUST produce ALL {c_case} Case Study questions in the 'questions' list."""
             elif "case" in q_type or q.get("case_passage") or q.get("sub_questions"):
                 sub_qs = q.get("sub_questions") if isinstance(q.get("sub_questions"), list) else None
                 passage = str(q.get("case_passage") or "").strip()
+                clean_qt = q_text
+                # If passage is duplicated inside question_text, clean it out
+                if passage and len(passage) > 20 and passage.lower() in clean_qt.lower():
+                    clean_qt = re.sub(re.escape(passage), '', clean_qt, flags=re.IGNORECASE).strip()
+                # If sub-questions are listed inside question_text, strip them out
+                if sub_qs:
+                    clean_qt = re.split(r'\n\s*(?:Questions?\s*:|\([iI1aA]\)|1\.)', clean_qt, flags=re.IGNORECASE)[0].strip()
+                if not clean_qt or len(clean_qt) < 10 or clean_qt.lower() in ("read the following", "case study"):
+                    clean_qt = "Read the following case study carefully and answer the questions that follow:"
+
+                # Ensure clean sub-questions without duplicate numerals
+                clean_sub_qs = None
+                if sub_qs:
+                    clean_sub_qs = [
+                        re.sub(r'^\s*(?:\([a-zA-Z0-9ivxlcdmIVXLCDM]+\)|[a-zA-Z0-9ivxlcdmIVXLCDM]+[.)])\s*', '', str(sq)).strip()
+                        for sq in sub_qs
+                    ]
+
                 cases.append({
                     "question_type": "case_study",
-                    "question_text": q_text,
+                    "question_text": clean_qt,
                     "case_passage": passage or None,
-                    "sub_questions": sub_qs,
+                    "sub_questions": clean_sub_qs,
                     "marks": case_marks,
                     "options": None,
                     "answer": ans,
@@ -1127,11 +1145,26 @@ JSON FORMAT ONLY:
             exp = str(q.get("explanation") or "Derived directly from attached source material.")
 
             if "case" in q_type or q.get("case_passage"):
+                passage = str(q.get("case_passage") or "Case scenario derived from attached material.").strip()
+                raw_sub = q.get("sub_questions") or ["(i) Explain the phenomenon.", "(ii) State the key principle.", "(iii) Derive the final conclusion."]
+                clean_qt = q_text
+                if passage and len(passage) > 20 and passage.lower() in clean_qt.lower():
+                    clean_qt = re.sub(re.escape(passage), '', clean_qt, flags=re.IGNORECASE).strip()
+                if raw_sub:
+                    clean_qt = re.split(r'\n\s*(?:Questions?\s*:|\([iI1aA]\)|1\.)', clean_qt, flags=re.IGNORECASE)[0].strip()
+                if not clean_qt or len(clean_qt) < 10 or clean_qt.lower() in ("read the following", "case study"):
+                    clean_qt = "Read the following case study carefully and answer the questions that follow:"
+
+                clean_sub_qs = [
+                    re.sub(r'^\s*(?:\([a-zA-Z0-9ivxlcdmIVXLCDM]+\)|[a-zA-Z0-9ivxlcdmIVXLCDM]+[.)])\s*', '', str(sq)).strip()
+                    for sq in raw_sub
+                ]
+
                 cases.append({
                     "question_type": "case_study",
-                    "question_text": q_text,
-                    "case_passage": q.get("case_passage") or "Case scenario derived from attached material.",
-                    "sub_questions": q.get("sub_questions") or ["(i) Explain the phenomenon.", "(ii) State the key principle.", "(iii) Derive the final conclusion."],
+                    "question_text": clean_qt,
+                    "case_passage": passage,
+                    "sub_questions": clean_sub_qs,
                     "marks": case_marks,
                     "options": None,
                     "answer": ans,

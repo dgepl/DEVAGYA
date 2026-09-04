@@ -30,17 +30,32 @@ def _save_papers_store(data: dict):
     with open(PAPERS_STORE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
+import asyncio
+import logging
+
+logger = logging.getLogger("generator")
+
 async def _save_paper_for_user(email: Optional[str], paper_data: dict):
     if not paper_data:
         return
-    email_clean = (email or "guest@devgya.com").strip().lower()
-    store = _load_papers_store()
-    user_papers = store.get(email_clean, [])
-    filtered = [p for p in user_papers if not (p.get("title") == paper_data.get("title") and p.get("class_name") == paper_data.get("class_name"))]
-    store[email_clean] = [paper_data] + filtered
-    _save_papers_store(store)
-    # Sync to Supabase Cloud
-    await supabase_service.save_question_paper_to_cloud(email_clean, paper_data)
+    try:
+        email_clean = (email or "guest@devgya.com").strip().lower()
+        store = _load_papers_store()
+        user_papers = store.get(email_clean, [])
+        filtered = [p for p in user_papers if not (p.get("title") == paper_data.get("title") and p.get("class_name") == paper_data.get("class_name"))]
+        store[email_clean] = [paper_data] + filtered
+        _save_papers_store(store)
+
+        # Sync to Supabase Cloud asynchronously in background so response returns to user immediately
+        async def _bg_cloud_sync():
+            try:
+                await supabase_service.save_question_paper_to_cloud(email_clean, paper_data)
+            except Exception as sync_err:
+                logger.warning(f"Background cloud sync warning for {email_clean}: {sync_err}")
+
+        asyncio.create_task(_bg_cloud_sync())
+    except Exception as e:
+        logger.error(f"Error persisting paper for user {email}: {e}")
 
 from services.error_service import format_ai_exception_detail
 

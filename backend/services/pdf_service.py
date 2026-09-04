@@ -891,8 +891,11 @@ class PDFGeneratorService:
 
             raw_q = strip_emojis_for_pdf(q.question_text or "")
             
+            is_case_study = q.question_type in ('case_study', 'case')
+            has_sub_qs = bool(getattr(q, 'sub_questions', None) and isinstance(q.sub_questions, list) and len(q.sub_questions) > 0)
+
             # Check if case study has passage
-            if q.question_type in ('case_study', 'case') and getattr(q, "case_passage", None):
+            if is_case_study and getattr(q, "case_passage", None):
                 passage_text = clean_md_to_reportlab(strip_emojis_for_pdf(str(q.case_passage)))
                 passage_table = Table(
                     [[Paragraph(f"<b>CASE STUDY SCENARIO / CONTEXT:</b><br/>{passage_text}", instruction_style)]],
@@ -905,6 +908,40 @@ class PDFGeneratorService:
                 ]))
                 q_elements.append(passage_table)
                 q_elements.append(Spacer(1, 4))
+
+                # If passage is already in the grey box table above, remove it from raw_q to prevent duplication
+                passage_plain = str(q.case_passage).strip()
+                if len(passage_plain) > 20 and passage_plain.lower() in raw_q.lower():
+                    pattern = re.escape(passage_plain)
+                    raw_q = re.sub(pattern, '', raw_q, flags=re.IGNORECASE).strip()
+                elif len(passage_plain) > 30 and passage_plain[:30].lower() in raw_q.lower():
+                    idx = raw_q.lower().find(passage_plain[:30].lower())
+                    if idx != -1:
+                        q_match = re.search(r'(?:Questions?|Sub-questions?|\([iI1aA]\))\s*:', raw_q[idx:], re.IGNORECASE)
+                        if q_match:
+                            raw_q = raw_q[:idx] + raw_q[idx + q_match.start():]
+                        else:
+                            raw_q = raw_q[:idx]
+
+            # If this is a case study and sub_questions are provided to be rendered below,
+            # do NOT repeat the sub-questions in the main question header text
+            if is_case_study and has_sub_qs:
+                split_patterns = [
+                    r'\n\s*Questions?\s*:',
+                    r'\bQuestions?\s*:',
+                    r'\n\s*\([iI1aA]\)',
+                    r'\n\s*1\.',
+                    r'\n\s*i\.'
+                ]
+                for sp in split_patterns:
+                    match = re.search(sp, raw_q, re.IGNORECASE)
+                    if match:
+                        raw_q = raw_q[:match.start()].strip()
+                        break
+
+                clean_directive = re.sub(r'[^a-zA-Z0-9 ]', '', raw_q).strip().lower()
+                if not clean_directive or len(clean_directive) < 10 or clean_directive in ("read the following", "case study", "read the following case study"):
+                    raw_q = "Read the following case study carefully and answer the questions that follow:"
 
             # Check if question text contains a Mermaid diagram
             mermaid_match = re.search(r'```(?:mermaid|graph|flowchart)?\s*([\s\S]*?)```', raw_q, re.IGNORECASE)
@@ -942,13 +979,15 @@ class PDFGeneratorService:
                     q_elements.append(Spacer(1, 2))
                     q_elements.append(Paragraph(f"<b>Reason (R):</b> {r_clean}", option_style))
 
-            # Case Study sub-questions if present
+            # Case Study sub-questions if present (cleanly strip any duplicate leading Roman or numeric prefix)
             if getattr(q, 'sub_questions', None) and isinstance(q.sub_questions, list):
                 q_elements.append(Spacer(1, 3))
                 romans = ["(i)", "(ii)", "(iii)", "(iv)", "(v)", "(vi)"]
                 for sub_idx, sub_q in enumerate(q.sub_questions):
                     r_label = romans[sub_idx] if sub_idx < len(romans) else f"({sub_idx + 1})"
                     sub_clean = clean_md_to_reportlab(strip_emojis_for_pdf(str(sub_q)))
+                    # Strip any duplicate leading numeral e.g. "(i)", "i.", "(1)", "1.", "(a)", "a)"
+                    sub_clean = re.sub(r'^\s*(?:\([a-zA-Z0-9ivxlcdmIVXLCDM]+\)|[a-zA-Z0-9ivxlcdmIVXLCDM]+[.)])\s*', '', sub_clean).strip()
                     q_elements.append(Paragraph(f"<b>{r_label}</b> {sub_clean}", option_style))
                     q_elements.append(Spacer(1, 2))
 
