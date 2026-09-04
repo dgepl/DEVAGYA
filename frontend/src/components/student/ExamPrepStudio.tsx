@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   Trophy, 
   Sparkles, 
@@ -13,18 +13,71 @@ import {
   X,
   ChevronRight,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  GraduationCap,
+  Zap
 } from "lucide-react";
 import Markdown from "@/components/chat/Markdown";
+import { CBSE_NCERT_CURRICULUM } from "@/lib/cbseNcertCurriculum";
 
+const CLASS_OPTIONS = Object.keys(CBSE_NCERT_CURRICULUM);
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 export function ExamPrepStudio() {
+  // Cascading Selection State
+  const [selectedClass, setSelectedClass] = useState("Class 10");
+
+  const availableSubjects = useMemo(() => {
+    return Object.keys(CBSE_NCERT_CURRICULUM[selectedClass]?.subjects || {});
+  }, [selectedClass]);
+
+  const [subject, setSubject] = useState(() => {
+    const subjs = Object.keys(CBSE_NCERT_CURRICULUM["Class 10"]?.subjects || {});
+    return subjs[0] || "Science";
+  });
+
+  const availableChapters = useMemo(() => {
+    return CBSE_NCERT_CURRICULUM[selectedClass]?.subjects?.[subject] || [];
+  }, [selectedClass, subject]);
+
+  const [selectedChapter, setSelectedChapter] = useState("All High-Yield Chapters / Full Syllabus");
+  const [customChapter, setCustomChapter] = useState("");
+  const [isCustomChapter, setIsCustomChapter] = useState(false);
+
   const [examName, setExamName] = useState("CBSE Class 10 Board Exam");
-  const [subject, setSubject] = useState("Science");
   const [daysRemaining, setDaysRemaining] = useState(14);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const handleClassChange = (newClass: string) => {
+    setSelectedClass(newClass);
+    const subjs = Object.keys(CBSE_NCERT_CURRICULUM[newClass]?.subjects || {});
+    const nextSubj = subjs.includes(subject) ? subject : (subjs[0] || "");
+    setSubject(nextSubj);
+    setSelectedChapter("All High-Yield Chapters / Full Syllabus");
+    setIsCustomChapter(false);
+    setCustomChapter("");
+    setExamName(`CBSE ${newClass} Exam`);
+  };
+
+  const handleSubjectChange = (newSubj: string) => {
+    setSubject(newSubj);
+    setSelectedChapter("All High-Yield Chapters / Full Syllabus");
+    setIsCustomChapter(false);
+    setCustomChapter("");
+  };
+
+  const handleChapterChange = (val: string) => {
+    if (val === "__custom__") {
+      setIsCustomChapter(true);
+      setSelectedChapter("");
+    } else {
+      setIsCustomChapter(false);
+      setSelectedChapter(val);
+    }
+  };
+
+  const effectiveTopic = isCustomChapter ? customChapter.trim() : (selectedChapter || "");
 
   // Modal / Topic Explanation State
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
@@ -71,7 +124,13 @@ export function ExamPrepStudio() {
       const res = await fetch(`${API_BASE}/student/exam-prep`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exam_name: examName, subject, days_remaining: daysRemaining }),
+        body: JSON.stringify({ 
+          exam_name: examName,
+          target_class: selectedClass,
+          subject,
+          topic: effectiveTopic,
+          days_remaining: daysRemaining 
+        }),
       });
       const data = await res.json();
       if (data.high_yield_topics) {
@@ -154,35 +213,98 @@ export function ExamPrepStudio() {
         </button>
       </div>
 
-      {/* INPUT CONTROLS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
-        <div>
-          <label className="text-[11px] font-bold text-slate-700 block mb-1">Target Exam</label>
-          <input 
-            type="text" 
-            value={examName} 
-            onChange={(e) => setExamName(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
-          />
+      {/* INPUT CONTROLS (CASCADING CLASS -> SUBJECT -> TOPIC) */}
+      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          
+          {/* 1. TARGET CLASS */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
+              <GraduationCap className="w-3.5 h-3.5 text-indigo-600" /> Target Class
+            </label>
+            <select
+              value={selectedClass}
+              onChange={(e) => handleClassChange(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition"
+            >
+              {CLASS_OPTIONS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 2. SUBJECT */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-emerald-600" /> Subject
+            </label>
+            {availableSubjects.length > 0 ? (
+              <select
+                value={subject}
+                onChange={(e) => handleSubjectChange(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition"
+              >
+                {availableSubjects.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            )}
+          </div>
+
+          {/* 3. TOPIC / CHAPTER */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-500" /> Topic / Chapter
+            </label>
+            <select
+              value={isCustomChapter ? "__custom__" : selectedChapter}
+              onChange={(e) => handleChapterChange(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition"
+            >
+              <option value="All High-Yield Chapters / Full Syllabus">All High-Yield Chapters / Full Syllabus</option>
+              {availableChapters.map((ch) => (
+                <option key={ch} value={ch}>{ch}</option>
+              ))}
+              <option value="__custom__">✏️ Other / Custom Topic...</option>
+            </select>
+          </div>
+
+          {/* 4. DAYS REMAINING */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-rose-500" /> Days Left
+            </label>
+            <input 
+              type="number" 
+              min={1}
+              max={180}
+              value={daysRemaining} 
+              onChange={(e) => setDaysRemaining(parseInt(e.target.value) || 7)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            />
+          </div>
         </div>
-        <div>
-          <label className="text-[11px] font-bold text-slate-700 block mb-1">Subject</label>
-          <input 
-            type="text" 
-            value={subject} 
-            onChange={(e) => setSubject(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
-          />
-        </div>
-        <div>
-          <label className="text-[11px] font-bold text-slate-700 block mb-1">Days Remaining</label>
-          <input 
-            type="number" 
-            value={daysRemaining} 
-            onChange={(e) => setDaysRemaining(parseInt(e.target.value) || 7)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
-          />
-        </div>
+
+        {/* CUSTOM TOPIC INPUT IF SELECTED */}
+        {isCustomChapter && (
+          <div className="pt-1">
+            <input
+              type="text"
+              value={customChapter}
+              onChange={(e) => setCustomChapter(e.target.value)}
+              placeholder="Type specific chapter, unit, or exam topic to focus on..."
+              className="w-full bg-rose-50/50 border border-rose-300 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-xs"
+              autoFocus
+            />
+          </div>
+        )}
       </div>
 
       {/* CONFIDENCE SCORE METER */}

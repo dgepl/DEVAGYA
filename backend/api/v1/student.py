@@ -176,14 +176,19 @@ async def log_pomodoro_session(payload: PomodoroLogPayload):
 async def generate_exam_prep(payload: Dict[str, Any]):
     """AI Exam Preparation — generates strategy, high-yield topics, revision roadmap, expected questions."""
     exam_name = payload.get("exam_name", "CBSE Board Exam")
+    target_class = payload.get("target_class", "")
     subject = payload.get("subject", "Science")
+    topic = payload.get("topic", "")
     days_remaining = payload.get("days_remaining", 14)
+
+    class_text = f"Class / Grade: {target_class}\n" if target_class else ""
+    topic_text = f"Focused Chapter / Topic: {topic}\n" if topic else ""
 
     prompt = f"""You are an expert CBSE/NCERT exam coach. Generate a comprehensive exam preparation strategy.
 
 Exam: {exam_name}
-Subject: {subject}
-Days Remaining: {days_remaining}
+{class_text}Subject: {subject}
+{topic_text}Days Remaining: {days_remaining}
 
 Return a valid JSON object with EXACTLY this structure (no markdown, no extra text):
 {{
@@ -217,7 +222,7 @@ Return a valid JSON object with EXACTLY this structure (no markdown, no extra te
 }}
 
 Generate {days_remaining} days in revision_roadmap if days_remaining <= 7, otherwise 7 days.
-Make topics, questions, and tips specific to {subject} for {exam_name}. Return ONLY valid JSON."""
+Make topics, questions, and tips specific to {subject} {f'and {topic}' if topic else ''} for {target_class or exam_name}. Return ONLY valid JSON."""
 
     try:
         response = await ai_provider.chat_completion([

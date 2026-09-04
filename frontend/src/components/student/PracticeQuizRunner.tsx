@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   Target,
   Sparkles,
@@ -24,13 +24,9 @@ import {
 } from "lucide-react";
 import { generatePracticeQuizFromFile } from "@/lib/api";
 import Markdown from "@/components/chat/Markdown";
+import { CBSE_NCERT_CURRICULUM } from "@/lib/cbseNcertCurriculum";
 
-const CLASS_OPTIONS = [
-  "Nursery / KG",
-  "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
-  "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
-  "Class 11", "Class 12", "College / Competitive Exam"
-];
+const CLASS_OPTIONS = Object.keys(CBSE_NCERT_CURRICULUM);
 
 const DIFFICULTY_LEVELS = [
   { label: "Easy", desc: "Basic recall & core definitions", color: "bg-emerald-50 text-emerald-700 border-emerald-300 active:bg-emerald-500", selectedBg: "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-200" },
@@ -49,12 +45,62 @@ interface QuizQuestion {
 }
 
 export function PracticeQuizRunner() {
-  // Setup state
+  // Cascading Setup state
   const [selectedClass, setSelectedClass] = useState("Class 10");
-  const [subject, setSubject] = useState("");
-  const [topic, setTopic] = useState("");
+
+  const availableSubjects = useMemo(() => {
+    return Object.keys(CBSE_NCERT_CURRICULUM[selectedClass]?.subjects || {});
+  }, [selectedClass]);
+
+  const [subject, setSubject] = useState(() => {
+    const subjs = Object.keys(CBSE_NCERT_CURRICULUM["Class 10"]?.subjects || {});
+    return subjs[0] || "Science";
+  });
+
+  const availableChapters = useMemo(() => {
+    return CBSE_NCERT_CURRICULUM[selectedClass]?.subjects?.[subject] || [];
+  }, [selectedClass, subject]);
+
+  const [selectedTopic, setSelectedTopic] = useState(() => {
+    const chaps = CBSE_NCERT_CURRICULUM["Class 10"]?.subjects?.["Science"] || [];
+    return chaps[0] || "Chapter 1: Chemical Reactions and Equations";
+  });
+  const [customTopic, setCustomTopic] = useState("");
+  const [isCustomTopic, setIsCustomTopic] = useState(false);
+
   const [difficulty, setDifficulty] = useState("Medium");
   const [numQuestions, setNumQuestions] = useState(5);
+
+  const handleClassChange = (newClass: string) => {
+    setSelectedClass(newClass);
+    const subjs = Object.keys(CBSE_NCERT_CURRICULUM[newClass]?.subjects || {});
+    const nextSubj = subjs.includes(subject) ? subject : (subjs[0] || "");
+    setSubject(nextSubj);
+    const chaps = CBSE_NCERT_CURRICULUM[newClass]?.subjects?.[nextSubj] || [];
+    setSelectedTopic(chaps[0] || "Full Syllabus / Mixed Practice");
+    setIsCustomTopic(false);
+    setCustomTopic("");
+  };
+
+  const handleSubjectChange = (newSubj: string) => {
+    setSubject(newSubj);
+    const chaps = CBSE_NCERT_CURRICULUM[selectedClass]?.subjects?.[newSubj] || [];
+    setSelectedTopic(chaps[0] || "Full Syllabus / Mixed Practice");
+    setIsCustomTopic(false);
+    setCustomTopic("");
+  };
+
+  const handleTopicChange = (val: string) => {
+    if (val === "__custom__") {
+      setIsCustomTopic(true);
+      setSelectedTopic("");
+    } else {
+      setIsCustomTopic(false);
+      setSelectedTopic(val);
+    }
+  };
+
+  const effectiveTopic = isCustomTopic ? customTopic.trim() : (selectedTopic || "");
   
   // Attachment state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -116,14 +162,14 @@ export function PracticeQuizRunner() {
       }
       formData.append("student_class", selectedClass || "Class 10");
       formData.append("subject", subject || "General Knowledge");
-      formData.append("topic", topic || "");
+      formData.append("topic", effectiveTopic || "");
       formData.append("difficulty", difficulty || "Medium");
       formData.append("num_questions", String(numQuestions));
 
       const data = await generatePracticeQuizFromFile(formData);
       if (data.questions && data.questions.length > 0) {
         setQuiz({
-          title: `${selectedClass} ${subject || "Practice"} Quiz (${difficulty})`,
+          title: `${selectedClass} ${subject || "Practice"} Quiz - ${effectiveTopic || "General"} (${difficulty})`,
           questions: data.questions.map((q: any, i: number) => {
             let correctAns = "";
             if (q.correct_answer) {
@@ -280,7 +326,7 @@ export function PracticeQuizRunner() {
             )}
           </div>
 
-          {/* 2. CLASS & SUBJECT INPUTS */}
+          {/* 2. CASCADING CLASS, SUBJECT & TOPIC DROPDOWNS */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             
             {/* CLASS SELECTOR */}
@@ -290,8 +336,8 @@ export function PracticeQuizRunner() {
               </label>
               <select
                 value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                onChange={(e) => handleClassChange(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer"
               >
                 {CLASS_OPTIONS.map((c) => (
                   <option key={c} value={c}>
@@ -301,32 +347,64 @@ export function PracticeQuizRunner() {
               </select>
             </div>
 
-            {/* SUBJECT */}
+            {/* SUBJECT DROPDOWN */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <BookOpen className="w-4 h-4 text-emerald-500" /> Subject (Optional)
+                <BookOpen className="w-4 h-4 text-emerald-500" /> Subject
               </label>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g. Science, Mathematics, History"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-              />
+              {availableSubjects.length > 0 ? (
+                <select
+                  value={subject}
+                  onChange={(e) => handleSubjectChange(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer"
+                >
+                  {availableSubjects.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="e.g. Science, Mathematics"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                />
+              )}
             </div>
 
-            {/* TOPIC / CHAPTER */}
+            {/* TOPIC / CHAPTER DROPDOWN */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-amber-500" /> Topic / Chapter (Optional)
+                <Zap className="w-4 h-4 text-amber-500" /> Topic / Chapter
               </label>
-              <input
-                type="text"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="e.g. Acids & Bases, Polynomials"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-              />
+              <select
+                value={isCustomTopic ? "__custom__" : selectedTopic}
+                onChange={(e) => handleTopicChange(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer"
+              >
+                {availableChapters.map((ch) => (
+                  <option key={ch} value={ch}>
+                    {ch}
+                  </option>
+                ))}
+                <option value="__custom__">✏️ Other / Custom Topic...</option>
+              </select>
+
+              {isCustomTopic && (
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={customTopic}
+                    onChange={(e) => setCustomTopic(e.target.value)}
+                    placeholder="Type custom chapter or concept..."
+                    className="w-full bg-white border border-emerald-400 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-xs"
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
           </div>
 
