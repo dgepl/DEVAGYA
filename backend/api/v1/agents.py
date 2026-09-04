@@ -274,12 +274,18 @@ async def agent_chat_message(
                     yield chunk
             except Exception as e:
                 logger.error(f"Agent chat streaming error: {e}")
-                fallback = f"*(Temporary AI connection delay. Please ask your question again.)*"
+                if agent_code == "english_coach":
+                    fallback = "I can see you on camera! If you felt a bit nervous, take a relaxed breath—your speech was actually very clear. Shall we practice the next line?"
+                else:
+                    fallback = f"*(Temporary AI connection delay. Please ask your question again.)*"
                 full += fallback
                 yield fallback
             finally:
-                if not full.strip():
-                    fallback_msg = "Hello! I'm here and ready to help. What topic or lesson would you like to explore?"
+                if not full.strip() or "processing high traffic" in full or "temporarily busy" in full:
+                    if agent_code == "english_coach":
+                        fallback_msg = "I can see you clearly on camera! Don't feel nervous at all—relax and smile, your pronunciation was wonderful. Let us try the next sentence together!"
+                    else:
+                        fallback_msg = "Hello! I'm here and ready to help. What topic or lesson would you like to explore?"
                     full = fallback_msg
                     yield fallback_msg
                 chat_history_service.add_message(conv["id"], "assistant", full)

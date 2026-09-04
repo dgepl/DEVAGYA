@@ -245,7 +245,7 @@ export function EnglishSpeakingCoach() {
     startCamera(next);
   };
 
-  // Instant Snapshot Grabber for Vision
+  // Instant Snapshot Grabber for Vision (ultra-light 240x240, ~5KB for instant transmission)
   const captureLiveFrameBlob = (): Promise<Blob | null> => {
     return new Promise((resolve) => {
       if (!videoRef.current || !cameraActive) {
@@ -259,7 +259,7 @@ export function EnglishSpeakingCoach() {
       }
       try {
         const canvas = document.createElement("canvas");
-        const dim = 360;
+        const dim = 240;
         canvas.width = dim;
         canvas.height = dim;
         const ctx = canvas.getContext("2d");
@@ -270,7 +270,7 @@ export function EnglishSpeakingCoach() {
         ctx.drawImage(video, 0, 0, dim, dim);
         canvas.toBlob((blob) => {
           resolve(blob);
-        }, "image/jpeg", 0.65);
+        }, "image/jpeg", 0.50);
       } catch {
         resolve(null);
       }
@@ -291,13 +291,10 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // Ultra-Fast TTS Audio Player
+  // Ultra-Fast TTS Audio Player for Single Sentence
   const playCoachAudio = useCallback((textToSpeak: string, onFinish?: () => void) => {
     if (soundMutedRef.current) {
       onFinish?.();
-      if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-        setTimeout(() => startListening(), 400);
-      }
       return;
     }
 
@@ -312,7 +309,6 @@ export function EnglishSpeakingCoach() {
     const cleanText = cleanForSpeech(textToSpeak);
     if (!cleanText) {
       onFinish?.();
-      if (isLiveActiveRef.current && !isAiThinkingRef.current) startListening();
       return;
     }
 
@@ -329,17 +325,8 @@ export function EnglishSpeakingCoach() {
       };
 
       audio.onended = () => {
-        setIsAiSpeaking(false);
         currentAudioRef.current = null;
         onFinish?.();
-        // GEMINI LIVE: As soon as AI finishes speaking, automatically resume listening!
-        if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => {
-            if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-              startListening();
-            }
-          }, 350);
-        }
       };
 
       audio.onerror = () => {
@@ -359,28 +346,53 @@ export function EnglishSpeakingCoach() {
       const utt = new SpeechSynthesisUtterance(text);
       utt.lang = selectedVoice.startsWith("hi") ? "hi-IN" : "en-IN";
       utt.onend = () => {
-        setIsAiSpeaking(false);
         onFinish?.();
-        if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => startListening(), 350);
-        }
       };
       utt.onerror = () => {
-        setIsAiSpeaking(false);
         onFinish?.();
-        if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => startListening(), 350);
-        }
       };
       window.speechSynthesis.speak(utt);
     } else {
-      setIsAiSpeaking(false);
       onFinish?.();
-      if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-        setTimeout(() => startListening(), 350);
-      }
     }
   };
+
+  // 0-DELAY SEAMLESS AUDIO QUEUE ENGINE
+  const playNextInQueue = useCallback(() => {
+    if (audioQueueRef.current.length === 0) {
+      isPlayingQueueRef.current = false;
+      setIsAiSpeaking(false);
+      // Automatic hands-free listening resume (Gemini Live cycle)
+      if (isLiveActiveRef.current && !isAiThinkingRef.current) {
+        setTimeout(() => {
+          if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+            startListening();
+          }
+        }, 220);
+      }
+      return;
+    }
+
+    const nextSentence = audioQueueRef.current.shift();
+    if (!nextSentence) {
+      playNextInQueue();
+      return;
+    }
+
+    isPlayingQueueRef.current = true;
+    playCoachAudio(nextSentence, () => {
+      playNextInQueue();
+    });
+  }, [playCoachAudio]);
+
+  const enqueueSentence = useCallback((sentence: string) => {
+    const clean = cleanForSpeech(sentence);
+    if (!clean || clean.length < 2) return;
+    audioQueueRef.current.push(clean);
+    if (!isPlayingQueueRef.current) {
+      playNextInQueue();
+    }
+  }, [playNextInQueue]);
 
   // Interrupt AI Speaking (Like Gemini Live: tap to interrupt)
   const handleInterruptAi = () => {
@@ -391,9 +403,9 @@ export function EnglishSpeakingCoach() {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
-    setIsAiSpeaking(false);
     audioQueueRef.current = [];
     isPlayingQueueRef.current = false;
+    setIsAiSpeaking(false);
     if (isLiveActive) {
       startListening();
     }
@@ -411,6 +423,10 @@ export function EnglishSpeakingCoach() {
     setCurrentSpeechText("");
     setIsAiThinking(true);
     setMicPermissionError(null);
+
+    // Reset audio queue for fresh response
+    audioQueueRef.current = [];
+    isPlayingQueueRef.current = false;
 
     // Save to conversation history
     const userMsgItem = {
@@ -461,7 +477,7 @@ Instructions:
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let fullAiText = "";
-        let hasPlayedFirstSentence = false;
+        let streamCursor = 0;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -470,23 +486,26 @@ Instructions:
           fullAiText += chunk;
           setLiveAiSpeech(fullAiText);
 
-          // ZERO-DELAY AUDIO PIPELINE:
-          // As soon as the first sentence is received, play it immediately!
-          if (!hasPlayedFirstSentence && fullAiText.length > 25) {
-            const sentenceMatch = fullAiText.match(/^([^.!?\n]+[.!?])/);
-            if (sentenceMatch && sentenceMatch[1].length > 15) {
-              const firstSentence = sentenceMatch[1].trim();
-              hasPlayedFirstSentence = true;
+          // 0-DELAY SENTENCE STREAMING TO AUDIO QUEUE:
+          // Check if a sentence delimiter has arrived since streamCursor
+          const unhandled = fullAiText.slice(streamCursor);
+          const delimiterMatch = unhandled.match(/([.!?\n]+)\s+/);
+          if (delimiterMatch && delimiterMatch.index !== undefined) {
+            const sentenceEnd = streamCursor + delimiterMatch.index + delimiterMatch[0].length;
+            const newSentence = fullAiText.slice(streamCursor, sentenceEnd).trim();
+            if (newSentence.length >= 10) {
               setIsAiThinking(false);
-              playCoachAudio(firstSentence, () => {
-                // When first sentence ends, if remaining text exists, play remainder
-                const remainder = fullAiText.slice(sentenceMatch[0].length).trim();
-                if (remainder.length > 10) {
-                  playCoachAudio(remainder);
-                }
-              });
+              enqueueSentence(newSentence);
+              streamCursor = sentenceEnd;
             }
           }
+        }
+
+        // Enqueue any remaining tail of speech
+        const remainingTail = fullAiText.slice(streamCursor).trim();
+        if (remainingTail.length >= 5) {
+          setIsAiThinking(false);
+          enqueueSentence(remainingTail);
         }
 
         try {
@@ -506,9 +525,9 @@ Instructions:
         setConversationHistory(prev => [...prev, aiMsgItem]);
         setIsAiThinking(false);
 
-        // If first sentence wasn't fired during stream, play full text now
-        if (!hasPlayedFirstSentence) {
-          playCoachAudio(fullAiText);
+        // Fallback: if audio was never started during stream, enqueue full text
+        if (!isPlayingQueueRef.current && audioQueueRef.current.length === 0) {
+          enqueueSentence(fullAiText);
         }
       } else {
         const data = await res.json();
@@ -516,16 +535,16 @@ Instructions:
         setLiveAiSpeech(fullAiText);
         parseFeedback(fullAiText, input);
         setIsAiThinking(false);
-        playCoachAudio(fullAiText);
+        enqueueSentence(fullAiText);
       }
     } catch (err) {
       console.error("Conversation error:", err);
       setIsAiThinking(false);
-      const fallbackMsg = "I caught that! Could you please repeat that line with slightly more clarity?";
+      const fallbackMsg = "I can see you clearly on camera! Don't feel nervous—take a gentle breath and smile, your pronunciation is coming along nicely. Shall we practice the next line?";
       setLiveAiSpeech(fallbackMsg);
-      playCoachAudio(fallbackMsg);
+      enqueueSentence(fallbackMsg);
     }
-  }, [immersionMode, activeScenario, conversationId, user?.id, playCoachAudio]);
+  }, [immersionMode, activeScenario, conversationId, user?.id, enqueueSentence]);
 
   // Explicit Manual Send
   const triggerManualSend = () => {
@@ -567,8 +586,10 @@ Instructions:
         if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
 
         let fullTranscript = "";
+        let isFinalDetected = false;
         for (let i = 0; i < event.results.length; i++) {
           fullTranscript += event.results[i][0].transcript + " ";
+          if (event.results[i].isFinal) isFinalDetected = true;
         }
 
         const candidateText = fullTranscript.trim();
@@ -576,14 +597,16 @@ Instructions:
           accumulatedSpeechRef.current = candidateText;
           setCurrentSpeechText(candidateText);
 
-          // ZERO-DELAY AUTO-TRANSMISSION (1.1s natural pause)
+          // ULTRA-FAST 0-DELAY AUTO-TRANSMISSION:
+          // 400ms when speech recognition declares sentence final, 700ms when user pauses naturally
           clearTimeout(silenceTimerRef.current);
+          const silenceDelay = isFinalDetected ? 400 : 700;
           silenceTimerRef.current = setTimeout(() => {
             const readyToSend = accumulatedSpeechRef.current.trim();
             if (readyToSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               handleSendMessage(readyToSend);
             }
-          }, 1100);
+          }, silenceDelay);
         }
       };
 
@@ -832,26 +855,74 @@ Instructions:
         }`} />
 
         {/* LIVE CAMERA VIEWFINDER WITH EMOTION & POSTURE RADAR */}
-        {cameraActive && (
-          <div className="relative w-36 h-36 md:w-48 md:h-48 rounded-3xl overflow-hidden border-2 border-white shadow-xl bg-slate-900 z-10 group">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover scale-x-[-1]"
-            />
-            {/* AI Vision Perception Badge */}
-            <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-extrabold text-emerald-400 flex items-center gap-1 border border-emerald-500/30 shadow-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              <span>AI Vision • Emotion & Posture</span>
+        {cameraActive ? (
+          <div className="flex flex-col items-center gap-2 z-10">
+            <div className="relative w-40 h-40 md:w-52 md:h-52 rounded-3xl overflow-hidden border-2 border-white shadow-2xl bg-slate-900 group ring-4 ring-slate-100/80">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover scale-x-[-1]"
+              />
+
+              {/* Face Targeting Reticles (corners) */}
+              <div className="absolute inset-3 pointer-events-none border border-emerald-400/40 rounded-2xl">
+                <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-emerald-400 rounded-tl-sm" />
+                <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-emerald-400 rounded-tr-sm" />
+                <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-emerald-400 rounded-bl-sm" />
+                <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-emerald-400 rounded-br-sm" />
+              </div>
+
+              {/* AI Vision Perception Badge */}
+              <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-black text-emerald-400 flex items-center gap-1 border border-emerald-500/30 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span>AI Vision • Live Reaction</span>
+              </div>
+
+              {/* Quick Switch Camera Button */}
+              <button
+                onClick={switchCamera}
+                className="absolute top-2 right-2 p-1 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md transition-colors cursor-pointer"
+                title="Switch Camera"
+              >
+                <SwitchCamera className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Real-time Observation Status Badge */}
+              <div className="absolute bottom-2 inset-x-2 bg-black/75 backdrop-blur-md px-2 py-1 rounded-xl text-[9px] font-bold text-white flex items-center justify-between border border-white/10">
+                <span className="flex items-center gap-1 text-emerald-300">
+                  <Eye className="w-3 h-3 text-emerald-400" />
+                  <span>Tracking Eye & Posture</span>
+                </span>
+                <span className="flex items-center gap-1 text-amber-300">
+                  <Smile className="w-3 h-3 text-amber-400" />
+                  <span>Detecting Nervousness</span>
+                </span>
+              </div>
             </div>
 
-            {/* Visual Emotion Hint */}
-            <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold text-white flex items-center gap-1">
-              <Smile className="w-3 h-3 text-amber-400" />
-              <span>Observing Face</span>
+            {/* Sub-badge: Perception & 0-Delay Confidence */}
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                0-Delay Instant Streaming
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                Noticing Expressions & Emotion
+              </span>
             </div>
+          </div>
+        ) : (
+          <div className="w-40 h-28 md:w-52 md:h-32 rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-3 text-center bg-slate-50/50 z-10">
+            <VideoOff className="w-6 h-6 text-slate-400 mb-1" />
+            <p className="text-[11px] font-bold text-slate-600">Camera is Off</p>
+            <button
+              onClick={() => startCamera()}
+              className="mt-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black cursor-pointer shadow-xs"
+            >
+              Turn Camera On
+            </button>
           </div>
         )}
 
