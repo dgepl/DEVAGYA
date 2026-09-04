@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 import { useToolConfigStore, ToolItem } from "@/store/useToolConfigStore";
 import { ComingSoonView } from "@/components/common/ComingSoonView";
+import { getApiBase } from "@/lib/api";
 
 export default function SuperAdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -195,7 +196,7 @@ export default function SuperAdminPage() {
     setLoadingLogin(true);
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -221,7 +222,7 @@ export default function SuperAdminPage() {
   const fetchAdminData = async () => {
     setLoadingData(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/admin/stats`);
       const data = await res.json();
       setStats(data.metrics);
@@ -240,7 +241,7 @@ export default function SuperAdminPage() {
     e.preventDefault();
     setGeneratingAiPaper(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const payload = {
         prompt_text: aiPromptText.trim(),
         title: aiTitle.trim(),
@@ -280,7 +281,7 @@ export default function SuperAdminPage() {
     e.preventDefault();
     setGeneratingTso100(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const payload = {
         subject: tsoSubject,
         class_name: tsoClass,
@@ -344,7 +345,7 @@ export default function SuperAdminPage() {
     if (!editingQuestion || !tsoDraftPaper) return;
     setSavingQuestionEdit(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const qId = editingQuestion.id || editingQuestion.question_number;
       const res = await fetch(`${baseUrl}/admin/tso/papers/${tsoDraftPaper.id}/questions/${qId}`, {
         method: "PUT",
@@ -391,7 +392,7 @@ export default function SuperAdminPage() {
     if (!tsoDraftPaper) return;
     setActivatingTsoPaper(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/admin/tso/papers/${tsoDraftPaper.id}/schedule`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -422,7 +423,7 @@ export default function SuperAdminPage() {
     if (!aiDraftPaper) return;
     setPublishingAiPaper(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const formattedQuestions = (aiDraftPaper.questions || []).map((q: any, idx: number) => {
         const corrIdx = typeof q.correct_answer === "number" ? q.correct_answer : 0;
         const corrText = q.options[corrIdx] || q.answer || `Option ${String.fromCharCode(65 + corrIdx)}`;
@@ -475,7 +476,7 @@ export default function SuperAdminPage() {
     }
     setSavingManualPaper(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
 
       const formattedQuestions = manualQuestions.map((q, idx) => {
         const corrIdx = typeof q.correct_answer === "number" ? q.correct_answer : 0;
@@ -575,7 +576,7 @@ export default function SuperAdminPage() {
     setSavingSchedule(true);
     setActionMsg(null);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const startFormatted = schedStartTime.replace("T", " ") + (schedStartTime.length === 16 ? ":00" : "");
       const endFormatted = schedEndTime.replace("T", " ") + (schedEndTime.length === 16 ? ":00" : "");
       const res = await fetch(`${baseUrl}/admin/tso/papers/${scheduleModalPaper.id}/schedule`, {
@@ -607,7 +608,7 @@ export default function SuperAdminPage() {
   const handleDeletePaper = async (paperId: string) => {
     if (!confirm("Are you sure you want to delete this question paper?")) return;
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/admin/papers/${paperId}`, { method: "DELETE" });
       if (res.ok) {
         setActionMsg("Question paper deleted successfully.");
@@ -649,7 +650,7 @@ export default function SuperAdminPage() {
   const handleDeleteUser = async (userId: string, userEmail: string) => {
     if (!confirm(`Are you sure you want to delete user ${userEmail}?`)) return;
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/admin/users/${userId}`, { method: "DELETE" });
       if (res.ok) {
         setActionMsg(`User ${userEmail} deleted successfully.`);
@@ -665,7 +666,7 @@ export default function SuperAdminPage() {
   const handleSaveSubmissionEvaluation = async () => {
     if (!selectedSub) return;
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const payload = {
         score_percentage: editScore,
         official_feedback: editFeedback,
@@ -700,7 +701,7 @@ export default function SuperAdminPage() {
     }
     setBulkPublishing(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const query = targetId ? `?paper_id=${encodeURIComponent(targetId)}` : "";
       const res = await fetch(`${baseUrl}/admin/olympiad/publish-all${query}`, {
         method: "POST",
@@ -728,7 +729,7 @@ export default function SuperAdminPage() {
     }
     setDeletingSubId(subId);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/admin/olympiad/submissions/${subId}`, {
         method: "DELETE"
       });
@@ -757,7 +758,7 @@ export default function SuperAdminPage() {
     }
     setBulkDeleting(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const query = targetId !== "all" ? `?paper_id=${encodeURIComponent(targetId)}` : "?paper_id=all";
       const res = await fetch(`${baseUrl}/admin/olympiad/submissions${query}`, {
         method: "DELETE"

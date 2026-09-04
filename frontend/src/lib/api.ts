@@ -1,12 +1,15 @@
 export const getApiBase = () => {
-  if (typeof window !== "undefined") {
-    // On mobile or external devices on LAN, relative /api/v1 routes through Next.js rewrite proxy correctly
-    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-      return "/api/v1";
-    }
-    return process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+  // 1. If explicit NEXT_PUBLIC_API_URL is configured (e.g. Render/production backend), always prioritize it!
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.startsWith("http")) {
+    return envUrl;
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  // 2. Client-side browser fallback
+  if (typeof window !== "undefined") {
+    return "/api/v1";
+  }
+  // 3. Server-side local dev fallback
+  return "http://localhost:8000/api/v1";
 };
 
 const API_BASE = getApiBase();
