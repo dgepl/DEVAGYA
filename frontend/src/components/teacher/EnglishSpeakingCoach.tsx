@@ -24,7 +24,11 @@ import {
   Keyboard,
   X,
   History,
-  CheckCircle2,
+  Video,
+  VideoOff,
+  SwitchCamera,
+  Eye,
+  Smile,
   ArrowRight
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
@@ -63,7 +67,7 @@ const PRACTICE_SCENARIOS: ScenarioTopic[] = [
     shortTitle: "Classroom",
     icon: GraduationCap,
     starterPrompt: "Hello coach! I want to practice giving smooth, clear classroom instructions to my students in English.",
-    starterDisplay: "Hello teacher! I am ready. What classroom instructions would you like to practice giving your students?",
+    starterDisplay: "Hello teacher! I see you on camera. What classroom instruction would you like to practice giving your students?",
     quickStarters: [
       "Please settle down and open page 42.",
       "Work in pairs and discuss this problem.",
@@ -76,7 +80,7 @@ const PRACTICE_SCENARIOS: ScenarioTopic[] = [
     shortTitle: "Parent PTM",
     icon: Users,
     starterPrompt: "Hello coach! Let us roleplay a parent-teacher meeting where a parent is worried about their child's marks.",
-    starterDisplay: "Welcome! In PTMs, always balance positive reinforcement with constructive guidance. What would you like to say to the parent first?",
+    starterDisplay: "Welcome! I am observing your expressions. In PTMs, always balance positive reinforcement with constructive guidance. What would you like to say first?",
     quickStarters: [
       "Aarav is very creative, but needs more focus in homework.",
       "We can work together to help improve their test scores.",
@@ -102,7 +106,7 @@ const PRACTICE_SCENARIOS: ScenarioTopic[] = [
     shortTitle: "Free Fluency",
     icon: MessageSquare,
     starterPrompt: "Hello coach! Let us have a spontaneous, flowing spoken conversation about interactive teaching techniques.",
-    starterDisplay: "Hello! Continuous conversation is the fastest way to build spoken fluency. How was your day in the classroom today?",
+    starterDisplay: "Hello! Keep relaxed eye contact with the camera. Continuous conversation is the fastest way to build spoken fluency. How was your day in class?",
     quickStarters: [
       "Today my students were really engaged in our interactive quiz.",
       "I tried a new active learning method in class.",
@@ -115,7 +119,7 @@ const PRACTICE_SCENARIOS: ScenarioTopic[] = [
     shortTitle: "Pronunciation",
     icon: Zap,
     starterPrompt: "Hello coach! Please give me a pronunciation challenge for tricky sounds like /w/ vs /v/.",
-    starterDisplay: "Let us polish your phonetics! Try practicing the difference between /v/ (teeth on lip) and /w/ (rounded lips). Repeat after me when you are ready!",
+    starterDisplay: "Let us polish your phonetics and lip movement! Try practicing the difference between /v/ (teeth on lip) and /w/ (rounded lips). Repeat after me!",
     quickStarters: [
       "Which wristwatches are Swiss wristwatches?",
       "Vincent vowed vengeance very vehemently.",
@@ -148,6 +152,12 @@ export function EnglishSpeakingCoach() {
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [micPermissionError, setMicPermissionError] = useState<string | null>(null);
 
+  // Live Camera Vision States
+  const [cameraActive, setCameraActive] = useState<boolean>(true);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+
   // Multi-Turn Conversation History Context
   const [conversationId, setConversationId] = useState<string>(() => `conv-live-${Date.now()}`);
   const [conversationHistory, setConversationHistory] = useState<
@@ -171,6 +181,8 @@ export function EnglishSpeakingCoach() {
   const accumulatedSpeechRef = useRef<string>("");
   const silenceTimerRef = useRef<any>(null);
   const autoRestartTimerRef = useRef<any>(null);
+  const audioQueueRef = useRef<string[]>([]);
+  const isPlayingQueueRef = useRef<boolean>(false);
 
   // Keep refs synced
   useEffect(() => { isLiveActiveRef.current = isLiveActive; }, [isLiveActive]);
@@ -183,6 +195,8 @@ export function EnglishSpeakingCoach() {
   const cleanForSpeech = (raw: string): string => {
     if (!raw) return "";
     let clean = raw;
+    clean = clean.replace(/✨\s*\*?Better Phrasing\*?:\s*["“]([^"”\n]+)["”]/gi, "");
+    clean = clean.replace(/💡\s*\*?Tip\*?:\s*([^\n]+)/gi, "");
     clean = clean.replace(/\*\*([^*]+)\*\*/g, "$1");
     clean = clean.replace(/\*([^*]+)\*/g, "$1");
     clean = clean.replace(/`([^`]+)`/g, "$1");
@@ -190,6 +204,77 @@ export function EnglishSpeakingCoach() {
     clean = clean.replace(/^[-*•]\s+/gm, "");
     clean = clean.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, "");
     return clean.trim();
+  };
+
+  // Camera Management
+  const startCamera = useCallback(async (mode: "user" | "environment" = facingMode) => {
+    try {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode, width: { ideal: 480 }, height: { ideal: 480 } },
+        audio: false
+      });
+      cameraStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+      setCameraActive(true);
+      setFacingMode(mode);
+    } catch (err) {
+      console.warn("Camera access failed:", err);
+      setCameraActive(false);
+    }
+  }, [facingMode]);
+
+  const stopCamera = useCallback(() => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  }, []);
+
+  const switchCamera = () => {
+    const next = facingMode === "user" ? "environment" : "user";
+    startCamera(next);
+  };
+
+  // Instant Snapshot Grabber for Vision
+  const captureLiveFrameBlob = (): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (!videoRef.current || !cameraActive) {
+        resolve(null);
+        return;
+      }
+      const video = videoRef.current;
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        resolve(null);
+        return;
+      }
+      try {
+        const canvas = document.createElement("canvas");
+        const dim = 360;
+        canvas.width = dim;
+        canvas.height = dim;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(video, 0, 0, dim, dim);
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, "image/jpeg", 0.65);
+      } catch {
+        resolve(null);
+      }
+    });
   };
 
   // Parse feedback from coach response
@@ -206,9 +291,10 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // Play Neural TTS with automatic loop back to Listening (Gemini Live flow)
-  const playCoachAudio = useCallback((textToSpeak: string, customVoice?: string) => {
+  // Ultra-Fast TTS Audio Player
+  const playCoachAudio = useCallback((textToSpeak: string, onFinish?: () => void) => {
     if (soundMutedRef.current) {
+      onFinish?.();
       if (isLiveActiveRef.current && !isAiThinkingRef.current) {
         setTimeout(() => startListening(), 400);
       }
@@ -225,16 +311,16 @@ export function EnglishSpeakingCoach() {
 
     const cleanText = cleanForSpeech(textToSpeak);
     if (!cleanText) {
+      onFinish?.();
       if (isLiveActiveRef.current && !isAiThinkingRef.current) startListening();
       return;
     }
 
-    const voice = customVoice || selectedVoice;
     setIsAiSpeaking(true);
     stopListening(); // Pause mic so it doesn't hear the speaker
 
     try {
-      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(cleanText)}`;
+      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&text=${encodeURIComponent(cleanText)}`;
       const audio = new Audio(streamUrl);
       currentAudioRef.current = audio;
 
@@ -245,49 +331,53 @@ export function EnglishSpeakingCoach() {
       audio.onended = () => {
         setIsAiSpeaking(false);
         currentAudioRef.current = null;
+        onFinish?.();
         // GEMINI LIVE: As soon as AI finishes speaking, automatically resume listening!
         if (isLiveActiveRef.current && !isAiThinkingRef.current) {
           setTimeout(() => {
             if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               startListening();
             }
-          }, 400);
+          }, 350);
         }
       };
 
       audio.onerror = () => {
-        fallbackSpeechSynthesis(cleanText, voice);
+        fallbackSpeechSynthesis(cleanText, onFinish);
       };
 
       audio.play().catch(() => {
-        fallbackSpeechSynthesis(cleanText, voice);
+        fallbackSpeechSynthesis(cleanText, onFinish);
       });
     } catch {
-      fallbackSpeechSynthesis(cleanText, voice);
+      fallbackSpeechSynthesis(cleanText, onFinish);
     }
   }, [selectedVoice]);
 
-  const fallbackSpeechSynthesis = (text: string, voice: string) => {
+  const fallbackSpeechSynthesis = (text: string, onFinish?: () => void) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = voice.startsWith("hi") ? "hi-IN" : "en-IN";
+      utt.lang = selectedVoice.startsWith("hi") ? "hi-IN" : "en-IN";
       utt.onend = () => {
         setIsAiSpeaking(false);
+        onFinish?.();
         if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => startListening(), 400);
+          setTimeout(() => startListening(), 350);
         }
       };
       utt.onerror = () => {
         setIsAiSpeaking(false);
+        onFinish?.();
         if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => startListening(), 400);
+          setTimeout(() => startListening(), 350);
         }
       };
       window.speechSynthesis.speak(utt);
     } else {
       setIsAiSpeaking(false);
+      onFinish?.();
       if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-        setTimeout(() => startListening(), 400);
+        setTimeout(() => startListening(), 350);
       }
     }
   };
@@ -302,12 +392,14 @@ export function EnglishSpeakingCoach() {
       window.speechSynthesis.cancel();
     }
     setIsAiSpeaking(false);
+    audioQueueRef.current = [];
+    isPlayingQueueRef.current = false;
     if (isLiveActive) {
       startListening();
     }
   };
 
-  // Send message to Backend AI Coach with Multi-Turn Context
+  // Send message to Backend AI Coach with Camera Snapshot & Rapid Sentence Streaming
   const handleSendMessage = useCallback(async (text: string) => {
     const input = text.trim();
     if (!input || isAiThinkingRef.current) return;
@@ -331,20 +423,21 @@ export function EnglishSpeakingCoach() {
 
     try {
       const modeInstruction = immersionMode === "immersion"
-        ? "Respond in conversational, natural, supportive Indian/Global English. Speak naturally like a colleague/mentor."
-        : "The educator is using bilingual / Hinglish mode. Feel free to explain concepts with simple Hindi hints while keeping primary phrasing in polished English.";
+        ? "Respond in conversational, natural, supportive Indian/Global English. Speak like an encouraging colleague."
+        : "The educator is in bilingual mode. Provide English coaching with simple Hindi hints where helpful.";
 
-      const promptDirective = `[LIVE CONVERSATIONAL ENGLISH COACH]
+      const promptDirective = `[LIVE CONVERSATIONAL ENGLISH COACH WITH VISION]
 Current Scenario: ${activeScenario.title}
 Mode: ${immersionMode} (${modeInstruction})
 Teacher: "${input}"
 
-Guidelines:
-1. Provide a warm, concise conversational spoken response (1 to 2 sentences max) as this is spoken out loud.
-2. If there is a noticeable grammatical error or a much more natural educator phrasing, provide:
+Instructions:
+1. Observe the attached camera image: Note their posture, smile, eye contact, or if they appear nervous/hesitant or confident.
+2. Provide a 1-to-2 sentence rapid spoken peer response that acknowledges their expression/feeling and answers them.
+3. If their English can be elevated or has an error, provide:
 ✨ Better Phrasing: "[Polished line]"
-💡 Tip: [1 short sentence on tone or vocabulary]
-3. Always ask a brief, natural follow-up question to keep our live spoken dialogue flowing!`;
+💡 Tip: [1 short tip]
+4. End with a quick question to keep our spoken dialogue flowing. Keep response super snappy so audio plays instantly!`;
 
       const fd = new FormData();
       fd.append("message", promptDirective);
@@ -352,6 +445,12 @@ Guidelines:
       fd.append("conversation_id", conversationId);
       fd.append("user_id", user?.id || "teacher-guest");
       fd.append("language", immersionMode === "immersion" ? "english" : "hinglish");
+
+      // ATTACH LIVE REAL-TIME CAMERA SNAPSHOT FOR EMOTION & POSTURE ANALYSIS
+      const frameBlob = await captureLiveFrameBlob();
+      if (frameBlob) {
+        fd.append("images", frameBlob, "live_teacher_face.jpg");
+      }
 
       const res = await fetch(`${getApiBase()}/agents/chat`, {
         method: "POST",
@@ -362,12 +461,32 @@ Guidelines:
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let fullAiText = "";
+        let hasPlayedFirstSentence = false;
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          fullAiText += decoder.decode(value, { stream: true });
+          const chunk = decoder.decode(value, { stream: true });
+          fullAiText += chunk;
           setLiveAiSpeech(fullAiText);
+
+          // ZERO-DELAY AUDIO PIPELINE:
+          // As soon as the first sentence is received, play it immediately!
+          if (!hasPlayedFirstSentence && fullAiText.length > 25) {
+            const sentenceMatch = fullAiText.match(/^([^.!?\n]+[.!?])/);
+            if (sentenceMatch && sentenceMatch[1].length > 15) {
+              const firstSentence = sentenceMatch[1].trim();
+              hasPlayedFirstSentence = true;
+              setIsAiThinking(false);
+              playCoachAudio(firstSentence, () => {
+                // When first sentence ends, if remaining text exists, play remainder
+                const remainder = fullAiText.slice(sentenceMatch[0].length).trim();
+                if (remainder.length > 10) {
+                  playCoachAudio(remainder);
+                }
+              });
+            }
+          }
         }
 
         try {
@@ -385,13 +504,15 @@ Guidelines:
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         };
         setConversationHistory(prev => [...prev, aiMsgItem]);
-
         setIsAiThinking(false);
-        // Play AI Voice and then automatically loop back to listening
-        playCoachAudio(fullAiText);
+
+        // If first sentence wasn't fired during stream, play full text now
+        if (!hasPlayedFirstSentence) {
+          playCoachAudio(fullAiText);
+        }
       } else {
         const data = await res.json();
-        const fullAiText = data.response || "Well said! Let us continue practicing together.";
+        const fullAiText = data.response || "Well said! I notice your enthusiasm. Let us practice the next line.";
         setLiveAiSpeech(fullAiText);
         parseFeedback(fullAiText, input);
         setIsAiThinking(false);
@@ -406,7 +527,7 @@ Guidelines:
     }
   }, [immersionMode, activeScenario, conversationId, user?.id, playCoachAudio]);
 
-  // Explicit Manual Send (when teacher taps "Send" or taps the orb while speaking)
+  // Explicit Manual Send
   const triggerManualSend = () => {
     const candidate = accumulatedSpeechRef.current.trim() || currentSpeechText.trim();
     if (candidate && candidate.length >= 2 && !isAiThinkingRef.current) {
@@ -445,7 +566,6 @@ Guidelines:
       recognition.onresult = (event: any) => {
         if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
 
-        // Build the complete transcript from all event results
         let fullTranscript = "";
         for (let i = 0; i < event.results.length; i++) {
           fullTranscript += event.results[i][0].transcript + " ";
@@ -456,15 +576,14 @@ Guidelines:
           accumulatedSpeechRef.current = candidateText;
           setCurrentSpeechText(candidateText);
 
-          // GEMINI LIVE CONVERSATIONAL SILENCE DETECTION:
-          // When the teacher pauses for 1.2 seconds, automatically transmit and respond!
+          // ZERO-DELAY AUTO-TRANSMISSION (1.1s natural pause)
           clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             const readyToSend = accumulatedSpeechRef.current.trim();
             if (readyToSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               handleSendMessage(readyToSend);
             }
-          }, 1200);
+          }, 1100);
         }
       };
 
@@ -480,21 +599,19 @@ Guidelines:
 
       recognition.onend = () => {
         setIsListening(false);
-        // If there is unsent speech in the buffer, send it immediately!
         const readyToSend = accumulatedSpeechRef.current.trim();
         if (readyToSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
           handleSendMessage(readyToSend);
           return;
         }
 
-        // If live session is active and AI is not speaking/thinking, keep the conversational ear open!
         if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
           clearTimeout(autoRestartTimerRef.current);
           autoRestartTimerRef.current = setTimeout(() => {
             if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               try { recognition.start(); } catch {}
             }
-          }, 300);
+          }, 250);
         }
       };
 
@@ -522,6 +639,7 @@ Guidelines:
       // End conversation
       setIsLiveActive(false);
       stopListening();
+      stopCamera();
       if (currentAudioRef.current) {
         currentAudioRef.current.pause();
         currentAudioRef.current = null;
@@ -532,7 +650,8 @@ Guidelines:
     } else {
       // Start Gemini Live Conversation
       setIsLiveActive(true);
-      const greeting = `Hello! I am ${INDIAN_VOICES.find(v => v.code === selectedVoice)?.name}, your live spoken English coach. Let us practice ${activeScenario.title}. What would you like to speak about?`;
+      startCamera();
+      const greeting = `Hello! I am ${INDIAN_VOICES.find(v => v.code === selectedVoice)?.name}. I can see you on camera. Let us practice ${activeScenario.title}. Speak whenever you are ready!`;
       setLiveAiSpeech(greeting);
       playCoachAudio(greeting);
     }
@@ -552,9 +671,11 @@ Guidelines:
     }
   };
 
-  // Cleanup on unmount
+  // Auto-start camera on mount for immediate perception
   useEffect(() => {
+    startCamera("user");
     return () => {
+      stopCamera();
       stopListening();
       if (currentAudioRef.current) currentAudioRef.current.pause();
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -585,7 +706,7 @@ Guidelines:
                 {isLiveActive ? (
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    Live Active
+                    Vision Active
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-600">
@@ -594,13 +715,34 @@ Guidelines:
                 )}
               </div>
               <p className="text-[11px] text-slate-500 font-medium hidden sm:block">
-                Continuous spoken English dialogue with Indian neural accent
+                AI notices posture, smile, and confidence with 0-delay Indian voice replies
               </p>
             </div>
           </div>
 
-          {/* Voice, Language & Actions */}
+          {/* Controls */}
           <div className="flex items-center gap-2">
+            {/* Camera Switcher Toggle */}
+            <button
+              onClick={() => cameraActive ? stopCamera() : startCamera()}
+              className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
+                cameraActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"
+              }`}
+              title={cameraActive ? "Turn Off Camera" : "Turn On Camera"}
+            >
+              {cameraActive ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+            </button>
+
+            {cameraActive && (
+              <button
+                onClick={switchCamera}
+                className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 cursor-pointer"
+                title="Switch Camera"
+              >
+                <SwitchCamera className="w-4 h-4" />
+              </button>
+            )}
+
             {/* Indian Voice Selector */}
             <div className="relative">
               <select
@@ -629,7 +771,7 @@ Guidelines:
               title="Toggle English Immersion vs Bilingual Hinglish Mode"
             >
               <Globe className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{immersionMode === "immersion" ? "Pure English" : "Hinglish Mode"}</span>
+              <span className="hidden sm:inline">{immersionMode === "immersion" ? "Pure English" : "Hinglish"}</span>
               <span className="sm:hidden">{immersionMode === "immersion" ? "EN" : "HI"}</span>
             </button>
 
@@ -673,8 +815,8 @@ Guidelines:
         </div>
       </div>
 
-      {/* 2. GEMINI LIVE CONVERSATIONAL STAGE */}
-      <div className="glass-panel p-6 md:p-10 rounded-3xl border border-slate-200/80 bg-gradient-to-b from-white via-slate-50/50 to-white shadow-sm flex flex-col items-center justify-between text-center space-y-6 relative overflow-hidden flex-1 min-h-[440px]">
+      {/* 2. GEMINI LIVE STAGE WITH LIVE CAMERA HUD & PULSING ORB */}
+      <div className="glass-panel p-5 md:p-8 rounded-3xl border border-slate-200/80 bg-gradient-to-b from-white via-slate-50/50 to-white shadow-sm flex flex-col items-center justify-between text-center space-y-5 relative overflow-hidden flex-1 min-h-[460px]">
         
         {/* AMBIENT GLOW EFFECT */}
         <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl pointer-events-none transition-all duration-700 ${
@@ -689,6 +831,30 @@ Guidelines:
             : "bg-slate-200/40"
         }`} />
 
+        {/* LIVE CAMERA VIEWFINDER WITH EMOTION & POSTURE RADAR */}
+        {cameraActive && (
+          <div className="relative w-36 h-36 md:w-48 md:h-48 rounded-3xl overflow-hidden border-2 border-white shadow-xl bg-slate-900 z-10 group">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+            {/* AI Vision Perception Badge */}
+            <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-extrabold text-emerald-400 flex items-center gap-1 border border-emerald-500/30 shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>AI Vision • Emotion & Posture</span>
+            </div>
+
+            {/* Visual Emotion Hint */}
+            <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold text-white flex items-center gap-1">
+              <Smile className="w-3 h-3 text-amber-400" />
+              <span>Observing Face</span>
+            </div>
+          </div>
+        )}
+
         {/* MIC PERMISSION ERROR NOTICE */}
         {micPermissionError && (
           <div className="w-full max-w-md p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium text-left flex items-start gap-2 z-10">
@@ -700,7 +866,7 @@ Guidelines:
           </div>
         )}
 
-        {/* COACH SUBTITLES CARD (LIKE GEMINI LIVE ON-SCREEN CAPTION) */}
+        {/* COACH SUBTITLES CARD */}
         <div className="w-full max-w-xl z-10">
           <div className="p-4 md:p-5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-sm relative text-left">
             <div className="flex items-center justify-between mb-2 text-[10px] font-black uppercase tracking-wider">
@@ -736,20 +902,20 @@ Guidelines:
           </div>
         </div>
 
-        {/* 3. GEMINI LIVE CENTRAL PULSING ORB (INTERACTIVE VOICE SPHERE) */}
-        <div className="relative flex flex-col items-center justify-center my-2 z-10">
+        {/* 3. GEMINI LIVE CENTRAL PULSING ORB */}
+        <div className="relative flex flex-col items-center justify-center my-1 z-10">
           
           {/* Animated Wave Rings */}
           {isAiSpeaking && (
             <>
-              <div className="absolute w-48 h-48 rounded-full border-2 border-rose-400/50 animate-ping pointer-events-none" />
-              <div className="absolute w-56 h-56 rounded-full border border-indigo-400/40 animate-pulse pointer-events-none" />
+              <div className="absolute w-40 h-40 rounded-full border-2 border-rose-400/50 animate-ping pointer-events-none" />
+              <div className="absolute w-48 h-48 rounded-full border border-indigo-400/40 animate-pulse pointer-events-none" />
             </>
           )}
           {isListening && (
             <>
-              <div className="absolute w-48 h-48 rounded-full border-2 border-emerald-400/60 animate-ping pointer-events-none" />
-              <div className="absolute w-56 h-56 rounded-full border border-teal-400/40 animate-pulse pointer-events-none" />
+              <div className="absolute w-40 h-40 rounded-full border-2 border-emerald-400/60 animate-ping pointer-events-none" />
+              <div className="absolute w-48 h-48 rounded-full border border-teal-400/40 animate-pulse pointer-events-none" />
             </>
           )}
 
@@ -761,7 +927,6 @@ Guidelines:
               } else if (!isLiveActive) {
                 toggleLiveConversation();
               } else if (isListening) {
-                // If user speaks and taps orb, immediately send their speech!
                 const candidate = accumulatedSpeechRef.current.trim() || currentSpeechText.trim();
                 if (candidate && candidate.length >= 2) {
                   handleSendMessage(candidate);
@@ -772,7 +937,7 @@ Guidelines:
                 startListening();
               }
             }}
-            className={`w-28 h-28 md:w-36 md:h-36 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-2xl cursor-pointer select-none active:scale-95 ${
+            className={`w-24 h-24 md:w-28 md:h-28 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-2xl cursor-pointer select-none active:scale-95 ${
               isAiSpeaking
                 ? "bg-gradient-to-tr from-rose-500 via-pink-500 to-indigo-600 scale-105 shadow-rose-500/40 ring-4 ring-rose-200"
                 : isListening
@@ -786,62 +951,62 @@ Guidelines:
           >
             {isAiSpeaking ? (
               <>
-                <Volume2 className="w-10 h-10 md:w-12 md:h-12 text-white animate-bounce" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-rose-100 mt-1">Tap to Interrupt</span>
+                <Volume2 className="w-8 h-8 md:w-10 md:h-10 text-white animate-bounce" />
+                <span className="text-[9px] font-black uppercase tracking-wider text-rose-100 mt-0.5">Interrupt</span>
               </>
             ) : isListening ? (
               <>
-                <Mic className="w-10 h-10 md:w-12 md:h-12 text-white animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-100 mt-1">Tap when Done</span>
+                <Mic className="w-8 h-8 md:w-10 md:h-10 text-white animate-pulse" />
+                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-100 mt-0.5">Send Now</span>
               </>
             ) : isAiThinking ? (
               <>
-                <RotateCcw className="w-10 h-10 md:w-12 md:h-12 text-white" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-100 mt-1">Thinking...</span>
+                <RotateCcw className="w-8 h-8 md:w-10 md:h-10 text-white" />
+                <span className="text-[9px] font-black uppercase tracking-wider text-amber-100 mt-0.5">Thinking</span>
               </>
             ) : isLiveActive ? (
               <>
-                <Mic className="w-10 h-10 md:w-12 md:h-12 text-white" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-100 mt-1">Tap to Speak</span>
+                <Mic className="w-8 h-8 md:w-10 md:h-10 text-white" />
+                <span className="text-[9px] font-black uppercase tracking-wider text-indigo-100 mt-0.5">Speak</span>
               </>
             ) : (
               <>
-                <Phone className="w-10 h-10 md:w-12 md:h-12 text-white animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-100 mt-1">Start Live</span>
+                <Phone className="w-8 h-8 md:w-10 md:h-10 text-white animate-pulse" />
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-100 mt-0.5">Start Live</span>
               </>
             )}
           </button>
 
-          {/* Real-time Status Indicator */}
-          <div className="mt-4 text-xs font-bold">
+          {/* Status Indicator */}
+          <div className="mt-3 text-xs font-bold">
             {isAiSpeaking ? (
               <span className="text-rose-600 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-                Coach speaking with authentic Indian accent (tap orb to interrupt)
+                Coach speaking with zero delay (tap orb to interrupt)
               </span>
             ) : isListening ? (
               <span className="text-emerald-600 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
-                Listening to you... (Pause 1s or tap orb when done)
+                Listening & analyzing expression... (pause or tap orb when done)
               </span>
             ) : isAiThinking ? (
               <span className="text-amber-600 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />
-                Refining teacher phrasing & generating voice...
+                AI perceiving your reaction & speaking with 0 delay...
               </span>
             ) : isLiveActive ? (
               <span className="text-indigo-600">
-                Live conversation active. Speak anytime!
+                Camera vision & hands-free conversation active. Speak freely!
               </span>
             ) : (
               <span className="text-slate-500">
-                Tap &ldquo;Start Live&rdquo; to begin interactive voice conversation
+                Tap &ldquo;Start Live&rdquo; to begin voice conversation with live camera vision
               </span>
             )}
           </div>
         </div>
 
-        {/* LIVE USER TRANSCRIPT BUBBLE (WITH INSTANT SEND BUTTON) */}
+        {/* LIVE USER TRANSCRIPT BUBBLE WITH INSTANT SEND */}
         {currentSpeechText && (
           <div className="w-full max-w-xl p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-950 text-left z-10 shadow-xs flex items-center justify-between gap-3">
             <div className="flex-1">
@@ -857,14 +1022,14 @@ Guidelines:
                 onClick={triggerManualSend}
                 className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 shrink-0"
               >
-                <span>Send Now</span>
+                <span>Send</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             )}
           </div>
         )}
 
-        {/* 4. POLISHED TEACHER ENGLISH FEEDBACK (COLLAPSIBLE GLOWING CARD) */}
+        {/* 4. POLISHED TEACHER ENGLISH FEEDBACK */}
         {latestFeedback && (
           <div className="w-full max-w-xl p-4 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50 to-white border border-indigo-200 text-left shadow-xs z-10">
             <div className="flex items-center justify-between mb-2">
@@ -960,7 +1125,7 @@ Guidelines:
         </div>
       </div>
 
-      {/* 6. EXPANDABLE TEXT INPUT (FOR NOISY ENVIRONMENTS) */}
+      {/* 6. EXPANDABLE TEXT INPUT */}
       {showTextKeyboard && (
         <div className="glass-panel p-2.5 rounded-2xl border border-slate-200 bg-white shadow-xs flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
           <input
