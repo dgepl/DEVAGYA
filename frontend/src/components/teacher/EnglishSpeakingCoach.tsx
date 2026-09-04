@@ -21,15 +21,14 @@ import {
   Zap,
   Phone,
   PhoneOff,
-  Square,
   Keyboard,
   X,
   History,
-  Check
+  CheckCircle2,
+  ArrowRight
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+import { getApiBase } from "@/lib/api";
 
 interface VoiceOption {
   code: string;
@@ -156,7 +155,7 @@ export function EnglishSpeakingCoach() {
   >([]);
 
   // Real-time Subtitles & Transcripts
-  const [interimUserSpeech, setInterimUserSpeech] = useState<string>("");
+  const [currentSpeechText, setCurrentSpeechText] = useState<string>("");
   const [liveAiSpeech, setLiveAiSpeech] = useState<string>(PRACTICE_SCENARIOS[0].starterDisplay);
   const [latestFeedback, setLatestFeedback] = useState<FeedbackItem | null>(null);
   const [textInput, setTextInput] = useState<string>("");
@@ -164,17 +163,16 @@ export function EnglishSpeakingCoach() {
   // Refs for Continuous Audio Engine
   const recognitionRef = useRef<any>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const isLiveActiveRef = useRef(false);
   const isListeningRef = useRef(false);
   const isAiSpeakingRef = useRef(false);
   const isAiThinkingRef = useRef(false);
   const soundMutedRef = useRef(false);
-  const speechBufferRef = useRef<string>("");
+  const accumulatedSpeechRef = useRef<string>("");
   const silenceTimerRef = useRef<any>(null);
   const autoRestartTimerRef = useRef<any>(null);
 
-  // Sync refs with state
+  // Keep refs synced
   useEffect(() => { isLiveActiveRef.current = isLiveActive; }, [isLiveActive]);
   useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
   useEffect(() => { isAiSpeakingRef.current = isAiSpeaking; }, [isAiSpeaking]);
@@ -208,10 +206,9 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // Play Neural TTS with automatic hand-off back to Listening (Gemini Live loop)
+  // Play Neural TTS with automatic loop back to Listening (Gemini Live flow)
   const playCoachAudio = useCallback((textToSpeak: string, customVoice?: string) => {
     if (soundMutedRef.current) {
-      // If sound is muted, immediately resume listening
       if (isLiveActiveRef.current && !isAiThinkingRef.current) {
         setTimeout(() => startListening(), 400);
       }
@@ -234,10 +231,10 @@ export function EnglishSpeakingCoach() {
 
     const voice = customVoice || selectedVoice;
     setIsAiSpeaking(true);
-    stopListening(); // Don't let mic hear AI voice
+    stopListening(); // Pause mic so it doesn't hear the speaker
 
     try {
-      const streamUrl = `${API_BASE}/tts/speak?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(cleanText)}`;
+      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(cleanText)}`;
       const audio = new Audio(streamUrl);
       currentAudioRef.current = audio;
 
@@ -248,13 +245,13 @@ export function EnglishSpeakingCoach() {
       audio.onended = () => {
         setIsAiSpeaking(false);
         currentAudioRef.current = null;
-        // GEMINI LIVE LOOP: When AI finishes speaking, immediately resume listening!
+        // GEMINI LIVE: As soon as AI finishes speaking, automatically resume listening!
         if (isLiveActiveRef.current && !isAiThinkingRef.current) {
           setTimeout(() => {
             if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               startListening();
             }
-          }, 350);
+          }, 400);
         }
       };
 
@@ -277,25 +274,25 @@ export function EnglishSpeakingCoach() {
       utt.onend = () => {
         setIsAiSpeaking(false);
         if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => startListening(), 350);
+          setTimeout(() => startListening(), 400);
         }
       };
       utt.onerror = () => {
         setIsAiSpeaking(false);
         if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => startListening(), 350);
+          setTimeout(() => startListening(), 400);
         }
       };
       window.speechSynthesis.speak(utt);
     } else {
       setIsAiSpeaking(false);
       if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-        setTimeout(() => startListening(), 350);
+        setTimeout(() => startListening(), 400);
       }
     }
   };
 
-  // Interrupt AI Speaking (Like Gemini Live tap to interrupt)
+  // Interrupt AI Speaking (Like Gemini Live: tap to interrupt)
   const handleInterruptAi = () => {
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -315,10 +312,12 @@ export function EnglishSpeakingCoach() {
     const input = text.trim();
     if (!input || isAiThinkingRef.current) return;
 
-    // Pause mic recognition while AI processes
+    // Immediately stop listening and set thinking state
     stopListening();
+    clearTimeout(silenceTimerRef.current);
+    accumulatedSpeechRef.current = "";
+    setCurrentSpeechText("");
     setIsAiThinking(true);
-    setInterimUserSpeech("");
     setMicPermissionError(null);
 
     // Save to conversation history
@@ -354,7 +353,7 @@ Guidelines:
       fd.append("user_id", user?.id || "teacher-guest");
       fd.append("language", immersionMode === "immersion" ? "english" : "hinglish");
 
-      const res = await fetch(`${API_BASE}/agents/chat`, {
+      const res = await fetch(`${getApiBase()}/agents/chat`, {
         method: "POST",
         body: fd
       });
@@ -407,6 +406,14 @@ Guidelines:
     }
   }, [immersionMode, activeScenario, conversationId, user?.id, playCoachAudio]);
 
+  // Explicit Manual Send (when teacher taps "Send" or taps the orb while speaking)
+  const triggerManualSend = () => {
+    const candidate = accumulatedSpeechRef.current.trim() || currentSpeechText.trim();
+    if (candidate && candidate.length >= 2 && !isAiThinkingRef.current) {
+      handleSendMessage(candidate);
+    }
+  };
+
   // Continuous Speech Recognition (Gemini Live Mode)
   const startListening = () => {
     setMicPermissionError(null);
@@ -432,40 +439,32 @@ Guidelines:
 
       recognition.onstart = () => {
         setIsListening(true);
-        speechBufferRef.current = "";
+        accumulatedSpeechRef.current = "";
       };
 
       recognition.onresult = (event: any) => {
         if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
 
-        let interim = "";
-        let final = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const item = event.results[i];
-          if (item.isFinal) {
-            final += item[0].transcript + " ";
-          } else {
-            interim += item[0].transcript;
-          }
+        // Build the complete transcript from all event results
+        let fullTranscript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          fullTranscript += event.results[i][0].transcript + " ";
         }
 
-        const candidateText = (final || interim).trim();
+        const candidateText = fullTranscript.trim();
         if (candidateText) {
-          setInterimUserSpeech(candidateText);
-          speechBufferRef.current = (speechBufferRef.current + " " + final).trim() || candidateText;
+          accumulatedSpeechRef.current = candidateText;
+          setCurrentSpeechText(candidateText);
 
           // GEMINI LIVE CONVERSATIONAL SILENCE DETECTION:
-          // When the teacher pauses for 1.3 seconds, automatically transmit and respond!
+          // When the teacher pauses for 1.2 seconds, automatically transmit and respond!
           clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
-            const readyToSend = speechBufferRef.current.trim();
+            const readyToSend = accumulatedSpeechRef.current.trim();
             if (readyToSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-              speechBufferRef.current = "";
-              stopListening();
               handleSendMessage(readyToSend);
             }
-          }, 1300);
+          }, 1200);
         }
       };
 
@@ -481,6 +480,13 @@ Guidelines:
 
       recognition.onend = () => {
         setIsListening(false);
+        // If there is unsent speech in the buffer, send it immediately!
+        const readyToSend = accumulatedSpeechRef.current.trim();
+        if (readyToSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+          handleSendMessage(readyToSend);
+          return;
+        }
+
         // If live session is active and AI is not speaking/thinking, keep the conversational ear open!
         if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
           clearTimeout(autoRestartTimerRef.current);
@@ -522,6 +528,7 @@ Guidelines:
       }
       setIsAiSpeaking(false);
       setIsAiThinking(false);
+      setCurrentSpeechText("");
     } else {
       // Start Gemini Live Conversation
       setIsLiveActive(true);
@@ -536,7 +543,8 @@ Guidelines:
     setConversationId(`conv-live-${Date.now()}`);
     setConversationHistory([]);
     setLatestFeedback(null);
-    setInterimUserSpeech("");
+    setCurrentSpeechText("");
+    accumulatedSpeechRef.current = "";
     const resetGreeting = `New conversation started! We are practicing ${activeScenario.title}. Speak whenever you are ready.`;
     setLiveAiSpeech(resetGreeting);
     if (isLiveActive) {
@@ -577,7 +585,7 @@ Guidelines:
                 {isLiveActive ? (
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    Live Call Active
+                    Live Active
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-600">
@@ -647,6 +655,7 @@ Guidelines:
                 onClick={() => {
                   setActiveScenario(sc);
                   setLatestFeedback(null);
+                  setCurrentSpeechText("");
                   const switchNotice = `Let us practice ${sc.title}. ${sc.starterPrompt}`;
                   handleSendMessage(switchNotice);
                 }}
@@ -744,7 +753,7 @@ Guidelines:
             </>
           )}
 
-          {/* Central Touch Orb (Tap to Interrupt / Speak / Start) */}
+          {/* Central Touch Orb (Tap to Interrupt / Send / Start) */}
           <button
             onClick={() => {
               if (isAiSpeaking) {
@@ -752,9 +761,13 @@ Guidelines:
               } else if (!isLiveActive) {
                 toggleLiveConversation();
               } else if (isListening) {
-                stopListening();
-                const candidate = speechBufferRef.current.trim() || interimUserSpeech.trim();
-                if (candidate) handleSendMessage(candidate);
+                // If user speaks and taps orb, immediately send their speech!
+                const candidate = accumulatedSpeechRef.current.trim() || currentSpeechText.trim();
+                if (candidate && candidate.length >= 2) {
+                  handleSendMessage(candidate);
+                } else {
+                  stopListening();
+                }
               } else {
                 startListening();
               }
@@ -779,7 +792,7 @@ Guidelines:
             ) : isListening ? (
               <>
                 <Mic className="w-10 h-10 md:w-12 md:h-12 text-white animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-100 mt-1">Listening...</span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-100 mt-1">Tap when Done</span>
               </>
             ) : isAiThinking ? (
               <>
@@ -809,16 +822,16 @@ Guidelines:
             ) : isListening ? (
               <span className="text-emerald-600 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
-                Listening to your English... Speak freely!
+                Listening to you... (Pause 1s or tap orb when done)
               </span>
             ) : isAiThinking ? (
               <span className="text-amber-600 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />
-                Processing your speech & phrasing...
+                Refining teacher phrasing & generating voice...
               </span>
             ) : isLiveActive ? (
               <span className="text-indigo-600">
-                Live hands-free conversation active. Speak anytime!
+                Live conversation active. Speak anytime!
               </span>
             ) : (
               <span className="text-slate-500">
@@ -828,15 +841,26 @@ Guidelines:
           </div>
         </div>
 
-        {/* LIVE USER TRANSCRIPT BUBBLE (WHAT YOU ARE CURRENTLY SAYING) */}
-        {interimUserSpeech && (
-          <div className="w-full max-w-xl p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-950 text-left z-10 shadow-xs">
-            <span className="font-extrabold uppercase text-[10px] text-indigo-600 block mb-0.5">
-              You are saying:
-            </span>
-            <p className="font-medium text-slate-800">
-              &ldquo;{interimUserSpeech}&rdquo;
-            </p>
+        {/* LIVE USER TRANSCRIPT BUBBLE (WITH INSTANT SEND BUTTON) */}
+        {currentSpeechText && (
+          <div className="w-full max-w-xl p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-950 text-left z-10 shadow-xs flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <span className="font-extrabold uppercase text-[10px] text-indigo-600 block mb-0.5">
+                {isListening ? "Listening to you:" : "You said:"}
+              </span>
+              <p className="font-medium text-slate-800">
+                &ldquo;{currentSpeechText}&rdquo;
+              </p>
+            </div>
+            {isListening && (
+              <button
+                onClick={triggerManualSend}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 shrink-0"
+              >
+                <span>Send Now</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
         )}
 
@@ -874,7 +898,7 @@ Guidelines:
 
       </div>
 
-      {/* 5. LIVE CALL BOTTOM CONTROLS (LIKE GEMINI LIVE FOOTER) */}
+      {/* 5. LIVE CALL BOTTOM CONTROLS */}
       <div className="glass-panel p-3 rounded-2xl border border-slate-200 bg-white shadow-xs flex items-center justify-between gap-3">
         
         {/* Toggle Live Conversation Call */}

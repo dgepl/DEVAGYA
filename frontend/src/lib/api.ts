@@ -1,15 +1,14 @@
 export const getApiBase = () => {
-  // 1. If explicit NEXT_PUBLIC_API_URL is configured (e.g. Render/production backend), always prioritize it!
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl && envUrl.startsWith("http")) {
-    return envUrl;
-  }
-  // 2. Client-side browser fallback
   if (typeof window !== "undefined") {
+    const isLocalHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    // Only use envUrl directly if it is production URL or if we are truly running on the same localhost machine
+    if (envUrl && envUrl.startsWith("http") && (isLocalHost || !envUrl.includes("localhost"))) {
+      return envUrl;
+    }
     return "/api/v1";
   }
-  // 3. Server-side local dev fallback
-  return "http://localhost:8000/api/v1";
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 };
 
 const API_BASE = getApiBase();
