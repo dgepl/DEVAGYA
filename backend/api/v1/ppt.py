@@ -18,6 +18,12 @@ async def refine_slide_endpoint(request: RefineSlideRequest):
     """Refine or polish a single slide with AI based on teacher instructions."""
     return await ppt_service.refine_slide(request)
 
+@router.get("/search-image")
+async def search_image_endpoint(query: str):
+    """Search for real educational diagrams/photos matching keyword or topic."""
+    img_url = await ppt_service.resolve_real_image(query, query, query)
+    return {"query": query, "image_url": img_url}
+
 @router.post("/export-pptx")
 async def export_pptx_endpoint(data: PresentationData):
     """Generate and download a real 16:9 Microsoft PowerPoint (.pptx) file."""

@@ -2,6 +2,7 @@ import os
 import io
 import re
 import json
+import asyncio
 import logging
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
@@ -164,8 +165,101 @@ THEME_PRESETS: Dict[str, Dict[str, Any]] = {
     }
 }
 
+_IMAGE_CACHE: Dict[str, bytes] = {}
+_REAL_IMAGE_URL_CACHE: Dict[str, str] = {}
+
+def _download_image_bytes(url: Optional[str]) -> Optional[bytes]:
+    """Downloads image bytes from URL or parses base64 data URLs with in-memory caching."""
+    if not url:
+        return None
+    url_str = str(url).strip()
+    
+    # 1. Direct device-uploaded image support (base64 Data URL)
+    if "base64," in url_str:
+        try:
+            import base64
+            b64_part = url_str.split("base64,")[-1].strip()
+            return base64.b64decode(b64_part)
+        except Exception as b64_err:
+            logger.warning(f"Failed decoding device base64 image data URL: {b64_err}")
+            return None
+
+    # 2. Remote HTTP/HTTPS URL
+    if not url_str.startswith(("http://", "https://")):
+        return None
+
+    if url_str in _IMAGE_CACHE:
+        return _IMAGE_CACHE[url_str]
+
+    try:
+        import httpx
+        headers = {"User-Agent": "DEVGYA-Educational-App/1.0 (https://devgya.in; contact@devgya.in)"}
+        with httpx.Client(timeout=6.0, headers=headers, follow_redirects=True) as client:
+            resp = client.get(url_str)
+            if resp.status_code == 200 and len(resp.content) > 500:
+                _IMAGE_CACHE[url_str] = resp.content
+                return resp.content
+    except Exception as e:
+        logger.warning(f"Failed downloading slide image from {url_str}: {e}")
+    return None
+
+
+async def _resolve_real_topic_image(topic: str, slide_title: str, keyword: str) -> str:
+    """
+    Dynamically finds real, authentic educational images matching the specific topic & slide concept.
+    Uses Wikimedia Commons / Wikipedia API for authentic diagrams, maps, and photographs,
+    falling back to Pollinations AI for photorealistic topic diagrams.
+    """
+    cache_key = f"{topic}_{slide_title}_{keyword}".lower().strip()
+    if cache_key in _REAL_IMAGE_URL_CACHE:
+        return _REAL_IMAGE_URL_CACHE[cache_key]
+
+    queries = [
+        f"{topic} {keyword}".strip(),
+        f"{keyword}".strip(),
+        f"{topic} {slide_title}".strip(),
+        f"{slide_title}".strip()
+    ]
+    headers = {"User-Agent": "DEVGYA-Educational-App/1.0 (https://devgya.in; contact@devgya.in)"}
+
+    try:
+        import httpx
+        import urllib.parse
+        async with httpx.AsyncClient(timeout=4.0, headers=headers, follow_redirects=True) as client:
+            for q in queries:
+                if not q or len(q) < 3:
+                    continue
+                try:
+                    url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=3&prop=pageimages&piprop=thumbnail&pithumbsize=800&format=json"
+                    res = await client.get(url)
+                    if res.status_code == 200:
+                        data = res.json()
+                        pages = data.get("query", {}).get("pages", {})
+                        for _, p in pages.items():
+                            thumb = p.get("thumbnail", {}).get("source")
+                            if thumb and not thumb.lower().endswith(".svg"):
+                                _REAL_IMAGE_URL_CACHE[cache_key] = thumb
+                                return thumb
+                            elif thumb:
+                                _REAL_IMAGE_URL_CACHE[cache_key] = thumb
+                                return thumb
+                except Exception:
+                    continue
+    except Exception as e:
+        logger.warning(f"Error querying real educational image for {keyword}: {e}")
+
+    # Fallback to Pollinations AI real topic diagram
+    import urllib.parse
+    clean_title = re.sub(r'[^a-zA-Z0-9 ]', '', slide_title)[:50].strip()
+    clean_top = re.sub(r'[^a-zA-Z0-9 ]', '', topic)[:40].strip()
+    safe_prompt = urllib.parse.quote(f"clear educational illustration diagram of {clean_title} for {clean_top}, detailed science textbook quality, 8k")
+    pollination_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=500&nologo=true"
+    _REAL_IMAGE_URL_CACHE[cache_key] = pollination_url
+    return pollination_url
+
+
 def _get_image_for_keyword(keyword: str) -> str:
-    """Provides a reliable, beautiful educational image URL based on keyword theme."""
+    """Provides fallback educational image URL based on keyword theme."""
     kw = (keyword or "").lower()
     if any(k in kw for k in ["space", "astronomy", "planet", "galaxy", "solar"]):
         return "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80"
@@ -188,27 +282,6 @@ def _get_image_for_keyword(keyword: str) -> str:
     if any(k in kw for k in ["econ", "market", "trade", "finance", "money"]):
         return "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&auto=format&fit=crop&q=80"
     return "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80"
-
-
-_IMAGE_CACHE: Dict[str, bytes] = {}
-
-def _download_image_bytes(url: Optional[str]) -> Optional[bytes]:
-    """Downloads image bytes from URL with short timeout and in-memory caching."""
-    if not url or not str(url).startswith(("http://", "https://")):
-        return None
-    url_str = str(url).strip()
-    if url_str in _IMAGE_CACHE:
-        return _IMAGE_CACHE[url_str]
-    try:
-        import httpx
-        with httpx.Client(timeout=4.5, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) as client:
-            resp = client.get(url_str)
-            if resp.status_code == 200 and len(resp.content) > 1000:
-                _IMAGE_CACHE[url_str] = resp.content
-                return resp.content
-    except Exception as e:
-        logger.warning(f"Failed downloading slide image from {url_str}: {e}")
-    return None
 
 
 class PPTGeneratorService:
@@ -311,13 +384,27 @@ Generate ALL {req.num_slides} slides completely!"""
             if not slides_raw or not isinstance(slides_raw, list):
                 raise ValueError("No valid slides parsed from AI response.")
 
+            # Concurrently resolve real educational topic images for every slide
+            async def _fill_slide_image(s_dict):
+                if not isinstance(s_dict, dict):
+                    return None
+                kw = str(s_dict.get("image_keyword") or req.topic)
+                stitle = str(s_dict.get("title") or req.topic)
+                img = s_dict.get("image_url")
+                if not img or "unsplash.com" in str(img):
+                    img = await _resolve_real_topic_image(req.topic, stitle, kw)
+                return img
+
+            resolved_imgs = await asyncio.gather(*[_fill_slide_image(s) for s in slides_raw], return_exceptions=True)
+
             slides_list: List[SlideItem] = []
             for idx, s in enumerate(slides_raw):
                 if not isinstance(s, dict):
                     continue
                 num = idx + 1
                 kw = str(s.get("image_keyword") or req.topic)
-                img_url = s.get("image_url") or _get_image_for_keyword(kw)
+                r_img = resolved_imgs[idx] if idx < len(resolved_imgs) and isinstance(resolved_imgs[idx], str) and resolved_imgs[idx] else None
+                img_url = r_img or s.get("image_url") or _get_image_for_keyword(kw)
 
                 bullets = s.get("bullets") if isinstance(s.get("bullets"), list) else []
                 if not bullets and s.get("content"):
@@ -361,6 +448,10 @@ Generate ALL {req.num_slides} slides completely!"""
         except Exception as e:
             logger.warning(f"AI presentation generation error: {e}. Generating fallback structured presentation.")
             return self._generate_fallback_presentation(req)
+
+    async def resolve_real_image(self, topic: str, slide_title: str, keyword: str) -> str:
+        """Finds a real educational image for a topic or slide."""
+        return await _resolve_real_topic_image(topic, slide_title, keyword)
 
     def _generate_fallback_presentation(self, req: GeneratePPTRequest) -> PresentationData:
         """Fallback presentation structure if external LLM encounters temporary connectivity issues."""

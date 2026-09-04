@@ -30,13 +30,18 @@ import {
   Wand2,
   Sliders,
   ExternalLink,
-  X
+  X,
+  Camera,
+  UploadCloud,
+  Search,
+  Check
 } from "lucide-react";
 import {
   generatePPT,
   refinePPTSlide,
   downloadPPTX,
   downloadPPTPDF,
+  searchSlideImage,
   PresentationData,
   SlideItem,
   GeneratePPTRequest
@@ -99,13 +104,84 @@ export default function PPTGeneratorPage() {
   const [showMobileModal, setShowMobileModal] = useState(false);
 
   // Slide Image Editing Modal
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [customImageUrl, setCustomImageUrl] = useState("");
   const [customImageKeyword, setCustomImageKeyword] = useState("");
+  const [searchingImage, setSearchingImage] = useState(false);
+  const [imageSourceMode, setImageSourceMode] = useState<"device" | "search" | "url">("device");
+  const [mobileTab, setMobileTab] = useState<"preview" | "edit">("preview");
 
   // Slide AI Refine Prompt Modal
   const [showRefineModal, setShowRefineModal] = useState(false);
   const [refinePrompt, setRefinePrompt] = useState("");
+
+  // Handle uploading custom picture directly from user device (phone/camera/laptop)
+  const handleDeviceImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (!dataUrl) return;
+
+      // Efficient in-browser Canvas compression to max 1200x800 JPEG (sharp & <300KB)
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 1200;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", 0.82);
+          updateActiveSlide({
+            image_url: compressed,
+            image_caption: file.name.replace(/\.[^/.]+$/, "") || "Custom Uploaded Photo"
+          });
+          setCustomImageUrl(compressed);
+        }
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // Handle searching real topic visual on web
+  const handleSearchOnlineImage = async () => {
+    const kw = customImageKeyword.trim() || activeSlide?.image_keyword || presentation?.topic;
+    if (!kw) return;
+    setSearchingImage(true);
+    try {
+      const res = await searchSlideImage(kw);
+      if (res.image_url) {
+        setCustomImageUrl(res.image_url);
+        updateActiveSlide({
+          image_url: res.image_url,
+          image_keyword: kw,
+          image_caption: `Visual: ${kw}`
+        });
+      }
+    } catch (err: any) {
+      alert(err.message || "Could not find image online.");
+    } finally {
+      setSearchingImage(false);
+    }
+  };
 
   // Saved Decks History in LocalStorage
   const [savedDecks, setSavedDecks] = useState<PresentationData[]>([]);
@@ -982,23 +1058,36 @@ export default function PPTGeneratorPage() {
                             </div>
                           )}
                           <div>
-                            <div className="text-xs font-black text-slate-900">Slide Illustration & Media</div>
+                            <div className="text-xs font-black text-slate-900">Slide Illustration & Real Visual</div>
                             <div className="text-[10px] text-slate-500 max-w-sm truncate font-medium">
                               {activeSlide.image_caption || `Visual: ${activeSlide.image_keyword}`}
                             </div>
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => {
-                            setCustomImageUrl(activeSlide.image_url || "");
-                            setCustomImageKeyword(activeSlide.image_keyword || "");
-                            setShowImageModal(true);
-                          }}
-                          className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl text-xs font-extrabold text-slate-800 transition cursor-pointer shadow-xs"
-                        >
-                          Change Image / Keyword
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>Upload from Device</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomImageUrl(activeSlide.image_url || "");
+                              setCustomImageKeyword(activeSlide.image_keyword || "");
+                              setShowImageModal(true);
+                            }}
+                            className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl text-xs font-extrabold text-slate-800 transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                          >
+                            <Search className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Search Real Media</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* TEACHER SPEAKER NOTES */}
@@ -1229,59 +1318,209 @@ export default function PPTGeneratorPage() {
               </div>
             </div>
           )}
-
         </div>
       </div>
 
-      {/* MODAL 1: CHANGE SLIDE IMAGE */}
+      {/* HIDDEN FILE INPUT FOR DIRECT DEVICE IMAGE SELECTION (MOBILE & DESKTOP) */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={handleDeviceImageUpload}
+        className="hidden"
+      />
+
+      {/* MODAL 1: CHANGE SLIDE IMAGE (DEVICE UPLOAD & REAL TOPIC SEARCH) */}
       {showImageModal && activeSlide && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-              <ImageIcon className="w-5 h-5 text-indigo-600" />
-              <span>Update Slide Media</span>
-            </h3>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-extrabold text-slate-700">Custom Image Direct URL</label>
-              <input
-                type="text"
-                value={customImageUrl}
-                onChange={(e) => setCustomImageUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-extrabold text-slate-700">Or Search Keyword</label>
-              <input
-                type="text"
-                value={customImageKeyword}
-                onChange={(e) => setCustomImageKeyword(e.target.value)}
-                placeholder="e.g. quantum computer, space telescope, plant cell"
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-5 border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <ImageIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <span>Slide Image & Visual</span>
+                  <div className="text-[11px] font-medium text-slate-500">
+                    Slide {activeSlideIdx + 1}: {activeSlide.title}
+                  </div>
+                </div>
+              </h3>
               <button
+                type="button"
                 onClick={() => setShowImageModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition cursor-pointer"
               >
-                Cancel
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Source Mode Tabs */}
+            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl gap-1">
+              <button
+                type="button"
+                onClick={() => setImageSourceMode("device")}
+                className={`py-2 px-3 text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  imageSourceMode === "device"
+                    ? "bg-white text-indigo-700 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>Upload from Device</span>
               </button>
               <button
-                onClick={() => {
-                  updateActiveSlide({
-                    image_url: customImageUrl || undefined,
-                    image_keyword: customImageKeyword || activeSlide.image_keyword
-                  });
-                  setShowImageModal(false);
-                }}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black cursor-pointer"
+                type="button"
+                onClick={() => setImageSourceMode("search")}
+                className={`py-2 px-3 text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  imageSourceMode === "search"
+                    ? "bg-white text-indigo-700 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
               >
-                Save Image
+                <Search className="w-3.5 h-3.5" />
+                <span>Search Real Images</span>
+              </button>
+            </div>
+
+            {/* TAB 1: DEVICE UPLOAD */}
+            {imageSourceMode === "device" && (
+              <div className="space-y-4">
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/50 hover:bg-indigo-50/80 transition p-6 rounded-2xl flex flex-col items-center justify-center text-center gap-3 cursor-pointer group"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-white shadow-md flex items-center justify-center text-indigo-600 group-hover:scale-105 transition">
+                    <UploadCloud className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-black text-slate-900">
+                      Choose Photo from Device / Camera
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Pick any diagram, textbook photo, or custom image from your phone or computer.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-indigo-600 group-hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-xs pointer-events-none"
+                  >
+                    Browse Device Files / Gallery
+                  </button>
+                </div>
+
+                {/* Current Active Image Preview */}
+                {activeSlide.image_url && (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-3">
+                    <img
+                      src={activeSlide.image_url}
+                      alt={activeSlide.image_caption || "Slide visual"}
+                      className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-black text-slate-800 truncate">
+                        Current Slide Image
+                      </div>
+                      <div className="text-[11px] text-slate-500 truncate">
+                        {activeSlide.image_caption || activeSlide.image_keyword}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateActiveSlide({ image_url: undefined })}
+                      className="px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: SEARCH REAL TOPIC IMAGES */}
+            {imageSourceMode === "search" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-800">
+                    Search Real Educational Diagram or Photo
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customImageKeyword}
+                      onChange={(e) => setCustomImageKeyword(e.target.value)}
+                      placeholder="e.g. human heart anatomy, ohm's law circuit, dandi march..."
+                      className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      disabled={searchingImage}
+                      onClick={handleSearchOnlineImage}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-xs transition active:scale-95 shrink-0"
+                    >
+                      {searchingImage ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Search className="w-3.5 h-3.5" />
+                      )}
+                      <span>Search</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Finds authentic educational visuals from Wikimedia Commons & AI educational diagrams.
+                  </p>
+                </div>
+
+                {customImageUrl && (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-3">
+                    <img
+                      src={customImageUrl}
+                      alt="Found visual"
+                      className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-black text-slate-800 truncate">
+                        Found Real Visual
+                      </div>
+                      <div className="text-[11px] text-emerald-600 font-extrabold flex items-center gap-1 mt-0.5">
+                        <Check className="w-3.5 h-3.5" /> Applied to slide
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={searchingImage}
+                onClick={async () => {
+                  setSearchingImage(true);
+                  try {
+                    const res = await searchSlideImage(activeSlide.image_keyword || presentation?.topic || topic);
+                    if (res.image_url) {
+                      updateActiveSlide({ image_url: res.image_url });
+                      setCustomImageUrl(res.image_url);
+                    }
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setSearchingImage(false);
+                  }
+                }}
+                className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${searchingImage ? "animate-spin" : ""}`} />
+                <span>Reset to AI Topic Photo</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowImageModal(false)}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black cursor-pointer shadow-xs active:scale-95 transition ml-auto"
+              >
+                Done
               </button>
             </div>
           </div>
@@ -1345,7 +1584,7 @@ export default function PPTGeneratorPage() {
         </div>
       )}
 
-      {/* FLOATING ACTION PILL ON MOBILE TO OPEN POPUP RESULT */}
+      {/* FLOATING ACTION PILL ON MOBILE TO OPEN MOBILE STUDIO */}
       {presentation && !showMobileModal && (
         <div className="lg:hidden fixed bottom-6 left-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-3 duration-200">
           <button
@@ -1354,25 +1593,55 @@ export default function PPTGeneratorPage() {
             className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white font-black text-xs rounded-2xl shadow-2xl shadow-indigo-500/40 flex items-center justify-center gap-2 border border-white/20 active:scale-95 transition cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-            <span>View Generated PPT ({presentation.slides.length} Slides)</span>
+            <span>Open Mobile Presentation Studio ({presentation.slides.length} Slides)</span>
           </button>
         </div>
       )}
 
-      {/* FULL-SCREEN MOBILE POP-UP MODAL RESULT */}
+      {/* FULL-FEATURED PROFESSIONAL MOBILE PRESENTATION STUDIO */}
       {showMobileModal && presentation && (
         <div className="lg:hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex flex-col justify-end p-0 overflow-hidden animate-in fade-in duration-200">
-          <div className="bg-white rounded-t-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border-t border-slate-200">
-            {/* Modal Header */}
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/90">
-              <div className="min-w-0 pr-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 block">
-                  AI Generated Presentation
-                </span>
-                <h3 className="text-sm font-black text-slate-900 truncate">
-                  {presentation.title}
-                </h3>
+          <div className="bg-white rounded-t-3xl h-[94vh] max-h-[94vh] flex flex-col shadow-2xl overflow-hidden border-t border-slate-200">
+            
+            {/* 1. Header Bar with Tabs & Controls */}
+            <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2 shrink-0">
+              <div className="min-w-0 flex-1 pr-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700">
+                    Slide {activeSlideIdx + 1} of {presentation.slides.length}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500 truncate">
+                    {presentation.title}
+                  </span>
+                </div>
               </div>
+
+              {/* View/Edit Mode Toggle */}
+              <div className="flex items-center bg-slate-200/80 p-0.5 rounded-xl shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMobileTab("preview")}
+                  className={`px-2.5 py-1 text-xs font-black rounded-lg transition ${
+                    mobileTab === "preview"
+                      ? "bg-white text-indigo-700 shadow-xs"
+                      : "text-slate-600"
+                  }`}
+                >
+                  Preview
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTab("edit")}
+                  className={`px-2.5 py-1 text-xs font-black rounded-lg transition ${
+                    mobileTab === "edit"
+                      ? "bg-white text-indigo-700 shadow-xs"
+                      : "text-slate-600"
+                  }`}
+                >
+                  Edit
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setShowMobileModal(false)}
@@ -1382,38 +1651,46 @@ export default function PPTGeneratorPage() {
               </button>
             </div>
 
-            {/* Slide Navigation Bar */}
-            <div className="px-4 py-2.5 bg-indigo-50/60 border-b border-indigo-100 flex items-center justify-between">
+            {/* 2. Horizontal Scrollable Slide Thumbnails Strip */}
+            <div className="px-3 py-2 bg-indigo-50/50 border-b border-indigo-100 flex items-center gap-2 overflow-x-auto shrink-0 no-scrollbar">
+              {presentation.slides.map((s, idx) => (
+                <button
+                  key={s.slide_number}
+                  type="button"
+                  onClick={() => setActiveSlideIdx(idx)}
+                  className={`shrink-0 w-24 p-2 rounded-xl border text-left transition cursor-pointer relative ${
+                    activeSlideIdx === idx
+                      ? "border-indigo-600 bg-white ring-2 ring-indigo-500/30 shadow-xs"
+                      : "border-slate-200 bg-white/70"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[9px] font-black text-slate-500 mb-0.5">
+                    <span>#{idx + 1}</span>
+                    <span className="uppercase text-[7px] bg-slate-100 px-1 rounded truncate max-w-[45px]">
+                      {s.layout.replace("_", " ")}
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-bold text-slate-800 truncate">
+                    {s.title || "Untitled"}
+                  </div>
+                </button>
+              ))}
+
               <button
                 type="button"
-                onClick={() => setActiveSlideIdx((prev) => Math.max(0, prev - 1))}
-                disabled={activeSlideIdx === 0}
-                className="px-2.5 py-1 bg-white border border-slate-200 disabled:opacity-40 rounded-lg text-xs font-black text-slate-700 flex items-center gap-1 shadow-2xs cursor-pointer"
+                onClick={handleAddNewSlide}
+                className="shrink-0 px-3 py-2 bg-white border border-dashed border-indigo-300 hover:border-indigo-500 rounded-xl text-[10px] font-black text-indigo-600 flex items-center gap-1 shadow-2xs"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Prev</span>
-              </button>
-
-              <span className="text-xs font-black text-indigo-900">
-                Slide {activeSlideIdx + 1} of {presentation.slides.length}
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setActiveSlideIdx((prev) => Math.min(presentation.slides.length - 1, prev + 1))}
-                disabled={activeSlideIdx === presentation.slides.length - 1}
-                className="px-2.5 py-1 bg-white border border-slate-200 disabled:opacity-40 rounded-lg text-xs font-black text-slate-700 flex items-center gap-1 shadow-2xs cursor-pointer"
-              >
-                <span>Next</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add</span>
               </button>
             </div>
 
-            {/* Modal Body: Slide Canvas Preview */}
+            {/* 3. Main Body: Switchable between Preview and Mobile Editor */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {activeSlide && (
+              {activeSlide && mobileTab === "preview" && (
                 <div
-                  className="rounded-2xl p-5 border shadow-sm space-y-4"
+                  className="rounded-2xl p-4 sm:p-5 border shadow-sm space-y-4"
                   style={{
                     backgroundColor: currentTheme.bg.startsWith("#") ? currentTheme.bg : "#ffffff",
                     borderColor: currentTheme.primary + "30"
@@ -1445,21 +1722,47 @@ export default function PPTGeneratorPage() {
                     )}
                   </div>
 
-                  {/* Real Image Preview */}
-                  {activeSlide.image_url && (
-                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 relative">
+                  {/* Real Image Preview with Direct Device Upload Button */}
+                  <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 relative group">
+                    {activeSlide.image_url ? (
                       <img
                         src={activeSlide.image_url}
                         alt={activeSlide.image_caption || activeSlide.image_keyword}
                         className="w-full h-44 object-cover"
                         loading="lazy"
                       />
-                      <div className="p-2 bg-white/95 backdrop-blur-xs text-[10px] font-semibold text-slate-700 border-t border-slate-100 flex items-center justify-between">
-                        <span className="truncate">{activeSlide.image_caption || activeSlide.image_keyword}</span>
-                        <span className="text-[9px] text-indigo-600 font-bold shrink-0 ml-1">HD Visual</span>
+                    ) : (
+                      <div className="w-full h-36 bg-slate-200 flex items-center justify-center text-slate-400">
+                        <ImageIcon className="w-8 h-8" />
                       </div>
+                    )}
+                    
+                    {/* Device Upload Pill directly on photo */}
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 py-1.5 px-2.5 bg-slate-900/85 hover:bg-slate-950 backdrop-blur-md text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+                      >
+                        <Camera className="w-3 h-3 text-amber-300" />
+                        <span>Upload Photo from Device</span>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomImageUrl(activeSlide.image_url || "");
+                          setCustomImageKeyword(activeSlide.image_keyword || "");
+                          setImageSourceMode("search");
+                          setShowImageModal(true);
+                        }}
+                        className="p-1.5 bg-white/90 backdrop-blur-md text-slate-800 rounded-xl shadow-md active:scale-95 transition"
+                        title="Search real photo"
+                      >
+                        <Search className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  )}
+                  </div>
 
                   {/* Slide Bullets */}
                   {activeSlide.bullets && activeSlide.bullets.length > 0 && (
@@ -1478,39 +1781,219 @@ export default function PPTGeneratorPage() {
 
                   {/* Speaker Notes */}
                   {activeSlide.speaker_notes && (
-                    <div className="p-3 rounded-xl bg-slate-100/90 text-slate-700 text-[11px] space-y-1">
-                      <span className="font-extrabold text-slate-900 block text-[10px] uppercase tracking-wider">
-                        Teacher Speaker Notes:
+                    <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 text-[11px] space-y-1">
+                      <span className="font-extrabold block text-[10px] uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                        <span>💡</span> Teacher Guidance Notes:
                       </span>
                       <p className="leading-relaxed">{activeSlide.speaker_notes}</p>
                     </div>
                   )}
+
+                  {/* Quick Slide Actions on Mobile */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setShowRefineModal(true)}
+                      className="px-2.5 py-1 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg font-black flex items-center gap-1 cursor-pointer"
+                    >
+                      <Wand2 className="w-3 h-3" />
+                      <span>AI Polish</span>
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateSlide(activeSlideIdx)}
+                        className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg"
+                        title="Duplicate"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSlide(activeSlideIdx)}
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile Tab 2: Full Slide Editing Form */}
+              {activeSlide && mobileTab === "edit" && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-4">
+                  
+                  {/* Photo Action Box */}
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                    <span className="text-xs font-black text-slate-800 block">Slide Photo / Media</span>
+                    <div className="flex items-center gap-3">
+                      {activeSlide.image_url ? (
+                        <img
+                          src={activeSlide.image_url}
+                          alt="Slide photo"
+                          className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs shrink-0"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                          <ImageIcon className="w-6 h-6" />
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>Choose from Device</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomImageUrl(activeSlide.image_url || "");
+                            setCustomImageKeyword(activeSlide.image_keyword || "");
+                            setImageSourceMode("search");
+                            setShowImageModal(true);
+                          }}
+                          className="w-full py-1.5 px-3 bg-white border border-slate-300 text-slate-700 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 shadow-2xs"
+                        >
+                          <Search className="w-3 h-3" />
+                          <span>Search Real Visual</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Title & Subtitle */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-700 mb-1">Slide Title</label>
+                      <input
+                        type="text"
+                        value={activeSlide.title}
+                        onChange={(e) => updateActiveSlide({ title: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-black text-slate-700 mb-1">Subtitle</label>
+                      <input
+                        type="text"
+                        value={activeSlide.subtitle || ""}
+                        onChange={(e) => updateActiveSlide({ subtitle: e.target.value })}
+                        placeholder="Subheading takeaway..."
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bullet Points */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-black text-slate-700">Slide Bullets</label>
+                      <button
+                        type="button"
+                        onClick={handleAddBullet}
+                        className="text-[11px] font-black text-indigo-600 flex items-center gap-0.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Bullet
+                      </button>
+                    </div>
+                    {activeSlide.bullets.map((b, bIdx) => (
+                      <div key={bIdx} className="flex items-start gap-2">
+                        <textarea
+                          rows={2}
+                          value={b}
+                          onChange={(e) => handleUpdateBullet(bIdx, e.target.value)}
+                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-medium text-slate-800"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBullet(bIdx)}
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Teacher Guidance Notes */}
+                  <div>
+                    <label className="block text-[11px] font-black text-slate-700 mb-1">Speaker Notes</label>
+                    <textarea
+                      rows={2}
+                      value={activeSlide.speaker_notes}
+                      onChange={(e) => updateActiveSlide({ speaker_notes: e.target.value })}
+                      placeholder="Notes to guide when teaching..."
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-medium text-slate-800 focus:bg-white"
+                    />
+                  </div>
+
+                  {/* Done editing button */}
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab("preview")}
+                    className="w-full py-2.5 bg-slate-900 text-white font-black text-xs rounded-xl shadow-xs"
+                  >
+                    Done Editing → View Slide
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* Modal Footer: Quick Download Buttons */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={handleDownloadPPTX}
-                disabled={downloadingPPTX}
-                className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>{downloadingPPTX ? "Building..." : "Download PPTX"}</span>
-              </button>
+            {/* 4. Fixed Bottom Toolbar: Navigation & Exports */}
+            <div className="p-3.5 bg-slate-50 border-t border-slate-200 space-y-2.5 shrink-0">
+              {/* Prev / Next Buttons */}
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveSlideIdx((prev) => Math.max(0, prev - 1))}
+                  disabled={activeSlideIdx === 0}
+                  className="flex-1 py-2 px-3 bg-white border border-slate-300 disabled:opacity-40 rounded-xl text-xs font-black text-slate-800 flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95 transition"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Previous</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={handleDownloadPDF}
-                disabled={downloadingPDF}
-                className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>{downloadingPDF ? "Building..." : "Landscape PDF"}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSlideIdx((prev) => Math.min(presentation.slides.length - 1, prev + 1))}
+                  disabled={activeSlideIdx === presentation.slides.length - 1}
+                  className="flex-1 py-2 px-3 bg-white border border-slate-300 disabled:opacity-40 rounded-xl text-xs font-black text-slate-800 flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95 transition"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Download Buttons */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleDownloadPPTX}
+                  disabled={downloadingPPTX}
+                  className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{downloadingPPTX ? "Building..." : "Download PPTX"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadPDF}
+                  disabled={downloadingPDF}
+                  className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>{downloadingPDF ? "Building..." : "Landscape PDF"}</span>
+                </button>
+              </div>
             </div>
+
           </div>
         </div>
       )}

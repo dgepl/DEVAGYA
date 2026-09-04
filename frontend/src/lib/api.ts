@@ -756,4 +756,13 @@ export async function downloadPPTPDF(data: PresentationData): Promise<Blob> {
   return res.blob();
 }
 
+export async function searchSlideImage(query: string): Promise<{ query: string; image_url: string }> {
+  const res = await fetch(`${getApiBase()}/ppt/search-image?query=${encodeURIComponent(query)}`);
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to search real educational image"));
+  }
+  return res.json();
+}
+
 
