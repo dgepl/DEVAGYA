@@ -14,7 +14,8 @@ import {
   GraduationCap,
   FileText,
   Bot,
-  Target
+  Target,
+  Trophy
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -30,8 +31,8 @@ export function MobileBottomDock() {
     if (role === "student") {
       return [
         { label: "Home", href: "/dashboard/student", icon: Home },
-        { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain, agentCode: "student_tutor" },
-        { label: "Ask AI", href: "/dashboard/agents?agent=student_tutor", icon: Sparkles, central: true, agentCode: "student_tutor" },
+        { label: "AI Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy },
+        { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Sparkles, central: true, agentCode: "student_tutor" },
         { label: "Quiz", href: "/dashboard/student/practice", icon: Target },
         { label: "Profile", href: "/dashboard/profile", icon: User },
       ];

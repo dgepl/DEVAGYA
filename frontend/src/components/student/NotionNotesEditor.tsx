@@ -6,13 +6,16 @@ import {
   Sparkles, 
   Plus, 
   Search, 
-  RefreshCw,
-  Trash2,
-  X,
-  Copy,
-  Check
+  RefreshCw, 
+  Trash2, 
+  X, 
+  Copy, 
+  Check,
+  Eye,
+  Edit3
 } from "lucide-react";
 import { handleNoteAIAction } from "@/lib/api";
+import Markdown from "@/components/chat/Markdown";
 
 interface SmartNote {
   id: string;
@@ -25,12 +28,7 @@ interface SmartNote {
 
 function cleanAiOutput(text: string): string {
   if (!text) return "";
-  return text
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1")
-    .replace(/^\s*\*\s+/gm, "- ")
-    .replace(/\*{2,}/g, "")
-    .trim();
+  return text.trim();
 }
 
 const STORAGE_KEY = "devgya_smart_notes_v2";
@@ -43,6 +41,7 @@ export function NotionNotesEditor() {
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -363,29 +362,68 @@ export function NotionNotesEditor() {
                       </button>
                     </div>
                   </div>
-                  <div className="whitespace-pre-line leading-relaxed font-sans bg-white/70 p-3.5 rounded-2xl border border-indigo-100/80 text-slate-800 text-xs">
-                    {aiResult}
+                  <div className="bg-white/80 p-4 rounded-2xl border border-indigo-100/80 text-slate-800 text-xs shadow-xs">
+                    <Markdown content={aiResult} />
                   </div>
                 </div>
               )}
 
-              {/* MAIN NOTE CONTENT TEXTAREA */}
-              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-3">
-                <input 
-                  type="text"
-                  value={activeNote.title}
-                  onChange={(e) => handleUpdateTitle(e.target.value)}
-                  placeholder="Note Title..."
-                  className="text-lg font-black text-slate-900 border-b border-slate-100 pb-2 w-full focus:outline-none placeholder:text-slate-300"
-                />
+              {/* MAIN NOTE CONTENT WORKSPACE WITH EDIT / PREVIEW TOGGLE */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <input 
+                    type="text"
+                    value={activeNote.title}
+                    onChange={(e) => handleUpdateTitle(e.target.value)}
+                    placeholder="Note Title..."
+                    className="text-lg font-black text-slate-900 w-full focus:outline-none placeholder:text-slate-300"
+                  />
 
-                <textarea 
-                  rows={14}
-                  value={activeNote.content}
-                  onChange={(e) => handleUpdateContent(e.target.value)}
-                  className="w-full text-xs font-mono text-slate-800 leading-relaxed border-0 focus:outline-none resize-none placeholder:text-slate-300"
-                  placeholder="Start typing your study notes, formulas, or copy-paste text here..."
-                />
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewMode(false)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        !previewMode 
+                          ? "bg-white text-blue-700 shadow-xs" 
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewMode(true)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        previewMode 
+                          ? "bg-white text-blue-700 shadow-xs" 
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview</span>
+                    </button>
+                  </div>
+                </div>
+
+                {!previewMode ? (
+                  <textarea 
+                    rows={14}
+                    value={activeNote.content}
+                    onChange={(e) => handleUpdateContent(e.target.value)}
+                    className="w-full text-xs font-mono text-slate-800 leading-relaxed border-0 focus:outline-none resize-none placeholder:text-slate-300"
+                    placeholder="Start typing your study notes, formulas (e.g. $E = mc^2$), or Hindi notes here..."
+                  />
+                ) : (
+                  <div className="min-h-[320px] p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 text-xs overflow-y-auto">
+                    {activeNote.content.trim() ? (
+                      <Markdown content={activeNote.content} />
+                    ) : (
+                      <p className="text-slate-400 italic">No content written yet. Switch to Edit mode to write notes.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           ) : (

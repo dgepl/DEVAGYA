@@ -152,16 +152,14 @@ async def handle_notes_ai_action(payload: NoteActionPayload):
     """Perform AI Summarize, AI Rewrite, or AI Quiz creation from student notes."""
     prompt = f"Perform '{payload.action}' on the following student note:\n\n{payload.content}"
     messages = [
-        {"role": "system", "content": "You are a helpful AI Note Assistant. Return clean, natural text. Do NOT use asterisks (**) for bolding or italics. Use plain headings and clean hyphen bullet points (-) without asterisks."},
+        {"role": "system", "content": "You are an expert AI Note Assistant for CBSE/NCERT students. Format your response cleanly using rich Markdown (headings, bullet points, bold key terms). For any mathematics or physics formulas, equations, or scientific units, wrap them in single dollar signs ($E = mc^2$, $\\frac{a}{b}$, $F = ma$) for LaTeX/KaTeX math rendering. If the note is in Hindi, write in fluent, natural Devanagari script."},
         {"role": "user", "content": prompt}
     ]
     try:
         res = await ai_provider.chat_completion(messages, temperature=0.5)
-        # Strip any accidental double/single asterisks
-        clean_res = res.replace("**", "").replace("*", "")
-        return {"action": payload.action, "result": clean_res}
+        return {"action": payload.action, "result": (res or "").strip()}
     except Exception as e:
-        return {"action": payload.action, "result": f"{payload.action.upper()} Result:\n\nKey concepts summarized cleanly from note content."}
+        return {"action": payload.action, "result": f"### {payload.action.upper()} Result\n\nKey concepts summarized cleanly from note content."}
 
 @router.post("/pomodoro/log")
 async def log_pomodoro_session(payload: PomodoroLogPayload):
@@ -274,7 +272,9 @@ Topic / Chapter: {topic}
 Subject: {subject}
 Target Exam: {exam_name}
 
-LANGUAGE DIRECTIVE: If the topic is written in Hindi (e.g. 'सूरजमुखी – कहानी का सार'), explain in clear, fluent Hindi. If in English, explain in English. Match the input topic's language naturally.
+LANGUAGE & NOTATION DIRECTIVE:
+1. If the topic is written in Hindi (e.g. 'सूरजमुखी – कहानी का सार' or 'विद्युत धारा के चुंबकीय प्रभाव'), explain in clear, fluent Hindi (Devanagari script). If in English, explain in English.
+2. For any mathematics formulas, physics equations, or chemistry reactions, use LaTeX formatted with single dollar signs (e.g. $F = G \\frac{{m_1 m_2}}{{r^2}}$, $v = u + at$, $\\text{{Fe}} + \\text{{CuSO}}_4 \\rightarrow \\text{{FeSO}}_4 + \\text{{Cu}}$).
 
 Respond strictly with a valid JSON object matching this structure:
 {{

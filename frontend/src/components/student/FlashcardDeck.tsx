@@ -22,6 +22,7 @@ import {
   GraduationCap
 } from "lucide-react";
 import { generateFlashcardsFromFile } from "@/lib/api";
+import Markdown from "@/components/chat/Markdown";
 
 interface Flashcard {
   id: string;
@@ -295,16 +296,17 @@ export function FlashcardDeck() {
             </button>
           </div>
 
-          {/* MAIN PROMPT / ANSWER TEXT */}
-          <div className="my-auto text-center space-y-4 px-4">
-            <h2 className="text-lg sm:text-2xl font-black leading-relaxed">
-              {isFlipped ? currentCard?.back : currentCard?.front}
-            </h2>
+          {/* MAIN PROMPT / ANSWER TEXT WITH KATEX & HINDI SUPPORT */}
+          <div className="my-auto text-center space-y-4 px-4 w-full">
+            <div className="text-lg sm:text-2xl font-black leading-relaxed">
+              <Markdown content={isFlipped ? currentCard?.back : currentCard?.front} />
+            </div>
 
             {!isFlipped && currentCard?.hint && (
-              <p className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200 max-w-md mx-auto">
-                💡 <span className="font-bold">Hint:</span> {currentCard.hint}
-              </p>
+              <div className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200 max-w-md mx-auto">
+                <span className="font-bold">💡 Hint: </span>
+                <Markdown content={currentCard.hint} />
+              </div>
             )}
           </div>
 

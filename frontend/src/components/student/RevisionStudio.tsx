@@ -15,6 +15,7 @@ import {
   Download
 } from "lucide-react";
 import { generateRevisionMaterial } from "@/lib/api";
+import Markdown from "@/components/chat/Markdown";
 
 export function RevisionStudio() {
   const [subject, setSubject] = useState("Chemistry");
@@ -136,9 +137,9 @@ export function RevisionStudio() {
         {/* SUMMARY */}
         <div className="space-y-2">
           <h3 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">Executive Summary</h3>
-          <p className="text-xs leading-relaxed text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100 font-medium">
-            {revisionData.summary}
-          </p>
+          <div className="text-xs leading-relaxed text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100 font-medium">
+            <Markdown content={revisionData.summary} />
+          </div>
         </div>
 
         {/* FORMULA & CHEAT SHEET CARDS */}
@@ -147,10 +148,14 @@ export function RevisionStudio() {
             <h3 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider">High-Yield Equations & Formulas</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {revisionData.key_formulas.map((item: any, idx: number) => (
-                <div key={idx} className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-1">
+                <div key={idx} className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
                   <div className="text-xs font-extrabold text-purple-900">{item.name}</div>
-                  <div className="text-xs font-black font-mono text-purple-700 bg-white p-2 rounded-xl border border-purple-200">{item.formula}</div>
-                  <div className="text-[11px] text-slate-500">{item.description}</div>
+                  <div className="text-xs font-bold text-purple-800 bg-white p-2.5 rounded-xl border border-purple-200">
+                    <Markdown content={item.formula.includes("$") ? item.formula : `$${item.formula}$`} />
+                  </div>
+                  <div className="text-[11px] text-slate-600">
+                    <Markdown content={item.description} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -166,7 +171,9 @@ export function RevisionStudio() {
             </h3>
             <ul className="text-xs text-amber-900 space-y-1 pl-4 list-disc font-medium">
               {revisionData.cheat_sheet.quick_tricks?.map((trick: string, i: number) => (
-                <li key={i}>{trick}</li>
+                <li key={i}>
+                  <Markdown content={trick} />
+                </li>
               ))}
             </ul>
           </div>

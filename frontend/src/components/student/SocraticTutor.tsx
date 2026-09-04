@@ -17,6 +17,7 @@ import {
   BookOpen
 } from "lucide-react";
 import { askSocraticTutor } from "@/lib/api";
+import Markdown from "@/components/chat/Markdown";
 
 export function SocraticTutor() {
   const [subject, setSubject] = useState("Science");
@@ -182,9 +183,11 @@ export function SocraticTutor() {
                 )}
               </div>
 
-              {/* MESSAGE CONTENT */}
-              <div className="text-xs leading-relaxed whitespace-pre-line font-medium">
-                {msg.content}
+              {/* MESSAGE CONTENT WITH KATEX FORMULAS & HINDI SUPPORT */}
+              <div className={`text-xs leading-relaxed font-medium ${
+                msg.sender === "user" ? "[&_*]:text-white" : "text-slate-900"
+              }`}>
+                <Markdown content={msg.content} />
               </div>
 
               {/* HINT CHIPS IF TUTOR RESPONSE */}

@@ -23,6 +23,7 @@ import {
   Zap
 } from "lucide-react";
 import { generatePracticeQuizFromFile } from "@/lib/api";
+import Markdown from "@/components/chat/Markdown";
 
 const CLASS_OPTIONS = [
   "Nursery / KG",
@@ -453,29 +454,37 @@ export function PracticeQuizRunner() {
             {result.breakdown.map((item: any, idx: number) => (
               <div
                 key={idx}
-                className={`p-4 rounded-2xl border text-xs space-y-1.5 ${
+                className={`p-4 rounded-2xl border text-xs space-y-2 ${
                   item.is_correct ? "bg-emerald-50/60 border-emerald-200" : "bg-rose-50/60 border-rose-200"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2 font-bold text-slate-900">
-                  <span>Q{idx + 1}. {item.question}</span>
+                  <div className="flex-1">
+                    <span className="font-extrabold mr-1">Q{idx + 1}.</span>
+                    <Markdown content={item.question} />
+                  </div>
                   {item.is_correct ? (
-                    <span className="text-emerald-600 font-extrabold shrink-0">✓ Correct</span>
+                    <span className="text-emerald-600 font-extrabold shrink-0 bg-emerald-100/70 px-2 py-0.5 rounded-full">✓ Correct</span>
                   ) : (
-                    <span className="text-rose-600 font-extrabold shrink-0">✗ Incorrect</span>
+                    <span className="text-rose-600 font-extrabold shrink-0 bg-rose-100/70 px-2 py-0.5 rounded-full">✗ Incorrect</span>
                   )}
                 </div>
-                <div className="text-slate-600">
-                  <span className="font-semibold">Your Answer:</span> {item.user_answer}
+                <div className="text-slate-600 bg-white/70 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="font-bold text-slate-700 block text-[11px] mb-0.5">Your Answer:</span>
+                  <Markdown content={item.user_answer} />
                 </div>
                 {!item.is_correct && (
-                  <div className="text-emerald-700 font-bold">
-                    <span>Correct Answer:</span> {item.correct_answer}
+                  <div className="text-emerald-800 bg-emerald-100/40 p-2.5 rounded-xl border border-emerald-200">
+                    <span className="font-bold block text-[11px] mb-0.5">Correct Answer:</span>
+                    <Markdown content={item.correct_answer} />
                   </div>
                 )}
-                <p className="text-slate-500 text-[11px] font-medium pt-1 italic">
-                  💡 {item.explanation}
-                </p>
+                {item.explanation && (
+                  <div className="text-slate-700 text-[11px] bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80">
+                    <span className="font-bold text-amber-900 block mb-0.5">💡 Concept Explanation:</span>
+                    <Markdown content={item.explanation} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -521,15 +530,16 @@ export function PracticeQuizRunner() {
           <span>{Math.round(((currentIdx + 1) / quiz.questions.length) * 100)}% Complete</span>
         </div>
 
-        {/* Question Text */}
-        <h2 className="text-base sm:text-lg font-black text-slate-900 leading-relaxed">
-          {currentQ.question}
-        </h2>
+        {/* Question Text with KaTeX and Devanagari Markdown */}
+        <div className="text-base sm:text-lg font-black text-slate-900 leading-relaxed">
+          <Markdown content={currentQ.question} />
+        </div>
 
         {/* Hint Box */}
         {showHint && currentQ.hint && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 font-semibold animate-in fade-in">
-            💡 <span className="font-extrabold">Hint:</span> {currentQ.hint}
+          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 font-medium animate-in fade-in space-y-1">
+            <span className="font-extrabold flex items-center gap-1 text-amber-950">💡 Hint:</span>
+            <Markdown content={currentQ.hint} />
           </div>
         )}
 
@@ -541,14 +551,16 @@ export function PracticeQuizRunner() {
               <button
                 key={i}
                 onClick={() => handleSelectOption(currentQ.id, opt)}
-                className={`w-full p-4 rounded-2xl text-left text-xs font-extrabold transition-all border flex items-center justify-between ${
+                className={`w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border flex items-center justify-between gap-3 ${
                   isSelected
-                    ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-200"
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-200 [&_*]:text-white"
                     : "bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
                 }`}
               >
-                <span>{opt}</span>
-                {isSelected && <CheckCircle2 className="w-4 h-4 text-white shrink-0" />}
+                <div className="flex-1">
+                  <Markdown content={opt} />
+                </div>
+                {isSelected && <CheckCircle2 className="w-5 h-5 text-white shrink-0" />}
               </button>
             );
           })}

@@ -21,7 +21,8 @@ import {
   ChevronRight,
   FolderOpen,
   X,
-  FileCheck
+  FileCheck,
+  Sliders
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF } from "@/lib/api";
@@ -32,6 +33,7 @@ export function MobileTeacherDashboard() {
 
   const allTools = [
     { name: "AI Assignment Maker", sub: "Homework & Ruled Lines PDF", href: "/dashboard/assignments", icon: FileText, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", type: "Studio" },
+    { name: "AI PPT Generator", sub: "Interactive Presentation Decks", href: "/dashboard/ppt-generator", icon: Sliders, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Generator" },
     { name: "Teacher Mentor AI", sub: "Pedagogy & Lesson AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "AI Tool" },
     { name: "Question Generator", sub: "NCERT Exam Papers", href: "/dashboard/generator", icon: Sparkles, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Generator" },
     { name: "Skill Enhance Practice", sub: "Practice Mock Tests", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Practice" },
@@ -313,20 +315,20 @@ export function MobileTeacherDashboard() {
                 </div>
               </Link>
 
-              {/* Card 3: Skill Enhance Practice */}
+              {/* Card 3: AI PPT Generator */}
               <Link
-                href="/dashboard/teacher-olympiad/practice"
-                className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-emerald-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
+                href="/dashboard/ppt-generator"
+                className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-indigo-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
               >
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-                  <BookOpen className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                  <Sliders className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Skill Practice</h3>
-                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Mock Quizzes</p>
+                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">AI PPT Generator</h3>
+                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Slides & Presentations</p>
                 </div>
                 <div className="flex justify-end pt-1">
-                  <div className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
                     <ArrowRight className="w-3 h-3" />
                   </div>
                 </div>

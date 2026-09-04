@@ -1,5 +1,9 @@
-const getApiBase = () => {
+export const getApiBase = () => {
   if (typeof window !== "undefined") {
+    // On mobile or external devices on LAN, relative /api/v1 routes through Next.js rewrite proxy correctly
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      return "/api/v1";
+    }
     return process.env.NEXT_PUBLIC_API_URL || "/api/v1";
   }
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";

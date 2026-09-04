@@ -1483,8 +1483,28 @@ class OlympiadService:
         if admin_paper and admin_paper.get("questions") and len(admin_paper.get("questions", [])) > 0 and admin_paper.get("published") is True:
             return admin_paper
 
-        # If no published paper exists in repository, return None (locks the assessment)
-        return None
+        # Fallback to authentic 100-question paper (60 Part-A Pedagogy + 40 Part-B Core Subject)
+        raw_qs = generate_100_practice_mock_questions(subject=subject)
+        cleaned_questions = []
+        for idx, q in enumerate(raw_qs):
+            q_copy = dict(q)
+            q_copy["question_number"] = idx + 1
+            if not q_copy.get("section"):
+                q_copy["section"] = "Part-A" if (idx + 1) <= 60 else "Part-B"
+            cleaned_questions.append(q_copy)
+
+        return {
+            "id": f"tso-standard-100-{subject.lower().replace(' ', '-')}",
+            "title": f"TSO National Educator Skill Enhance Assessment — {subject}",
+            "subject": subject,
+            "level": level,
+            "duration_minutes": 120,
+            "total_marks": 100,
+            "passing_marks": 60,
+            "published": True,
+            "questions": cleaned_questions,
+            "created_at": "2026-09-01T00:00:00Z"
+        }
 
     def get_100_practice_questions(self, subject: str = "Science", module: Optional[str] = None) -> List[Dict[str, Any]]:
         all_qs = generate_100_practice_mock_questions(subject=subject)

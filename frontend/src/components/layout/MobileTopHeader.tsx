@@ -29,7 +29,8 @@ import {
   HeartHandshake, 
   ShieldCheck,
   Bell,
-  CheckCircle2
+  CheckCircle2,
+  Sliders
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
@@ -147,8 +148,9 @@ export function MobileTopHeader() {
   // Exact match to Desktop Sidebar Nav Items
   let navItems = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "AI Assignment Maker", href: "/dashboard/assignments", icon: FileText },
+    { label: "AI PPT Generator", href: "/dashboard/ppt-generator", icon: Sliders },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
+    { label: "AI Assignment Maker", href: "/dashboard/assignments", icon: FileText },
     { label: "Teacher Mentor AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap },
     { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },

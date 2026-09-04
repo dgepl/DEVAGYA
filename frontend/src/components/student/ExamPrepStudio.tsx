@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   ArrowRight
 } from "lucide-react";
+import Markdown from "@/components/chat/Markdown";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
@@ -222,11 +223,13 @@ export function ExamPrepStudio() {
                 <div 
                   key={idx} 
                   onClick={() => handleOpenTopic(item.topic)}
-                  className="p-3.5 rounded-2xl border border-slate-200 hover:border-rose-400 bg-slate-50/70 hover:bg-rose-50/50 cursor-pointer transition-all flex items-center justify-between group shadow-xs"
+                  className="p-3.5 rounded-2xl border border-slate-200 hover:border-rose-400 bg-slate-50/70 hover:bg-rose-50/50 cursor-pointer transition-all flex items-center justify-between group shadow-xs gap-2"
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
                     <BookOpen className="w-4 h-4 text-rose-500 group-hover:scale-110 transition-transform shrink-0" />
-                    <span className="text-xs font-bold text-slate-800 group-hover:text-rose-950 transition-colors">{item.topic}</span>
+                    <div className="text-xs font-bold text-slate-800 group-hover:text-rose-950 transition-colors flex-1">
+                      <Markdown content={item.topic} />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs font-extrabold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-xl">
@@ -255,13 +258,16 @@ export function ExamPrepStudio() {
                   onClick={() => handleOpenTopic(q.question)}
                   className="p-4 rounded-2xl border border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/40 cursor-pointer transition-all space-y-2 group shadow-xs"
                 >
-                  <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="text-slate-900 group-hover:text-indigo-950 transition-colors">Q{idx + 1}. {q.question}</span>
-                    <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md shrink-0 ml-2">{q.marks} Marks</span>
+                  <div className="flex items-start justify-between text-xs font-bold gap-2">
+                    <div className="text-slate-900 group-hover:text-indigo-950 transition-colors flex-1">
+                      <Markdown content={`**Q${idx + 1}.** ${q.question}`} />
+                    </div>
+                    <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md shrink-0 ml-2 font-black">{q.marks} Marks</span>
                   </div>
-                  <p className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200 group-hover:border-indigo-200 transition-colors">
-                    💡 <span className="font-bold text-slate-800">Answer Key Outline:</span> {q.outline}
-                  </p>
+                  <div className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200 group-hover:border-indigo-200 transition-colors space-y-1">
+                    <span className="font-bold text-slate-800 text-[11px] block">💡 Answer Key Outline:</span>
+                    <Markdown content={q.outline} />
+                  </div>
                   <div className="text-[11px] font-bold text-indigo-600 flex items-center gap-1 pt-1 justify-end">
                     <span>View AI Detailed Explanation</span>
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
@@ -287,14 +293,16 @@ export function ExamPrepStudio() {
               <div 
                 key={idx} 
                 onClick={() => handleOpenTopic(item.focus)}
-                className="p-4 rounded-2xl border border-purple-100 hover:border-purple-400 bg-purple-50/40 hover:bg-purple-100/60 cursor-pointer transition-all flex items-center justify-between group shadow-xs"
+                className="p-4 rounded-2xl border border-purple-100 hover:border-purple-400 bg-purple-50/40 hover:bg-purple-100/60 cursor-pointer transition-all flex items-center justify-between group shadow-xs gap-3"
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
                   <span className="w-9 h-9 rounded-xl bg-purple-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-md shadow-purple-200 group-hover:scale-105 transition-transform">
                     D{item.day}
                   </span>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 group-hover:text-purple-950 transition-colors">{item.focus}</h4>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-purple-950 transition-colors">
+                      <Markdown content={item.focus} />
+                    </div>
                     <span className="text-[11px] text-purple-700 font-medium">Target: {item.hours} hours focus study</span>
                   </div>
                 </div>
@@ -325,9 +333,9 @@ export function ExamPrepStudio() {
                     {subject || "NCERT Concept"}
                   </span>
                 </div>
-                <h2 className="text-lg font-extrabold text-white leading-snug line-clamp-2">
-                  {selectedTopic}
-                </h2>
+                <div className="text-lg font-extrabold text-white leading-snug line-clamp-2">
+                  <Markdown content={selectedTopic} />
+                </div>
               </div>
 
               <button 
@@ -358,9 +366,9 @@ export function ExamPrepStudio() {
                       <BookOpen className="w-4 h-4 text-rose-600" />
                       <span>Executive Brief Overview</span>
                     </h3>
-                    <p className="text-xs font-medium text-slate-800 leading-relaxed whitespace-pre-line">
-                      {topicData.summary}
-                    </p>
+                    <div className="text-xs font-medium text-slate-800 leading-relaxed">
+                      <Markdown content={topicData.summary} />
+                    </div>
                   </div>
 
                   {/* KEY CONCEPTS & FORMULAS */}
@@ -376,7 +384,9 @@ export function ExamPrepStudio() {
                             <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
                               {i + 1}
                             </span>
-                            <span className="leading-relaxed">{pt}</span>
+                            <div className="leading-relaxed flex-1">
+                              <Markdown content={pt} />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -394,7 +404,9 @@ export function ExamPrepStudio() {
                         {topicData.common_exam_traps.map((trap: string, i: number) => (
                           <div key={i} className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-950 font-medium">
                             <span className="text-amber-600 font-bold shrink-0">⚠️</span>
-                            <span className="leading-relaxed">{trap}</span>
+                            <div className="leading-relaxed flex-1">
+                              <Markdown content={trap} />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -417,20 +429,21 @@ export function ExamPrepStudio() {
                         </button>
                       </div>
 
-                      <p className="text-xs font-bold text-slate-900">
-                        {topicData.practice_question.question}
-                      </p>
+                      <div className="text-xs font-bold text-slate-900">
+                        <Markdown content={topicData.practice_question.question} />
+                      </div>
 
                       {showAnswer && (
                         <div className="pt-2 border-t border-indigo-200/60 space-y-2 text-xs">
-                          <div className="p-3 bg-white rounded-xl border border-indigo-200 text-indigo-950 font-medium leading-relaxed">
-                            <span className="font-bold text-emerald-700">Model Answer: </span>
-                            {topicData.practice_question.answer}
+                          <div className="p-3 bg-white rounded-xl border border-indigo-200 text-indigo-950 font-medium leading-relaxed space-y-1">
+                            <span className="font-bold text-emerald-700 block">Model Answer: </span>
+                            <Markdown content={topicData.practice_question.answer} />
                           </div>
                           {topicData.practice_question.explanation && (
-                            <p className="text-[11px] text-indigo-800 italic">
-                              💡 <span className="font-bold">Examiner Tip:</span> {topicData.practice_question.explanation}
-                            </p>
+                            <div className="text-[11px] text-indigo-800 italic bg-indigo-100/50 p-2.5 rounded-xl border border-indigo-200/60">
+                              <span className="font-bold block not-italic text-indigo-950 mb-0.5">💡 Examiner Tip:</span>
+                              <Markdown content={topicData.practice_question.explanation} />
+                            </div>
                           )}
                         </div>
                       )}

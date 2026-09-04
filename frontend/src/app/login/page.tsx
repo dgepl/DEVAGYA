@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Lock, Mail, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { getApiBase } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -40,7 +41,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -51,7 +52,12 @@ export default function LoginPage() {
       try {
         data = await res.json();
       } catch {
-        throw new Error(res.ok ? "Server communication error." : "Server temporarily unavailable. Please try again in a few moments.");
+        if (!res.ok) {
+          if (res.status === 502 || res.status === 503 || res.status === 504) {
+            throw new Error("Backend server is currently offline or unreachable. Please ensure the backend server is running on port 8000.");
+          }
+          throw new Error("Unable to connect to authentication service. Please ensure the backend is running.");
+        }
       }
 
       if (!res.ok) {
@@ -75,7 +81,7 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       if (err?.message === "Failed to fetch") {
-        setError("Unable to connect to the authentication server. Please check your network connection.");
+        setError("Unable to connect to the authentication server. Please ensure the backend service is running on port 8000.");
       } else {
         setError(err.message || "Failed to log in.");
       }

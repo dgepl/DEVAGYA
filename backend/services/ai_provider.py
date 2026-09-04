@@ -78,7 +78,7 @@ class AIProviderService:
             "model": selected_model,
             "messages": self._optimize_messages(messages),
             "temperature": temperature,
-            "max_tokens": min(max_tokens, 2500)
+            "max_tokens": min(max_tokens or 4096, 8192)
         }
         
         if response_format_json and not has_imgs and "qwen" not in str(selected_model).lower():
@@ -86,7 +86,7 @@ class AIProviderService:
 
         async with httpx.AsyncClient(timeout=45.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.5-flash"]
+                models_to_try = [selected_model, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"]
             elif has_imgs:
                 models_to_try = [selected_model, "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
             else:
@@ -100,7 +100,7 @@ class AIProviderService:
             last_error = None
             for attempt_model in unique_models:
                 payload["model"] = attempt_model
-                for retry in range(2):
+                for retry in range(3):
                     try:
                         res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
                         if res.status_code == 400 and "response_format" in payload:
@@ -108,7 +108,7 @@ class AIProviderService:
                             continue
 
                         if res.status_code == 429:
-                            retry_after = min(float(res.headers.get("retry-after", 1.5 * (retry + 1))), 4.0)
+                            retry_after = min(float(res.headers.get("retry-after", 2.0 * (retry + 1))), 5.0)
                             logger.warning(f"Rate limit 429 on {attempt_model}. Backing off {retry_after}s...")
                             import asyncio
                             await asyncio.sleep(retry_after)
