@@ -145,7 +145,7 @@ class GroqAIService:
         case_marks = getattr(req, "case_marks", 4) or 4
         q_guidance = getattr(req, "question_type_instructions", "") or ""
 
-        sem = asyncio.Semaphore(2)
+        sem = asyncio.Semaphore(6)
 
         async def _call_llm(prompt_text: str) -> str:
             async with sem:

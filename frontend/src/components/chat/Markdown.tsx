@@ -253,22 +253,37 @@ const UL_ITEM = /^\s*[-*+]\s+(.*)$/;
 const OL_ITEM = /^\s*(\d+)\.\s+(.*)$/;
 const TABLE_SEP = /^\|?[\s:|-]+\|?$/;
 
-function renderKatexMath(mathStr: string, isBlock: boolean = false): React.ReactNode {
-  let clean = mathStr.trim();
-  if (clean.startsWith("$$") && clean.endsWith("$$")) {
-    clean = clean.slice(2, -2).trim();
-  } else if (clean.startsWith("$") && clean.endsWith("$")) {
-    clean = clean.slice(1, -1).trim();
-  } else if (clean.startsWith("\\[") && clean.endsWith("\\]")) {
-    clean = clean.slice(2, -2).trim();
-  } else if (clean.startsWith("\\(") && clean.endsWith("\\)")) {
-    clean = clean.slice(2, -2).trim();
+function sanitizeLatex(latex: string): string {
+  let s = latex.trim();
+  if (s.startsWith("$$") && s.endsWith("$$")) {
+    s = s.slice(2, -2).trim();
+  } else if (s.startsWith("$") && s.endsWith("$")) {
+    s = s.slice(1, -1).trim();
+  } else if (s.startsWith("\\[") && s.endsWith("\\]")) {
+    s = s.slice(2, -2).trim();
+  } else if (s.startsWith("\\(") && s.endsWith("\\)")) {
+    s = s.slice(2, -2).trim();
   }
+
+  // 1. If not an environment with column alignment (&), escape bare '&' to '\&'
+  const isAlignedEnv = /\\begin\{(matrix|pmatrix|bmatrix|vmatrix|Vmatrix|aligned|align|array|cases|split)\}/.test(s);
+  if (!isAlignedEnv) {
+    s = s.replace(/(?<!\\)&/g, "\\&");
+  }
+
+  // 2. Escape bare '%' (comment character in LaTeX) to '\%'
+  s = s.replace(/(?<!\\)%/g, "\\%");
+
+  return s;
+}
+
+function renderKatexMath(mathStr: string, isBlock: boolean = false): React.ReactNode {
+  const clean = sanitizeLatex(mathStr);
 
   try {
     const html = katex.renderToString(clean, {
       displayMode: isBlock,
-      throwOnError: false,
+      throwOnError: true,
       output: "htmlAndMathml",
     });
     return (
@@ -282,7 +297,61 @@ function renderKatexMath(mathStr: string, isBlock: boolean = false): React.React
       />
     );
   } catch {
-    return <code className="font-mono text-xs text-indigo-700">{clean}</code>;
+    // If strict KaTeX render fails, try tolerant render or clean readable fallback (never red error!)
+    try {
+      const html = katex.renderToString(clean, {
+        displayMode: isBlock,
+        throwOnError: false,
+        output: "htmlAndMathml",
+      });
+      if (html.includes("katex-error")) {
+        // Strip raw LaTeX formatting slashes for a clean readable formula badge
+        const readableText = clean
+          .replace(/\\text\{([^}]+)\}/g, "$1")
+          .replace(/\\rightarrow/g, " → ")
+          .replace(/\\longrightarrow/g, " → ")
+          .replace(/\\cdot/g, " · ")
+          .replace(/\\times/g, " × ")
+          .replace(/\\pm/g, " ± ")
+          .replace(/\\leq/g, " ≤ ")
+          .replace(/\\geq/g, " ≥ ")
+          .replace(/\\neq/g, " ≠ ")
+          .replace(/\\approx/g, " ≈ ")
+          .replace(/\\&/g, "&")
+          .replace(/\\%/g, "%")
+          .replace(/\\{1,2}/g, " ")
+          .replace(/[{}]/g, "")
+          .trim();
+
+        return (
+          <span
+            className={
+              isBlock
+                ? "block my-3 text-center overflow-x-auto py-2.5 px-3 bg-slate-50 rounded-2xl border border-slate-200 text-slate-800 font-semibold text-sm shadow-xs"
+                : "inline-block px-1.5 py-0.5 rounded bg-slate-100 font-semibold text-slate-800 text-xs"
+            }
+          >
+            {readableText}
+          </span>
+        );
+      }
+      return (
+        <span
+          className={
+            isBlock
+              ? "block my-3 text-center overflow-x-auto py-2.5 px-3 bg-indigo-50/50 rounded-2xl border border-indigo-100/80 text-indigo-950 shadow-xs"
+              : "inline-block px-1 align-baseline text-indigo-950"
+          }
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      );
+    } catch {
+      return (
+        <code className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono text-xs">
+          {clean}
+        </code>
+      );
+    }
   }
 }
 

@@ -37,7 +37,8 @@ import {
   generateQuestionPaperFromFile, 
   GeneratedPaperResponse, 
   QuestionItem, 
-  downloadPDF 
+  downloadPDF,
+  getApiBase
 } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
@@ -339,18 +340,17 @@ export default function GeneratorPage() {
     } catch (err: any) {
       console.warn("Initial generation fetch notice, checking server for synthesized paper...", err);
 
-      // Intelligent Server-Side Verification:
-      // If client browser connection dropped or reverse proxy briefly timed out while the backend was completing the paper,
-      // verify server paper history before showing any error.
+      // Resilient Background Verification:
+      // If client-side connection timed out while backend was finishing generation,
+      // poll the server history for up to 10 attempts (25s) before reporting an error.
       let recoveredPaper: GeneratedPaperResponse | null = null;
       try {
-        setProgressStage("Checking with server for synthesized paper...");
-        const targetEmail = user?.email || "guest@devgya.com";
-        for (let attempt = 0; attempt < 3; attempt++) {
-          if (attempt > 0) {
-            await new Promise((r) => setTimeout(r, 2000));
-          }
-          const checkRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "/api/v1"}/generator/history?email=${encodeURIComponent(targetEmail.trim().toLowerCase())}`);
+        const targetEmail = (user?.email || "guest@devgya.com").trim().toLowerCase();
+        for (let attempt = 0; attempt < 10; attempt++) {
+          setProgressStage(`Finalizing paper synthesis on server (verifying assessment ${attempt + 1}/10)...`);
+          await new Promise((r) => setTimeout(r, 2500));
+
+          const checkRes = await fetch(`${getApiBase()}/generator/history?email=${encodeURIComponent(targetEmail)}`);
           if (checkRes.ok) {
             const histData = await checkRes.json();
             const papersList = histData.papers || [];
@@ -359,7 +359,7 @@ export default function GeneratorPage() {
               const isTitleMatch = latest.title?.toLowerCase() === targetTitle.toLowerCase();
               const isClassMatch = latest.class_name === targetClass;
               const isSubjectMatch = latest.subject === targetSubject;
-              if ((isTitleMatch && isClassMatch) || (isClassMatch && isSubjectMatch)) {
+              if ((isTitleMatch && isClassMatch) || (isClassMatch && isSubjectMatch) || isTitleMatch) {
                 recoveredPaper = latest;
                 break;
               }
@@ -367,7 +367,7 @@ export default function GeneratorPage() {
           }
         }
       } catch (recoveryErr) {
-        console.warn("Recovery history check failed:", recoveryErr);
+        console.warn("Recovery history check notice:", recoveryErr);
       }
 
       if (recoveredPaper) {
