@@ -80,11 +80,24 @@ class AIProviderService:
         # High-performance native vision for Google Gemini provider
         if has_imgs and ("googleapis" in self.base_url or "gemini" in str(selected_model).lower()):
             try:
-                native_res = await self._gemini_native_vision(messages, temperature, max_tokens, key)
+                native_res = await self._gemini_native_vision(messages, temperature, max_tokens, key, response_format_json=response_format_json)
                 if native_res and len(native_res.strip()) > 5:
                     return native_res
             except Exception as native_err:
                 logger.warning(f"Native Gemini vision fallback notice: {native_err}")
+
+        # If vision call failed or didn't return text, sanitize messages so OpenAI-compatible endpoint doesn't hang on base64
+        if has_imgs:
+            stripped_messages = []
+            for m in messages:
+                c = m.get("content")
+                if isinstance(c, list):
+                    text_only = " ".join(p.get("text", "") for p in c if p.get("type") == "text").strip()
+                    stripped_messages.append({"role": m.get("role", "user"), "content": text_only or "Please analyze and extract the document content."})
+                else:
+                    stripped_messages.append(m)
+            messages = stripped_messages
+            selected_model = self.model
 
         payload: Dict[str, Any] = {
             "model": selected_model,
@@ -93,12 +106,12 @@ class AIProviderService:
             "max_tokens": min(max_tokens or 4096, 8192)
         }
         
-        if response_format_json and not has_imgs and "qwen" not in str(selected_model).lower():
+        if response_format_json and "qwen" not in str(selected_model).lower():
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-flash-latest"]
+                models_to_try = ["gemini-3.5-flash-lite"]
             elif has_imgs:
                 models_to_try = [selected_model, "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
             else:
@@ -159,7 +172,8 @@ class AIProviderService:
         messages: List[Dict[str, Any]],
         temperature: float = 0.3,
         max_tokens: int = 4096,
-        api_key: str = ""
+        api_key: str = "",
+        response_format_json: bool = False
     ) -> str:
         """Direct native Google Gemini generateContent for robust, fast multi-image OCR & transcription."""
         parts = []
@@ -190,16 +204,20 @@ class AIProviderService:
                                 }
                             })
 
+        gen_config: Dict[str, Any] = {
+            "temperature": temperature,
+            "maxOutputTokens": min(max_tokens or 4096, 8192)
+        }
+        if response_format_json:
+            gen_config["responseMimeType"] = "application/json"
+
         payload = {
             "contents": [{"parts": parts}],
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": min(max_tokens or 4096, 8192)
-            }
+            "generationConfig": gen_config
         }
 
-        candidate_models = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-flash-latest"]
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        candidate_models = ["gemini-3.5-flash-lite"]
+        async with httpx.AsyncClient(timeout=28.0) as client:
             for m in candidate_models:
                 try:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
