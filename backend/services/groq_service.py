@@ -931,23 +931,67 @@ Return valid JSON ONLY with these exact keys:
         attachment_summary = ""
         attachment_transcription = ""
 
+        # 1. High-speed parallel vision OCR for ALL attached images (batches of 3)
+        image_transcriptions: List[str] = []
         if all_image_urls:
-            meta_user_content: List[Dict[str, Any]] = [{"type": "text", "text": detect_prompt}]
-            for img_u in all_image_urls[:5]:
-                meta_user_content.append({"type": "image_url", "image_url": {"url": img_u}})
-            if extracted_text and extracted_text.strip():
-                meta_user_content.append({"type": "text", "text": f"\n\nDocument Text:\n{extracted_text[:4000]}"})
+            def _chunk_imgs(lst: List[str], sz: int):
+                return [lst[i:i + sz] for i in range(0, len(lst), sz)]
+
+            img_batches = _chunk_imgs(all_image_urls, 3)
+
+            async def _transcribe_batch(batch_imgs: List[str], b_idx: int) -> str:
+                user_content: List[Dict[str, Any]] = [
+                    {
+                        "type": "text",
+                        "text": (
+                            f"Examine these attached study pages / photos (Batch {b_idx + 1} of {len(img_batches)}). "
+                            "Transcribe all visible text, question statements, headings, sub-headings, equations, "
+                            "formulas, and topics in clean Markdown. Be thorough so exam questions can be derived from all pages."
+                        )
+                    }
+                ]
+                for u in batch_imgs:
+                    user_content.append({"type": "image_url", "image_url": {"url": u}})
+
+                try:
+                    return await ai_provider.chat_completion(
+                        messages=[
+                            {"role": "system", "content": "You are DEVGYA's Master Vision OCR Engine. Transcribe all text, formulas, diagrams, and questions accurately."},
+                            {"role": "user", "content": user_content}
+                        ],
+                        temperature=0.2,
+                        max_tokens=2500
+                    )
+                except Exception as b_err:
+                    logger.warning(f"Batch {b_idx + 1} OCR notice: {b_err}")
+                    return ""
+
+            batch_tasks = [_transcribe_batch(b, i) for i, b in enumerate(img_batches)]
+            batch_results = await asyncio.gather(*batch_tasks)
+            for br in batch_results:
+                if br and len(br.strip()) > 10:
+                    image_transcriptions.append(br.strip())
+
+        # Fast metadata extraction (Subject, Chapter, Title, Summary)
+        meta_prompt_text = (
+            f"Attached document text:\n{extracted_text[:3000]}\n\n"
+            f"Attached images transcription:\n{(' '.join(image_transcriptions))[:6000]}"
+        )
+        if not image_transcriptions and all_image_urls:
+            meta_user_content: Any = [{"type": "text", "text": f"{detect_prompt}\n\nDocument Text:\n{extracted_text[:3000]}"}]
+            for u in all_image_urls[:2]:
+                meta_user_content.append({"type": "image_url", "image_url": {"url": u}})
         else:
-            meta_user_content = f"{detect_prompt}\n\nAttached Document Content:\n{extracted_text[:7000]}"
+            meta_user_content = f"{detect_prompt}\n\n{meta_prompt_text}"
 
         try:
             raw_meta = await ai_provider.chat_completion(
                 messages=[
-                    {"role": "system", "content": "You are DEVGYA's curriculum metadata extractor. Return valid JSON."},
+                    {"role": "system", "content": "You are DEVGYA's curriculum metadata extractor. Return valid JSON only."},
                     {"role": "user", "content": meta_user_content}
                 ],
                 temperature=0.2,
-                max_tokens=2500,
+                max_tokens=800,
                 response_format_json=True
             )
             parsed_meta = robust_json_parser(raw_meta)
@@ -955,7 +999,6 @@ Return valid JSON ONLY with these exact keys:
             detected_chapter = str(parsed_meta.get("chapter") or "").strip()
             detected_title = str(parsed_meta.get("title") or "").strip()
             attachment_summary = str(parsed_meta.get("summary") or "").strip()
-            attachment_transcription = str(parsed_meta.get("transcription") or "").strip()
         except Exception as meta_err:
             logger.warning(f"[Attachment Meta Detection Notice] {meta_err}")
 
@@ -964,14 +1007,14 @@ Return valid JSON ONLY with these exact keys:
         final_chapter = detected_chapter if (detected_chapter and detected_chapter.lower() not in ["general", "general syllabus", "unknown", ""]) else (req.chapter or "Attached Content")
         final_title = detected_title if detected_title else f"{final_subject} Assessment Paper"
 
-        # Source context block
+        # Source context block combining text from ALL attached images and documents
         combined_source = ""
         if extracted_text and extracted_text.strip():
-            combined_source += f"=== DIGITAL DOCUMENT TEXT ===\n{extracted_text[:9000]}\n\n"
+            combined_source += f"=== DIGITAL DOCUMENT TEXT ===\n{extracted_text[:12000]}\n\n"
+        if image_transcriptions:
+            combined_source += f"=== TRANSCRIBED ATTACHED IMAGES & PAGES ===\n{chr(10).join(image_transcriptions)[:18000]}\n\n"
         if attachment_summary:
             combined_source += f"=== ATTACHED MATERIAL CONCEPTS & SUMMARY ===\n{attachment_summary}\n\n"
-        if attachment_transcription:
-            combined_source += f"=== TRANSCRIBED ATTACHED CONTENT ===\n{attachment_transcription[:9000]}\n\n"
 
         if not combined_source.strip():
             combined_source = "=== ATTACHED REFERENCE MATERIAL ===\n[Derive all questions from the attached images/photos]\n"
@@ -991,66 +1034,53 @@ Return valid JSON ONLY with these exact keys:
         ar_marks = req.ar_marks or 2
         case_marks = req.case_marks or 4
 
-        sem = asyncio.Semaphore(2)
+        sem = asyncio.Semaphore(6)
 
-        async def _call_attachment_llm(prompt_text: str, include_images: bool = False) -> str:
-            async with sem:
-                if include_images and all_image_urls:
-                    user_content: List[Dict[str, Any]] = [{"type": "text", "text": prompt_text}]
-                    for img_u in all_image_urls[:5]:
-                        user_content.append({"type": "image_url", "image_url": {"url": img_u}})
-                else:
-                    user_content = prompt_text
-
-                return await ai_provider.chat_completion(
-                    messages=[
-                        {
-                            "role": "system", 
-                            "content": (
-                                "You are DEVGYA's Master Document Assessment Engine. "
-                                "CRITICAL RULE: You MUST create exam questions STRICTLY and EXCLUSIVELY from the provided attached source document / transcription / photos. "
-                                "Completely IGNORE any external pre-selected curriculum topics or subjects not in the source. Return valid JSON only."
-                            )
-                        },
-                        {"role": "user", "content": user_content}
-                    ],
-                    temperature=0.3,
-                    max_tokens=4000,
-                    response_format_json=True
-                )
-
-        # Formulate all requested questions in a unified master pass
-        q_types_specs = []
-        if target_mcq > 0:
-            q_types_specs.append(f"- EXACTLY {target_mcq} Multiple Choice Questions (question_type: 'mcq', marks: 1, 4 options, answer, explanation)")
-        if target_fill > 0:
-            q_types_specs.append(f"- EXACTLY {target_fill} Fill in the Blanks Questions (question_type: 'fill_in_the_blanks', marks: {fill_marks}, question text containing '_______', answer, explanation)")
-        if target_ar > 0:
-            q_types_specs.append(f"- EXACTLY {target_ar} Assertion-Reason Questions (question_type: 'assertion_reason', marks: {ar_marks}, assertion_text, reason_text, options, answer, explanation)")
-        if target_short > 0:
-            q_types_specs.append(f"- EXACTLY {target_short} Short Answer Questions (question_type: 'short', marks: 3, answer, explanation)")
-        if target_long > 0:
-            q_types_specs.append(f"- EXACTLY {target_long} Long Answer Questions (question_type: 'long', marks: 5, answer, explanation)")
-        if target_case > 0:
-            q_types_specs.append(f"- EXACTLY {target_case} Case Study Questions (question_type: 'case_study', marks: {case_marks}, case_passage, sub_questions, answer, explanation)")
-
-        if not q_types_specs:
-            q_types_specs.append("- 4 Multiple Choice Questions ('question_type': 'mcq', 'marks': 1) and 2 Short Questions ('question_type': 'short', 'marks': 3)")
-
-        specs_text = "\n".join(q_types_specs)
-
-        master_prompt = f"""CRITICAL MANDATE:
-You are DEVGYA's Master Assessment Engine. Formulate authentic CBSE/NCERT exam questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL.
+        async def _call_section_llm(section_type: str, prompt_spec: str) -> List[Dict[str, Any]]:
+            section_prompt = f"""CRITICAL MANDATE:
+You are DEVGYA's Master Assessment Engine for CBSE/NCERT.
+Formulate authentic exam questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
 Every question, option, blank, assertion, and case study must derive directly from the attached source material.
 
 {source_context}
 {f"Teacher Notes: {teacher_notes}" if teacher_notes else ""}
 Difficulty: {req.difficulty}
 
-MANDATORY QUESTIONS TO GENERATE:
-{specs_text}
+MANDATORY REQUIREMENT:
+{prompt_spec}
 
-JSON FORMAT ONLY:
+Return valid JSON ONLY with a 'questions' array."""
+            async with sem:
+                try:
+                    raw_res = await ai_provider.chat_completion(
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    "You are DEVGYA's Master Document Assessment Engine. "
+                                    "CRITICAL RULE: You MUST create exam questions STRICTLY and EXCLUSIVELY from the provided attached source document / transcription. "
+                                    "Completely IGNORE any external curriculum topics not in the source. Return valid JSON only with 'questions' array."
+                                )
+                            },
+                            {"role": "user", "content": section_prompt}
+                        ],
+                        temperature=0.3,
+                        max_tokens=2500,
+                        response_format_json=True
+                    )
+                    if raw_res and len(raw_res.strip()) > 10:
+                        parsed = robust_json_parser(raw_res)
+                        return parsed.get("questions") or []
+                except Exception as sec_err:
+                    logger.warning(f"Parallel section [{section_type}] notice: {sec_err}")
+                return []
+
+        parallel_section_tasks = []
+
+        # Section A: MCQs
+        if target_mcq > 0:
+            mcq_spec = f"""Generate EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation).
+JSON format:
 {{
   "questions": [
     {{
@@ -1061,17 +1091,38 @@ JSON FORMAT ONLY:
       "answer": "(A) ...",
       "explanation": "...",
       "marks": 1
-    }},
+    }}
+  ]
+}}"""
+            parallel_section_tasks.append(("mcq", _call_section_llm("mcq", mcq_spec)))
+
+        # Section B: Fill in the Blanks
+        if target_fill > 0:
+            fill_spec = f"""Generate EXACTLY {target_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with '_______' in question_text, answer, explanation).
+JSON format:
+{{
+  "questions": [
     {{
-      "question_number": 2,
+      "question_number": 1,
       "question_type": "fill_in_the_blanks",
       "question_text": "... _______ ...",
+      "options": null,
       "answer": "...",
       "explanation": "...",
       "marks": {fill_marks}
-    }},
+    }}
+  ]
+}}"""
+            parallel_section_tasks.append(("fill_in_the_blanks", _call_section_llm("fill_in_the_blanks", fill_spec)))
+
+        # Section C: Assertion-Reason
+        if target_ar > 0:
+            ar_spec = f"""Generate EXACTLY {target_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with assertion_text, reason_text, standard CBSE 4 options, answer, explanation).
+JSON format:
+{{
+  "questions": [
     {{
-      "question_number": 3,
+      "question_number": 1,
       "question_type": "assertion_reason",
       "question_text": "Assertion (A): ...\\nReason (R): ...",
       "assertion_text": "...",
@@ -1085,56 +1136,83 @@ JSON FORMAT ONLY:
       "answer": "(A)...",
       "explanation": "...",
       "marks": {ar_marks}
-    }},
+    }}
+  ]
+}}"""
+            parallel_section_tasks.append(("assertion_reason", _call_section_llm("assertion_reason", ar_spec)))
+
+        # Section D: Short Answer
+        if target_short > 0:
+            short_spec = f"""Generate EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with comprehensive model answer and explanation).
+JSON format:
+{{
+  "questions": [
     {{
-      "question_number": 4,
+      "question_number": 1,
       "question_type": "short",
       "question_text": "...",
+      "options": null,
       "answer": "...",
       "explanation": "...",
       "marks": 3
-    }},
+    }}
+  ]
+}}"""
+            parallel_section_tasks.append(("short", _call_section_llm("short", short_spec)))
+
+        # Section E: Long Answer
+        if target_long > 0:
+            long_spec = f"""Generate EXACTLY {target_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with structured, step-by-step scoring model answer).
+JSON format:
+{{
+  "questions": [
     {{
-      "question_number": 5,
+      "question_number": 1,
       "question_type": "long",
       "question_text": "...",
+      "options": null,
       "answer": "...",
       "explanation": "...",
       "marks": 5
-    }},
+    }}
+  ]
+}}"""
+            parallel_section_tasks.append(("long", _call_section_llm("long", long_spec)))
+
+        # Section F: Case Study
+        if target_case > 0:
+            case_spec = f"""Generate EXACTLY {target_case} Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with realistic case_passage based on source, 3 sub_questions [(i)..., (ii)..., (iii)...], answers, explanation).
+JSON format:
+{{
+  "questions": [
     {{
-      "question_number": 6,
+      "question_number": 1,
       "question_type": "case_study",
-      "question_text": "Read the following scenario and answer the questions:",
+      "question_text": "Read the following case study carefully and answer the questions:",
       "case_passage": "...",
       "sub_questions": ["(i) ...", "(ii) ...", "(iii) ..."],
+      "options": null,
       "answer": "(i)... (ii)... (iii)...",
       "explanation": "...",
       "marks": {case_marks}
     }}
   ]
 }}"""
+            parallel_section_tasks.append(("case_study", _call_section_llm("case_study", case_spec)))
 
-        extracted_raw_questions = []
-        should_send_images = bool(not extracted_text and all_image_urls)
-        try:
-            raw_master = await _call_attachment_llm(master_prompt, include_images=should_send_images)
-            if not raw_master or len(raw_master.strip()) < 10:
-                if should_send_images:
-                    raw_master = await _call_attachment_llm(master_prompt, include_images=False)
-            if raw_master and len(raw_master.strip()) > 10:
-                parsed_master = robust_json_parser(raw_master)
-                extracted_raw_questions.extend(parsed_master.get("questions") or [])
-        except Exception as master_err:
-            logger.warning(f"Master attachment synthesis notice: {master_err}")
-            if should_send_images:
-                try:
-                    raw_master = await _call_attachment_llm(master_prompt, include_images=False)
-                    if raw_master and len(raw_master.strip()) > 10:
-                        parsed_master = robust_json_parser(raw_master)
-                        extracted_raw_questions.extend(parsed_master.get("questions") or [])
-                except Exception as fb_err2:
-                    logger.warning(f"Text fallback synthesis notice: {fb_err2}")
+        # Fallback if no specific question type requested: generate 4 MCQs and 2 Short
+        if not parallel_section_tasks:
+            default_spec = "Generate 4 Multiple Choice Questions ('question_type': 'mcq', 'marks': 1) and 2 Short Questions ('question_type': 'short', 'marks': 3)."
+            parallel_section_tasks.append(("default", _call_section_llm("default", default_spec)))
+
+        # Execute all sections simultaneously in parallel!
+        section_results = await asyncio.gather(*(t[1] for t in parallel_section_tasks), return_exceptions=True)
+
+        extracted_raw_questions: List[Dict[str, Any]] = []
+        for res_item in section_results:
+            if isinstance(res_item, list):
+                extracted_raw_questions.extend(res_item)
+
 
         def _dedup_q_list(q_list):
             seen = set()

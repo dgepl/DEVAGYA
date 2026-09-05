@@ -154,7 +154,7 @@ export default function GeneratorPage() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const newFilesList = Array.from(files).slice(0, 5 - selectedFiles.length);
+    const newFilesList = Array.from(files).slice(0, 25 - selectedFiles.length);
     const newPreviews = newFilesList.map((f) => {
       const isImg = f.type.startsWith("image/");
       const sizeFormatted = (f.size / 1024).toFixed(1) + " KB";
@@ -1415,7 +1415,7 @@ export default function GeneratorPage() {
               >
                 <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
                 <p className="text-xs font-bold text-slate-700">Click to upload textbook photos or PDFs</p>
-                <p className="text-[10px] text-slate-400 font-medium">Select multiple files at once or add one by one (Up to 5 files)</p>
+                <p className="text-[10px] text-slate-400 font-medium">Upload any number of textbook pages, worksheets, or photos (Up to 25 files)</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1447,14 +1447,14 @@ export default function GeneratorPage() {
                   ))}
                 </div>
 
-                {selectedFiles.length < 5 && (
+                {selectedFiles.length < 25 && (
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="w-full py-2.5 border-2 border-dashed border-indigo-300 hover:bg-indigo-50/60 rounded-xl text-xs font-bold text-indigo-700 flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                   >
                     <Plus className="w-4 h-4 text-indigo-600" />
-                    <span>+ Add Another File ({selectedFiles.length}/5 attached)</span>
+                    <span>+ Add Another File / Photo ({selectedFiles.length} attached)</span>
                   </button>
                 )}
               </div>
