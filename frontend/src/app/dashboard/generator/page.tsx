@@ -115,6 +115,13 @@ export default function GeneratorPage() {
     }
   }, [user]);
 
+  // Auto-initialize chapter to first valid chapter if not set
+  useEffect(() => {
+    if (!chapter && availableChapters && availableChapters.length > 0) {
+      setChapter(availableChapters[0]);
+    }
+  }, [availableChapters, chapter]);
+
   // File Attachment State (Optional Multi-Select Support)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<{ id: string; name: string; url?: string; isImage: boolean; sizeStr: string }[]>([]);
@@ -206,31 +213,15 @@ export default function GeneratorPage() {
   const handleGenerate = async () => {
     setError(null);
 
-    // 1. Mandatory Fields Validation Check
-    if (!schoolName.trim()) {
-      setError("Custom Institution Name is required. Please enter your school or institution name.");
-      return;
-    }
-
-    // If no files are attached, title, grade, subject, and chapter are required to synthesize from NCERT curriculum
-    if (selectedFiles.length === 0) {
-      if (!title.trim()) {
-        setError("Assessment Title is required. Please enter an exam/assessment title.");
-        return;
-      }
-      if (!className.trim()) {
-        setError("Grade / Class is required. Please select a class.");
-        return;
-      }
-      if (!subject.trim()) {
-        setError("Subject is required. Please select a subject from the CBSE/NCERT curriculum.");
-        return;
-      }
-      if (!chapter.trim()) {
-        setError("Topic / Chapter is required. Please select or enter a chapter/topic.");
-        return;
-      }
-    }
+    // Dynamic resolution of curriculum values with safe fallbacks so teacher is NEVER blocked
+    const targetSchoolName = schoolName.trim() || user.schoolName || "DEVGYA GLOBAL ACADEMY";
+    const targetClass = className.trim() || user.classes || "Class 10";
+    const targetSubject = subject.trim() || user.subject || "Science";
+    const validChapters = CBSE_NCERT_CURRICULUM[targetClass]?.subjects?.[targetSubject] || [];
+    const targetChapter = chapter.trim() || (validChapters.length > 0 ? validChapters[0] : "Complete Syllabus");
+    const targetTitle = title.trim() || `${targetSubject} Periodic Assessment Exam`;
+    const finalMarks = requestedTotal > 0 ? requestedTotal : (calculatedTotal > 0 ? calculatedTotal : 25);
+    const finalTime = parseInt(timeMins) || (finalMarks <= 25 ? 45 : (finalMarks <= 50 ? 90 : 180));
 
     setLoading(true);
     setProgressPercentage(8);
@@ -258,14 +249,6 @@ export default function GeneratorPage() {
       });
     }, 450);
 
-    const targetSchoolName = schoolName.trim();
-    const targetTitle = title.trim() || "Assessment Paper";
-    const targetClass = className.trim() || "Class 10";
-    const targetSubject = subject.trim() || "General";
-    const targetChapter = chapter.trim() || "Document Content";
-    const finalMarks = requestedTotal > 0 ? requestedTotal : (calculatedTotal > 0 ? calculatedTotal : 25);
-    const finalTime = parseInt(timeMins) || (finalMarks <= 25 ? 45 : (finalMarks <= 50 ? 90 : 180));
-
     try {
       let res: GeneratedPaperResponse;
 
@@ -277,10 +260,11 @@ export default function GeneratorPage() {
         });
         formData.append("school_name", targetSchoolName);
         formData.append("school_logo", user.schoolLogo || "");
-        formData.append("title", targetTitle);
-        formData.append("class_name", targetClass);
-        formData.append("subject", targetSubject);
-        formData.append("chapter", targetChapter);
+        // Instruct backend to derive class, subject, chapter, and title strictly from attachment
+        formData.append("title", title.trim() ? title.trim() : "AUTO_DETECT_FROM_ATTACHMENT");
+        formData.append("class_name", "AUTO_DETECT_FROM_ATTACHMENT");
+        formData.append("subject", "AUTO_DETECT_FROM_ATTACHMENT");
+        formData.append("chapter", "AUTO_DETECT_FROM_ATTACHMENT");
         formData.append("difficulty", difficulty);
         formData.append("total_marks", finalMarks.toString());
         formData.append("time_allowed_mins", finalTime.toString());

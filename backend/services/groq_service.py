@@ -110,7 +110,7 @@ class GroqAIService:
         elif is_lang:
             subject_directive = f"CRITICAL: This is an {req.subject.upper()} language examination paper for {req.class_name}. All questions MUST test reading comprehension, grammar, literature analysis, vocabulary, and writing skills for '{req.chapter}'. Do NOT include mathematical or numerical calculation questions."
         else:
-            subject_directive = f"CRITICAL: This is a {req.subject.upper()} examination paper for {req.class_name}. All questions MUST be strictly based on the social science / commerce / theoretical curriculum for '{req.chapter}'."
+            subject_directive = f"CRITICAL: This is a {req.subject.upper()} examination paper for {req.class_name}. All questions MUST be authentic CBSE/NCERT curriculum questions strictly based on the syllabus and concepts of '{req.chapter}' for {req.subject}."
 
         def _get_chunks(cnt: int, size: int) -> List[int]:
             res = []
@@ -911,25 +911,25 @@ JSON ONLY: {{"questions": [{{"question_type": "case_study", "case_passage": "...
 Carefully examine the attached study material / document / worksheet / photo.
 Extract:
 1. True Subject Name (e.g. Mathematics, Science, Physics, Chemistry, Biology, History, Geography, English, Hindi, Social Science, Computer Science, Economics)
-2. True Chapter / Unit / Topic Title covered in the document
-3. Appropriate Exam Title
-4. Concise Key Concepts Summary (under 250 words)
-5. Comprehensive transcription of all visible text, questions, headings, equations, and topics from ALL attached images (under key "transcription")
+2. True Class / Grade (e.g. Class 6, Class 7, Class 8, Class 9, Class 10, Class 11, Class 12). If grade is not explicitly mentioned, deduce it from the complexity level of the concepts.
+3. True Chapter / Unit / Topic Title covered in the document
+4. Appropriate Exam Title
+5. Concise Key Concepts Summary (under 250 words)
 
 Return valid JSON ONLY with these exact keys:
 {
   "subject": "...",
+  "class_name": "...",
   "chapter": "...",
   "title": "...",
-  "summary": "...",
-  "transcription": "..."
+  "summary": "..."
 }"""
 
         detected_subject = ""
+        detected_class = ""
         detected_chapter = ""
         detected_title = ""
         attachment_summary = ""
-        attachment_transcription = ""
 
         # 1. High-speed parallel vision OCR for ALL attached images (batches of 3)
         image_transcriptions: List[str] = []
@@ -972,7 +972,7 @@ Return valid JSON ONLY with these exact keys:
                 if br and len(br.strip()) > 10:
                     image_transcriptions.append(br.strip())
 
-        # Fast metadata extraction (Subject, Chapter, Title, Summary)
+        # Fast metadata extraction (Subject, Class, Chapter, Title, Summary)
         meta_prompt_text = (
             f"Attached document text:\n{extracted_text[:3000]}\n\n"
             f"Attached images transcription:\n{(' '.join(image_transcriptions))[:6000]}"
@@ -996,16 +996,12 @@ Return valid JSON ONLY with these exact keys:
             )
             parsed_meta = robust_json_parser(raw_meta)
             detected_subject = str(parsed_meta.get("subject") or "").strip()
-            detected_chapter = str(parsed_meta.get("chapter") or "").strip()
+            detected_class = str(parsed_meta.get("class_name") or parsed_meta.get("class") or parsed_meta.get("grade") or "").strip()
+            detected_chapter = str(parsed_meta.get("chapter") or parsed_meta.get("topic") or "").strip()
             detected_title = str(parsed_meta.get("title") or "").strip()
             attachment_summary = str(parsed_meta.get("summary") or "").strip()
         except Exception as meta_err:
             logger.warning(f"[Attachment Meta Detection Notice] {meta_err}")
-
-        # Final metadata: derived from document detection or fallback to req
-        final_subject = detected_subject if (detected_subject and detected_subject.lower() not in ["general", "general studies", "unknown", ""]) else (req.subject or "Reference Document")
-        final_chapter = detected_chapter if (detected_chapter and detected_chapter.lower() not in ["general", "general syllabus", "unknown", ""]) else (req.chapter or "Attached Content")
-        final_title = detected_title if detected_title else f"{final_subject} Assessment Paper"
 
         # Source context block combining text from ALL attached images and documents
         combined_source = ""
@@ -1018,6 +1014,62 @@ Return valid JSON ONLY with these exact keys:
 
         if not combined_source.strip():
             combined_source = "=== ATTACHED REFERENCE MATERIAL ===\n[Derive all questions from the attached images/photos]\n"
+
+        def _deduce_subject(text: str) -> str:
+            t = text.lower()
+            if any(k in t for k in ["sin(", "cos(", "tan(", "\\frac", "equation", "theorem", "polynomial", "quadratic", "triangle", "arithmetic progression", "surface area", "matrix", "derivative", "integral"]):
+                return "Mathematics"
+            if any(k in t for k in ["reaction", "acid", "base", "salt", "metal", "non-metal", "carbon", "periodic table", "h2o", "co2", "nacl", "mole", "catalyst", "electron", "proton", "valence", "organic"]):
+                return "Science (Chemistry)"
+            if any(k in t for k in ["velocity", "acceleration", "force", "newton", "gravity", "ohm", "current", "voltage", "lens", "mirror", "optics", "refraction", "reflection", "joule", "watt", "electromagnetic"]):
+                return "Science (Physics)"
+            if any(k in t for k in ["cell", "mitochondria", "photosynthesis", "respiration", "dna", "rna", "neuron", "organism", "tissue", "chromosome", "reproduction", "ecology", "botany", "zoology", "ecosystem"]):
+                return "Science (Biology)"
+            if any(k in t for k in ["poem", "stanza", "comprehension", "grammatical", "noun", "verb", "adjective", "passage", "shakespeare", "idiom", "antonym", "synonym"]):
+                return "English"
+            if any(k in t for k in ["संज्ञा", "सर्वनाम", "क्रिया", "मुहावरे", "कविता", "गद्यांश", "व्याकरण"]):
+                return "Hindi"
+            if any(k in t for k in ["constitution", "democracy", "parliament", "revolution", "dynasty", "monarchy", "civil war", "nationalism", "federalism", "election", "monsoon", "plateau"]):
+                return "Social Science"
+            if any(k in t for k in ["python", "algorithm", "binary", "database", "sql", "network", "loop", "data structure"]):
+                return "Computer Science"
+            return "General Science"
+
+        def _deduce_class(text: str) -> str:
+            m = re.search(r'\b(?:class|grade|standard|std)\s*[:.-]?\s*([0-9]{1,2}|ix|x|xi|xii|vi|vii|viii)\b', text, re.IGNORECASE)
+            if m:
+                val = m.group(1).upper()
+                roman_map = {"VI": "6", "VII": "7", "VIII": "8", "IX": "9", "X": "10", "XI": "11", "XII": "12"}
+                num = roman_map.get(val, val)
+                return f"Class {num}"
+            return ""
+
+        # Deduce true subject: priority is detected_subject, then keyword deduction from content, NEVER form dropdown
+        if detected_subject and detected_subject.lower() not in ["general", "general studies", "unknown", "document", ""]:
+            final_subject = detected_subject
+        else:
+            final_subject = _deduce_subject(combined_source)
+
+        # Deduce true class: priority is detected_class, then regex deduction from content, then fallback to req or Class 10
+        raw_deduced_class = detected_class or _deduce_class(combined_source)
+        if raw_deduced_class and raw_deduced_class.lower() not in ["unknown", ""]:
+            final_class = raw_deduced_class if "class" in raw_deduced_class.lower() else f"Class {raw_deduced_class}"
+        else:
+            final_class = req.class_name if (req.class_name and "auto_detect" not in req.class_name.lower()) else "Class 10"
+
+        # Deduce true chapter: priority is detected_chapter, then topic title from content, NEVER form dropdown
+        if detected_chapter and detected_chapter.lower() not in ["general", "general syllabus", "unknown", "attached content", ""]:
+            final_chapter = detected_chapter
+        else:
+            final_chapter = f"{final_subject} Core Concepts"
+
+        # Deduce title
+        if detected_title and "assessment" in detected_title.lower():
+            final_title = detected_title
+        elif detected_title:
+            final_title = f"{detected_title} - Periodic Assessment"
+        else:
+            final_title = f"{final_class} {final_subject} - {final_chapter} Assessment Paper"
 
         source_context = f"=== ATTACHED SOURCE REFERENCE MATERIAL ===\n{combined_source.strip()}\n=== END ATTACHED SOURCE REFERENCE MATERIAL ==="
 
@@ -1041,6 +1093,11 @@ Return valid JSON ONLY with these exact keys:
 You are DEVGYA's Master Assessment Engine for CBSE/NCERT.
 Formulate authentic exam questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
 Every question, option, blank, assertion, and case study must derive directly from the attached source material.
+DO NOT introduce external curriculum topics. Ignore any default form parameters.
+
+Subject: {final_subject}
+Class: {final_class}
+Topic / Chapter: {final_chapter}
 
 {source_context}
 {f"Teacher Notes: {teacher_notes}" if teacher_notes else ""}
@@ -1337,7 +1394,7 @@ JSON format:
             len(shorts) < target_short or len(longs) < target_long or len(cases) < target_case):
             fallback_req = GeneratePaperRequest(
                 title=final_title,
-                class_name=req.class_name or "Class 10",
+                class_name=final_class,
                 subject=final_subject,
                 chapter=final_chapter,
                 difficulty=req.difficulty or "medium",
@@ -1478,7 +1535,28 @@ JSON format:
         # Guaranteed fallback if final_qs is somehow still empty
         if not final_qs:
             logger.warning(f"final_qs empty after processing. Synthesizing fallback curriculum questions for {final_subject} - {final_chapter}.")
-            fb_items = self._synthesize_fallback_curriculum_questions(req)
+            emergency_req = fallback_req if 'fallback_req' in locals() else GeneratePaperRequest(
+                title=final_title,
+                class_name=final_class,
+                subject=final_subject,
+                chapter=final_chapter,
+                difficulty=req.difficulty or "medium",
+                total_marks=req.total_marks or 25,
+                time_allowed_mins=req.time_allowed_mins or 45,
+                num_mcqs=target_mcq,
+                num_short=target_short,
+                num_long=target_long,
+                num_assertion_reason=target_ar,
+                num_fill_in_the_blanks=target_fill,
+                num_case_study=target_case,
+                ar_marks=ar_marks,
+                fill_marks=fill_marks,
+                case_marks=case_marks,
+                school_name=req.school_name,
+                school_logo=req.school_logo,
+                user_email=req.user_email
+            )
+            fb_items = self._synthesize_fallback_curriculum_questions(emergency_req)
             for fb in fb_items:
                 final_qs.append(QuestionItem(
                     id=q_num,
@@ -1522,7 +1600,7 @@ JSON format:
 
         return GeneratedPaperResponse(
             title=final_title,
-            class_name=str(req.class_name or "Class 10"),
+            class_name=final_class,
             subject=final_subject,
             chapter=final_chapter,
             difficulty=str(req.difficulty or "medium"),

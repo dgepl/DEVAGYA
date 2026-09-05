@@ -242,16 +242,9 @@ async def generate_paper_from_file(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning(f"generate_paper_with_attachment notice: {e}. Falling back to curriculum generation so user never sees an error...")
-        try:
-            response = await groq_service.generate_question_paper(req)
-            if user_email: response.user_email = user_email
-            await _save_paper_for_user(user_email, response.dict())
-            return response
-        except Exception as fb_err:
-            logger.error(f"Fallback generation also failed: {fb_err}")
-            status_code, detail = format_ai_exception_detail(e, "Question Paper Generation with Attachment")
-            raise HTTPException(status_code=status_code, detail=detail)
+        logger.error(f"generate_paper_with_attachment error: {e}")
+        status_code, detail = format_ai_exception_detail(e, "Question Paper Generation with Attachment")
+        raise HTTPException(status_code=status_code, detail=detail)
 
 @router.post("/teaching-assistant")
 async def generate_teaching_material(payload: dict):

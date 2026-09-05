@@ -17,9 +17,9 @@ class QuestionItem(BaseModel):
 
 class GeneratePaperRequest(BaseModel):
     title: str = Field(default="Periodic Assessment - 2025")
-    class_name: str = Field(..., example="Class 10")
-    subject: str = Field(..., example="Science")
-    chapter: str = Field(..., example="Chemical Reactions and Equations")
+    class_name: str = Field(default="Class 10", example="Class 10")
+    subject: str = Field(default="Science", example="Science")
+    chapter: str = Field(default="General Syllabus", example="Chemical Reactions and Equations")
     difficulty: str = Field(default="medium", example="medium") # easy, medium, hard, mixed
     total_marks: int = Field(default=80)
     time_allowed_mins: int = Field(default=180)
