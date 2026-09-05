@@ -153,16 +153,14 @@ async def chat_message(
     if not message and not images:
         raise HTTPException(status_code=400, detail="Message or an image is required.")
 
-    # Resolve or create the conversation
+    # Resolve or create the conversation (self-healing if id expired or not found)
     conv = None
     if conversation_id:
         conv = chat_history_service.get_conversation(conversation_id, user_id)
-        if not conv:
-            raise HTTPException(status_code=404, detail="Conversation not found or does not belong to this user.")
-        # Update language if changed
-        if conv.get("language") != language:
+        if conv and conv.get("language") != language:
             chat_history_service.update_language(conversation_id, language)
-    else:
+
+    if not conv:
         conv = chat_history_service.create_conversation(user_id, _derive_title(message), language=language)
 
     # Process uploaded images -> compressed base64 data URLs

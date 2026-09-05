@@ -159,7 +159,7 @@ export function EnglishSpeakingCoach() {
   const cameraStreamRef = useRef<MediaStream | null>(null);
 
   // Multi-Turn Conversation History Context
-  const [conversationId, setConversationId] = useState<string>(() => `conv-live-${Date.now()}`);
+  const [conversationId, setConversationId] = useState<string>("");
   const [conversationHistory, setConversationHistory] = useState<
     Array<{ id: string; sender: "user" | "ai"; text: string; timestamp: string }>
   >([]);
@@ -458,8 +458,10 @@ Instructions:
       const fd = new FormData();
       fd.append("message", promptDirective);
       fd.append("agent_code", "english_coach");
-      fd.append("conversation_id", conversationId);
-      fd.append("user_id", user?.id || "teacher-guest");
+      if (conversationId && conversationId.trim()) {
+        fd.append("conversation_id", conversationId.trim());
+      }
+      fd.append("user_id", user?.id || user?.email || "teacher-guest");
       fd.append("language", immersionMode === "immersion" ? "english" : "hinglish");
 
       // ATTACH LIVE REAL-TIME CAMERA SNAPSHOT FOR EMOTION & POSTURE ANALYSIS
@@ -472,6 +474,18 @@ Instructions:
         method: "POST",
         body: fd
       });
+
+      if (!res.ok) {
+        setConversationId(""); // Reset so next attempt creates fresh conversation
+        const errText = await res.text().catch(() => "");
+        console.warn("Agents chat error status:", res.status, errText);
+        throw new Error(`Server returned status ${res.status}`);
+      }
+
+      const newConvId = res.headers.get("X-Conversation-Id");
+      if (newConvId && newConvId !== conversationId) {
+        setConversationId(newConvId);
+      }
 
       if (res.body) {
         const reader = res.body.getReader();
@@ -682,7 +696,7 @@ Instructions:
 
   // Reset conversation context
   const handleResetConversation = () => {
-    setConversationId(`conv-live-${Date.now()}`);
+    setConversationId("");
     setConversationHistory([]);
     setLatestFeedback(null);
     setCurrentSpeechText("");
@@ -854,10 +868,10 @@ Instructions:
             : "bg-slate-200/40"
         }`} />
 
-        {/* LIVE CAMERA VIEWFINDER WITH EMOTION & POSTURE RADAR */}
+        {/* LIVE CAMERA VIEWFINDER (LARGER, SLEEK, ZERO TEXT OVERLAY) */}
         {cameraActive ? (
-          <div className="flex flex-col items-center gap-2 z-10">
-            <div className="relative w-40 h-40 md:w-52 md:h-52 rounded-3xl overflow-hidden border-2 border-white shadow-2xl bg-slate-900 group ring-4 ring-slate-100/80">
+          <div className="flex flex-col items-center z-10">
+            <div className="relative w-56 h-56 sm:w-72 sm:h-72 md:w-80 md:h-80 rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-slate-950 ring-1 ring-slate-200/80">
               <video
                 ref={videoRef}
                 autoPlay
@@ -866,60 +880,23 @@ Instructions:
                 className="w-full h-full object-cover scale-x-[-1]"
               />
 
-              {/* Face Targeting Reticles (corners) */}
-              <div className="absolute inset-3 pointer-events-none border border-emerald-400/40 rounded-2xl">
-                <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-emerald-400 rounded-tl-sm" />
-                <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-emerald-400 rounded-tr-sm" />
-                <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-emerald-400 rounded-bl-sm" />
-                <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-emerald-400 rounded-br-sm" />
-              </div>
-
-              {/* AI Vision Perception Badge */}
-              <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-black text-emerald-400 flex items-center gap-1 border border-emerald-500/30 shadow-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>AI Vision • Live Reaction</span>
-              </div>
-
-              {/* Quick Switch Camera Button */}
+              {/* Minimal translucent Camera Switch Button */}
               <button
                 onClick={switchCamera}
-                className="absolute top-2 right-2 p-1 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md transition-colors cursor-pointer"
+                className="absolute top-3 right-3 p-2 rounded-full bg-black/40 hover:bg-black/70 text-white/90 backdrop-blur-md transition-colors cursor-pointer"
                 title="Switch Camera"
               >
-                <SwitchCamera className="w-3.5 h-3.5" />
+                <SwitchCamera className="w-4 h-4" />
               </button>
-
-              {/* Real-time Observation Status Badge */}
-              <div className="absolute bottom-2 inset-x-2 bg-black/75 backdrop-blur-md px-2 py-1 rounded-xl text-[9px] font-bold text-white flex items-center justify-between border border-white/10">
-                <span className="flex items-center gap-1 text-emerald-300">
-                  <Eye className="w-3 h-3 text-emerald-400" />
-                  <span>Tracking Eye & Posture</span>
-                </span>
-                <span className="flex items-center gap-1 text-amber-300">
-                  <Smile className="w-3 h-3 text-amber-400" />
-                  <span>Detecting Nervousness</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Sub-badge: Perception & 0-Delay Confidence */}
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                0-Delay Instant Streaming
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                Noticing Expressions & Emotion
-              </span>
             </div>
           </div>
         ) : (
-          <div className="w-40 h-28 md:w-52 md:h-32 rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-3 text-center bg-slate-50/50 z-10">
-            <VideoOff className="w-6 h-6 text-slate-400 mb-1" />
-            <p className="text-[11px] font-bold text-slate-600">Camera is Off</p>
+          <div className="w-56 h-48 sm:w-72 sm:h-56 md:w-80 md:h-64 rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-4 text-center bg-slate-50/60 z-10">
+            <VideoOff className="w-8 h-8 text-slate-400 mb-2" />
+            <p className="text-xs font-bold text-slate-600">Camera is Off</p>
             <button
               onClick={() => startCamera()}
-              className="mt-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black cursor-pointer shadow-xs"
+              className="mt-2 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black cursor-pointer shadow-xs"
             >
               Turn Camera On
             </button>
@@ -1049,29 +1026,29 @@ Instructions:
           </button>
 
           {/* Status Indicator */}
-          <div className="mt-3 text-xs font-bold">
+          <div className="mt-2.5 text-xs font-bold">
             {isAiSpeaking ? (
-              <span className="text-rose-600 flex items-center gap-1.5">
+              <span className="text-rose-600 flex items-center justify-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-                Coach speaking with zero delay (tap orb to interrupt)
+                Speaking... (tap orb to interrupt)
               </span>
             ) : isListening ? (
-              <span className="text-emerald-600 flex items-center gap-1.5">
+              <span className="text-emerald-600 flex items-center justify-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
-                Listening & analyzing expression... (pause or tap orb when done)
+                Listening to you...
               </span>
             ) : isAiThinking ? (
-              <span className="text-amber-600 flex items-center gap-1.5">
+              <span className="text-amber-600 flex items-center justify-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />
-                AI perceiving your reaction & speaking with 0 delay...
+                Coach thinking...
               </span>
             ) : isLiveActive ? (
               <span className="text-indigo-600">
-                Camera vision & hands-free conversation active. Speak freely!
+                Connected. Speak whenever you are ready.
               </span>
             ) : (
               <span className="text-slate-500">
-                Tap &ldquo;Start Live&rdquo; to begin voice conversation with live camera vision
+                Tap the orb to start conversation
               </span>
             )}
           </div>
