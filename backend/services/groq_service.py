@@ -914,23 +914,26 @@ Extract:
 2. True Chapter / Unit / Topic Title covered in the document
 3. Appropriate Exam Title
 4. Concise Key Concepts Summary (under 250 words)
+5. Comprehensive transcription of all visible text, questions, headings, equations, and topics from ALL attached images (under key "transcription")
 
 Return valid JSON ONLY with these exact keys:
 {
   "subject": "...",
   "chapter": "...",
   "title": "...",
-  "summary": "..."
+  "summary": "...",
+  "transcription": "..."
 }"""
 
         detected_subject = ""
         detected_chapter = ""
         detected_title = ""
         attachment_summary = ""
+        attachment_transcription = ""
 
         if all_image_urls:
             meta_user_content: List[Dict[str, Any]] = [{"type": "text", "text": detect_prompt}]
-            for img_u in all_image_urls[:3]:
+            for img_u in all_image_urls[:5]:
                 meta_user_content.append({"type": "image_url", "image_url": {"url": img_u}})
             if extracted_text and extracted_text.strip():
                 meta_user_content.append({"type": "text", "text": f"\n\nDocument Text:\n{extracted_text[:4000]}"})
@@ -944,7 +947,7 @@ Return valid JSON ONLY with these exact keys:
                     {"role": "user", "content": meta_user_content}
                 ],
                 temperature=0.2,
-                max_tokens=800,
+                max_tokens=2500,
                 response_format_json=True
             )
             parsed_meta = robust_json_parser(raw_meta)
@@ -952,6 +955,7 @@ Return valid JSON ONLY with these exact keys:
             detected_chapter = str(parsed_meta.get("chapter") or "").strip()
             detected_title = str(parsed_meta.get("title") or "").strip()
             attachment_summary = str(parsed_meta.get("summary") or "").strip()
+            attachment_transcription = str(parsed_meta.get("transcription") or "").strip()
         except Exception as meta_err:
             logger.warning(f"[Attachment Meta Detection Notice] {meta_err}")
 
@@ -966,6 +970,8 @@ Return valid JSON ONLY with these exact keys:
             combined_source += f"=== DIGITAL DOCUMENT TEXT ===\n{extracted_text[:9000]}\n\n"
         if attachment_summary:
             combined_source += f"=== ATTACHED MATERIAL CONCEPTS & SUMMARY ===\n{attachment_summary}\n\n"
+        if attachment_transcription:
+            combined_source += f"=== TRANSCRIBED ATTACHED CONTENT ===\n{attachment_transcription[:9000]}\n\n"
 
         if not combined_source.strip():
             combined_source = "=== ATTACHED REFERENCE MATERIAL ===\n[Derive all questions from the attached images/photos]\n"
@@ -991,7 +997,7 @@ Return valid JSON ONLY with these exact keys:
             async with sem:
                 if include_images and all_image_urls:
                     user_content: List[Dict[str, Any]] = [{"type": "text", "text": prompt_text}]
-                    for img_u in all_image_urls[:3]:
+                    for img_u in all_image_urls[:5]:
                         user_content.append({"type": "image_url", "image_url": {"url": img_u}})
                 else:
                     user_content = prompt_text
@@ -1113,11 +1119,22 @@ JSON FORMAT ONLY:
         should_send_images = bool(not extracted_text and all_image_urls)
         try:
             raw_master = await _call_attachment_llm(master_prompt, include_images=should_send_images)
+            if not raw_master or len(raw_master.strip()) < 10:
+                if should_send_images:
+                    raw_master = await _call_attachment_llm(master_prompt, include_images=False)
             if raw_master and len(raw_master.strip()) > 10:
                 parsed_master = robust_json_parser(raw_master)
                 extracted_raw_questions.extend(parsed_master.get("questions") or [])
         except Exception as master_err:
             logger.warning(f"Master attachment synthesis notice: {master_err}")
+            if should_send_images:
+                try:
+                    raw_master = await _call_attachment_llm(master_prompt, include_images=False)
+                    if raw_master and len(raw_master.strip()) > 10:
+                        parsed_master = robust_json_parser(raw_master)
+                        extracted_raw_questions.extend(parsed_master.get("questions") or [])
+                except Exception as fb_err2:
+                    logger.warning(f"Text fallback synthesis notice: {fb_err2}")
 
         def _dedup_q_list(q_list):
             seen = set()
@@ -1139,14 +1156,21 @@ JSON FORMAT ONLY:
             q_text = str(q.get("question_text") or q.get("question") or "").strip()
             if not q_text:
                 continue
-            q_type = str(q.get("question_type") or "").lower()
-            opts = q.get("options") if isinstance(q.get("options"), list) and len(q.get("options")) >= 2 else None
+            q_type = str(q.get("question_type") or q.get("type") or "").lower()
+            raw_opts = q.get("options")
+            if isinstance(raw_opts, dict):
+                opts = [f"({k}) {v}" for k, v in raw_opts.items()]
+            elif isinstance(raw_opts, list) and len(raw_opts) >= 2:
+                opts = raw_opts
+            else:
+                opts = None
+
             ans = str(q.get("answer") or "Refer to step-by-step model solution based on attached document.")
             exp = str(q.get("explanation") or "Derived directly from attached source material.")
 
-            if "case" in q_type or q.get("case_passage"):
-                passage = str(q.get("case_passage") or "Case scenario derived from attached material.").strip()
-                raw_sub = q.get("sub_questions") or ["(i) Explain the phenomenon.", "(ii) State the key principle.", "(iii) Derive the final conclusion."]
+            if "case" in q_type or q.get("case_passage") or q.get("case_study") or q.get("sub_questions"):
+                passage = str(q.get("case_passage") or q.get("passage") or "Case scenario derived from attached material.").strip()
+                raw_sub = q.get("sub_questions") or q.get("questions") or ["(i) Explain the phenomenon.", "(ii) State the key principle.", "(iii) Derive the final conclusion."]
                 clean_qt = q_text
                 if passage and len(passage) > 20 and passage.lower() in clean_qt.lower():
                     clean_qt = re.sub(re.escape(passage), '', clean_qt, flags=re.IGNORECASE).strip()
@@ -1170,12 +1194,12 @@ JSON FORMAT ONLY:
                     "answer": ans,
                     "explanation": exp
                 })
-            elif "assertion" in q_type or "ar" in q_type or q.get("assertion_text"):
+            elif "assertion" in q_type or "ar" in q_type or q.get("assertion_text") or ("assertion" in q_text.lower() and "reason" in q_text.lower()):
                 ars.append({
                     "question_type": "assertion_reason",
                     "question_text": q_text,
-                    "assertion_text": q.get("assertion_text"),
-                    "reason_text": q.get("reason_text"),
+                    "assertion_text": q.get("assertion_text") or "Assertion statement from attached material.",
+                    "reason_text": q.get("reason_text") or "Reason statement from attached material.",
                     "marks": ar_marks,
                     "options": opts or [
                         "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
@@ -1186,16 +1210,16 @@ JSON FORMAT ONLY:
                     "answer": ans,
                     "explanation": exp
                 })
-            elif "fill" in q_type:
+            elif "fill" in q_type or "blank" in q_type or "_______" in q_text:
                 fills.append({
                     "question_type": "fill_in_the_blanks",
-                    "question_text": q_text,
+                    "question_text": q_text if "_______" in q_text else f"{q_text} _______.",
                     "marks": fill_marks,
                     "options": None,
                     "answer": ans,
                     "explanation": exp
                 })
-            elif "mcq" in q_type or opts:
+            elif "mcq" in q_type or "choice" in q_type or opts:
                 mcqs.append({
                     "question_type": "mcq",
                     "question_text": q_text,

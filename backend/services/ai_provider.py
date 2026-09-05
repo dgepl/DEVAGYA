@@ -109,11 +109,11 @@ class AIProviderService:
         if response_format_json and "qwen" not in str(selected_model).lower():
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite"]
+                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"]
             elif has_imgs:
-                models_to_try = [selected_model, "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
+                models_to_try = [selected_model, "gemini-3.5-flash-lite", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
             else:
                 models_to_try = [selected_model, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
             # Deduplicate while preserving order
@@ -178,18 +178,24 @@ class AIProviderService:
     ) -> str:
         """Direct native Google Gemini generateContent for robust, fast multi-image OCR & transcription."""
         parts = []
+        system_text = ""
         for msg in messages:
+            role = msg.get("role")
             content = msg.get("content")
+            if role == "system":
+                if isinstance(content, str) and content.strip():
+                    system_text += content.strip() + "\n"
+                continue
+
             if isinstance(content, str):
                 if content.strip():
                     parts.append({"text": content.strip()})
             elif isinstance(content, list):
+                # Put image parts first, then prompt text parts for optimal visual comprehension
+                img_parts = []
+                txt_parts = []
                 for p in content:
-                    if p.get("type") == "text":
-                        t = p.get("text", "").strip()
-                        if t:
-                            parts.append({"text": t})
-                    elif p.get("type") == "image_url":
+                    if p.get("type") == "image_url":
                         url_val = (p.get("image_url") or {}).get("url", "")
                         if "base64," in url_val:
                             mime = "image/jpeg"
@@ -198,12 +204,18 @@ class AIProviderService:
                             elif "data:image/webp" in url_val:
                                 mime = "image/webp"
                             b64_data = url_val.split("base64,")[1].strip()
-                            parts.append({
+                            img_parts.append({
                                 "inline_data": {
                                     "mime_type": mime,
                                     "data": b64_data
                                 }
                             })
+                    elif p.get("type") == "text":
+                        t = p.get("text", "").strip()
+                        if t:
+                            txt_parts.append({"text": t})
+                parts.extend(img_parts)
+                parts.extend(txt_parts)
 
         gen_config: Dict[str, Any] = {
             "temperature": temperature,
@@ -212,13 +224,17 @@ class AIProviderService:
         if response_format_json:
             gen_config["responseMimeType"] = "application/json"
 
-        payload = {
+        payload: Dict[str, Any] = {
             "contents": [{"parts": parts}],
             "generationConfig": gen_config
         }
+        if system_text.strip():
+            payload["system_instruction"] = {
+                "parts": [{"text": system_text.strip()}]
+            }
 
-        candidate_models = ["gemini-3.5-flash-lite"]
-        async with httpx.AsyncClient(timeout=28.0) as client:
+        candidate_models = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"]
+        async with httpx.AsyncClient(timeout=60.0) as client:
             for m in candidate_models:
                 try:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
@@ -233,13 +249,31 @@ class AIProviderService:
                             clean_text = re.sub(r'<think>[\s\S]*?</think>', '', raw_text).strip()
                             if clean_text:
                                 return clean_text
-                    elif res.status_code in (503, 429, 404):
+                    elif res.status_code == 400 and "responseMimeType" in gen_config:
+                        # Retry without responseMimeType in case model rejects schema/instruction format
+                        retry_payload = dict(payload)
+                        retry_cfg = dict(gen_config)
+                        retry_cfg.pop("responseMimeType", None)
+                        retry_payload["generationConfig"] = retry_cfg
+                        retry_res = await client.post(url, json=retry_payload)
+                        if retry_res.status_code == 200:
+                            data = retry_res.json()
+                            candidates = data.get("candidates", [])
+                            if candidates:
+                                parts_out = candidates[0].get("content", {}).get("parts", [])
+                                text_parts = [p.get("text", "") for p in parts_out if "text" in p]
+                                raw_text = "".join(text_parts).strip()
+                                clean_text = re.sub(r'<think>[\s\S]*?</think>', '', raw_text).strip()
+                                if clean_text:
+                                    return clean_text
+                    elif res.status_code in (503, 429, 404, 500, 502):
                         logger.warning(f"Gemini vision model {m} ({res.status_code}), trying next fallback...")
                         continue
                 except Exception as ex:
                     logger.warning(f"Gemini vision model {m} error: {ex}, trying fallback...")
                     continue
             return ""
+
 
     def _optimize_messages(self, messages: List[Dict[str, Any]], max_turns: int = 6) -> List[Dict[str, Any]]:
         """

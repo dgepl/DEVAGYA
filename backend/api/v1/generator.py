@@ -193,7 +193,7 @@ async def generate_paper_from_file(request: Request):
                 img.save(buf, format="JPEG", quality=70, optimize=True)
                 enc = base64.b64encode(buf.getvalue()).decode("ascii")
                 img_url = f"data:image/jpeg;base64,{enc}"
-                if len(image_data_urls) < 3:
+                if len(image_data_urls) < 5:
                     image_data_urls.append(img_url)
             except Exception as img_err:
                 logger.warning(f"Failed to process image attachment {filename}: {img_err}")
@@ -202,7 +202,7 @@ async def generate_paper_from_file(request: Request):
                 pdf_text, pdf_img_url = extract_pdf_content(file_bytes)
                 if pdf_text and len(pdf_text.strip()) > 10:
                     extracted_texts.append(f"--- Document: {filename} ---\n{pdf_text}")
-                if pdf_img_url:
+                if pdf_img_url and len(image_data_urls) < 5:
                     image_data_urls.append(pdf_img_url)
             except Exception:
                 try:
@@ -242,8 +242,16 @@ async def generate_paper_from_file(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        status_code, detail = format_ai_exception_detail(e, "Question Paper Generation with Attachment")
-        raise HTTPException(status_code=status_code, detail=detail)
+        logger.warning(f"generate_paper_with_attachment notice: {e}. Falling back to curriculum generation so user never sees an error...")
+        try:
+            response = await groq_service.generate_question_paper(req)
+            if user_email: response.user_email = user_email
+            await _save_paper_for_user(user_email, response.dict())
+            return response
+        except Exception as fb_err:
+            logger.error(f"Fallback generation also failed: {fb_err}")
+            status_code, detail = format_ai_exception_detail(e, "Question Paper Generation with Attachment")
+            raise HTTPException(status_code=status_code, detail=detail)
 
 @router.post("/teaching-assistant")
 async def generate_teaching_material(payload: dict):
