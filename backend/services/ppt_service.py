@@ -41,7 +41,7 @@ logger = logging.getLogger("ppt_service")
 
 class SlideItem(BaseModel):
     slide_number: int
-    layout: str = "title_bullets" # title_bullets, two_column, stat_highlight, process_timeline, quote_insight, split_image_text
+    layout: str = "title_bullets" # cover, title_bullets, two_column, stat_highlight, process_timeline, quote_insight, split_image_text, thank_you
     category: str = "Concept"
     title: str
     subtitle: Optional[str] = None
@@ -66,6 +66,7 @@ class GeneratePPTRequest(BaseModel):
     teacher_guidance: Optional[str] = Field(default="")
     user_email: Optional[str] = None
     user_id: Optional[str] = None
+    presenter_name: Optional[str] = None
 
 class PresentationData(BaseModel):
     id: Optional[str] = None
@@ -77,6 +78,7 @@ class PresentationData(BaseModel):
     theme: str = "modern_navy"
     language: str = "English"
     teacher_guidance: Optional[str] = None
+    presenter_name: Optional[str] = None
     slides: List[SlideItem]
     created_at: Optional[str] = None
 
@@ -317,8 +319,14 @@ class PPTGeneratorService:
 
     async def generate_presentation(self, req: GeneratePPTRequest) -> PresentationData:
         """Generates a complete, high-quality presentation structure on any topic with teacher AI guidance."""
+        presenter = (req.presenter_name or "").strip()
+        if not presenter and req.user_email:
+            presenter = req.user_email.split("@")[0].replace(".", " ").title()
+        if not presenter:
+            presenter = "Educator"
+
         prompt = f"""You are DEVGYA's Master Educational Presentation Architect.
-Synthesize a comprehensive, beautifully structured slide deck for teachers.
+Synthesize a comprehensive, beautifully structured slide deck for teachers and learners.
 
 TOPIC: {req.topic}
 TARGET AUDIENCE: {req.target_audience}
@@ -326,23 +334,43 @@ NUMBER OF SLIDES: {req.num_slides}
 PRESENTATION TONE: {req.tone}
 LANGUAGE: {req.language}
 COLOR THEME: {req.theme}
+PRESENTER / AUTHOR: {presenter}
 {f"TEACHER SPECIFIC GUIDANCE & PEDAGOGY MANDATES: {req.teacher_guidance}" if req.teacher_guidance else ""}
 
-CRITICAL DESIGN MANDATES:
-1. Topic Flexibility: Any study topic is allowed (academic, technical, historical, practical, philosophical, exam revision, etc.).
-2. Slide Layout Diversity: Vary slide layouts across the deck to maintain visual engagement:
-   - 'title_bullets': Impactful title + 3-4 structured bullet points with bold lead-in keywords.
-   - 'two_column': Comparison, pros vs cons, before vs after, or concept vs application.
-   - 'stat_highlight': 2-3 key metrics or quantitative insights with values and descriptions.
-   - 'process_timeline': 3-4 sequential steps, phases, or historical milestones.
-   - 'quote_insight': Deep philosophical/expert quote or core conceptual axiom.
-   - 'split_image_text': Visually rich summary with focal explanation.
-3. High Pedagogical Quality:
-   - Slide 1 should always be a captivating Title / Hook slide.
-   - Middle slides develop the core mechanisms, examples, and analysis step-by-step.
-   - Penultimate / Last slide should include Key Takeaways, Interactive Classroom Discussion Question, or Quick Concept Quiz.
-4. Speaker Notes: Provide practical teacher guidance notes for presenting each slide effectively to students.
-5. Image Keywords: Provide 2-3 descriptive visual keywords for educational illustration search.
+CRITICAL ARCHITECTURAL MANDATES:
+1. FIRST SLIDE (SLIDE 1) MUST BE A DEDICATED COVER / TITLE SLIDE:
+   - "layout": "cover"
+   - "category": "Presentation Cover"
+   - "title": Main punchy presentation title
+   - "subtitle": Clear, engaging subtitle summarizing audience goals
+   - "bullets": [
+       "Presented by: {presenter}",
+       "Target Audience: {req.target_audience}",
+       "Curriculum Focus: {req.topic}"
+     ]
+   - "speaker_notes": Welcoming opening script introducing the session, presenter, and overarching goals.
+
+2. FINAL SLIDE (SLIDE {req.num_slides}) MUST BE A DEDICATED THANK YOU & DISCUSSION SLIDE:
+   - "layout": "thank_you"
+   - "category": "Conclusion & Discussion"
+   - "title": "Thank You!"
+   - "subtitle": "Questions & Classroom Discussion"
+   - "bullets": [
+       "**Core Key Takeaway**: [1 crisp, memorable summary sentence]",
+       "**Classroom Discussion Question**: [1 thought-provoking discussion prompt for students]",
+       "**Next Steps & Review**: Concept consolidation, chapter exercises, and open Q&A"
+     ]
+   - "speaker_notes": Warm closing remarks thanking students/audience and opening the floor for discussion.
+
+3. DYNAMIC & FRESH LOOKS (NO REPETITIVE MONOTONOUS SLIDES):
+   Vary slide layouts across middle slides (Slides 2 to {req.num_slides - 1}) based on the specific content:
+   - 'two_column': Comparison, theoretical vs practical, advantages vs challenges.
+   - 'stat_highlight': 2-3 prominent quantitative metrics or pivotal numbers with values and descriptions.
+   - 'process_timeline': 3-4 sequential stages, milestones, or procedural steps with titles and descriptions.
+   - 'quote_insight': Powerful conceptual quote, foundational axiom, or thought leader insight.
+   - 'split_image_text': High-impact concept explanation paired with visual focal illustration.
+   - 'title_bullets': Structured points with bold lead-in keywords (**Concept**: Explanation).
+   Every slide must feel intentionally crafted, professional, and visually distinct. Never repeat identical layout formats consecutively.
 
 RETURN VALID JSON ONLY matching this exact schema:
 {{
@@ -351,22 +379,23 @@ RETURN VALID JSON ONLY matching this exact schema:
   "slides": [
     {{
       "slide_number": 1,
-      "layout": "title_bullets",
-      "category": "Introduction & Overview",
-      "title": "...",
-      "subtitle": "...",
+      "layout": "cover",
+      "category": "Presentation Cover",
+      "title": "{req.topic}",
+      "subtitle": "A Comprehensive Guide for {req.target_audience}",
       "bullets": [
-        "**Key Concept 1**: Clear explanation...",
-        "**Key Concept 2**: Clear explanation..."
+        "Presented by: {presenter}",
+        "Target Audience: {req.target_audience}",
+        "Subject: {req.topic}"
       ],
       "left_column": null,
       "right_column": null,
       "metrics": null,
       "timeline_steps": null,
       "quote": null,
-      "image_keyword": "astronomy universe",
-      "image_caption": "Visual representation of...",
-      "speaker_notes": "Introduce the session by asking students..."
+      "image_keyword": "{req.topic}",
+      "image_caption": "Presentation Cover",
+      "speaker_notes": "Welcome everyone to today's session on {req.topic}..."
     }},
     {{
       "slide_number": 2,
@@ -386,7 +415,7 @@ RETURN VALID JSON ONLY matching this exact schema:
       "metrics": null,
       "timeline_steps": null,
       "quote": null,
-      "image_keyword": "physics laboratory",
+      "image_keyword": "laboratory science",
       "image_caption": "Comparative analysis",
       "speaker_notes": "Highlight how the transition occurred..."
     }}
@@ -427,6 +456,7 @@ Generate ALL {req.num_slides} slides completely!"""
             resolved_imgs = await asyncio.gather(*[_fill_slide_image(s) for s in slides_raw], return_exceptions=True)
 
             slides_list: List[SlideItem] = []
+            total_s = len(slides_raw)
             for idx, s in enumerate(slides_raw):
                 if not isinstance(s, dict):
                     continue
@@ -439,12 +469,31 @@ Generate ALL {req.num_slides} slides completely!"""
                 if not bullets and s.get("content"):
                     bullets = [str(s.get("content"))]
 
+                layout_str = str(s.get("layout") or "title_bullets")
+                cat_str = str(s.get("category") or f"Module {num}")
+                title_str = str(s.get("title") or f"Key Concept {num}")
+                sub_str = str(s.get("subtitle") or "") if s.get("subtitle") else None
+
+                # Enforce Slide 1 Cover & Final Slide Thank You
+                if num == 1:
+                    layout_str = "cover"
+                    cat_str = "Presentation Cover"
+                    if not any("Presented by" in b for b in bullets):
+                        bullets = [f"Presented by: {presenter}"] + [b for b in bullets if "Presented by" not in b]
+                elif num == total_s:
+                    layout_str = "thank_you"
+                    cat_str = "Conclusion & Discussion"
+                    if "thank" not in title_str.lower():
+                        title_str = "Thank You!"
+                    if not sub_str:
+                        sub_str = "Questions & Classroom Discussion"
+
                 item = SlideItem(
                     slide_number=num,
-                    layout=str(s.get("layout") or "title_bullets"),
-                    category=str(s.get("category") or f"Module {num}"),
-                    title=str(s.get("title") or f"Key Concept {num}"),
-                    subtitle=str(s.get("subtitle") or "") if s.get("subtitle") else None,
+                    layout=layout_str,
+                    category=cat_str,
+                    title=title_str,
+                    subtitle=sub_str,
                     bullets=bullets,
                     left_column=s.get("left_column") if isinstance(s.get("left_column"), dict) else None,
                     right_column=s.get("right_column") if isinstance(s.get("right_column"), dict) else None,
@@ -471,6 +520,7 @@ Generate ALL {req.num_slides} slides completely!"""
                 theme=req.theme,
                 language=req.language,
                 teacher_guidance=req.teacher_guidance,
+                presenter_name=presenter,
                 slides=slides_list
             )
 
@@ -493,19 +543,25 @@ Generate ALL {req.num_slides} slides completely!"""
         return await _resolve_real_topic_image(topic, slide_title, keyword)
 
     def _generate_fallback_presentation(self, req: GeneratePPTRequest) -> PresentationData:
-        """Fallback presentation structure if external LLM encounters temporary connectivity issues."""
+        """Fallback presentation structure with dedicated Cover and Thank You slides."""
+        presenter = (req.presenter_name or "").strip()
+        if not presenter and req.user_email:
+            presenter = req.user_email.split("@")[0].replace(".", " ").title()
+        if not presenter:
+            presenter = "Educator"
         topic_title = req.topic.strip().title()
+
         slides: List[SlideItem] = [
             SlideItem(
                 slide_number=1,
-                layout="title_bullets",
-                category="Introduction",
+                layout="cover",
+                category="Presentation Cover",
                 title=topic_title,
                 subtitle=f"A Comprehensive Pedagogical Guide for {req.target_audience}",
                 bullets=[
-                    f"**Core Foundation**: Exploration and fundamentals of {topic_title}.",
-                    f"**Curriculum Objectives**: Conceptual mastery of analytical principles.",
-                    f"**Real-World Context**: Practical applications and critical thinking analysis."
+                    f"Presented by: {presenter}",
+                    f"Target Audience: {req.target_audience}",
+                    f"Curriculum Focus: {topic_title}"
                 ],
                 image_keyword=req.topic,
                 image_url=_get_image_for_keyword(req.topic),
@@ -554,26 +610,11 @@ Generate ALL {req.num_slides} slides completely!"""
                 image_url=_get_image_for_keyword("data chart"),
                 image_caption="Analytical Framework",
                 speaker_notes="Emphasize why this topic carries significant importance in academic evaluation."
-            ),
-            SlideItem(
-                slide_number=4,
-                layout="title_bullets",
-                category="Summary & Discussion",
-                title="Key Takeaways & Interactive Discussion",
-                subtitle="Consolidation and classroom check for understanding",
-                bullets=[
-                    f"**Consolidated Review**: Critical understanding of {topic_title} mechanisms.",
-                    "**Classroom Discussion Question**: How would this principle apply in a novel real-world scenario?",
-                    "**Next Steps**: Chapter exercise practice, concept mapping, and assessment preparation."
-                ],
-                image_keyword="classroom discussion education",
-                image_url=_get_image_for_keyword("classroom discussion"),
-                image_caption="Interactive Classroom Discussion",
-                speaker_notes="Engage students in an open discussion to evaluate concept comprehension and answer student doubts."
             )
         ]
 
-        while len(slides) < req.num_slides:
+        # Add middle slides if needed
+        while len(slides) < req.num_slides - 1:
             num = len(slides) + 1
             slides.append(
                 SlideItem(
@@ -594,6 +635,27 @@ Generate ALL {req.num_slides} slides completely!"""
                 )
             )
 
+        # Final Slide: Thank You
+        final_num = len(slides) + 1
+        slides.append(
+            SlideItem(
+                slide_number=final_num,
+                layout="thank_you",
+                category="Conclusion & Discussion",
+                title="Thank You!",
+                subtitle="Questions & Classroom Discussion",
+                bullets=[
+                    f"**Core Takeaway**: Essential conceptual mastery of {topic_title}.",
+                    "**Classroom Discussion Question**: How do these concepts impact modern practice and future developments?",
+                    "**Next Steps**: Review notes, chapter questions, and collaborative discussion."
+                ],
+                image_keyword="classroom celebration education",
+                image_url=_get_image_for_keyword("classroom discussion"),
+                image_caption="Questions and Discussion",
+                speaker_notes="Thank everyone for their attention and open the floor for questions."
+            )
+        )
+
         fallback_deck = PresentationData(
             id=f"ppt-{uuid.uuid4().hex[:12]}",
             title=topic_title,
@@ -604,8 +666,18 @@ Generate ALL {req.num_slides} slides completely!"""
             theme=req.theme,
             language=req.language,
             teacher_guidance=req.teacher_guidance,
+            presenter_name=presenter,
             slides=slides
         )
+
+        clean_user = (req.user_id or req.user_email or "").strip()
+        if clean_user:
+            try:
+                ppt_history_service.save_deck(clean_user, fallback_deck.dict())
+            except Exception as save_err:
+                logger.warning(f"Failed to auto-save fallback deck to Supabase: {save_err}")
+
+        return fallback_deck
 
         clean_user = (req.user_id or req.user_email or "").strip()
         if clean_user:
@@ -676,6 +748,7 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
         c_accent = RGBColor(*theme["rgb_accent"])
         c_card = RGBColor(*theme["rgb_card"])
         c_bg = RGBColor(*theme["rgb_bg"])
+        presenter_display = pres_data.presenter_name or "Educator"
 
         for s in pres_data.slides:
             slide = prs.slides.add_slide(blank_layout)
@@ -686,7 +759,126 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
             bg_shape.fill.fore_color.rgb = c_bg
             bg_shape.line.fill.background()
 
-            # Top Accent Header Bar
+            # 1. SPECIAL COVER SLIDE (SLIDE 1)
+            if s.layout == "cover" or s.slide_number == 1:
+                # Left decorative vertical accent banner
+                left_band = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(0.4), Inches(7.5))
+                left_band.fill.solid()
+                left_band.fill.fore_color.rgb = c_accent
+                left_band.line.fill.background()
+
+                # Brand Pill
+                pill = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.2), Inches(1.0), Inches(5.0), Inches(0.45))
+                pill.fill.solid()
+                pill.fill.fore_color.rgb = c_card
+                pill.line.color.rgb = c_accent
+                tf_p = pill.text_frame
+                tf_p.vertical_anchor = MSO_ANCHOR.MIDDLE
+                p_pill = tf_p.paragraphs[0]
+                p_pill.text = "DEVGYA AI  •  EDUCATIONAL PRESENTATION"
+                p_pill.font.size = Pt(10)
+                p_pill.font.bold = True
+                p_pill.font.color.rgb = c_accent
+
+                # Main Topic Title
+                title_box = slide.shapes.add_textbox(Inches(1.2), Inches(1.7), Inches(11.0), Inches(2.3))
+                tf_title = title_box.text_frame
+                tf_title.word_wrap = True
+                p_t = tf_title.paragraphs[0]
+                p_t.text = s.title
+                p_t.font.size = Pt(36)
+                p_t.font.bold = True
+                p_t.font.color.rgb = c_primary
+
+                if s.subtitle:
+                    p_sub = tf_title.add_paragraph()
+                    p_sub.text = s.subtitle
+                    p_sub.font.size = Pt(18)
+                    p_sub.font.color.rgb = RGBColor(71, 85, 105)
+                    p_sub.space_before = Pt(10)
+
+                # Presenter & Attribution Card
+                pres_card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.2), Inches(4.5), Inches(10.8), Inches(1.8))
+                pres_card.fill.solid()
+                pres_card.fill.fore_color.rgb = c_card
+                pres_card.line.color.rgb = RGBColor(226, 232, 240)
+                tf_pc = pres_card.text_frame
+                tf_pc.margin_left = Inches(0.4)
+                tf_pc.margin_top = Inches(0.25)
+
+                p_by = tf_pc.paragraphs[0]
+                p_by.text = f"Presented by: {presenter_display}"
+                p_by.font.size = Pt(16)
+                p_by.font.bold = True
+                p_by.font.color.rgb = c_primary
+
+                p_aud = tf_pc.add_paragraph()
+                p_aud.text = f"Target Audience: {pres_data.target_audience}   •   Subject Focus: {pres_data.topic}"
+                p_aud.font.size = Pt(12)
+                p_aud.font.color.rgb = RGBColor(100, 116, 139)
+                p_aud.space_before = Pt(6)
+
+                p_org = tf_pc.add_paragraph()
+                p_org.text = "DEVGYA Global Edutech Private Limited  •  CBSE & NCERT Aligned"
+                p_org.font.size = Pt(11)
+                p_org.font.bold = True
+                p_org.font.color.rgb = c_accent
+                p_org.space_before = Pt(6)
+
+                if s.speaker_notes:
+                    notes_slide = slide.notes_slide
+                    notes_slide.notes_text_frame.text = f"TEACHER SPEAKER NOTES:\n{s.speaker_notes}"
+                continue
+
+            # 2. SPECIAL THANK YOU SLIDE (FINAL SLIDE)
+            if s.layout == "thank_you" or s.slide_number == len(pres_data.slides):
+                ty_card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.2), Inches(0.8), Inches(10.933), Inches(5.9))
+                ty_card.fill.solid()
+                ty_card.fill.fore_color.rgb = c_card
+                ty_card.line.color.rgb = c_accent
+
+                tf_ty = ty_card.text_frame
+                tf_ty.margin_left = Inches(0.6)
+                tf_ty.margin_right = Inches(0.6)
+                tf_ty.margin_top = Inches(0.4)
+
+                p_th = tf_ty.paragraphs[0]
+                p_th.alignment = PP_ALIGN.CENTER
+                p_th.text = "Thank You!"
+                p_th.font.size = Pt(40)
+                p_th.font.bold = True
+                p_th.font.color.rgb = c_primary
+
+                p_tsub = tf_ty.add_paragraph()
+                p_tsub.alignment = PP_ALIGN.CENTER
+                p_tsub.text = s.subtitle or "Questions & Classroom Discussion"
+                p_tsub.font.size = Pt(18)
+                p_tsub.font.bold = True
+                p_tsub.font.color.rgb = c_accent
+                p_tsub.space_before = Pt(6)
+
+                for b in s.bullets:
+                    clean_b = b.replace("**", "").replace("*", "")
+                    p_b = tf_ty.add_paragraph()
+                    p_b.text = f"• {clean_b}"
+                    p_b.font.size = Pt(14)
+                    p_b.font.color.rgb = RGBColor(51, 65, 85)
+                    p_b.space_before = Pt(12)
+
+                p_sig = tf_ty.add_paragraph()
+                p_sig.alignment = PP_ALIGN.CENTER
+                p_sig.text = f"Presented by: {presenter_display}   •   DEVGYA Global Edutech"
+                p_sig.font.size = Pt(12)
+                p_sig.font.bold = True
+                p_sig.font.color.rgb = RGBColor(148, 163, 184)
+                p_sig.space_before = Pt(24)
+
+                if s.speaker_notes:
+                    notes_slide = slide.notes_slide
+                    notes_slide.notes_text_frame.text = f"TEACHER SPEAKER NOTES:\n{s.speaker_notes}"
+                continue
+
+            # 3. MIDDLE SLIDES WITH TOP ACCENT HEADER BAR
             header_bar = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.8), Inches(0.5), Inches(11.733), Inches(0.12))
             header_bar.fill.solid()
             header_bar.fill.fore_color.rgb = c_accent
@@ -731,7 +923,6 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
             content_height = Inches(4.3)
 
             if s.layout == "two_column" and (s.left_column or s.right_column):
-                # Left Column Box
                 col_w = Inches(5.6)
                 card_l = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), content_top, col_w, content_height)
                 card_l.fill.solid()
@@ -757,7 +948,6 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                     p_b.font.size = Pt(12)
                     p_b.font.color.rgb = RGBColor(51, 65, 85)
 
-                # Right Column Box
                 card_r = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(6.9), content_top, col_w, content_height)
                 card_r.fill.solid()
                 card_r.fill.fore_color.rgb = c_card
@@ -783,7 +973,6 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                     p_b.font.color.rgb = RGBColor(51, 65, 85)
 
             elif s.layout == "stat_highlight" and s.metrics:
-                # Stat boxes
                 num_stats = min(len(s.metrics), 4)
                 box_w = Inches(11.733 / num_stats - 0.2)
                 for i, m in enumerate(s.metrics[:num_stats]):
@@ -812,7 +1001,6 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                     p_lbl.alignment = PP_ALIGN.CENTER
 
             elif s.layout == "quote_insight" and s.quote:
-                # Quote box
                 q_card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.5), content_top, Inches(10.333), content_height)
                 q_card.fill.solid()
                 q_card.fill.fore_color.rgb = c_card
@@ -838,8 +1026,42 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                 p_qa.font.color.rgb = c_accent
                 p_qa.alignment = PP_ALIGN.CENTER
 
+            elif s.layout == "process_timeline" and s.timeline_steps:
+                num_steps = min(len(s.timeline_steps), 4)
+                step_w = Inches(11.733 / num_steps - 0.2)
+                for i, st in enumerate(s.timeline_steps[:num_steps]):
+                    left_pos = Inches(0.8 + i * (11.733 / num_steps))
+                    step_card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_pos, content_top, step_w, content_height)
+                    step_card.fill.solid()
+                    step_card.fill.fore_color.rgb = c_card
+                    step_card.line.color.rgb = c_accent
+
+                    tf_step = step_card.text_frame
+                    tf_step.word_wrap = True
+                    tf_step.margin_left = Inches(0.25)
+                    tf_step.margin_right = Inches(0.25)
+                    tf_step.margin_top = Inches(0.4)
+
+                    p_step_num = tf_step.paragraphs[0]
+                    p_step_num.text = f"STEP {i+1}"
+                    p_step_num.font.size = Pt(11)
+                    p_step_num.font.bold = True
+                    p_step_num.font.color.rgb = c_accent
+
+                    p_step_title = tf_step.add_paragraph()
+                    p_step_title.text = str(st.get("title") or st.get("step") or f"Phase {i+1}")
+                    p_step_title.font.size = Pt(14)
+                    p_step_title.font.bold = True
+                    p_step_title.font.color.rgb = c_primary
+                    p_step_title.space_before = Pt(6)
+
+                    p_step_desc = tf_step.add_paragraph()
+                    p_step_desc.text = str(st.get("description") or "")
+                    p_step_desc.font.size = Pt(11)
+                    p_step_desc.font.color.rgb = RGBColor(71, 85, 105)
+                    p_step_desc.space_before = Pt(8)
+
             else:
-                # Standard Bullet Cards + Image Preview side-by-side
                 card_bullets = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), content_top, Inches(7.5), content_height)
                 card_bullets.fill.solid()
                 card_bullets.fill.fore_color.rgb = c_card
@@ -864,18 +1086,15 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                     p_line.font.color.rgb = RGBColor(30, 41, 59)
                     p_line.space_after = Pt(10)
 
-                # Right Real Educational Image or Concept Card
                 img_data = _download_image_bytes(s.image_url) if s.image_url else None
                 pic_inserted = False
                 if img_data:
                     try:
-                        # Real picture insertion
                         slide.shapes.add_picture(
                             io.BytesIO(img_data),
                             Inches(8.6), content_top,
                             Inches(3.9), content_height - Inches(0.75)
                         )
-                        # Clean caption badge below image
                         cap_shape = slide.shapes.add_shape(
                             MSO_SHAPE.ROUNDED_RECTANGLE,
                             Inches(8.6), content_top + content_height - Inches(0.65),
@@ -1003,10 +1222,143 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
         story = []
 
         total_slides = len(pres_data.slides)
+        presenter_display = pres_data.presenter_name or "Educator"
+
         for idx, s in enumerate(pres_data.slides):
             slide_elements = []
 
-            # 1. Slide Top Bar Table
+            # 1. SPECIAL COVER SLIDE (SLIDE 1)
+            if s.layout == "cover" or s.slide_number == 1:
+                # Top Pill & Brand
+                top_cover_table = Table(
+                    [[Paragraph("<b>DEVGYA AI  •  EDUCATIONAL PRESENTATION</b>", cat_badge_style), Paragraph("<b>CBSE & NCERT Aligned</b>", cat_badge_style)]],
+                    colWidths=[550, 220]
+                )
+                top_cover_table.setStyle(TableStyle([
+                    ('ALIGN', (0,0), (0,0), 'LEFT'),
+                    ('ALIGN', (1,0), (1,0), 'RIGHT'),
+                    ('PADDING', (0,0), (-1,-1), 0),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+                ]))
+                slide_elements.append(top_cover_table)
+                slide_elements.append(HRFlowable(width="100%", thickness=3, color=colors.HexColor(theme["accent"]), spaceBefore=2, spaceAfter=20))
+
+                # Large Cover Title & Subtitle
+                cover_title_style = ParagraphStyle(
+                    'CoverTitle',
+                    parent=title_style,
+                    fontSize=28,
+                    leading=34,
+                    textColor=colors.HexColor(theme["primary"])
+                )
+                cover_sub_style = ParagraphStyle(
+                    'CoverSub',
+                    parent=subtitle_style,
+                    fontSize=13,
+                    leading=18,
+                    textColor=colors.HexColor(theme["text_secondary"])
+                )
+                slide_elements.append(Paragraph(clean_md_to_reportlab(strip_emojis_for_pdf(s.title)), cover_title_style))
+                if s.subtitle:
+                    slide_elements.append(Spacer(1, 8))
+                    slide_elements.append(Paragraph(clean_md_to_reportlab(strip_emojis_for_pdf(s.subtitle)), cover_sub_style))
+
+                slide_elements.append(Spacer(1, 24))
+
+                # Presenter Attribution Card
+                pres_card_content = [
+                    Paragraph(f"<font size=14 color='{theme['primary']}'><b>Presented by: {presenter_display}</b></font>", bullet_style),
+                    Spacer(1, 4),
+                    Paragraph(f"<b>Target Audience:</b> {pres_data.target_audience}   •   <b>Subject Focus:</b> {strip_emojis_for_pdf(pres_data.topic)}", subtitle_style),
+                    Spacer(1, 4),
+                    Paragraph(f"<b>DEVGYA Global Edutech Private Limited</b>", cat_badge_style)
+                ]
+                pres_table = Table([[pres_card_content]], colWidths=[760])
+                pres_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,-1), colors.HexColor(theme["card_bg"])),
+                    ('BOX', (0,0), (-1,-1), 1.5, colors.HexColor(theme["accent"])),
+                    ('PADDING', (0,0), (-1,-1), 14),
+                ]))
+                slide_elements.append(pres_table)
+
+                if s.speaker_notes:
+                    slide_elements.append(Spacer(1, 14))
+                    notes_clean = clean_md_to_reportlab(strip_emojis_for_pdf(s.speaker_notes))
+                    notes_table = Table([[Paragraph(f"<b>PRESENTER OPENING NOTES:</b> {notes_clean}", notes_style)]], colWidths=[760])
+                    notes_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F1F5F9")),
+                        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#94A3B8")),
+                        ('PADDING', (0,0), (-1,-1), 6),
+                    ]))
+                    slide_elements.append(notes_table)
+
+                story.append(KeepTogether(slide_elements))
+                if idx < total_slides - 1:
+                    from reportlab.platypus import PageBreak
+                    story.append(PageBreak())
+                continue
+
+            # 2. SPECIAL THANK YOU SLIDE (FINAL SLIDE)
+            if s.layout == "thank_you" or s.slide_number == total_slides:
+                ty_h_style = ParagraphStyle(
+                    'TYTitle',
+                    parent=title_style,
+                    fontSize=32,
+                    leading=38,
+                    alignment=1, # Center
+                    textColor=colors.HexColor(theme["primary"])
+                )
+                ty_sub_style = ParagraphStyle(
+                    'TYSub',
+                    parent=subtitle_style,
+                    fontSize=14,
+                    leading=18,
+                    alignment=1, # Center
+                    textColor=colors.HexColor(theme["accent"])
+                )
+
+                slide_elements.append(Spacer(1, 15))
+                slide_elements.append(Paragraph("Thank You!", ty_h_style))
+                slide_elements.append(Spacer(1, 6))
+                slide_elements.append(Paragraph(clean_md_to_reportlab(strip_emojis_for_pdf(s.subtitle or "Questions & Classroom Discussion")), ty_sub_style))
+                slide_elements.append(Spacer(1, 20))
+
+                ty_bullets = []
+                for b in s.bullets:
+                    ty_bullets.append(Paragraph(f"• {clean_md_to_reportlab(strip_emojis_for_pdf(b))}", bullet_style))
+                    ty_bullets.append(Spacer(1, 6))
+
+                ty_bullets.append(Spacer(1, 10))
+                ty_bullets.append(Paragraph(f"<b>Presented by:</b> {presenter_display}   •   <b>DEVGYA Global Edutech Private Limited</b>", cat_badge_style))
+
+                card_table = Table([[ty_bullets]], colWidths=[760])
+                card_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,-1), colors.HexColor(theme["card_bg"])),
+                    ('BOX', (0,0), (-1,-1), 1.5, colors.HexColor(theme["accent"])),
+                    ('PADDING', (0,0), (-1,-1), 16),
+                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ]))
+                slide_elements.append(card_table)
+
+                if s.speaker_notes:
+                    slide_elements.append(Spacer(1, 12))
+                    notes_clean = clean_md_to_reportlab(strip_emojis_for_pdf(s.speaker_notes))
+                    notes_table = Table([[Paragraph(f"<b>TEACHER CLOSING NOTES:</b> {notes_clean}", notes_style)]], colWidths=[760])
+                    notes_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F1F5F9")),
+                        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#94A3B8")),
+                        ('PADDING', (0,0), (-1,-1), 6),
+                    ]))
+                    slide_elements.append(notes_table)
+
+                story.append(KeepTogether(slide_elements))
+                if idx < total_slides - 1:
+                    from reportlab.platypus import PageBreak
+                    story.append(PageBreak())
+                continue
+
+            # 3. MIDDLE SLIDES
+            # Slide Top Bar Table
             top_bar_data = [
                 [
                     Paragraph(f"<b>DEVGYA GLOBAL EDUTECH</b> • {strip_emojis_for_pdf(pres_data.topic).upper()}", cat_badge_style),
@@ -1023,7 +1375,7 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
             slide_elements.append(top_table)
             slide_elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor(theme["accent"]), spaceBefore=2, spaceAfter=8))
 
-            # 2. Category & Slide Title
+            # Category & Slide Title
             slide_elements.append(Paragraph(strip_emojis_for_pdf(s.category).upper(), cat_badge_style))
             slide_elements.append(Spacer(1, 2))
             clean_title = clean_md_to_reportlab(strip_emojis_for_pdf(s.title))
@@ -1033,7 +1385,7 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                 slide_elements.append(Paragraph(clean_sub, subtitle_style))
             slide_elements.append(Spacer(1, 10))
 
-            # 3. Slide Content Card
+            # Slide Content Card
             content_rows = []
             if s.layout == "two_column" and (s.left_column or s.right_column):
                 l_title = (s.left_column or {}).get("title", "Aspect A")
@@ -1070,6 +1422,25 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                     ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
                     ('PADDING', (0,0), (-1,-1), 16),
                     ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ]))
+                slide_elements.append(card_table)
+
+            elif s.layout == "process_timeline" and s.timeline_steps:
+                step_cells = []
+                for i, st in enumerate(s.timeline_steps[:3]):
+                    st_title = clean_md_to_reportlab(strip_emojis_for_pdf(str(st.get("title") or st.get("step") or f"Phase {i+1}")))
+                    st_desc = clean_md_to_reportlab(strip_emojis_for_pdf(str(st.get("description") or "")))
+                    step_cells.append(Paragraph(f"<font size=11 color='{theme['accent']}'><b>STEP {i+1}</b></font><br/><br/><b>{st_title}</b><br/><br/>{st_desc}", bullet_style))
+                while len(step_cells) < 3:
+                    step_cells.append(Paragraph("", bullet_style))
+
+                card_table = Table([step_cells], colWidths=[250, 250, 260])
+                card_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,-1), colors.HexColor(theme["card_bg"])),
+                    ('BOX', (0,0), (-1,-1), 1, colors.HexColor(theme["accent"])),
+                    ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
+                    ('PADDING', (0,0), (-1,-1), 14),
+                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
                 ]))
                 slide_elements.append(card_table)
 
@@ -1115,7 +1486,7 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                 ]))
                 slide_elements.append(card_table)
 
-            # 4. Teacher Speaker Notes Box at bottom
+            # Teacher Speaker Notes Box at bottom
             if s.speaker_notes:
                 slide_elements.append(Spacer(1, 8))
                 notes_clean = clean_md_to_reportlab(strip_emojis_for_pdf(s.speaker_notes))

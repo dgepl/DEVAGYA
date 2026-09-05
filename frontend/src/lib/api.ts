@@ -663,7 +663,7 @@ export interface SlideItem {
   left_column?: { title: string; bullets: string[] } | null;
   right_column?: { title: string; bullets: string[] } | null;
   metrics?: { value: string; label: string }[] | null;
-  timeline_steps?: { step: number; title: string; desc: string }[] | null;
+  timeline_steps?: { step?: number | string; title?: string; desc?: string; description?: string }[] | null;
   quote?: { text: string; author: string } | null;
   image_keyword: string;
   image_url?: string | null;
@@ -681,6 +681,7 @@ export interface GeneratePPTRequest {
   teacher_guidance?: string;
   user_email?: string;
   user_id?: string;
+  presenter_name?: string;
 }
 
 export interface PresentationData {
@@ -693,6 +694,7 @@ export interface PresentationData {
   theme: string;
   language: string;
   teacher_guidance?: string | null;
+  presenter_name?: string;
   slides: SlideItem[];
   created_at?: string;
 }

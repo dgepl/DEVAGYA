@@ -64,25 +64,6 @@ const THEMES = [
   { id: "slate_academic", name: "Slate Academic", primary: "#1E293B", accent: "#2563EB", bg: "bg-slate-100/60" },
 ];
 
-const TOPIC_CHIPS = [
-  "Quantum Computing & Superposition",
-  "Photosynthesis & Cellular Energy",
-  "Indian Independence Movement (1857-1947)",
-  "Artificial Intelligence & Future of Jobs",
-  "Vedic Mathematics Fast Calculation",
-  "Climate Change & Renewable Solutions",
-  "Human Heart Anatomy & Blood Circulation",
-  "Financial Literacy & Personal Budgeting",
-];
-
-const TEACHER_GUIDANCE_PRESETS = [
-  "Include real-world examples and everyday analogies.",
-  "Keep text concise, visual, and limited to 3-4 key bullet points.",
-  "Add a thought-provoking classroom discussion question on the last slide.",
-  "Tailor explanations specifically for middle school learners.",
-  "Include practical case applications from India.",
-];
-
 export default function PPTGeneratorPage() {
   const { user } = useAppStore();
 
@@ -324,6 +305,8 @@ export default function PPTGeneratorPage() {
     setGenerating(true);
 
     try {
+      const presenterName = (user?.name || (user?.email ? user.email.split("@")[0].replace(".", " ") : "Educator")).trim();
+
       const res = await generatePPT({
         topic: topic.trim(),
         target_audience: targetAudience,
@@ -333,7 +316,8 @@ export default function PPTGeneratorPage() {
         theme,
         teacher_guidance: teacherGuidance.trim(),
         user_email: user?.email || "",
-        user_id: userKey
+        user_id: userKey,
+        presenter_name: presenterName
       });
 
       setPresentation(res);
@@ -607,20 +591,6 @@ export default function PPTGeneratorPage() {
                 placeholder="e.g. Quantum Computing & Superposition, Vedic Math Tricks, Photosynthesis, French Revolution..."
                 className="w-full bg-slate-50 border border-slate-300 focus:border-indigo-500 focus:bg-white rounded-2xl p-3 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
               />
-
-              {/* Topic Chips */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {TOPIC_CHIPS.slice(0, 4).map((chip) => (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() => setTopic(chip)}
-                    className="text-[10px] font-semibold text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-2.5 py-1 rounded-lg transition text-left cursor-pointer truncate max-w-full"
-                  >
-                    + {chip}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* 2. Target Audience & Slide Count */}
@@ -736,20 +706,6 @@ export default function PPTGeneratorPage() {
                 placeholder="Instruct the AI: e.g., 'Focus heavily on the practical applications; keep text concise; add a 2-question quiz on the final slide for students...'"
                 className="w-full bg-slate-50 border border-slate-300 focus:border-purple-500 focus:bg-white rounded-2xl p-3 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
-
-              {/* Guidance Presets */}
-              <div className="flex flex-wrap gap-1">
-                {TEACHER_GUIDANCE_PRESETS.map((p, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setTeacherGuidance((prev) => (prev ? `${prev} ${p}` : p))}
-                    className="text-[9px] font-medium text-slate-500 bg-slate-100 hover:bg-purple-50 hover:text-purple-700 px-2 py-0.5 rounded transition cursor-pointer"
-                  >
-                    + {p.slice(0, 28)}...
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* GENERATE BUTTON */}
@@ -1284,118 +1240,227 @@ export default function PPTGeneratorPage() {
                         borderColor: currentTheme.accent
                       }}
                     >
-                      {/* Top Header Bar */}
-                      <div>
-                        <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: currentTheme.accent + "40" }}>
-                          <span className="text-xs font-black tracking-widest uppercase" style={{ color: currentTheme.accent }}>
-                            {activeSlide.category} • DEVGYA AI STUDY SUITE
-                          </span>
-                          <span className="text-xs font-bold text-slate-400">
-                            Slide {activeSlide.slide_number} of {presentation.slides.length}
-                          </span>
-                        </div>
-
-                        <h2 className="text-2xl sm:text-3xl font-black leading-tight tracking-tight" style={{ color: currentTheme.primary }}>
-                          {activeSlide.title}
-                        </h2>
-                        {activeSlide.subtitle && (
-                          <p className="text-sm font-medium mt-1 text-slate-500">
-                            {activeSlide.subtitle}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Main Slide Body */}
-                      <div className="my-auto py-4">
-                        {activeSlide.layout === "two_column" && (activeSlide.left_column || activeSlide.right_column) ? (
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-2">
-                              <h3 className="text-base font-black" style={{ color: currentTheme.primary }}>
-                                {activeSlide.left_column?.title}
-                              </h3>
-                              <ul className="space-y-2 text-xs sm:text-sm font-medium text-slate-700">
-                                {activeSlide.left_column?.bullets.map((b, i) => (
-                                  <li key={i} className="flex items-start gap-2">
-                                    <span className="text-indigo-600 font-bold">•</span>
-                                    <span>{b}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-
-                            <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-2">
-                              <h3 className="text-base font-black" style={{ color: currentTheme.primary }}>
-                                {activeSlide.right_column?.title}
-                              </h3>
-                              <ul className="space-y-2 text-xs sm:text-sm font-medium text-slate-700">
-                                {activeSlide.right_column?.bullets.map((b, i) => (
-                                  <li key={i} className="flex items-start gap-2">
-                                    <span className="text-indigo-600 font-bold">•</span>
-                                    <span>{b}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
+                      {/* 1. DEDICATED COVER / TITLE SLIDE */}
+                      {activeSlide.layout === "cover" || activeSlide.slide_number === 1 ? (
+                        <div className="flex-1 flex flex-col justify-between py-1">
+                          <div className="flex items-center justify-between border-b pb-3 mb-2" style={{ borderColor: currentTheme.accent + "40" }}>
+                            <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest border" style={{ color: currentTheme.accent, borderColor: currentTheme.accent + "50", backgroundColor: currentTheme.accent + "15" }}>
+                              DEVGYA AI  •  EDUCATIONAL PRESENTATION
+                            </span>
+                            <span className="text-xs font-bold text-slate-400">
+                              CBSE & NCERT Aligned
+                            </span>
                           </div>
-                        ) : activeSlide.layout === "stat_highlight" && activeSlide.metrics ? (
-                          <div className="grid grid-cols-3 gap-6 text-center">
-                            {activeSlide.metrics.slice(0, 3).map((m, i) => (
-                              <div key={i} className="p-6 bg-slate-50/80 border rounded-2xl space-y-2" style={{ borderColor: currentTheme.accent }}>
-                                <div className="text-4xl sm:text-5xl font-black" style={{ color: currentTheme.accent }}>
-                                  {m.value}
+
+                          <div className="my-auto py-4 space-y-3">
+                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight max-w-4xl" style={{ color: currentTheme.primary }}>
+                              {activeSlide.title}
+                            </h1>
+                            {activeSlide.subtitle && (
+                              <p className="text-sm sm:text-base md:text-lg font-semibold text-slate-600 max-w-3xl">
+                                {activeSlide.subtitle}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Presenter Attribution Badge */}
+                          <div className="p-4 sm:p-5 rounded-2xl border bg-slate-50/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs" style={{ borderColor: currentTheme.accent + "50" }}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm shrink-0 shadow-xs" style={{ backgroundColor: currentTheme.primary }}>
+                                👤
+                              </div>
+                              <div>
+                                <div className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                                  <span>Presented by:</span>
+                                  <span style={{ color: currentTheme.primary }}>
+                                    {presentation.presenter_name || user?.name || user?.email?.split("@")[0] || "Educator"}
+                                  </span>
                                 </div>
-                                <div className="text-xs sm:text-sm font-bold text-slate-800">
-                                  {m.label}
+                                <div className="text-xs font-semibold text-slate-500 mt-0.5">
+                                  Audience: {presentation.target_audience}  •  Subject: {presentation.topic}
                                 </div>
                               </div>
-                            ))}
+                            </div>
+                            <div className="text-right hidden sm:block">
+                              <span className="text-[11px] font-black uppercase tracking-wider block" style={{ color: currentTheme.accent }}>
+                                DEVGYA Global Edutech
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                AI Presentation Architecture
+                              </span>
+                            </div>
                           </div>
-                        ) : activeSlide.layout === "quote_insight" && activeSlide.quote ? (
-                          <div className="max-w-2xl mx-auto text-center space-y-4 p-8 bg-slate-50/60 rounded-3xl border border-slate-200">
-                            <blockquote className="text-xl sm:text-2xl font-bold italic" style={{ color: currentTheme.primary }}>
-                              “{activeSlide.quote.text}”
-                            </blockquote>
-                            <cite className="block text-xs font-black uppercase tracking-wider" style={{ color: currentTheme.accent }}>
-                              — {activeSlide.quote.author}
-                            </cite>
+                        </div>
+                      ) : activeSlide.layout === "thank_you" || activeSlide.slide_number === presentation.slides.length ? (
+                        /* 2. DEDICATED THANK YOU SLIDE */
+                        <div className="flex-1 flex flex-col justify-between py-1 text-center">
+                          <div className="flex items-center justify-between border-b pb-3 mb-2" style={{ borderColor: currentTheme.accent + "40" }}>
+                            <span className="text-xs font-black tracking-widest uppercase" style={{ color: currentTheme.accent }}>
+                              CONCLUSION & DISCUSSION
+                            </span>
+                            <span className="text-xs font-bold text-slate-400">
+                              Slide {activeSlide.slide_number} of {presentation.slides.length}
+                            </span>
                           </div>
-                        ) : (
-                          /* Standard Bullets + Visual Card */
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
-                            <div className="sm:col-span-8 space-y-3">
+
+                          <div className="my-auto py-4 space-y-3 max-w-2xl mx-auto w-full">
+                            <h2 className="text-4xl sm:text-5xl font-black tracking-tight" style={{ color: currentTheme.primary }}>
+                              Thank You!
+                            </h2>
+                            <p className="text-base sm:text-lg font-bold" style={{ color: currentTheme.accent }}>
+                              {activeSlide.subtitle || "Questions & Classroom Discussion"}
+                            </p>
+
+                            <div className="p-5 rounded-2xl bg-slate-50/90 border border-slate-200 text-left space-y-2 mt-4 shadow-2xs">
                               {activeSlide.bullets.map((b, i) => (
-                                <div key={i} className="flex items-start gap-3 text-xs sm:text-sm font-medium text-slate-800 leading-relaxed">
-                                  <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: currentTheme.accent }}></span>
+                                <div key={i} className="flex items-start gap-2.5 text-xs sm:text-sm font-medium text-slate-800">
+                                  <span className="font-bold shrink-0 mt-0.5" style={{ color: currentTheme.accent }}>✨</span>
                                   <div>
                                     <Markdown content={b} />
                                   </div>
                                 </div>
                               ))}
                             </div>
+                          </div>
 
-                            {activeSlide.image_url && (
-                              <div className="sm:col-span-4">
-                                <img
-                                  src={activeSlide.image_url}
-                                  alt={activeSlide.image_caption || activeSlide.title}
-                                  className="w-full h-44 object-cover rounded-2xl shadow-md border border-slate-200"
-                                />
-                                {activeSlide.image_caption && (
-                                  <p className="text-[10px] text-slate-500 font-medium text-center mt-1.5 italic">
-                                    {activeSlide.image_caption}
-                                  </p>
+                          <div className="border-t pt-3 flex items-center justify-between text-xs font-bold" style={{ borderColor: currentTheme.accent + "40" }}>
+                            <span className="text-slate-500">
+                              Presented by {presentation.presenter_name || user?.name || user?.email?.split("@")[0] || "Educator"}
+                            </span>
+                            <span style={{ color: currentTheme.accent }}>
+                              DEVGYA Global Edutech Private Limited
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        /* 3. MIDDLE SLIDES WITH TOP HEADER */
+                        <>
+                          {/* Top Header Bar */}
+                          <div>
+                            <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: currentTheme.accent + "40" }}>
+                              <span className="text-xs font-black tracking-widest uppercase" style={{ color: currentTheme.accent }}>
+                                {activeSlide.category} • DEVGYA AI STUDY SUITE
+                              </span>
+                              <span className="text-xs font-bold text-slate-400">
+                                Slide {activeSlide.slide_number} of {presentation.slides.length}
+                              </span>
+                            </div>
+
+                            <h2 className="text-2xl sm:text-3xl font-black leading-tight tracking-tight" style={{ color: currentTheme.primary }}>
+                              {activeSlide.title}
+                            </h2>
+                            {activeSlide.subtitle && (
+                              <p className="text-sm font-medium mt-1 text-slate-500">
+                                {activeSlide.subtitle}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Main Slide Body */}
+                          <div className="my-auto py-4">
+                            {activeSlide.layout === "two_column" && (activeSlide.left_column || activeSlide.right_column) ? (
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-2">
+                                  <h3 className="text-base font-black" style={{ color: currentTheme.primary }}>
+                                    {activeSlide.left_column?.title}
+                                  </h3>
+                                  <ul className="space-y-2 text-xs sm:text-sm font-medium text-slate-700">
+                                    {activeSlide.left_column?.bullets.map((b, i) => (
+                                      <li key={i} className="flex items-start gap-2">
+                                        <span className="text-indigo-600 font-bold">•</span>
+                                        <span>{b}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+
+                                <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-2">
+                                  <h3 className="text-base font-black" style={{ color: currentTheme.primary }}>
+                                    {activeSlide.right_column?.title}
+                                  </h3>
+                                  <ul className="space-y-2 text-xs sm:text-sm font-medium text-slate-700">
+                                    {activeSlide.right_column?.bullets.map((b, i) => (
+                                      <li key={i} className="flex items-start gap-2">
+                                        <span className="text-indigo-600 font-bold">•</span>
+                                        <span>{b}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            ) : activeSlide.layout === "stat_highlight" && activeSlide.metrics ? (
+                              <div className="grid grid-cols-3 gap-6 text-center">
+                                {activeSlide.metrics.slice(0, 3).map((m, i) => (
+                                  <div key={i} className="p-6 bg-slate-50/80 border rounded-2xl space-y-2" style={{ borderColor: currentTheme.accent }}>
+                                    <div className="text-4xl sm:text-5xl font-black" style={{ color: currentTheme.accent }}>
+                                      {m.value}
+                                    </div>
+                                    <div className="text-xs sm:text-sm font-bold text-slate-800">
+                                      {m.label}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : activeSlide.layout === "process_timeline" && activeSlide.timeline_steps ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {activeSlide.timeline_steps.slice(0, 4).map((st, i) => (
+                                  <div key={i} className="p-4 bg-slate-50/90 rounded-2xl border space-y-2" style={{ borderColor: currentTheme.accent + "50" }}>
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider inline-block" style={{ backgroundColor: currentTheme.accent + "20", color: currentTheme.accent }}>
+                                      STEP {i + 1}
+                                    </span>
+                                    <h4 className="text-sm font-black text-slate-900 leading-tight">{st.title || st.step || `Phase ${i + 1}`}</h4>
+                                    <p className="text-xs font-medium text-slate-600 leading-relaxed">{st.description || st.desc || ""}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : activeSlide.layout === "quote_insight" && activeSlide.quote ? (
+                              <div className="max-w-2xl mx-auto text-center space-y-4 p-8 bg-slate-50/60 rounded-3xl border border-slate-200">
+                                <blockquote className="text-xl sm:text-2xl font-bold italic" style={{ color: currentTheme.primary }}>
+                                  “{activeSlide.quote.text}”
+                                </blockquote>
+                                <cite className="block text-xs font-black uppercase tracking-wider" style={{ color: currentTheme.accent }}>
+                                  — {activeSlide.quote.author}
+                                </cite>
+                              </div>
+                            ) : (
+                              /* Standard Bullets + Visual Card */
+                              <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
+                                <div className="sm:col-span-8 space-y-3">
+                                  {activeSlide.bullets.map((b, i) => (
+                                    <div key={i} className="flex items-start gap-3 text-xs sm:text-sm font-medium text-slate-800 leading-relaxed">
+                                      <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: currentTheme.accent }}></span>
+                                      <div>
+                                        <Markdown content={b} />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {activeSlide.image_url && (
+                                  <div className="sm:col-span-4">
+                                    <img
+                                      src={activeSlide.image_url}
+                                      alt={activeSlide.image_caption || activeSlide.title}
+                                      className="w-full h-44 object-cover rounded-2xl shadow-md border border-slate-200"
+                                    />
+                                    {activeSlide.image_caption && (
+                                      <p className="text-[10px] text-slate-500 font-medium text-center mt-1.5 italic">
+                                        {activeSlide.image_caption}
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             )}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Bottom Footer & Speaker Notes */}
-                      <div className="border-t pt-3 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                        <span>Topic: {presentation.topic} • Audience: {presentation.target_audience}</span>
-                        <span>DEVGYA Global Edutech Private Limited</span>
-                      </div>
+                          {/* Bottom Footer & Speaker Notes */}
+                          <div className="border-t pt-3 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                            <span>Topic: {presentation.topic} • Audience: {presentation.target_audience}</span>
+                            <span>DEVGYA Global Edutech Private Limited</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -1425,21 +1490,6 @@ export default function PPTGeneratorPage() {
                 <p className="text-xs text-slate-500 font-medium">
                   Enter any study topic on the left panel (e.g. Science, Mathematics, History, Soft Skills, Coding), choose your audience, and let AI build a fully editable slide deck with speaker notes and images.
                 </p>
-              </div>
-
-              {/* Sample Topic Buttons */}
-              <div className="flex flex-wrap justify-center gap-2 pt-2">
-                {TOPIC_CHIPS.slice(0, 3).map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => {
-                      setTopic(chip);
-                    }}
-                    className="text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-1.5 rounded-xl transition cursor-pointer"
-                  >
-                    Try: {chip}
-                  </button>
-                ))}
               </div>
             </div>
           )}
