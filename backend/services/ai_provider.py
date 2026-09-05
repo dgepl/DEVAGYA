@@ -111,7 +111,7 @@ class AIProviderService:
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = ["gemini-3.5-flash-lite"]
+                models_to_try = [selected_model, "gemini-3.5-flash-lite"]
             elif has_imgs:
                 models_to_try = [selected_model, "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
             else:
@@ -151,9 +151,10 @@ class AIProviderService:
                         if http_err.response.status_code == 400 and "response_format" in payload:
                             payload.pop("response_format", None)
                             continue
-                        if http_err.response.status_code == 429:
+                        if http_err.response.status_code in (429, 500, 502, 503):
                             import asyncio
-                            await asyncio.sleep(1.5)
+                            logger.warning(f"HTTP {http_err.response.status_code} on {attempt_model}. Retrying in {1.5 * (retry + 1)}s...")
+                            await asyncio.sleep(1.5 * (retry + 1))
                             continue
                         break
                     except Exception as err:
@@ -294,7 +295,7 @@ class AIProviderService:
         # Build candidate fallback models list
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = ["gemini-3.5-flash-lite", "gemini-3.5-flash"]
+            candidate_fallbacks = [selected_model, "gemini-3.5-flash-lite"]
         else:
             candidate_fallbacks = ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 

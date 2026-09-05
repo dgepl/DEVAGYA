@@ -1,5 +1,4 @@
-"use client";
-
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -14,10 +13,35 @@ import {
   CheckCircle2, 
   ArrowRight, 
   Globe2, 
-  Award,
-  HeartHandshake,
-  Lightbulb
+  Award, 
+  HeartHandshake, 
+  Lightbulb 
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "About Us | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+  description: "Learn about DEVGYA GLOBAL EDUTECH PRIVATE LIMITED, India's premier K-12 AI education ecosystem based in Jhajjar, Haryana. Empowering CBSE schools, teachers, students, and parents with cutting-edge AI tools and school infrastructure.",
+  keywords: [
+    "About DEVGYA",
+    "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+    "Devgya Edutech Haryana",
+    "CBSE AI Education Company India",
+    "AI Question Paper Generator Company",
+    "Smart School Infrastructure Provider"
+  ],
+  alternates: {
+    canonical: "https://devgya.in/about"
+  },
+  openGraph: {
+    title: "About Us | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+    description: "Transforming K-12 education with hybrid AI software, CBSE question generators, teacher training, and accredited school lab solutions.",
+    url: "https://devgya.in/about",
+    siteName: "DEVGYA GLOBAL EDUTECH",
+    images: [{ url: "https://devgya.in/logo-with-name.png", width: 1200, height: 630, alt: "About DEVGYA GLOBAL EDUTECH" }],
+    locale: "en_IN",
+    type: "website"
+  }
+};
 
 export default function AboutPage() {
   const stakeholderSupport = [
@@ -180,4 +204,3 @@ export default function AboutPage() {
     </div>
   );
 }
-

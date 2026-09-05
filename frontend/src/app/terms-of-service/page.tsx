@@ -1,7 +1,31 @@
+﻿import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { FileText, CheckCircle2, Scale, BookOpen, Building2 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Terms of Service | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+  description: "Official Terms of Service for DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. Outlining school ownership, institutional software licensing, curriculum alignment, and acceptable use.",
+  keywords: [
+    "DEVGYA Terms of Service",
+    "Edtech Service Agreement India",
+    "School Platform Terms",
+    "DEVGYA Legal Policy"
+  ],
+  alternates: {
+    canonical: "https://devgya.in/terms-of-service"
+  },
+  openGraph: {
+    title: "Terms of Service | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+    description: "Read the official service agreement and institutional terms for DEVGYA educational solutions.",
+    url: "https://devgya.in/terms-of-service",
+    siteName: "DEVGYA GLOBAL EDUTECH",
+    images: [{ url: "https://devgya.in/logo-with-name.png", width: 1200, height: 630, alt: "DEVGYA Terms of Service" }],
+    locale: "en_IN",
+    type: "website"
+  }
+};
 
 export default function TermsOfServicePage() {
   return (
@@ -88,7 +112,7 @@ export default function TermsOfServicePage() {
               <p className="text-xs text-slate-600">
                 For contract or technical support inquiries:<br />
                 <strong className="text-slate-900">DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</strong><br />
-                Phone: +91 9466966350 | Email: dgepl.info@gmail.com
+                Phone: +91 8307224756 | Email: dgepl.info@gmail.com
               </p>
             </section>
 

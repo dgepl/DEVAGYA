@@ -1,7 +1,32 @@
+﻿import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { Award, ShieldCheck, Lock, CheckCircle2, HeartHandshake, Sparkles, BookOpen, ShieldAlert } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Quality & Safety System | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+  description: "Explore DEVGYA GLOBAL EDUTECH's commitment to high academic quality, secure encryption, child-safe AI learning spaces, and certified educational resources.",
+  keywords: [
+    "DEVGYA Safety Standards",
+    "Educational Safety AI",
+    "Child Safe AI Tools",
+    "CBSE School Data Privacy",
+    "Encrypted Edtech Platform"
+  ],
+  alternates: {
+    canonical: "https://devgya.in/safety-standards"
+  },
+  openGraph: {
+    title: "Quality & Safety System | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+    description: "Our framework for educational excellence, student data protection, and child-safe AI technology.",
+    url: "https://devgya.in/safety-standards",
+    siteName: "DEVGYA GLOBAL EDUTECH",
+    images: [{ url: "https://devgya.in/logo-with-name.png", width: 1200, height: 630, alt: "DEVGYA Quality & Safety Standards" }],
+    locale: "en_IN",
+    type: "website"
+  }
+};
 
 export default function SafetyStandardsPage() {
   const qualityPillars = [
@@ -60,52 +85,40 @@ export default function SafetyStandardsPage() {
             {qualityPillars.map((pillar, idx) => {
               const Icon = pillar.icon;
               return (
-                <div 
-                  key={idx}
-                  className="bg-white border border-slate-200 hover:border-indigo-300 p-8 rounded-3xl space-y-4 shadow-md hover:shadow-xl transition-all group flex flex-col justify-between"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${pillar.color} text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform`}>
-                        <Icon className="w-7 h-7" />
-                      </div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 px-3 py-1 rounded-full">
-                        {pillar.badge}
-                      </span>
+                <div key={idx} className="p-8 rounded-3xl bg-white border border-slate-200/80 hover:border-emerald-200 hover:shadow-xl transition-all space-y-4 shadow-sm group">
+                  <div className="flex items-center justify-between">
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${pillar.color} text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
+                      <Icon className="w-6 h-6" />
                     </div>
-
-                    <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                      {pillar.title}
-                    </h3>
-
-                    <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                      {pillar.description}
-                    </p>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 px-3 py-1 rounded-full">
+                      {pillar.badge}
+                    </span>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-bold text-emerald-600">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Verified Standard</span>
-                  </div>
+                  <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                    {pillar.title}
+                  </h3>
+
+                  <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                    {pillar.description}
+                  </p>
                 </div>
               );
             })}
           </div>
 
           {/* COMMITMENT BANNER */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 space-y-6 text-slate-700 leading-relaxed shadow-sm">
-            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <Award className="w-5 h-5 text-indigo-600" />
-              Our Promise to Schools, Educators & Families
-            </h3>
-            <p className="text-sm font-medium text-slate-600 leading-relaxed">
-              Devgya Global Edutech Private Limited ensures every component of our service—from printed textbook delivery and teacher workshops to digital AI worksheets and student query tools—adheres to strict quality control, ethical standards, and bank-grade data security.
-            </p>
-            <div className="pt-4 border-t border-slate-100 flex flex-wrap gap-4 text-xs font-extrabold text-slate-700">
-              <div><strong className="text-slate-900">Headquarters:</strong> Jhajjar, Haryana</div>
-              <div><strong className="text-slate-900">Email:</strong> dgepl.info@gmail.com</div>
-              <div><strong className="text-slate-900">Phone:</strong> +91 9466966350</div>
+          <div className="p-8 rounded-3xl bg-gradient-to-r from-emerald-900 to-teal-950 text-white text-center space-y-4 shadow-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-extrabold uppercase tracking-wider">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>Continuous Improvement</span>
             </div>
+            <h2 className="text-xl sm:text-2xl font-black">
+              Certified Pedagogical Standards & Security First
+            </h2>
+            <p className="text-slate-300 text-sm max-w-2xl mx-auto font-medium">
+              We regularly review and update our systems to ensure they align with the latest educational guidelines, CBSE NEP 2020 directives, and highest security benchmarks.
+            </p>
           </div>
 
         </main>
@@ -114,4 +127,3 @@ export default function SafetyStandardsPage() {
     </div>
   );
 }
-

@@ -1,7 +1,31 @@
+﻿import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { ShieldCheck, Lock, EyeOff, Database, UserCheck, ShieldAlert, CheckCircle2 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+  description: "Read the official privacy policy of DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. Learn how we securely protect user, teacher, and student data with encryption and zero third-party selling.",
+  keywords: [
+    "DEVGYA Privacy Policy",
+    "Edtech Data Privacy",
+    "School Student Privacy India",
+    "DEVGYA Data Protection"
+  ],
+  alternates: {
+    canonical: "https://devgya.in/privacy-policy"
+  },
+  openGraph: {
+    title: "Privacy Policy | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+    description: "Learn how DEVGYA GLOBAL EDUTECH protects student and educator privacy.",
+    url: "https://devgya.in/privacy-policy",
+    siteName: "DEVGYA GLOBAL EDUTECH",
+    images: [{ url: "https://devgya.in/logo-with-name.png", width: 1200, height: 630, alt: "DEVGYA Privacy Policy" }],
+    locale: "en_IN",
+    type: "website"
+  }
+};
 
 export default function PrivacyPolicyPage() {
   const privacyPoints = [
@@ -60,55 +84,39 @@ export default function PrivacyPolicyPage() {
             {privacyPoints.map((point, idx) => {
               const Icon = point.icon;
               return (
-                <div 
-                  key={idx}
-                  className="bg-white border border-slate-200 hover:border-indigo-300 p-8 rounded-3xl space-y-4 shadow-md hover:shadow-xl transition-all group flex flex-col justify-between"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${point.color} text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform`}>
-                        <Icon className="w-7 h-7" />
-                      </div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 px-3 py-1 rounded-full">
-                        {point.badge}
-                      </span>
+                <div key={idx} className="p-8 rounded-3xl bg-white border border-slate-200/80 hover:border-indigo-200 hover:shadow-xl transition-all space-y-4 shadow-sm group">
+                  <div className="flex items-center justify-between">
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${point.color} text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
+                      <Icon className="w-6 h-6" />
                     </div>
-
-                    <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                      {point.title}
-                    </h3>
-
-                    <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                      {point.description}
-                    </p>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 px-3 py-1 rounded-full">
+                      {point.badge}
+                    </span>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-bold text-indigo-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Protected Principle</span>
-                  </div>
+                  <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                    {point.title}
+                  </h3>
+
+                  <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                    {point.description}
+                  </p>
                 </div>
               );
             })}
           </div>
 
-          {/* TRUST STATEMENT BANNER */}
-          <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-950 text-white shadow-xl relative overflow-hidden text-center space-y-4">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/20 blur-[100px] rounded-full pointer-events-none" />
-
-            <h3 className="text-xl sm:text-2xl font-black text-white">
-              Your Trust is Our Highest Priority
-            </h3>
-
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl mx-auto font-medium">
-              By using our platform, you trust us with your information, and we work hard to keep that trust secure.
+          {/* LEGAL NOTICE FOOTNOTE */}
+          <div className="p-8 rounded-3xl bg-slate-100 border border-slate-200 text-slate-700 space-y-4">
+            <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+              Policy Compliance & Updates
+            </h4>
+            <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
+              We may update this policy periodically to reflect evolving technology, school safety regulations, and legal compliance. Continued use of Devgya indicates acceptance of any updated privacy terms.
             </p>
-
-            <div className="pt-4 flex items-center justify-center gap-6 text-xs text-slate-400 font-semibold border-t border-white/10 max-w-xl mx-auto">
-              <span><strong>Entity:</strong> Devgya Global Edutech Pvt. Ltd.</span>
-              <span>•</span>
-              <span><strong>Location:</strong> Jhajjar, Haryana</span>
-            </div>
+            <p className="text-xs text-slate-500 font-semibold">
+              Last Updated: September 2026 • DEVGYA GLOBAL EDUTECH PRIVATE LIMITED
+            </p>
           </div>
 
         </main>
@@ -117,4 +125,3 @@ export default function PrivacyPolicyPage() {
     </div>
   );
 }
-

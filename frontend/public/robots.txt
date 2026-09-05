@@ -1,20 +1,46 @@
+﻿# DEVGYA GLOBAL EDUTECH (https://devgya.in) - Official Robots.txt
 User-agent: *
 Allow: /
+Allow: /about
+Allow: /why-choose-us
+Allow: /faq
+Allow: /safety-standards
+Allow: /pricing
+Allow: /privacy-policy
+Allow: /terms-of-service
+Allow: /login
+Allow: /register
 Disallow: /api/
 Disallow: /admin/
+Disallow: /dashboard/
 
 User-agent: Googlebot
 Allow: /
+Allow: /about
+Allow: /why-choose-us
+Allow: /faq
+Allow: /safety-standards
+Allow: /pricing
+Allow: /privacy-policy
+Allow: /terms-of-service
+Allow: /login
+Allow: /register
 Disallow: /api/
 Disallow: /admin/
+Disallow: /dashboard/
 
 User-agent: Googlebot-Image
 Allow: /
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.webp$
+Allow: /*.svg$
 
 User-agent: Bingbot
 Allow: /
 Disallow: /api/
 Disallow: /admin/
+Disallow: /dashboard/
 
 Sitemap: https://devgya.in/sitemap.xml
 Host: https://devgya.in

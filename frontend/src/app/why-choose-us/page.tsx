@@ -1,5 +1,4 @@
-"use client";
-
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -19,6 +18,31 @@ import {
   Bot, 
   Video 
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Why Choose Us | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+  description: "Discover why top CBSE schools, educators, students, and parents trust DEVGYA GLOBAL EDUTECH: Unified 360-degree ecosystem, smart OCR & AI tools, educator Olympiad, and dependable school infrastructure.",
+  keywords: [
+    "Why Choose DEVGYA",
+    "DEVGYA Advantages",
+    "Best AI Education Platform India",
+    "Smart School Ecosystem",
+    "CBSE Question Paper Generator Benefits",
+    "Teacher Empowerment AI"
+  ],
+  alternates: {
+    canonical: "https://devgya.in/why-choose-us"
+  },
+  openGraph: {
+    title: "Why Choose Us | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
+    description: "Partner with DEVGYA GLOBAL EDUTECH for modernizing K-12 education with hybrid AI, certified school labs, and comprehensive educator support.",
+    url: "https://devgya.in/why-choose-us",
+    siteName: "DEVGYA GLOBAL EDUTECH",
+    images: [{ url: "https://devgya.in/logo-with-name.png", width: 1200, height: 630, alt: "Why Choose DEVGYA GLOBAL EDUTECH" }],
+    locale: "en_IN",
+    type: "website"
+  }
+};
 
 export default function WhyChooseUsPage() {
   const whyUsPillars = [
@@ -156,4 +180,3 @@ export default function WhyChooseUsPage() {
     </div>
   );
 }
-

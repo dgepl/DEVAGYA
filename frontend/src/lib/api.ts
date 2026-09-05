@@ -680,6 +680,7 @@ export interface GeneratePPTRequest {
   theme?: string;
   teacher_guidance?: string;
   user_email?: string;
+  user_id?: string;
 }
 
 export interface PresentationData {
@@ -763,5 +764,58 @@ export async function searchSlideImage(query: string): Promise<{ query: string; 
   }
   return res.json();
 }
+
+export interface PPTHistoryItem {
+  id: string;
+  title: string;
+  topic: string;
+  subtitle?: string;
+  theme?: string;
+  num_slides?: number;
+  created_at: string;
+}
+
+export async function fetchPPTHistory(userId: string): Promise<{ decks: PPTHistoryItem[] }> {
+  const res = await fetch(`${getApiBase()}/ppt/history?user_id=${encodeURIComponent(userId)}`);
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to fetch PPT history"));
+  }
+  return res.json();
+}
+
+export async function getPPTDeck(deckId: string, userId: string): Promise<PresentationData> {
+  const res = await fetch(`${getApiBase()}/ppt/detail/${encodeURIComponent(deckId)}?user_id=${encodeURIComponent(userId)}`);
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to load presentation deck"));
+  }
+  return res.json();
+}
+
+export async function savePPTDeck(deck: PresentationData, userId: string): Promise<{ status: string; deck_id: string }> {
+  const res = await fetch(`${getApiBase()}/ppt/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId, deck })
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to save presentation to cloud"));
+  }
+  return res.json();
+}
+
+export async function deletePPTDeck(deckId: string, userId: string): Promise<{ status: string; id: string }> {
+  const res = await fetch(`${getApiBase()}/ppt/detail/${encodeURIComponent(deckId)}?user_id=${encodeURIComponent(userId)}`, {
+    method: "DELETE"
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to delete presentation"));
+  }
+  return res.json();
+}
+
 
 

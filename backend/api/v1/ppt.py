@@ -1,22 +1,67 @@
 import io
 import re
-from fastapi import APIRouter, HTTPException, Response
-from fastapi.responses import StreamingResponse
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Response, Query
+from pydantic import BaseModel
 from services.ppt_service import (
     ppt_service, GeneratePPTRequest, PresentationData, RefineSlideRequest, SlideItem
 )
+from services.ppt_history_service import ppt_history_service
 
 router = APIRouter(prefix="/ppt", tags=["Presentation Generator"])
+
+class SavePPTRequest(BaseModel):
+    user_id: str
+    deck: PresentationData
 
 @router.post("/generate", response_model=PresentationData)
 async def generate_presentation_endpoint(request: GeneratePPTRequest):
     """Generate an AI-powered presentation on any study-related topic with teacher guidance."""
-    return await ppt_service.generate_presentation(request)
+    deck = await ppt_service.generate_presentation(request)
+    user_identifier = request.user_id or request.user_email
+    if user_identifier:
+        try:
+            saved_id = ppt_history_service.save_deck(user_identifier, deck.dict())
+            if saved_id:
+                deck.id = saved_id
+        except Exception as e:
+            pass
+    return deck
 
 @router.post("/refine-slide", response_model=SlideItem)
 async def refine_slide_endpoint(request: RefineSlideRequest):
     """Refine or polish a single slide with AI based on teacher instructions."""
     return await ppt_service.refine_slide(request)
+
+@router.get("/history")
+async def get_ppt_history_endpoint(user_id: str = Query(..., description="User ID or email")):
+    """Retrieve user-specific cloud-synced PPT history."""
+    decks = ppt_history_service.list_user_decks(user_id)
+    return {"decks": decks}
+
+@router.get("/detail/{deck_id}", response_model=PresentationData)
+async def get_single_ppt_endpoint(deck_id: str, user_id: str = Query(...)):
+    """Fetch full presentation by deck ID ensuring user ownership."""
+    deck = ppt_history_service.get_user_deck(deck_id, user_id)
+    if not deck:
+        raise HTTPException(status_code=404, detail="Presentation deck not found or unauthorized.")
+    return deck
+
+@router.post("/save")
+async def save_ppt_endpoint(req: SavePPTRequest):
+    """Save or update presentation deck in Supabase Cloud."""
+    saved_id = ppt_history_service.save_deck(req.user_id, req.deck.dict())
+    if not saved_id:
+        raise HTTPException(status_code=500, detail="Failed to save presentation to cloud.")
+    return {"status": "saved", "deck_id": saved_id}
+
+@router.delete("/detail/{deck_id}")
+async def delete_ppt_endpoint(deck_id: str, user_id: str = Query(...)):
+    """Permanently delete presentation from Supabase Cloud."""
+    deleted = ppt_history_service.delete_user_deck(deck_id, user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Presentation not found or could not be deleted.")
+    return {"status": "deleted", "id": deck_id}
 
 @router.get("/search-image")
 async def search_image_endpoint(query: str):

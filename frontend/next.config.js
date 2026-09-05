@@ -28,6 +28,30 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/pricing',
+        destination: '/why-choose-us',
+        permanent: true,
+      },
+      {
+        source: '/ai-platform',
+        destination: '/about',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/knowledge',
+        destination: '/dashboard',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/workflows',
+        destination: '/dashboard',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

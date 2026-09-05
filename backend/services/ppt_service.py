@@ -4,12 +4,14 @@ import re
 import json
 import asyncio
 import logging
+import uuid
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 from services.ai_provider import ai_provider
 from services.groq_service import robust_json_parser
 from services.error_service import format_ai_exception_detail
+from services.ppt_history_service import ppt_history_service
 from fastapi import HTTPException
 
 # ReportLab imports for Landscape PDF
@@ -46,9 +48,9 @@ class SlideItem(BaseModel):
     bullets: List[str] = []
     left_column: Optional[Dict[str, Any]] = None
     right_column: Optional[Dict[str, Any]] = None
-    metrics: Optional[List[Dict[str, str]]] = None
-    timeline_steps: Optional[List[Dict[str, str]]] = None
-    quote: Optional[Dict[str, str]] = None
+    metrics: Optional[List[Dict[str, Any]]] = None
+    timeline_steps: Optional[List[Dict[str, Any]]] = None
+    quote: Optional[Dict[str, Any]] = None
     image_keyword: str = "education study concept"
     image_url: Optional[str] = None
     image_caption: Optional[str] = None
@@ -63,6 +65,7 @@ class GeneratePPTRequest(BaseModel):
     theme: str = Field(default="modern_navy") # modern_navy, emerald_sage, sunset_coral, dark_cyber, royal_purple, slate_academic
     teacher_guidance: Optional[str] = Field(default="")
     user_email: Optional[str] = None
+    user_id: Optional[str] = None
 
 class PresentationData(BaseModel):
     id: Optional[str] = None
@@ -259,29 +262,55 @@ async def _resolve_real_topic_image(topic: str, slide_title: str, keyword: str) 
 
 
 def _get_image_for_keyword(keyword: str) -> str:
-    """Provides fallback educational image URL based on keyword theme."""
+    """Provides authentic educational image URL based on keyword theme without generic stock icons."""
     kw = (keyword or "").lower()
-    if any(k in kw for k in ["space", "astronomy", "planet", "galaxy", "solar"]):
-        return "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80"
-    if any(k in kw for k in ["bio", "dna", "cell", "organism", "nature", "plant", "photosynthesis"]):
+    # Neuroscience & Human Nervous System
+    if any(k in kw for k in ["nervous", "brain", "neuron", "synapse", "spine", "nerve", "reflex", "cortex"]):
+        return "https://images.unsplash.com/photo-1559757175-5700dde675bc?w=800&auto=format&fit=crop&q=80"
+    # Cardiology & Circulatory System
+    if any(k in kw for k in ["heart", "cardio", "blood", "circulat", "artery", "vessel"]):
         return "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=800&auto=format&fit=crop&q=80"
-    if any(k in kw for k in ["chem", "molecule", "reaction", "lab", "experiment"]):
+    # Anatomy & Medical Biology
+    if any(k in kw for k in ["anatomy", "skeleton", "body", "muscle", "organ", "digest", "respirat", "medical", "disease", "health"]):
+        return "https://images.unsplash.com/photo-1576086213369-97a306d36557?w=800&auto=format&fit=crop&q=80"
+    # Space & Astronomy
+    if any(k in kw for k in ["space", "astronomy", "planet", "galaxy", "solar", "orbit", "universe", "star"]):
+        return "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80"
+    # Biology & Genetics
+    if any(k in kw for k in ["bio", "dna", "cell", "organism", "genet", "microbe"]):
+        return "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=800&auto=format&fit=crop&q=80"
+    # Botany & Plant Sciences
+    if any(k in kw for k in ["plant", "photosynth", "flower", "leaf", "chloroplast", "botany", "crop", "forest"]):
+        return "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=800&auto=format&fit=crop&q=80"
+    # Chemistry & Lab Experiments
+    if any(k in kw for k in ["chem", "molecule", "reaction", "lab", "experiment", "acid", "compound", "periodic", "element"]):
         return "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&auto=format&fit=crop&q=80"
-    if any(k in kw for k in ["phys", "quantum", "electric", "magnet", "energy", "wave"]):
+    # Physics & Energy
+    if any(k in kw for k in ["phys", "quantum", "electric", "magnet", "energy", "wave", "motion", "gravity", "optics"]):
         return "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=800&auto=format&fit=crop&q=80"
-    if any(k in kw for k in ["math", "geometry", "calculus", "algebra", "number", "vedic"]):
+    # Mathematics & Geometry
+    if any(k in kw for k in ["math", "geometry", "calculus", "algebra", "number", "vedic", "trig", "statistic"]):
         return "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&auto=format&fit=crop&q=80"
-    if any(k in kw for k in ["history", "war", "revolut", "ancient", "monument", "civil"]):
+    # History & Civilization
+    if any(k in kw for k in ["history", "war", "revolut", "ancient", "monument", "civil", "india", "gandhi", "mughal", "empire"]):
         return "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=800&auto=format&fit=crop&q=80"
-    if any(k in kw for k in ["ai", "robot", "comput", "tech", "program", "code", "cyber"]):
+    # Technology & Computer Science
+    if any(k in kw for k in ["ai", "robot", "comput", "tech", "program", "code", "cyber", "software", "network"]):
         return "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&auto=format&fit=crop&q=80"
-    if any(k in kw for k in ["earth", "climate", "environment", "geography", "eco"]):
+    # Earth Sciences, Climate & Geography
+    if any(k in kw for k in ["earth", "climate", "environment", "geography", "eco", "river", "mountain", "soil", "ocean", "weather"]):
         return "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&auto=format&fit=crop&q=80"
-    if any(k in kw for k in ["liter", "english", "poem", "book", "lang", "grammar"]):
+    # Civics, Law & Politics
+    if any(k in kw for k in ["civics", "polity", "constitution", "democracy", "parliament", "law", "government", "rights"]):
+        return "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&auto=format&fit=crop&q=80"
+    # Literature & Languages
+    if any(k in kw for k in ["liter", "english", "poem", "book", "lang", "grammar", "poetry", "novel"]):
         return "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&auto=format&fit=crop&q=80"
-    if any(k in kw for k in ["econ", "market", "trade", "finance", "money"]):
+    # Economics & Commerce
+    if any(k in kw for k in ["econ", "market", "trade", "finance", "money", "commerce", "budget", "bank"]):
         return "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&auto=format&fit=crop&q=80"
-    return "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80"
+    # Sleek modern academic study & research background (NEVER an apple-on-books)
+    return "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80"
 
 
 class PPTGeneratorService:
@@ -432,8 +461,8 @@ Generate ALL {req.num_slides} slides completely!"""
             if not slides_list:
                 raise ValueError("Could not assemble valid slides from LLM output.")
 
-            return PresentationData(
-                id=f"ppt-{int(os.times()[4] * 1000)}",
+            deck_res = PresentationData(
+                id=f"ppt-{uuid.uuid4().hex[:12]}",
                 title=str(parsed.get("title") or req.topic),
                 subtitle=str(parsed.get("subtitle") or f"A comprehensive study presentation for {req.target_audience}"),
                 topic=req.topic,
@@ -444,6 +473,16 @@ Generate ALL {req.num_slides} slides completely!"""
                 teacher_guidance=req.teacher_guidance,
                 slides=slides_list
             )
+
+            # Auto-save deck into user's personal Supabase cloud history
+            clean_user = (req.user_id or req.user_email or "").strip()
+            if clean_user:
+                try:
+                    ppt_history_service.save_deck(clean_user, deck_res.dict())
+                except Exception as save_err:
+                    logger.warning(f"Failed to auto-save deck to Supabase: {save_err}")
+
+            return deck_res
 
         except Exception as e:
             logger.warning(f"AI presentation generation error: {e}. Generating fallback structured presentation.")
@@ -555,8 +594,8 @@ Generate ALL {req.num_slides} slides completely!"""
                 )
             )
 
-        return PresentationData(
-            id=f"ppt-{int(os.times()[4] * 1000)}",
+        fallback_deck = PresentationData(
+            id=f"ppt-{uuid.uuid4().hex[:12]}",
             title=topic_title,
             subtitle=f"Comprehensive study presentation for {req.target_audience}",
             topic=req.topic,
@@ -567,6 +606,15 @@ Generate ALL {req.num_slides} slides completely!"""
             teacher_guidance=req.teacher_guidance,
             slides=slides
         )
+
+        clean_user = (req.user_id or req.user_email or "").strip()
+        if clean_user:
+            try:
+                ppt_history_service.save_deck(clean_user, fallback_deck.dict())
+            except Exception as save_err:
+                logger.warning(f"Failed to auto-save fallback deck to Supabase: {save_err}")
+
+        return fallback_deck
 
     async def refine_slide(self, req: RefineSlideRequest) -> SlideItem:
         """Refines or rephrases an individual slide based on teacher's specific instruction."""
