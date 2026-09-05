@@ -294,6 +294,8 @@ export function EnglishSpeakingCoach() {
   // Ultra-Fast TTS Audio Player for Single Sentence
   const playCoachAudio = useCallback((textToSpeak: string, onFinish?: () => void) => {
     if (soundMutedRef.current) {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
       onFinish?.();
       return;
     }
@@ -308,12 +310,33 @@ export function EnglishSpeakingCoach() {
 
     const cleanText = cleanForSpeech(textToSpeak);
     if (!cleanText) {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
       onFinish?.();
       return;
     }
 
     setIsAiSpeaking(true);
+    isAiSpeakingRef.current = true;
     stopListening(); // Pause mic so it doesn't hear the speaker
+
+    const handleFinished = () => {
+      currentAudioRef.current = null;
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
+      if (onFinish) {
+        onFinish();
+      } else {
+        // Automatic hands-free listening resume (Gemini Live cycle)
+        if (isLiveActiveRef.current && !isAiThinkingRef.current) {
+          setTimeout(() => {
+            if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+              startListening();
+            }
+          }, 220);
+        }
+      }
+    };
 
     try {
       const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&text=${encodeURIComponent(cleanText)}`;
@@ -322,22 +345,22 @@ export function EnglishSpeakingCoach() {
 
       audio.onplay = () => {
         setIsAiSpeaking(true);
+        isAiSpeakingRef.current = true;
       };
 
       audio.onended = () => {
-        currentAudioRef.current = null;
-        onFinish?.();
+        handleFinished();
       };
 
       audio.onerror = () => {
-        fallbackSpeechSynthesis(cleanText, onFinish);
+        fallbackSpeechSynthesis(cleanText, handleFinished);
       };
 
       audio.play().catch(() => {
-        fallbackSpeechSynthesis(cleanText, onFinish);
+        fallbackSpeechSynthesis(cleanText, handleFinished);
       });
     } catch {
-      fallbackSpeechSynthesis(cleanText, onFinish);
+      fallbackSpeechSynthesis(cleanText, handleFinished);
     }
   }, [selectedVoice]);
 
@@ -346,13 +369,19 @@ export function EnglishSpeakingCoach() {
       const utt = new SpeechSynthesisUtterance(text);
       utt.lang = selectedVoice.startsWith("hi") ? "hi-IN" : "en-IN";
       utt.onend = () => {
+        setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
         onFinish?.();
       };
       utt.onerror = () => {
+        setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
         onFinish?.();
       };
       window.speechSynthesis.speak(utt);
     } else {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
       onFinish?.();
     }
   };
@@ -687,10 +716,21 @@ Instructions:
     } else {
       // Start Gemini Live Conversation
       setIsLiveActive(true);
+      isLiveActiveRef.current = true;
       startCamera();
       const greeting = `Hello! I am ${INDIAN_VOICES.find(v => v.code === selectedVoice)?.name}. I can see you on camera. Let us practice ${activeScenario.title}. Speak whenever you are ready!`;
       setLiveAiSpeech(greeting);
-      playCoachAudio(greeting);
+      playCoachAudio(greeting, () => {
+        setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
+        if (isLiveActiveRef.current && !isAiThinkingRef.current) {
+          setTimeout(() => {
+            if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+              startListening();
+            }
+          }, 220);
+        }
+      });
     }
   };
 
@@ -704,7 +744,17 @@ Instructions:
     const resetGreeting = `New conversation started! We are practicing ${activeScenario.title}. Speak whenever you are ready.`;
     setLiveAiSpeech(resetGreeting);
     if (isLiveActive) {
-      playCoachAudio(resetGreeting);
+      playCoachAudio(resetGreeting, () => {
+        setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
+        if (isLiveActiveRef.current && !isAiThinkingRef.current) {
+          setTimeout(() => {
+            if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+              startListening();
+            }
+          }, 220);
+        }
+      });
     }
   };
 
