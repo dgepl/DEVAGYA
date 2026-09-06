@@ -226,13 +226,56 @@ export default function GeneratorPage() {
     const finalTime = parseInt(timeMins) || (finalMarks <= 25 ? 45 : (finalMarks <= 50 ? 90 : 180));
 
     setLoading(true);
-    setProgressPercentage(5);
-    setProgressStage(selectedFiles.length > 0 ? "Reading & preparing attached documents..." : "Analyzing CBSE/NCERT curriculum standards & guidelines...");
-
     const requestStartTime = Date.now();
+    setProgressPercentage(15);
+    setProgressStage(
+      selectedFiles.length > 0
+        ? `Reading and scanning ${selectedFiles.length} attached file(s) with Vision OCR...`
+        : `Analyzing CBSE/NCERT curriculum standards for ${targetClass} ${targetSubject}...`
+    );
+
+    // Dynamic progressive pipeline reflecting the live ~8-10s synthesis stages
+    const progressTimer = setInterval(() => {
+      const elapsed = Date.now() - requestStartTime;
+      if (selectedFiles.length > 0) {
+        if (elapsed < 2000) {
+          setProgressPercentage((p) => Math.max(p, 25));
+          setProgressStage(`Scanning attached pages with Vision OCR...`);
+        } else if (elapsed < 4200) {
+          setProgressPercentage((p) => Math.max(p, 45));
+          setProgressStage("Analyzing study pages, headings, equations, and topics...");
+        } else if (elapsed < 6800) {
+          setProgressPercentage((p) => Math.max(p, 70));
+          setProgressStage("Synthesizing questions strictly derived from attached source material...");
+        } else if (elapsed < 9200) {
+          setProgressPercentage((p) => Math.max(p, 88));
+          setProgressStage("Formulating step-by-step model solutions and marking keys...");
+        } else {
+          setProgressPercentage((p) => Math.max(p, 96));
+          setProgressStage("Validating continuous question numbering & official CBSE layout...");
+        }
+      } else {
+        if (elapsed < 1800) {
+          setProgressPercentage((p) => Math.max(p, 25));
+          setProgressStage(`Analyzing CBSE/NCERT curriculum standards for ${targetClass} ${targetSubject}...`);
+        } else if (elapsed < 3800) {
+          setProgressPercentage((p) => Math.max(p, 48));
+          setProgressStage(`Formulating Bloom's taxonomy blueprint for '${targetChapter}'...`);
+        } else if (elapsed < 6500) {
+          setProgressPercentage((p) => Math.max(p, 72));
+          setProgressStage(`Synthesizing questions across all sections (MCQ, Short, Long, Assertion-Reason, Case Study)...`);
+        } else if (elapsed < 9000) {
+          setProgressPercentage((p) => Math.max(p, 88));
+          setProgressStage("Formulating step-by-step model solutions & marking rubrics...");
+        } else {
+          setProgressPercentage((p) => Math.max(p, 96));
+          setProgressStage("Validating continuous question numbering & official CBSE layout...");
+        }
+      }
+    }, 350);
 
     const handleProgressUpdate = (pct: number, stage: string) => {
-      setProgressPercentage(Math.max(5, Math.min(100, pct)));
+      setProgressPercentage((prev) => Math.max(prev, pct));
       if (stage) setProgressStage(stage);
     };
 
@@ -300,14 +343,16 @@ export default function GeneratorPage() {
         res.school_logo = user.schoolLogo;
       }
       
+      clearInterval(progressTimer);
       setProgressPercentage(100);
       setProgressStage("Question Paper successfully synthesized!");
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       setPaper(res);
       savePaper(res);
       setShowMobilePaperModal(true);
     } catch (err: any) {
+      clearInterval(progressTimer);
       console.warn("Initial generation fetch notice, checking server for synthesized paper...", err);
 
       // Resilient Background Verification:
@@ -359,6 +404,7 @@ export default function GeneratorPage() {
         setError(err.message || "Failed to generate AI paper. Please check connection.");
       }
     } finally {
+      clearInterval(progressTimer);
       setLoading(false);
     }
   };
