@@ -4,6 +4,7 @@ import base64
 import json
 from typing import Optional, List, Any
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
+from fastapi.responses import StreamingResponse
 from PIL import Image
 from schemas.question import GeneratePaperRequest, GeneratedPaperResponse
 from services.groq_service import groq_service
@@ -245,6 +246,262 @@ async def generate_paper_from_file(request: Request):
         logger.error(f"generate_paper_with_attachment error: {e}")
         status_code, detail = format_ai_exception_detail(e, "Question Paper Generation with Attachment")
         raise HTTPException(status_code=status_code, detail=detail)
+
+@router.post("/generate-stream")
+async def generate_paper_stream(request: GeneratePaperRequest):
+    """Stream real-time progress percentage, stage description, and final generated paper."""
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def _progress_cb(percentage: int, stage: str):
+        await queue.put({"event": "progress", "percentage": percentage, "stage": stage})
+
+    async def _worker():
+        try:
+            await _progress_cb(8, f"Initializing CBSE/NCERT curriculum standards for {request.class_name} {request.subject}...")
+            response = await groq_service.generate_question_paper(request, progress_callback=_progress_cb)
+            if request.user_email:
+                response.user_email = request.user_email
+            
+            paper_dict = response.dict()
+            await _save_paper_for_user(request.user_email, paper_dict)
+            await queue.put({
+                "event": "complete",
+                "percentage": 100,
+                "stage": "Question paper generated successfully!",
+                "paper": paper_dict
+            })
+        except Exception as e:
+            logger.error(f"Error in generate_paper_stream: {e}", exc_info=True)
+            status_code, detail = format_ai_exception_detail(e, "Question Paper Generation")
+            await queue.put({
+                "event": "error",
+                "error": detail
+            })
+        finally:
+            await queue.put(None)
+
+    asyncio.create_task(_worker())
+
+    async def event_generator():
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            yield f"data: {json.dumps(item)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+@router.post("/generate-from-file-stream")
+async def generate_paper_from_file_stream(request: Request):
+    """Stream real-time progress percentage, stage description, and final generated paper from uploaded files."""
+    form = await request.form()
+
+    title = str(form.get("title") or "Periodic Assessment Exam")
+    class_name = str(form.get("class_name") or "Class 10")
+    subject = str(form.get("subject") or "Science")
+    chapter = str(form.get("chapter") or "General Syllabus")
+    difficulty = str(form.get("difficulty") or "medium")
+    
+    try: total_marks = int(form.get("total_marks") or 40)
+    except (ValueError, TypeError): total_marks = 40
+
+    try: time_allowed_mins = int(form.get("time_allowed_mins") or 90)
+    except (ValueError, TypeError): time_allowed_mins = 90
+
+    try: num_mcqs = int(form.get("num_mcqs") or 4)
+    except (ValueError, TypeError): num_mcqs = 4
+
+    try: num_short = int(form.get("num_short") or 2)
+    except (ValueError, TypeError): num_short = 2
+
+    try: num_long = int(form.get("num_long") or 1)
+    except (ValueError, TypeError): num_long = 1
+
+    try: num_assertion_reason = int(form.get("num_assertion_reason") or 0)
+    except (ValueError, TypeError): num_assertion_reason = 0
+
+    try: num_fill_in_the_blanks = int(form.get("num_fill_in_the_blanks") or 0)
+    except (ValueError, TypeError): num_fill_in_the_blanks = 0
+
+    try: num_case_study = int(form.get("num_case_study") or 0)
+    except (ValueError, TypeError): num_case_study = 0
+
+    try: ar_marks = int(form.get("ar_marks") or 2)
+    except (ValueError, TypeError): ar_marks = 2
+
+    try: fill_marks = int(form.get("fill_marks") or 1)
+    except (ValueError, TypeError): fill_marks = 1
+
+    try: case_marks = int(form.get("case_marks") or 4)
+    except (ValueError, TypeError): case_marks = 4
+
+    school_name = str(form.get("school_name") or "DEVGYA GLOBAL ACADEMY")
+    custom_instructions = str(form.get("custom_instructions") or "")
+    question_type_instructions = str(form.get("question_type_instructions") or "")
+    user_email = str(form.get("user_email") or "")
+
+    req = GeneratePaperRequest(
+        title=title,
+        class_name=class_name,
+        subject=subject,
+        chapter=chapter,
+        difficulty=difficulty,
+        total_marks=total_marks,
+        time_allowed_mins=time_allowed_mins,
+        num_mcqs=num_mcqs,
+        num_short=num_short,
+        num_long=num_long,
+        num_assertion_reason=num_assertion_reason,
+        num_fill_in_the_blanks=num_fill_in_the_blanks,
+        num_case_study=num_case_study,
+        ar_marks=ar_marks,
+        fill_marks=fill_marks,
+        case_marks=case_marks,
+        question_type_instructions=question_type_instructions,
+        school_name=school_name,
+        custom_instructions=custom_instructions,
+        user_email=user_email
+    )
+
+    uploaded_files: List[Any] = []
+    for k, v in form.multi_items():
+        if hasattr(v, "filename") and getattr(v, "filename", None) and v not in uploaded_files:
+            uploaded_files.append(v)
+
+    file_items = []
+    for f_item in uploaded_files:
+        try:
+            try: await f_item.seek(0)
+            except Exception: pass
+            f_bytes = await f_item.read()
+            if len(f_bytes) > 0:
+                file_items.append((f_item.filename or "attachment", (f_item.content_type or "").lower(), f_bytes))
+        except Exception:
+            continue
+
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def _progress_cb(percentage: int, stage: str):
+        await queue.put({"event": "progress", "percentage": percentage, "stage": stage})
+
+    async def _worker():
+        try:
+            if not file_items:
+                await _progress_cb(10, f"Initializing curriculum guidelines for {req.class_name} {req.subject}...")
+                res = await groq_service.generate_question_paper(req, progress_callback=_progress_cb)
+                if user_email: res.user_email = user_email
+                paper_dict = res.dict()
+                await _save_paper_for_user(user_email, paper_dict)
+                await queue.put({
+                    "event": "complete",
+                    "percentage": 100,
+                    "stage": "Question paper generated successfully!",
+                    "paper": paper_dict
+                })
+                return
+
+            await _progress_cb(10, f"Processing {len(file_items)} attached document/image file(s)...")
+            extracted_texts: List[str] = []
+            image_data_urls: List[str] = []
+
+            for filename, content_type, file_bytes in file_items:
+                ext = os.path.splitext(filename)[1].lower()
+                if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
+                    try:
+                        img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+                        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+                        buf = io.BytesIO()
+                        img.save(buf, format="JPEG", quality=70, optimize=True)
+                        enc = base64.b64encode(buf.getvalue()).decode("ascii")
+                        img_url = f"data:image/jpeg;base64,{enc}"
+                        if len(image_data_urls) < 25:
+                            image_data_urls.append(img_url)
+                    except Exception as img_err:
+                        logger.warning(f"Failed to process image attachment {filename}: {img_err}")
+                elif ext == ".pdf" or "pdf" in content_type:
+                    try:
+                        pdf_text, pdf_img_url = extract_pdf_content(file_bytes)
+                        if pdf_text and len(pdf_text.strip()) > 10:
+                            extracted_texts.append(f"--- Document: {filename} ---\n{pdf_text}")
+                        if pdf_img_url and len(image_data_urls) < 25:
+                            image_data_urls.append(pdf_img_url)
+                    except Exception:
+                        try:
+                            doc_text = extract_document_text(file_bytes, filename, content_type)
+                            if doc_text and len(doc_text.strip()) > 10:
+                                extracted_texts.append(f"--- Document: {filename} ---\n{doc_text}")
+                        except Exception:
+                            pass
+                else:
+                    try:
+                        doc_text = extract_document_text(file_bytes, filename, content_type)
+                        if doc_text and len(doc_text.strip()) > 10:
+                            extracted_texts.append(f"--- Document: {filename} ---\n{doc_text}")
+                    except Exception:
+                        pass
+
+            unified_extracted_text = "\n\n".join(extracted_texts).strip()
+            has_text = bool(unified_extracted_text and len(unified_extracted_text) >= 10)
+            has_image = bool(image_data_urls and len(image_data_urls) > 0)
+
+            if not has_text and not has_image:
+                await queue.put({
+                    "event": "error",
+                    "error": "Unreadable Attachment: No readable text or images could be extracted from uploaded files. Please ensure files are clear documents/images, or generate directly using syllabus topics without file upload."
+                })
+                return
+
+            response = await groq_service.generate_question_paper_with_attachment(
+                req=req,
+                extracted_text=unified_extracted_text,
+                image_data_urls=image_data_urls,
+                progress_callback=_progress_cb
+            )
+            if user_email: response.user_email = user_email
+            paper_dict = response.dict()
+            await _save_paper_for_user(user_email, paper_dict)
+            await queue.put({
+                "event": "complete",
+                "percentage": 100,
+                "stage": "Question paper generated successfully!",
+                "paper": paper_dict
+            })
+        except Exception as e:
+            logger.error(f"Error in generate_paper_from_file_stream: {e}", exc_info=True)
+            status_code, detail = format_ai_exception_detail(e, "Question Paper Generation with Attachment")
+            await queue.put({
+                "event": "error",
+                "error": detail
+            })
+        finally:
+            await queue.put(None)
+
+    asyncio.create_task(_worker())
+
+    async def event_generator():
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            yield f"data: {json.dumps(item)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 @router.post("/teaching-assistant")
 async def generate_teaching_material(payload: dict):

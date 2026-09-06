@@ -87,10 +87,10 @@ class GroqAIService:
         self.api_key = settings.GROQ_API_KEY
         self.client = Groq(api_key=self.api_key) if self.api_key else None
 
-    async def generate_question_paper(self, req: GeneratePaperRequest) -> GeneratedPaperResponse:
+    async def generate_question_paper(self, req: GeneratePaperRequest, progress_callback: Optional[Any] = None) -> GeneratedPaperResponse:
         """
         Generates 100% original, curriculum-accurate CBSE/NCERT examination papers.
-        Supports arbitrarily large papers (e.g. 40, 50, 100 questions) via parallel chunked synthesis.
+        Supports fast unified generation for standard papers (<=20 questions) and chunked synthesis for large papers.
         Zero mock questions guaranteed.
         """
         import asyncio
@@ -159,241 +159,295 @@ class GroqAIService:
                     response_format_json=True
                 )
 
-        tasks = []
+        total_questions = target_mcq + target_short + target_long + target_ar + target_fill + target_case
+        extracted_raw_questions: List[Dict[str, Any]] = []
 
-        # 1. MCQ Tasks (in chunks of 8)
-        mcq_chunks = _get_chunks(target_mcq, 8)
-        for i, c_mcq in enumerate(mcq_chunks):
-            mcq_prompt = f"""{subject_directive}
+        # High-Speed Unified Synthesis for standard papers (<= 20 questions)
+        if 0 < total_questions <= 20:
+            if progress_callback:
+                await progress_callback(20, f"Analyzing CBSE/NCERT curriculum standards for {req.class_name} {req.subject}...")
 
-Generate EXACTLY {c_mcq} Multiple Choice Questions for {req.class_name} {req.subject}.
+            sections_req = []
+            if target_mcq > 0:
+                sections_req.append(f"- EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation)")
+            if target_fill > 0:
+                sections_req.append(f"- EXACTLY {target_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with '_______' in question_text, correct answer, and explanation)")
+            if target_ar > 0:
+                sections_req.append(f"- EXACTLY {target_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with assertion_text, reason_text, standard CBSE 4 options, answer, and explanation)")
+            if target_short > 0:
+                sections_req.append(f"- EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with model answer and explanation)")
+            if target_long > 0:
+                sections_req.append(f"- EXACTLY {target_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with structured model answer and explanation)")
+            if target_case > 0:
+                sections_req.append(f"- EXACTLY {target_case} Competency-Based Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with case_passage, 3 sub_questions, answer, and explanation)")
+
+            unified_prompt = f"""{subject_directive}
+
+Generate a complete, authentic CBSE/NCERT examination question paper for {req.class_name} {req.subject}.
 Chapter / Syllabus: {req.chapter}
 Difficulty: {req.difficulty}
-Batch Part: {i+1} of {len(mcq_chunks)}
-{f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
-
-MANDATORY QUANTITY:
-- EXACTLY {c_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation)
-
-JSON FORMAT ONLY:
-{{
-  "questions": [
-    {{
-      "question_number": 1,
-      "question_type": "mcq",
-      "question_text": "...",
-      "options": ["(A)...", "(B)...", "(C)...", "(D)..."],
-      "answer": "(A)...",
-      "explanation": "...",
-      "marks": 1
-    }}
-  ]
-}}
-You MUST produce ALL {c_mcq} MCQs in the 'questions' list."""
-            tasks.append(_call_llm(mcq_prompt))
-
-        # 2. Fill in the Blanks Tasks (in chunks of 6)
-        fill_chunks = _get_chunks(target_fill, 6)
-        for i, c_fill in enumerate(fill_chunks):
-            fill_prompt = f"""{subject_directive}
-
-Generate EXACTLY {c_fill} Fill in the Blanks Questions for {req.class_name} {req.subject}.
-Chapter / Syllabus: {req.chapter}
-Difficulty: {req.difficulty}
-Batch Part: {i+1} of {len(fill_chunks)}
 {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
 {f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
 
-CRITICAL FORMAT:
-- Each question text MUST have a clear blank line designated by '_______'.
-- Do NOT provide multiple choice options.
-- The 'answer' must be the exact correct term/phrase.
-- Marks: {fill_marks}
+MANDATORY SECTIONS TO GENERATE:
+{chr(10).join(sections_req)}
 
-JSON FORMAT ONLY:
-{{
-  "questions": [
+Return valid JSON ONLY with a 'questions' array containing all {total_questions} questions."""
+
+            if progress_callback:
+                await progress_callback(40, f"Synthesizing authentic questions for '{req.chapter}' across all sections...")
+
+            try:
+                raw_unified = await _call_llm(unified_prompt)
+                parsed_unified = robust_json_parser(raw_unified)
+                extracted_raw_questions = parsed_unified.get("questions") or []
+                if extracted_raw_questions and progress_callback:
+                    await progress_callback(65, f"Structuring sections, formulas and diagram scenarios for {req.chapter}...")
+            except Exception as uni_err:
+                logger.warning(f"Unified generation notice: {uni_err}")
+
+        # Chunked parallel tasks fallback for large papers (>20 questions) or if unified returned empty
+        if not extracted_raw_questions and total_questions > 0:
+            if progress_callback:
+                await progress_callback(40, f"Synthesizing questions across parallel section batches...")
+
+            tasks = []
+
+            # 1. MCQ Tasks (in chunks of 8)
+            mcq_chunks = _get_chunks(target_mcq, 8)
+            for i, c_mcq in enumerate(mcq_chunks):
+                mcq_prompt = f"""{subject_directive}
+
+    Generate EXACTLY {c_mcq} Multiple Choice Questions for {req.class_name} {req.subject}.
+    Chapter / Syllabus: {req.chapter}
+    Difficulty: {req.difficulty}
+    Batch Part: {i+1} of {len(mcq_chunks)}
+    {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
+
+    MANDATORY QUANTITY:
+    - EXACTLY {c_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation)
+
+    JSON FORMAT ONLY:
     {{
-      "question_number": 1,
-      "question_type": "fill_in_the_blanks",
-      "question_text": "The fundamental unit of life in all living organisms is _______.",
-      "options": null,
-      "answer": "cell",
-      "explanation": "Cells are the basic structural and functional units of life.",
-      "marks": {fill_marks}
+      "questions": [
+        {{
+          "question_number": 1,
+          "question_type": "mcq",
+          "question_text": "...",
+          "options": ["(A)...", "(B)...", "(C)...", "(D)..."],
+          "answer": "(A)...",
+          "explanation": "...",
+          "marks": 1
+        }}
+      ]
     }}
-  ]
-}}
-You MUST produce ALL {c_fill} Fill in the Blanks questions in the 'questions' list."""
-            tasks.append(_call_llm(fill_prompt))
+    You MUST produce ALL {c_mcq} MCQs in the 'questions' list."""
+                tasks.append(_call_llm(mcq_prompt))
 
-        # 3. Assertion-Reason Tasks (in chunks of 5)
-        ar_chunks = _get_chunks(target_ar, 5)
-        for i, c_ar in enumerate(ar_chunks):
-            ar_prompt = f"""{subject_directive}
+            # 2. Fill in the Blanks Tasks (in chunks of 6)
+            fill_chunks = _get_chunks(target_fill, 6)
+            for i, c_fill in enumerate(fill_chunks):
+                fill_prompt = f"""{subject_directive}
 
-Generate EXACTLY {c_ar} CBSE/NCERT Assertion-Reason Questions for {req.class_name} {req.subject}.
-Chapter / Syllabus: {req.chapter}
-Difficulty: {req.difficulty}
-Batch Part: {i+1} of {len(ar_chunks)}
-{f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
-{f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
+    Generate EXACTLY {c_fill} Fill in the Blanks Questions for {req.class_name} {req.subject}.
+    Chapter / Syllabus: {req.chapter}
+    Difficulty: {req.difficulty}
+    Batch Part: {i+1} of {len(fill_chunks)}
+    {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
+    {f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
 
-CRITICAL CBSE ASSERTION-REASON FORMAT:
-- Provide an 'assertion_text' (Assertion A) and 'reason_text' (Reason R).
-- 'options' must be the 4 standard CBSE choices:
-  [
-    "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
-    "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
-    "(C) Assertion (A) is true but Reason (R) is false.",
-    "(D) Assertion (A) is false but Reason (R) is true."
-  ]
-- 'question_text' must present Assertion (A) and Reason (R) clearly.
-- Marks: {ar_marks}
+    CRITICAL FORMAT:
+    - Each question text MUST have a clear blank line designated by '_______'.
+    - Do NOT provide multiple choice options.
+    - The 'answer' must be the exact correct term/phrase.
+    - Marks: {fill_marks}
 
-JSON FORMAT ONLY:
-{{
-  "questions": [
+    JSON FORMAT ONLY:
     {{
-      "question_number": 1,
-      "question_type": "assertion_reason",
-      "question_text": "Assertion (A): Plants appear green to the human eye.\\nReason (R): Chlorophyll pigment absorbs green wavelength of visible light and reflects blue and red.",
-      "assertion_text": "Plants appear green to the human eye.",
-      "reason_text": "Chlorophyll pigment absorbs green wavelength of visible light and reflects blue and red.",
-      "options": [
+      "questions": [
+        {{
+          "question_number": 1,
+          "question_type": "fill_in_the_blanks",
+          "question_text": "The fundamental unit of life in all living organisms is _______.",
+          "options": null,
+          "answer": "cell",
+          "explanation": "Cells are the basic structural and functional units of life.",
+          "marks": {fill_marks}
+        }}
+      ]
+    }}
+    You MUST produce ALL {c_fill} Fill in the Blanks questions in the 'questions' list."""
+                tasks.append(_call_llm(fill_prompt))
+
+            # 3. Assertion-Reason Tasks (in chunks of 5)
+            ar_chunks = _get_chunks(target_ar, 5)
+            for i, c_ar in enumerate(ar_chunks):
+                ar_prompt = f"""{subject_directive}
+
+    Generate EXACTLY {c_ar} CBSE/NCERT Assertion-Reason Questions for {req.class_name} {req.subject}.
+    Chapter / Syllabus: {req.chapter}
+    Difficulty: {req.difficulty}
+    Batch Part: {i+1} of {len(ar_chunks)}
+    {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
+    {f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
+
+    CRITICAL CBSE ASSERTION-REASON FORMAT:
+    - Provide an 'assertion_text' (Assertion A) and 'reason_text' (Reason R).
+    - 'options' must be the 4 standard CBSE choices:
+      [
         "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
         "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
         "(C) Assertion (A) is true but Reason (R) is false.",
         "(D) Assertion (A) is false but Reason (R) is true."
-      ],
-      "answer": "(C) Assertion (A) is true but Reason (R) is false.",
-      "explanation": "Chlorophyll absorbs blue and red wavelengths and reflects green light, which is why plants appear green.",
-      "marks": {ar_marks}
-    }}
-  ]
-}}
-You MUST produce ALL {c_ar} Assertion-Reason questions in the 'questions' list."""
-            tasks.append(_call_llm(ar_prompt))
+      ]
+    - 'question_text' must present Assertion (A) and Reason (R) clearly.
+    - Marks: {ar_marks}
 
-        # 4. Short Answer Tasks (in chunks of 5)
-        short_chunks = _get_chunks(target_short, 5)
-        for i, c_short in enumerate(short_chunks):
-            short_prompt = f"""{subject_directive}
-
-Generate EXACTLY {c_short} Short Answer Questions for {req.class_name} {req.subject}.
-Chapter / Syllabus: {req.chapter}
-Difficulty: {req.difficulty}
-Batch Part: {i+1} of {len(short_chunks)}
-{f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
-
-MANDATORY QUANTITY:
-- EXACTLY {c_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with complete step-by-step scoring rubric/model answer)
-
-JSON FORMAT ONLY:
-{{
-  "questions": [
+    JSON FORMAT ONLY:
     {{
-      "question_number": 1,
-      "question_type": "short",
-      "question_text": "...",
-      "options": null,
-      "answer": "...",
-      "explanation": "...",
-      "marks": 3
+      "questions": [
+        {{
+          "question_number": 1,
+          "question_type": "assertion_reason",
+          "question_text": "Assertion (A): Plants appear green to the human eye.\\nReason (R): Chlorophyll pigment absorbs green wavelength of visible light and reflects blue and red.",
+          "assertion_text": "Plants appear green to the human eye.",
+          "reason_text": "Chlorophyll pigment absorbs green wavelength of visible light and reflects blue and red.",
+          "options": [
+            "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+            "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+            "(C) Assertion (A) is true but Reason (R) is false.",
+            "(D) Assertion (A) is false but Reason (R) is true."
+          ],
+          "answer": "(C) Assertion (A) is true but Reason (R) is false.",
+          "explanation": "Chlorophyll absorbs blue and red wavelengths and reflects green light, which is why plants appear green.",
+          "marks": {ar_marks}
+        }}
+      ]
     }}
-  ]
-}}
-You MUST produce ALL {c_short} Short Answer questions in the 'questions' list."""
-            tasks.append(_call_llm(short_prompt))
+    You MUST produce ALL {c_ar} Assertion-Reason questions in the 'questions' list."""
+                tasks.append(_call_llm(ar_prompt))
 
-        # 5. Long Answer / HOTS Tasks (in chunks of 4)
-        long_chunks = _get_chunks(target_long, 4)
-        for i, c_long in enumerate(long_chunks):
-            long_prompt = f"""{subject_directive}
+            # 4. Short Answer Tasks (in chunks of 5)
+            short_chunks = _get_chunks(target_short, 5)
+            for i, c_short in enumerate(short_chunks):
+                short_prompt = f"""{subject_directive}
 
-Generate EXACTLY {c_long} Long Answer / HOTS Questions for {req.class_name} {req.subject}.
-Chapter / Syllabus: {req.chapter}
-Difficulty: {req.difficulty}
-Batch Part: {i+1} of {len(long_chunks)}
-{f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
+    Generate EXACTLY {c_short} Short Answer Questions for {req.class_name} {req.subject}.
+    Chapter / Syllabus: {req.chapter}
+    Difficulty: {req.difficulty}
+    Batch Part: {i+1} of {len(short_chunks)}
+    {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
 
-MANDATORY QUANTITY:
-- EXACTLY {c_long} Long Answer / HOTS Questions (labeled 'question_type': 'long', 'marks': 5, with detailed explanation, analysis, or multi-step solution)
+    MANDATORY QUANTITY:
+    - EXACTLY {c_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with complete step-by-step scoring rubric/model answer)
 
-JSON FORMAT ONLY:
-{{
-  "questions": [
+    JSON FORMAT ONLY:
     {{
-      "question_number": 1,
-      "question_type": "long",
-      "question_text": "...",
-      "options": null,
-      "answer": "...",
-      "explanation": "...",
-      "marks": 5
+      "questions": [
+        {{
+          "question_number": 1,
+          "question_type": "short",
+          "question_text": "...",
+          "options": null,
+          "answer": "...",
+          "explanation": "...",
+          "marks": 3
+        }}
+      ]
     }}
-  ]
-}}
-You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
-            tasks.append(_call_llm(long_prompt))
+    You MUST produce ALL {c_short} Short Answer questions in the 'questions' list."""
+                tasks.append(_call_llm(short_prompt))
 
-        # 6. Case Study / Passage-based Tasks (in chunks of 2)
-        case_chunks = _get_chunks(target_case, 2)
-        for i, c_case in enumerate(case_chunks):
-            case_prompt = f"""{subject_directive}
+            # 5. Long Answer / HOTS Tasks (in chunks of 4)
+            long_chunks = _get_chunks(target_long, 4)
+            for i, c_long in enumerate(long_chunks):
+                long_prompt = f"""{subject_directive}
 
-Generate EXACTLY {c_case} Competency-Based Case Study Questions for {req.class_name} {req.subject}.
-Chapter / Syllabus: {req.chapter}
-Difficulty: {req.difficulty}
-Batch Part: {i+1} of {len(case_chunks)}
-{f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
-{f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
+    Generate EXACTLY {c_long} Long Answer / HOTS Questions for {req.class_name} {req.subject}.
+    Chapter / Syllabus: {req.chapter}
+    Difficulty: {req.difficulty}
+    Batch Part: {i+1} of {len(long_chunks)}
+    {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
 
-CRITICAL FORMAT:
-- Provide an authentic real-world or experimental case study scenario passage (120-200 words) under 'case_passage'.
-- Provide 3 to 4 analytical sub-questions under 'sub_questions' (e.g., ["(i) Explain why...", "(ii) What happens if...", "(iii) Deduce the relationship..."]).
-- 'question_text' must be ONLY the directive intro line (e.g. "Read the following case study carefully and answer the questions that follow:"). Do NOT repeat the passage inside 'question_text'.
-- 'answer' must be step-by-step model solutions addressing each sub-question.
-- Marks: {case_marks}
+    MANDATORY QUANTITY:
+    - EXACTLY {c_long} Long Answer / HOTS Questions (labeled 'question_type': 'long', 'marks': 5, with detailed explanation, analysis, or multi-step solution)
 
-JSON FORMAT ONLY:
-{{
-  "questions": [
+    JSON FORMAT ONLY:
     {{
-      "question_number": 1,
-      "question_type": "case_study",
-      "case_passage": "A research team investigates...",
-      "sub_questions": [
-        "(i) Identify the principle demonstrated in the scenario. (1 Mark)",
-        "(ii) State one limitation of this observation. (1 Mark)",
-        "(iii) How would the outcome change under controlled conditions? (2 Marks)"
-      ],
-      "question_text": "Read the following case study carefully and answer the questions that follow:",
-      "options": null,
-      "answer": "(i) Principle: ...\\n(ii) Limitation: ...\\n(iii) Under controlled conditions: ...",
-      "explanation": "Detailed analytical rationale.",
-      "marks": {case_marks}
+      "questions": [
+        {{
+          "question_number": 1,
+          "question_type": "long",
+          "question_text": "...",
+          "options": null,
+          "answer": "...",
+          "explanation": "...",
+          "marks": 5
+        }}
+      ]
     }}
-  ]
-}}
-You MUST produce ALL {c_case} Case Study questions in the 'questions' list."""
-            tasks.append(_call_llm(case_prompt))
+    You MUST produce ALL {c_long} Long Answer questions in the 'questions' list."""
+                tasks.append(_call_llm(long_prompt))
 
-        raw_responses = await asyncio.gather(*tasks, return_exceptions=True)
+            # 6. Case Study / Passage-based Tasks (in chunks of 2)
+            case_chunks = _get_chunks(target_case, 2)
+            for i, c_case in enumerate(case_chunks):
+                case_prompt = f"""{subject_directive}
 
-        extracted_raw_questions = []
-        exceptions_encountered = []
-        for resp in raw_responses:
-            if isinstance(resp, str):
-                parsed = robust_json_parser(resp)
-                extracted_raw_questions.extend(parsed.get("questions") or [])
-            elif isinstance(resp, Exception):
-                exceptions_encountered.append(resp)
+    Generate EXACTLY {c_case} Competency-Based Case Study Questions for {req.class_name} {req.subject}.
+    Chapter / Syllabus: {req.chapter}
+    Difficulty: {req.difficulty}
+    Batch Part: {i+1} of {len(case_chunks)}
+    {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
+    {f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
 
-        # If zero questions were synthesized and exceptions were encountered, fall back to curriculum synthesis
-        if not extracted_raw_questions and exceptions_encountered:
-            logger.warning(f"All parallel LLM question tasks encountered exceptions: {exceptions_encountered[0]}. Generating resilient curriculum questions.")
-            extracted_raw_questions = self._synthesize_fallback_curriculum_questions(req)
+    CRITICAL FORMAT:
+    - Provide an authentic real-world or experimental case study scenario passage (120-200 words) under 'case_passage'.
+    - Provide 3 to 4 analytical sub-questions under 'sub_questions' (e.g., ["(i) Explain why...", "(ii) What happens if...", "(iii) Deduce the relationship..."]).
+    - 'question_text' must be ONLY the directive intro line (e.g. "Read the following case study carefully and answer the questions that follow:"). Do NOT repeat the passage inside 'question_text'.
+    - 'answer' must be step-by-step model solutions addressing each sub-question.
+    - Marks: {case_marks}
+
+    JSON FORMAT ONLY:
+    {{
+      "questions": [
+        {{
+          "question_number": 1,
+          "question_type": "case_study",
+          "case_passage": "A research team investigates...",
+          "sub_questions": [
+            "(i) Identify the principle demonstrated in the scenario. (1 Mark)",
+            "(ii) State one limitation of this observation. (1 Mark)",
+            "(iii) How would the outcome change under controlled conditions? (2 Marks)"
+          ],
+          "question_text": "Read the following case study carefully and answer the questions that follow:",
+          "options": null,
+          "answer": "(i) Principle: ...\\n(ii) Limitation: ...\\n(iii) Under controlled conditions: ...",
+          "explanation": "Detailed analytical rationale.",
+          "marks": {case_marks}
+        }}
+      ]
+    }}
+    You MUST produce ALL {c_case} Case Study questions in the 'questions' list."""
+                tasks.append(_call_llm(case_prompt))
+
+            if tasks:
+                raw_responses = await asyncio.gather(*tasks, return_exceptions=True)
+                exceptions_encountered = []
+                for resp in raw_responses:
+                    if isinstance(resp, str):
+                        parsed = robust_json_parser(resp)
+                        extracted_raw_questions.extend(parsed.get("questions") or [])
+                    elif isinstance(resp, Exception):
+                        exceptions_encountered.append(resp)
+
+                # If zero questions were synthesized and exceptions were encountered, fall back to curriculum synthesis
+                if not extracted_raw_questions and exceptions_encountered:
+                    logger.warning(f"All parallel LLM question tasks encountered exceptions: {exceptions_encountered[0]}. Generating resilient curriculum questions.")
+                    extracted_raw_questions = self._synthesize_fallback_curriculum_questions(req)
+
+        if progress_callback:
+            await progress_callback(75, f"Formulating step-by-step model solutions and section structures...")
 
         # Clean and categorize
         mcqs, fills, ars, shorts, longs, cases = [], [], [], [], [], []
@@ -780,6 +834,9 @@ JSON ONLY: {{"questions": [{{"question_type": "case_study", "case_passage": "...
             instructions.append(f"Section {chr(sec_idx)} comprises Competency-Based Case Study Questions of {case_marks} marks each.")
             sec_idx += 1
 
+        if progress_callback:
+            await progress_callback(95, "Validating marking schemes, Bloom's taxonomy & continuous numbering...")
+
         return GeneratedPaperResponse(
             title=str(req.title or f"{req.subject} Examination Paper"),
             class_name=str(req.class_name or "Class 10"),
@@ -895,7 +952,8 @@ JSON ONLY: {{"questions": [{{"question_type": "case_study", "case_passage": "...
         req: GeneratePaperRequest,
         extracted_text: str = "",
         image_data_url: Optional[str] = None,
-        image_data_urls: Optional[List[str]] = None
+        image_data_urls: Optional[List[str]] = None,
+        progress_callback: Optional[Any] = None
     ) -> GeneratedPaperResponse:
         """Generate Exam Question Paper derived STRICTLY and EXCLUSIVELY from attached PDF/documents or photos, ignoring form dropdowns."""
         all_image_urls = []
@@ -905,7 +963,10 @@ JSON ONLY: {{"questions": [{{"question_type": "case_study", "case_passage": "...
             all_image_urls.append(image_data_url)
 
         if not extracted_text and not all_image_urls:
-            return await self.generate_question_paper(req)
+            return await self.generate_question_paper(req, progress_callback=progress_callback)
+
+        if progress_callback:
+            await progress_callback(12, "Scanning attached study materials & running parallel vision OCR...")
 
         detect_prompt = """You are DEVGYA's Master Document Vision OCR & Assessment Extractor.
 Carefully examine the attached study material / document / worksheet / photo.
@@ -934,6 +995,9 @@ Return valid JSON ONLY with these exact keys:
         # 1. High-speed parallel vision OCR for ALL attached images (batches of 3)
         image_transcriptions: List[str] = []
         if all_image_urls:
+            if progress_callback:
+                await progress_callback(15, f"Reading and scanning {len(all_image_urls)} page image(s) with Vision OCR...")
+
             def _chunk_imgs(lst: List[str], sz: int):
                 return [lst[i:i + sz] for i in range(0, len(lst), sz)]
 
@@ -971,6 +1035,9 @@ Return valid JSON ONLY with these exact keys:
             for br in batch_results:
                 if br and len(br.strip()) > 10:
                     image_transcriptions.append(br.strip())
+
+        if progress_callback:
+            await progress_callback(30, "Analyzing study pages, headings, equations, and topics...")
 
         # Fast metadata extraction (Subject, Class, Chapter, Title, Summary)
         meta_prompt_text = (
@@ -1071,6 +1138,9 @@ Return valid JSON ONLY with these exact keys:
         else:
             final_title = f"{final_class} {final_subject} - {final_chapter} Assessment Paper"
 
+        if progress_callback:
+            await progress_callback(45, f"Identified {final_class} {final_subject} ({final_chapter}). Formulating questions...")
+
         source_context = f"=== ATTACHED SOURCE REFERENCE MATERIAL ===\n{combined_source.strip()}\n=== END ATTACHED SOURCE REFERENCE MATERIAL ==="
 
         teacher_notes = str(req.custom_instructions or "").strip()
@@ -1086,10 +1156,77 @@ Return valid JSON ONLY with these exact keys:
         ar_marks = req.ar_marks or 2
         case_marks = req.case_marks or 4
 
-        sem = asyncio.Semaphore(6)
+        total_target_questions = target_mcq + target_fill + target_ar + target_short + target_long + target_case
+        extracted_raw_questions: List[Dict[str, Any]] = []
 
-        async def _call_section_llm(section_type: str, prompt_spec: str) -> List[Dict[str, Any]]:
-            section_prompt = f"""CRITICAL MANDATE:
+        # High-Speed Unified Synthesis for attached material (<= 20 questions)
+        if 0 < total_target_questions <= 20:
+            if progress_callback:
+                await progress_callback(55, f"Synthesizing questions strictly derived from {final_subject} source material...")
+
+            sections_specs = []
+            if target_mcq > 0:
+                sections_specs.append(f"- EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation)")
+            if target_fill > 0:
+                sections_specs.append(f"- EXACTLY {target_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with '_______' in question_text, answer, explanation)")
+            if target_ar > 0:
+                sections_specs.append(f"- EXACTLY {target_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with assertion_text, reason_text, standard CBSE 4 options, answer, explanation)")
+            if target_short > 0:
+                sections_specs.append(f"- EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with comprehensive model answer and explanation)")
+            if target_long > 0:
+                sections_specs.append(f"- EXACTLY {target_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with structured, step-by-step scoring model answer)")
+            if target_case > 0:
+                sections_specs.append(f"- EXACTLY {target_case} Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with realistic case_passage based on source, 3 sub_questions, answers, explanation)")
+
+            unified_spec = f"""CRITICAL MANDATE:
+You are DEVGYA's Master Assessment Engine for CBSE/NCERT.
+Formulate authentic exam questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
+Every question, option, blank, assertion, and case study must derive directly from the attached source material.
+DO NOT introduce external curriculum topics. Ignore any default form parameters.
+
+Subject: {final_subject}
+Class: {final_class}
+Topic / Chapter: {final_chapter}
+
+{source_context}
+{f"Teacher Notes: {teacher_notes}" if teacher_notes else ""}
+Difficulty: {req.difficulty}
+
+MANDATORY SECTIONS TO GENERATE:
+{chr(10).join(sections_specs)}
+
+Return valid JSON ONLY with a 'questions' array containing all {total_target_questions} questions."""
+
+            try:
+                raw_unified = await ai_provider.chat_completion(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are DEVGYA's Master Document Assessment Engine. You MUST create exam questions STRICTLY and EXCLUSIVELY from the provided attached source document / transcription. Return valid JSON only with 'questions' array."
+                        },
+                        {"role": "user", "content": unified_spec}
+                    ],
+                    temperature=0.3,
+                    max_tokens=3500,
+                    response_format_json=True
+                )
+                if raw_unified and len(raw_unified.strip()) > 10:
+                    parsed_uni = robust_json_parser(raw_unified)
+                    extracted_raw_questions = parsed_uni.get("questions") or []
+                    if extracted_raw_questions and progress_callback:
+                        await progress_callback(75, f"Structuring MCQs, Short, Long, Assertion-Reason, and Case Studies for {final_subject}...")
+            except Exception as u_err:
+                logger.warning(f"Unified attachment synthesis notice: {u_err}")
+
+        # Chunked parallel tasks fallback for large papers (>20 questions) or if unified returned empty
+        if not extracted_raw_questions and total_target_questions > 0:
+            if progress_callback:
+                await progress_callback(55, "Synthesizing question sections across parallel batches...")
+
+            sem = asyncio.Semaphore(6)
+
+            async def _call_section_llm(section_type: str, prompt_spec: str) -> List[Dict[str, Any]]:
+                section_prompt = f"""CRITICAL MANDATE:
 You are DEVGYA's Master Assessment Engine for CBSE/NCERT.
 Formulate authentic exam questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
 Every question, option, blank, assertion, and case study must derive directly from the attached source material.
@@ -1107,36 +1244,36 @@ MANDATORY REQUIREMENT:
 {prompt_spec}
 
 Return valid JSON ONLY with a 'questions' array."""
-            async with sem:
-                try:
-                    raw_res = await ai_provider.chat_completion(
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": (
-                                    "You are DEVGYA's Master Document Assessment Engine. "
-                                    "CRITICAL RULE: You MUST create exam questions STRICTLY and EXCLUSIVELY from the provided attached source document / transcription. "
-                                    "Completely IGNORE any external curriculum topics not in the source. Return valid JSON only with 'questions' array."
-                                )
-                            },
-                            {"role": "user", "content": section_prompt}
-                        ],
-                        temperature=0.3,
-                        max_tokens=2500,
-                        response_format_json=True
-                    )
-                    if raw_res and len(raw_res.strip()) > 10:
-                        parsed = robust_json_parser(raw_res)
-                        return parsed.get("questions") or []
-                except Exception as sec_err:
-                    logger.warning(f"Parallel section [{section_type}] notice: {sec_err}")
-                return []
+                async with sem:
+                    try:
+                        raw_res = await ai_provider.chat_completion(
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": (
+                                        "You are DEVGYA's Master Document Assessment Engine. "
+                                        "CRITICAL RULE: You MUST create exam questions STRICTLY and EXCLUSIVELY from the provided attached source document / transcription. "
+                                        "Completely IGNORE any external curriculum topics not in the source. Return valid JSON only with 'questions' array."
+                                    )
+                                },
+                                {"role": "user", "content": section_prompt}
+                            ],
+                            temperature=0.3,
+                            max_tokens=2500,
+                            response_format_json=True
+                        )
+                        if raw_res and len(raw_res.strip()) > 10:
+                            parsed = robust_json_parser(raw_res)
+                            return parsed.get("questions") or []
+                    except Exception as sec_err:
+                        logger.warning(f"Parallel section [{section_type}] notice: {sec_err}")
+                    return []
 
-        parallel_section_tasks = []
+            parallel_section_tasks = []
 
-        # Section A: MCQs
-        if target_mcq > 0:
-            mcq_spec = f"""Generate EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation).
+            # Section A: MCQs
+            if target_mcq > 0:
+                mcq_spec = f"""Generate EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation).
 JSON format:
 {{
   "questions": [
@@ -1151,11 +1288,11 @@ JSON format:
     }}
   ]
 }}"""
-            parallel_section_tasks.append(("mcq", _call_section_llm("mcq", mcq_spec)))
+                parallel_section_tasks.append(("mcq", _call_section_llm("mcq", mcq_spec)))
 
-        # Section B: Fill in the Blanks
-        if target_fill > 0:
-            fill_spec = f"""Generate EXACTLY {target_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with '_______' in question_text, answer, explanation).
+            # Section B: Fill in the Blanks
+            if target_fill > 0:
+                fill_spec = f"""Generate EXACTLY {target_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with '_______' in question_text, answer, explanation).
 JSON format:
 {{
   "questions": [
@@ -1170,11 +1307,11 @@ JSON format:
     }}
   ]
 }}"""
-            parallel_section_tasks.append(("fill_in_the_blanks", _call_section_llm("fill_in_the_blanks", fill_spec)))
+                parallel_section_tasks.append(("fill_in_the_blanks", _call_section_llm("fill_in_the_blanks", fill_spec)))
 
-        # Section C: Assertion-Reason
-        if target_ar > 0:
-            ar_spec = f"""Generate EXACTLY {target_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with assertion_text, reason_text, standard CBSE 4 options, answer, explanation).
+            # Section C: Assertion-Reason
+            if target_ar > 0:
+                ar_spec = f"""Generate EXACTLY {target_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with assertion_text, reason_text, standard CBSE 4 options, answer, explanation).
 JSON format:
 {{
   "questions": [
@@ -1196,11 +1333,11 @@ JSON format:
     }}
   ]
 }}"""
-            parallel_section_tasks.append(("assertion_reason", _call_section_llm("assertion_reason", ar_spec)))
+                parallel_section_tasks.append(("assertion_reason", _call_section_llm("assertion_reason", ar_spec)))
 
-        # Section D: Short Answer
-        if target_short > 0:
-            short_spec = f"""Generate EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with comprehensive model answer and explanation).
+            # Section D: Short Answer
+            if target_short > 0:
+                short_spec = f"""Generate EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with comprehensive model answer and explanation).
 JSON format:
 {{
   "questions": [
@@ -1215,11 +1352,11 @@ JSON format:
     }}
   ]
 }}"""
-            parallel_section_tasks.append(("short", _call_section_llm("short", short_spec)))
+                parallel_section_tasks.append(("short", _call_section_llm("short", short_spec)))
 
-        # Section E: Long Answer
-        if target_long > 0:
-            long_spec = f"""Generate EXACTLY {target_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with structured, step-by-step scoring model answer).
+            # Section E: Long Answer
+            if target_long > 0:
+                long_spec = f"""Generate EXACTLY {target_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with structured, step-by-step scoring model answer).
 JSON format:
 {{
   "questions": [
@@ -1234,11 +1371,11 @@ JSON format:
     }}
   ]
 }}"""
-            parallel_section_tasks.append(("long", _call_section_llm("long", long_spec)))
+                parallel_section_tasks.append(("long", _call_section_llm("long", long_spec)))
 
-        # Section F: Case Study
-        if target_case > 0:
-            case_spec = f"""Generate EXACTLY {target_case} Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with realistic case_passage based on source, 3 sub_questions [(i)..., (ii)..., (iii)...], answers, explanation).
+            # Section F: Case Study
+            if target_case > 0:
+                case_spec = f"""Generate EXACTLY {target_case} Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with realistic case_passage based on source, 3 sub_questions [(i)..., (ii)..., (iii)...], answers, explanation).
 JSON format:
 {{
   "questions": [
@@ -1255,21 +1392,22 @@ JSON format:
     }}
   ]
 }}"""
-            parallel_section_tasks.append(("case_study", _call_section_llm("case_study", case_spec)))
+                parallel_section_tasks.append(("case_study", _call_section_llm("case_study", case_spec)))
 
-        # Fallback if no specific question type requested: generate 4 MCQs and 2 Short
-        if not parallel_section_tasks:
-            default_spec = "Generate 4 Multiple Choice Questions ('question_type': 'mcq', 'marks': 1) and 2 Short Questions ('question_type': 'short', 'marks': 3)."
-            parallel_section_tasks.append(("default", _call_section_llm("default", default_spec)))
+            # Fallback if no specific question type requested: generate 4 MCQs and 2 Short
+            if not parallel_section_tasks:
+                default_spec = "Generate 4 Multiple Choice Questions ('question_type': 'mcq', 'marks': 1) and 2 Short Questions ('question_type': 'short', 'marks': 3)."
+                parallel_section_tasks.append(("default", _call_section_llm("default", default_spec)))
 
-        # Execute all sections simultaneously in parallel!
-        section_results = await asyncio.gather(*(t[1] for t in parallel_section_tasks), return_exceptions=True)
+            # Execute all sections simultaneously in parallel!
+            section_results = await asyncio.gather(*(t[1] for t in parallel_section_tasks), return_exceptions=True)
 
-        extracted_raw_questions: List[Dict[str, Any]] = []
-        for res_item in section_results:
-            if isinstance(res_item, list):
-                extracted_raw_questions.extend(res_item)
+            for res_item in section_results:
+                if isinstance(res_item, list):
+                    extracted_raw_questions.extend(res_item)
 
+        if progress_callback:
+            await progress_callback(80, "Formulating step-by-step model solutions and marking keys...")
 
         def _dedup_q_list(q_list):
             seen = set()
@@ -1597,6 +1735,9 @@ JSON format:
         if target_case > 0:
             instructions.append(f"Section {chr(sec_idx)} comprises Case Study / Contextual Questions of {case_marks} marks each.")
             sec_idx += 1
+
+        if progress_callback:
+            await progress_callback(95, "Validating continuous question numbering & official CBSE layout...")
 
         return GeneratedPaperResponse(
             title=final_title,

@@ -150,6 +150,171 @@ export async function generateQuestionPaperFromFile(formData: FormData): Promise
   }
 }
 
+export async function generateQuestionPaperStream(
+  payload: GeneratePaperPayload,
+  onProgress: (percentage: number, stage: string) => void
+): Promise<GeneratedPaperResponse> {
+  const res = await fetch(`${getApiBase()}/generator/generate-stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "⚠️ AI Generation Error: Failed to generate question paper. Please try again.", res.status));
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) {
+    throw new Error("Streaming response not supported by browser environment.");
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalPaper: GeneratedPaperResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const jsonStr = trimmed.slice(5).trim();
+      if (!jsonStr) continue;
+
+      try {
+        const eventData = JSON.parse(jsonStr);
+        if (eventData.event === "progress") {
+          if (typeof eventData.percentage === "number" && eventData.stage) {
+            onProgress(eventData.percentage, eventData.stage);
+          }
+        } else if (eventData.event === "complete") {
+          finalPaper = eventData.paper;
+          if (eventData.stage) {
+            onProgress(100, eventData.stage);
+          }
+        } else if (eventData.event === "error") {
+          throw new Error(eventData.error || "Generation error occurred");
+        }
+      } catch (e: any) {
+        if (e.message && !e.message.includes("JSON.parse")) {
+          throw e;
+        }
+      }
+    }
+  }
+
+  if (buffer.trim().startsWith("data:")) {
+    const jsonStr = buffer.trim().slice(5).trim();
+    if (jsonStr) {
+      try {
+        const eventData = JSON.parse(jsonStr);
+        if (eventData.event === "complete") {
+          finalPaper = eventData.paper;
+        } else if (eventData.event === "error") {
+          throw new Error(eventData.error || "Generation error occurred");
+        }
+      } catch (e: any) {
+        if (e.message && !e.message.includes("JSON.parse")) throw e;
+      }
+    }
+  }
+
+  if (!finalPaper) {
+    throw new Error("Stream closed before receiving complete question paper.");
+  }
+
+  return finalPaper;
+}
+
+export async function generateQuestionPaperFromFileStream(
+  formData: FormData,
+  onProgress: (percentage: number, stage: string) => void
+): Promise<GeneratedPaperResponse> {
+  const res = await fetch(`${getApiBase()}/generator/generate-from-file-stream`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "⚠️ AI Generation Error: Failed to synthesize question paper from attachments. Please check connection and try again.", res.status));
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) {
+    throw new Error("Streaming response not supported by browser environment.");
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalPaper: GeneratedPaperResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const jsonStr = trimmed.slice(5).trim();
+      if (!jsonStr) continue;
+
+      try {
+        const eventData = JSON.parse(jsonStr);
+        if (eventData.event === "progress") {
+          if (typeof eventData.percentage === "number" && eventData.stage) {
+            onProgress(eventData.percentage, eventData.stage);
+          }
+        } else if (eventData.event === "complete") {
+          finalPaper = eventData.paper;
+          if (eventData.stage) {
+            onProgress(100, eventData.stage);
+          }
+        } else if (eventData.event === "error") {
+          throw new Error(eventData.error || "Generation error occurred");
+        }
+      } catch (e: any) {
+        if (e.message && !e.message.includes("JSON.parse")) {
+          throw e;
+        }
+      }
+    }
+  }
+
+  if (buffer.trim().startsWith("data:")) {
+    const jsonStr = buffer.trim().slice(5).trim();
+    if (jsonStr) {
+      try {
+        const eventData = JSON.parse(jsonStr);
+        if (eventData.event === "complete") {
+          finalPaper = eventData.paper;
+        } else if (eventData.event === "error") {
+          throw new Error(eventData.error || "Generation error occurred");
+        }
+      } catch (e: any) {
+        if (e.message && !e.message.includes("JSON.parse")) throw e;
+      }
+    }
+  }
+
+  if (!finalPaper) {
+    throw new Error("Stream closed before receiving complete question paper.");
+  }
+
+  return finalPaper;
+}
+
 export async function getNCERTChapters(className: string = "Class 10", subject: string = "Science") {
   const res = await fetch(`${getApiBase()}/generator/ncert-chapters?class_name=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}`);
   if (!res.ok) throw new Error("Failed to fetch chapters");

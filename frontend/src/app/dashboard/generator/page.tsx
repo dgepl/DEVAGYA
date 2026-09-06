@@ -34,7 +34,9 @@ import {
 } from "lucide-react";
 import { 
   generateQuestionPaper,
-  generateQuestionPaperFromFile, 
+  generateQuestionPaperFromFile,
+  generateQuestionPaperStream,
+  generateQuestionPaperFromFileStream,
   GeneratedPaperResponse, 
   QuestionItem, 
   downloadPDF,
@@ -224,30 +226,15 @@ export default function GeneratorPage() {
     const finalTime = parseInt(timeMins) || (finalMarks <= 25 ? 45 : (finalMarks <= 50 ? 90 : 180));
 
     setLoading(true);
-    setProgressPercentage(8);
-    setProgressStage(selectedFiles.length > 0 ? "Reading & extracting pages from attached documents..." : "Analyzing CBSE/NCERT curriculum standards & guidelines...");
+    setProgressPercentage(5);
+    setProgressStage(selectedFiles.length > 0 ? "Reading & preparing attached documents..." : "Analyzing CBSE/NCERT curriculum standards & guidelines...");
 
-    const progressInterval = setInterval(() => {
-      setProgressPercentage((prev) => {
-        if (prev >= 94) return prev;
-        const jump = Math.floor(Math.random() * 4) + 2; // +2% to +5%
-        const nextVal = Math.min(94, prev + jump);
+    const requestStartTime = Date.now();
 
-        if (selectedFiles.length > 0) {
-          if (nextVal < 25) setProgressStage("Reading and scanning uploaded files & images...");
-          else if (nextVal < 50) setProgressStage("Analyzing document text & syllabus key concepts...");
-          else if (nextVal < 75) setProgressStage("Synthesizing questions across all sections (MCQs, Fills, Assertion-Reason, Short, Long, Case Study)...");
-          else if (nextVal < 90) setProgressStage("Formulating official marking scheme & step-by-step solutions...");
-          else setProgressStage("Finalizing structured paper layout & verifying continuous numbering...");
-        } else {
-          if (nextVal < 25) setProgressStage("Analyzing NCERT syllabus & Bloom's taxonomy difficulty...");
-          else if (nextVal < 55) setProgressStage("Formulating section-wise questions & Mermaid diagram scenarios...");
-          else if (nextVal < 80) setProgressStage("Formulating detailed step-by-step solutions & marking keys...");
-          else setProgressStage("Finalizing layout and verifying continuous line-wise question numbering...");
-        }
-        return nextVal;
-      });
-    }, 450);
+    const handleProgressUpdate = (pct: number, stage: string) => {
+      setProgressPercentage(Math.max(5, Math.min(100, pct)));
+      if (stage) setProgressStage(stage);
+    };
 
     try {
       let res: GeneratedPaperResponse;
@@ -281,10 +268,10 @@ export default function GeneratorPage() {
         formData.append("custom_instructions", customPrompt);
         formData.append("user_email", user.email || "");
 
-        res = await generateQuestionPaperFromFile(formData);
+        res = await generateQuestionPaperFromFileStream(formData, handleProgressUpdate);
       } else {
         // Direct Curriculum Mode: Synthesize directly from selected Class, Subject, Chapter and Topics
-        res = await generateQuestionPaper({
+        res = await generateQuestionPaperStream({
           school_name: targetSchoolName,
           school_logo: user.schoolLogo,
           title: targetTitle,
@@ -306,14 +293,13 @@ export default function GeneratorPage() {
           question_type_instructions: questionTypeGuidance,
           custom_instructions: customPrompt,
           user_email: user.email || ""
-        });
+        }, handleProgressUpdate);
       }
 
       if (user.schoolLogo && !res.school_logo) {
         res.school_logo = user.schoolLogo;
       }
       
-      clearInterval(progressInterval);
       setProgressPercentage(100);
       setProgressStage("Question Paper successfully synthesized!");
       await new Promise((resolve) => setTimeout(resolve, 350));
@@ -325,25 +311,29 @@ export default function GeneratorPage() {
       console.warn("Initial generation fetch notice, checking server for synthesized paper...", err);
 
       // Resilient Background Verification:
-      // If client-side connection timed out while backend was finishing generation,
-      // poll the server history for up to 10 attempts (25s) before reporting an error.
+      // If client-side connection timed out or was interrupted while backend was finishing generation,
+      // poll the server history for up to 8 attempts (16s) before reporting an error.
       let recoveredPaper: GeneratedPaperResponse | null = null;
       try {
         const targetEmail = (user?.email || "guest@devgya.com").trim().toLowerCase();
-        for (let attempt = 0; attempt < 10; attempt++) {
-          setProgressStage(`Finalizing paper synthesis on server (verifying assessment ${attempt + 1}/10)...`);
-          await new Promise((r) => setTimeout(r, 2500));
+        for (let attempt = 0; attempt < 8; attempt++) {
+          setProgressStage(`Finalizing paper synthesis on server (verifying assessment ${attempt + 1}/8)...`);
+          await new Promise((r) => setTimeout(r, 2000));
 
           const checkRes = await fetch(`${getApiBase()}/generator/history?email=${encodeURIComponent(targetEmail)}`);
           if (checkRes.ok) {
             const histData = await checkRes.json();
-            const papersList = histData.papers || [];
+            const papersList: GeneratedPaperResponse[] = histData.papers || [];
             if (papersList.length > 0) {
               const latest = papersList[0];
               const isTitleMatch = latest.title?.toLowerCase() === targetTitle.toLowerCase();
-              const isClassMatch = latest.class_name === targetClass;
-              const isSubjectMatch = latest.subject === targetSubject;
-              if ((isTitleMatch && isClassMatch) || (isClassMatch && isSubjectMatch) || isTitleMatch) {
+              const isClassMatch = latest.class_name?.toLowerCase() === targetClass.toLowerCase();
+              const isSubjectMatch = latest.subject?.toLowerCase() === targetSubject.toLowerCase();
+              
+              const createdAtMs = (latest as any).created_at ? new Date((latest as any).created_at).getTime() : 0;
+              const isRecentlyCreated = createdAtMs > 0 ? (createdAtMs >= requestStartTime - 30000) : true;
+
+              if ((isTitleMatch && isClassMatch) || (isClassMatch && isSubjectMatch) || isTitleMatch || (selectedFiles.length > 0 && isRecentlyCreated)) {
                 recoveredPaper = latest;
                 break;
               }
@@ -355,7 +345,6 @@ export default function GeneratorPage() {
       }
 
       if (recoveredPaper) {
-        clearInterval(progressInterval);
         setProgressPercentage(100);
         setProgressStage("Question Paper successfully retrieved!");
         if (user.schoolLogo && !recoveredPaper.school_logo) {
@@ -366,12 +355,10 @@ export default function GeneratorPage() {
         setShowMobilePaperModal(true);
         setError(null);
       } else {
-        clearInterval(progressInterval);
         console.error("Generation error:", err);
         setError(err.message || "Failed to generate AI paper. Please check connection.");
       }
     } finally {
-      clearInterval(progressInterval);
       setLoading(false);
     }
   };
