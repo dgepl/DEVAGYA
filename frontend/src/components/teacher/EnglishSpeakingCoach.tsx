@@ -179,6 +179,7 @@ export function EnglishSpeakingCoach() {
   const isAiThinkingRef = useRef(false);
   const soundMutedRef = useRef(false);
   const accumulatedSpeechRef = useRef<string>("");
+  const turnBaseSpeechRef = useRef<string>("");
   const silenceTimerRef = useRef<any>(null);
   const autoRestartTimerRef = useRef<any>(null);
   const audioQueueRef = useRef<string[]>([]);
@@ -245,7 +246,7 @@ export function EnglishSpeakingCoach() {
     startCamera(next);
   };
 
-  // Instant Snapshot Grabber for Vision (ultra-light 240x240, ~5KB for instant transmission)
+  // Instant Snapshot Grabber for Vision (ultra-light 160x160, ~1.5KB for instant transmission)
   const captureLiveFrameBlob = (): Promise<Blob | null> => {
     return new Promise((resolve) => {
       if (!videoRef.current || !cameraActive) {
@@ -259,7 +260,7 @@ export function EnglishSpeakingCoach() {
       }
       try {
         const canvas = document.createElement("canvas");
-        const dim = 240;
+        const dim = 160;
         canvas.width = dim;
         canvas.height = dim;
         const ctx = canvas.getContext("2d");
@@ -270,7 +271,7 @@ export function EnglishSpeakingCoach() {
         ctx.drawImage(video, 0, 0, dim, dim);
         canvas.toBlob((blob) => {
           resolve(blob);
-        }, "image/jpeg", 0.50);
+        }, "image/jpeg", 0.35);
       } catch {
         resolve(null);
       }
@@ -449,6 +450,7 @@ export function EnglishSpeakingCoach() {
     stopListening();
     clearTimeout(silenceTimerRef.current);
     accumulatedSpeechRef.current = "";
+    turnBaseSpeechRef.current = "";
     setCurrentSpeechText("");
     setIsAiThinking(true);
     setMicPermissionError(null);
@@ -468,21 +470,21 @@ export function EnglishSpeakingCoach() {
 
     try {
       const modeInstruction = immersionMode === "immersion"
-        ? "Respond in conversational, natural, supportive Indian/Global English. Speak like an encouraging colleague."
-        : "The educator is in bilingual mode. Provide English coaching with simple Hindi hints where helpful.";
+        ? "Respond in conversational, natural, supportive English."
+        : "The educator is in bilingual mode. Provide conversational English coaching with simple Hindi hints where helpful.";
 
-      const promptDirective = `[LIVE CONVERSATIONAL ENGLISH COACH WITH VISION]
-Current Scenario: ${activeScenario.title}
+      const promptDirective = `[GEMINI LIVE SPOKEN CONVERSATION]
+Scenario: ${activeScenario.title}
 Mode: ${immersionMode} (${modeInstruction})
-Teacher: "${input}"
+Teacher said: "${input}"
 
 Instructions:
-1. Observe the attached camera image: Note their posture, smile, eye contact, or if they appear nervous/hesitant or confident.
-2. Provide a 1-to-2 sentence rapid spoken peer response that acknowledges their expression/feeling and answers them.
-3. If their English can be elevated or has an error, provide:
+- Reply in 1-2 ultra-crisp spoken sentences (max 30 words total).
+- Acknowledge what they said naturally like a warm, supportive colleague.
+- If there is an obvious grammar or pronunciation slip, provide:
 ✨ Better Phrasing: "[Polished line]"
 💡 Tip: [1 short tip]
-4. End with a quick question to keep our spoken dialogue flowing. Keep response super snappy so audio plays instantly!`;
+- End with a snappy question to keep the conversation flowing. Keep it super brief so audio starts instantly!`;
 
       const fd = new FormData();
       fd.append("message", promptDirective);
@@ -529,15 +531,19 @@ Instructions:
           fullAiText += chunk;
           setLiveAiSpeech(fullAiText);
 
+          // As soon as first streaming tokens arrive, turn off thinking spinner
+          if (isAiThinkingRef.current) {
+            setIsAiThinking(false);
+          }
+
           // 0-DELAY SENTENCE STREAMING TO AUDIO QUEUE:
           // Check if a sentence delimiter has arrived since streamCursor
           const unhandled = fullAiText.slice(streamCursor);
-          const delimiterMatch = unhandled.match(/([.!?\n]+)\s+/);
+          const delimiterMatch = unhandled.match(/([.!?\n]+)(\s+|$)/);
           if (delimiterMatch && delimiterMatch.index !== undefined) {
             const sentenceEnd = streamCursor + delimiterMatch.index + delimiterMatch[0].length;
             const newSentence = fullAiText.slice(streamCursor, sentenceEnd).trim();
-            if (newSentence.length >= 10) {
-              setIsAiThinking(false);
+            if (newSentence.length >= 6) {
               enqueueSentence(newSentence);
               streamCursor = sentenceEnd;
             }
@@ -622,28 +628,41 @@ Instructions:
 
       recognition.onstart = () => {
         setIsListening(true);
-        accumulatedSpeechRef.current = "";
+        // Do NOT wipe accumulated speech here so recognition can restart seamlessly
       };
 
       recognition.onresult = (event: any) => {
         if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
 
-        let fullTranscript = "";
+        let sessionTranscript = "";
         let isFinalDetected = false;
         for (let i = 0; i < event.results.length; i++) {
-          fullTranscript += event.results[i][0].transcript + " ";
+          sessionTranscript += event.results[i][0].transcript + " ";
           if (event.results[i].isFinal) isFinalDetected = true;
         }
 
-        const candidateText = fullTranscript.trim();
+        const base = turnBaseSpeechRef.current.trim();
+        const currentSession = sessionTranscript.trim();
+        const candidateText = (base ? base + " " + currentSession : currentSession).trim();
+
         if (candidateText) {
           accumulatedSpeechRef.current = candidateText;
           setCurrentSpeechText(candidateText);
 
-          // ULTRA-FAST 0-DELAY AUTO-TRANSMISSION:
-          // 400ms when speech recognition declares sentence final, 700ms when user pauses naturally
+          // SMART NATURAL CONVERSATIONAL SILENCE DETECTION:
+          // In natural conversation, taking a breath or pausing to think takes 1.2 to 2 seconds.
+          // Never cut off prematurely, especially on connector words (and, but, because, so, etc.)
           clearTimeout(silenceTimerRef.current);
-          const silenceDelay = isFinalDetected ? 400 : 700;
+
+          const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for)\s*$/i.test(candidateText);
+          const words = candidateText.split(/\s+/).filter(Boolean);
+          const hasTerminalPunct = /[.!?]$/.test(candidateText);
+
+          let silenceDelay = 1800; // Base natural pause: 1.8 seconds
+          if (isConnectorWord || words.length < 4 || !hasTerminalPunct) {
+            silenceDelay = 2400; // Allow 2.4s when user is clearly mid-sentence or thinking
+          }
+
           silenceTimerRef.current = setTimeout(() => {
             const readyToSend = accumulatedSpeechRef.current.trim();
             if (readyToSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
@@ -665,19 +684,20 @@ Instructions:
 
       recognition.onend = () => {
         setIsListening(false);
-        const readyToSend = accumulatedSpeechRef.current.trim();
-        if (readyToSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-          handleSendMessage(readyToSend);
-          return;
+        // Persist recognized speech so far in case speech recognition restarts mid-turn
+        if (accumulatedSpeechRef.current) {
+          turnBaseSpeechRef.current = accumulatedSpeechRef.current;
         }
 
+        // Auto-restart recognition seamlessly if user is still in live mode
+        // Do NOT immediately trigger handleSendMessage here! Let the silence timer decide so pauses aren't cut off.
         if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
           clearTimeout(autoRestartTimerRef.current);
           autoRestartTimerRef.current = setTimeout(() => {
             if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               try { recognition.start(); } catch {}
             }
-          }, 250);
+          }, 200);
         }
       };
 
@@ -712,6 +732,8 @@ Instructions:
       }
       setIsAiSpeaking(false);
       setIsAiThinking(false);
+      accumulatedSpeechRef.current = "";
+      turnBaseSpeechRef.current = "";
       setCurrentSpeechText("");
     } else {
       // Start Gemini Live Conversation

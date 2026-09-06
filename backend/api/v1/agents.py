@@ -97,14 +97,18 @@ def _build_agent_ai_messages(
     if not conv:
         return messages
 
-    for msg in conv["messages"]:
+    conv_messages = conv["messages"]
+    total_msgs = len(conv_messages)
+    for idx, msg in enumerate(conv_messages):
         msg_text = str(msg.get("content") or "").strip()
         if not msg_text and not msg.get("image_urls"):
             continue
 
         if msg["sender"] == "user":
             urls = msg.get("image_urls", [])
-            if isinstance(urls, list) and len(urls) > 0 and any(u.startswith("data:") for u in urls):
+            # Only include image data URLs for the very latest message (or current turn) to keep API payloads ultra-light
+            is_latest_user_msg = (idx == total_msgs - 1) or (idx == total_msgs - 2 and conv_messages[-1].get("sender") != "user")
+            if is_latest_user_msg and isinstance(urls, list) and len(urls) > 0 and any(u.startswith("data:") for u in urls):
                 content = ai_provider.build_vision_content(msg_text or "*(Image attached)*", urls)
             else:
                 content = msg_text
