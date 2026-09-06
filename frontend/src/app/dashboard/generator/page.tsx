@@ -353,7 +353,17 @@ export default function GeneratorPage() {
       setShowMobilePaperModal(true);
     } catch (err: any) {
       clearInterval(progressTimer);
-      console.warn("Initial generation fetch notice, checking server for synthesized paper...", err);
+      console.warn("Generation error notice:", err);
+
+      const errMsg = err?.message || "Failed to generate AI paper. Please check connection.";
+      const isExplicitValidationError = /unreadable|attachment|readable|no readable text|file or image/i.test(errMsg);
+
+      // If it's an explicit file/attachment validation error, immediately display it to the user without polling history
+      if (isExplicitValidationError) {
+        setError(errMsg);
+        setLoading(false);
+        return;
+      }
 
       // Resilient Background Verification:
       // If client-side connection timed out or was interrupted while backend was finishing generation,

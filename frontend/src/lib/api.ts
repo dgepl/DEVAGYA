@@ -318,6 +318,9 @@ export async function generateQuestionPaperFromFileStream(
 
     return finalPaper;
   } catch (err: any) {
+    if (err?.message && /unreadable|attachment|readable|no readable text|file or image/i.test(err.message)) {
+      throw err;
+    }
     console.warn("File stream notice, falling back to direct synthesis:", err);
     return await generateQuestionPaperFromFile(formData);
   }

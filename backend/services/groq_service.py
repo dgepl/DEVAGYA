@@ -3,6 +3,7 @@ import re
 import asyncio
 import logging
 from typing import List, Dict, Any, Optional
+from fastapi import HTTPException
 from groq import Groq
 from config import settings
 from schemas.question import GeneratePaperRequest, GeneratedPaperResponse, QuestionItem
@@ -868,7 +869,10 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
             all_image_urls.append(image_data_url)
 
         if not extracted_text and not all_image_urls:
-            return await self.generate_question_paper(req, progress_callback=progress_callback)
+            raise HTTPException(
+                status_code=400,
+                detail="⚠️ Unreadable Attachment: The attached file or image does not contain any readable text or educational content. Please upload a clear, legible document or photo, or generate directly using syllabus topics without file upload."
+            )
 
         if progress_callback:
             await progress_callback(12, "Scanning attached study materials & running parallel vision OCR...")
@@ -915,7 +919,8 @@ Return valid JSON ONLY with these exact keys:
                         "text": (
                             f"Examine these attached study pages / photos (Batch {b_idx + 1} of {len(img_batches)}). "
                             "Transcribe all visible text, question statements, headings, sub-headings, equations, "
-                            "formulas, and topics in clean Markdown. Be thorough so exam questions can be derived from all pages."
+                            "formulas, and topics in clean Markdown. Be thorough so exam questions can be derived from all pages. "
+                            "If the image is completely blank, dark, blurry, or contains no readable text, reply ONLY with: NO_READABLE_TEXT."
                         )
                     }
                 ]
@@ -938,8 +943,19 @@ Return valid JSON ONLY with these exact keys:
             batch_tasks = [_transcribe_batch(b, i) for i, b in enumerate(img_batches)]
             batch_results = await asyncio.gather(*batch_tasks)
             for br in batch_results:
-                if br and len(br.strip()) > 10:
-                    image_transcriptions.append(br.strip())
+                clean_br = (br or "").strip()
+                if clean_br and len(clean_br) > 10 and "NO_READABLE_TEXT" not in clean_br.upper():
+                    image_transcriptions.append(clean_br)
+
+        # Validate that the attached file or image contains ANY real readable educational content
+        has_readable_doc = bool(extracted_text and len(extracted_text.strip()) >= 15)
+        has_readable_img = bool(image_transcriptions and len(image_transcriptions) > 0)
+
+        if not has_readable_doc and not has_readable_img:
+            raise HTTPException(
+                status_code=400,
+                detail="⚠️ Unreadable Attachment: The attached file or image does not contain any readable text or educational content. Please upload a clear, legible document or photo, or generate directly using syllabus topics without file upload."
+            )
 
         if progress_callback:
             await progress_callback(30, "Analyzing study pages, headings, equations, and topics...")
@@ -980,12 +996,26 @@ Return valid JSON ONLY with these exact keys:
         if extracted_text and extracted_text.strip():
             combined_source += f"=== DIGITAL DOCUMENT TEXT ===\n{extracted_text[:12000]}\n\n"
         if image_transcriptions:
-            combined_source += f"=== TRANSCRIBED ATTACHED IMAGES & PAGES ===\n{chr(10).join(image_transcriptions)[:18000]}\n\n"
+            clean_transcriptions = [t for t in image_transcriptions if "NO_READABLE_TEXT" not in t]
+            if clean_transcriptions:
+                combined_source += f"=== TRANSCRIBED ATTACHED IMAGES & PAGES ===\n{chr(10).join(clean_transcriptions)[:18000]}\n\n"
         if attachment_summary:
             combined_source += f"=== ATTACHED MATERIAL CONCEPTS & SUMMARY ===\n{attachment_summary}\n\n"
 
-        if not combined_source.strip():
-            combined_source = "=== ATTACHED REFERENCE MATERIAL ===\n[Derive all questions from the attached images/photos]\n"
+        # Check if the attached file or image contains ANY real readable educational content
+        combined_text_snippets = (extracted_text or "").strip() + " " + " ".join(image_transcriptions).strip() + " " + (attachment_summary or "").strip()
+        clean_text_check = re.sub(r'[^a-zA-Z0-9]', '', combined_text_snippets.lower())
+
+        is_unreadable_transcription = any(phrase in combined_text_snippets.lower() for phrase in [
+            "no readable text", "no text found", "no visible text", "blank image", "blank page",
+            "cannot read", "unreadable", "too blurry", "blurry or dark", "no clear text", "no_readable_text"
+        ]) and len(clean_text_check) < 80
+
+        if len(clean_text_check) < 15 or is_unreadable_transcription or not combined_source.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="⚠️ Unreadable Attachment: The attached file or image does not contain any readable text or educational content. Please upload a clear, legible document or photo, or generate directly using syllabus topics without file upload."
+            )
 
         def _deduce_subject(text: str) -> str:
             t = text.lower()

@@ -228,7 +228,7 @@ async def generate_paper_from_file(request: Request):
     if not has_text and not has_image:
         raise HTTPException(
             status_code=400,
-            detail=f"Unreadable Attachment: No readable text or images could be extracted from uploaded files. Please ensure files are clear documents/images, or generate directly using syllabus topics without file upload."
+            detail="⚠️ Unreadable Attachment: The attached file or image does not contain any readable text or educational content. Please upload a clear, legible document or photo, or generate directly using syllabus topics without file upload."
         )
 
     try:
@@ -455,7 +455,7 @@ async def generate_paper_from_file_stream(request: Request):
             if not has_text and not has_image:
                 await queue.put({
                     "event": "error",
-                    "error": "Unreadable Attachment: No readable text or images could be extracted from uploaded files. Please ensure files are clear documents/images, or generate directly using syllabus topics without file upload."
+                    "error": "⚠️ Unreadable Attachment: The attached file or image does not contain any readable text or educational content. Please upload a clear, legible document or photo, or generate directly using syllabus topics without file upload."
                 })
                 return
 

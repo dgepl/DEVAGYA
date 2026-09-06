@@ -9,6 +9,9 @@ def format_ai_exception_detail(e: Exception, fallback_title: str = "Assessment G
     Translates raw backend exceptions, HTTP status errors, and AI provider messages
     into crystal-clear, categorized, and actionable error descriptions for end users.
     """
+    if hasattr(e, "status_code") and hasattr(e, "detail"):
+        return getattr(e, "status_code", 400), str(getattr(e, "detail", str(e)))
+
     err_str = str(e)
     lower_err = err_str.lower()
 
