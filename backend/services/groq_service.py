@@ -125,9 +125,10 @@ class GroqAIService:
             out = []
             for item in items:
                 t = str(item.get("question_text", "")).strip()
-                norm = re.sub(r'[^a-zA-Z0-9\s]', '', t.lower())
+                extra = str(item.get("case_passage", "") or item.get("assertion_text", "") or item.get("answer", "") or "")[:40]
+                norm = re.sub(r'[^a-zA-Z0-9\s]', '', (t + extra).lower())
                 k = " ".join(norm.split())
-                if not k or k in seen_texts or len(k) < 8:
+                if not k or k in seen_texts or len(k) < 6:
                     continue
                 seen_texts.add(k)
                 out.append(item)
@@ -162,8 +163,8 @@ class GroqAIService:
         total_questions = target_mcq + target_short + target_long + target_ar + target_fill + target_case
         extracted_raw_questions: List[Dict[str, Any]] = []
 
-        # High-Speed Unified Synthesis for standard papers (<= 20 questions)
-        if 0 < total_questions <= 20:
+        # High-Speed Unified Synthesis for standard papers (<= 35 questions)
+        if 0 < total_questions <= 35:
             if progress_callback:
                 await progress_callback(20, f"Analyzing CBSE/NCERT curriculum standards for {req.class_name} {req.subject}...")
 
@@ -206,7 +207,7 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
             except Exception as uni_err:
                 logger.warning(f"Unified generation notice: {uni_err}")
 
-        # Chunked parallel tasks fallback for large papers (>20 questions) or if unified returned empty
+        # Chunked parallel tasks fallback for very large papers (>35 questions) or if unified returned empty
         if not extracted_raw_questions and total_questions > 0:
             if progress_callback:
                 await progress_callback(40, f"Synthesizing questions across parallel section batches...")
@@ -563,141 +564,45 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
         longs = _dedup_q_list(longs)
         cases = _dedup_q_list(cases)
 
-        # Multi-round deficit fulfillment in safe small chunks
-        for _ in range(2):
-            miss_mcq = max(0, target_mcq - len(mcqs))
-            miss_fill = max(0, target_fill - len(fills))
-            miss_ar = max(0, target_ar - len(ars))
-            miss_short = max(0, target_short - len(shorts))
-            miss_long = max(0, target_long - len(longs))
-            miss_case = max(0, target_case - len(cases))
-
-            if miss_mcq <= 0 and miss_fill <= 0 and miss_ar <= 0 and miss_short <= 0 and miss_long <= 0 and miss_case <= 0:
-                break
-
-            supp_tasks = []
-            if miss_mcq > 0:
-                for chunk in _get_chunks(miss_mcq, 8):
-                    supp_tasks.append(_call_llm(
-                        f"""{subject_directive}
-Generate EXACTLY {chunk} unique Multiple Choice Questions for {req.class_name} {req.subject}, {req.chapter}.
-JSON ONLY: {{"questions": [{{"question_type": "mcq", "question_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "answer": "...", "explanation": "...", "marks": 1}}]}}"""
-                    ))
-            if miss_fill > 0:
-                for chunk in _get_chunks(miss_fill, 6):
-                    supp_tasks.append(_call_llm(
-                        f"""{subject_directive}
-Generate EXACTLY {chunk} unique Fill in the Blanks Questions with '_______' for {req.class_name} {req.subject}, {req.chapter}.
-JSON ONLY: {{"questions": [{{"question_type": "fill_in_the_blanks", "question_text": "... _______ ...", "answer": "...", "explanation": "...", "marks": {fill_marks}}}]}}"""
-                    ))
-            if miss_ar > 0:
-                for chunk in _get_chunks(miss_ar, 5):
-                    supp_tasks.append(_call_llm(
-                        f"""{subject_directive}
-Generate EXACTLY {chunk} unique Assertion-Reason Questions for {req.class_name} {req.subject}, {req.chapter}.
-JSON ONLY: {{"questions": [{{"question_type": "assertion_reason", "assertion_text": "...", "reason_text": "...", "options": ["(A)...", "(B)...", "(C)...", "(D)..."], "answer": "(A)...", "explanation": "...", "marks": {ar_marks}}}]}}"""
-                    ))
-            if miss_short > 0:
-                for chunk in _get_chunks(miss_short, 5):
-                    supp_tasks.append(_call_llm(
-                        f"""{subject_directive}
-Generate EXACTLY {chunk} unique Short Answer (3 Marks) Questions for {req.class_name} {req.subject}, {req.chapter}.
-JSON ONLY: {{"questions": [{{"question_type": "short", "question_text": "...", "answer": "...", "explanation": "...", "marks": 3}}]}}"""
-                    ))
-            if miss_long > 0:
-                for chunk in _get_chunks(miss_long, 4):
-                    supp_tasks.append(_call_llm(
-                        f"""{subject_directive}
-Generate EXACTLY {chunk} unique Long Answer / HOTS (5 Marks) Questions for {req.class_name} {req.subject}, {req.chapter}.
-JSON ONLY: {{"questions": [{{"question_type": "long", "question_text": "...", "answer": "...", "explanation": "...", "marks": 5}}]}}"""
-                    ))
-            if miss_case > 0:
-                for chunk in _get_chunks(miss_case, 2):
-                    supp_tasks.append(_call_llm(
-                        f"""{subject_directive}
-Generate EXACTLY {chunk} unique Case Study Questions for {req.class_name} {req.subject}, {req.chapter}.
-JSON ONLY: {{"questions": [{{"question_type": "case_study", "case_passage": "...", "sub_questions": ["(i)...", "(ii)..."], "question_text": "...", "answer": "...", "explanation": "...", "marks": {case_marks}}}]}}"""
-                    ))
-
-            supp_resps = await asyncio.gather(*supp_tasks, return_exceptions=True)
-            for s_resp in supp_resps:
-                if isinstance(s_resp, str):
-                    parsed_s = robust_json_parser(s_resp)
-                    for sq in parsed_s.get("questions", []):
-                        stype = str(sq.get("question_type", "")).lower()
-                        stext = str(sq.get("question_text") or sq.get("question") or "").strip()
-                        if not stext:
-                            continue
-                        if "assertion" in stype or "reason" in stype:
-                            ars.append({
-                                "question_type": "assertion_reason",
-                                "question_text": stext,
-                                "assertion_text": sq.get("assertion_text"),
-                                "reason_text": sq.get("reason_text"),
-                                "marks": ar_marks,
-                                "options": sq.get("options") or [
-                                    "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
-                                    "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
-                                    "(C) Assertion (A) is true but Reason (R) is false.",
-                                    "(D) Assertion (A) is false but Reason (R) is true."
-                                ],
-                                "answer": str(sq.get("answer", "(A)")),
-                                "explanation": str(sq.get("explanation", ""))
-                            })
-                        elif "fill" in stype:
-                            fills.append({
-                                "question_type": "fill_in_the_blanks",
-                                "question_text": stext,
-                                "marks": fill_marks,
-                                "options": None,
-                                "answer": str(sq.get("answer", "")),
-                                "explanation": str(sq.get("explanation", ""))
-                            })
-                        elif "case" in stype:
-                            cases.append({
-                                "question_type": "case_study",
-                                "question_text": stext,
-                                "case_passage": sq.get("case_passage"),
-                                "sub_questions": sq.get("sub_questions"),
-                                "marks": case_marks,
-                                "options": None,
-                                "answer": str(sq.get("answer", "")),
-                                "explanation": str(sq.get("explanation", ""))
-                            })
-                        elif "mcq" in stype:
-                            mcqs.append({
-                                "question_type": "mcq",
-                                "question_text": stext,
-                                "marks": 1,
-                                "options": sq.get("options") or ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"],
-                                "answer": str(sq.get("answer", "")),
-                                "explanation": str(sq.get("explanation", ""))
-                            })
-                        elif "long" in stype:
-                            longs.append({
-                                "question_type": "long",
-                                "question_text": stext,
-                                "marks": 5,
-                                "options": None,
-                                "answer": str(sq.get("answer", "")),
-                                "explanation": str(sq.get("explanation", ""))
-                            })
-                        else:
-                            shorts.append({
-                                "question_type": "short",
-                                "question_text": stext,
-                                "marks": 3,
-                                "options": None,
-                                "answer": str(sq.get("answer", "")),
-                                "explanation": str(sq.get("explanation", ""))
-                            })
-
-            mcqs = _dedup_q_list(mcqs)
-            fills = _dedup_q_list(fills)
-            ars = _dedup_q_list(ars)
-            shorts = _dedup_q_list(shorts)
-            longs = _dedup_q_list(longs)
-            cases = _dedup_q_list(cases)
+        # Seamlessly backfill any deficit categories so teacher ALWAYS gets all requested types instantly
+        if (len(mcqs) < target_mcq or len(fills) < target_fill or len(ars) < target_ar or
+            len(shorts) < target_short or len(longs) < target_long or len(cases) < target_case):
+            fallback_req = GeneratePaperRequest(
+                title=str(req.title or f"{req.subject} Assessment"),
+                class_name=str(req.class_name or "Class 10"),
+                subject=str(req.subject or "Science"),
+                chapter=str(req.chapter or "NCERT Syllabus"),
+                difficulty=req.difficulty or "medium",
+                total_marks=req.total_marks or 25,
+                time_allowed_mins=req.time_allowed_mins or 45,
+                num_mcqs=max(0, target_mcq - len(mcqs)),
+                num_short=max(0, target_short - len(shorts)),
+                num_long=max(0, target_long - len(longs)),
+                num_assertion_reason=max(0, target_ar - len(ars)),
+                num_fill_in_the_blanks=max(0, target_fill - len(fills)),
+                num_case_study=max(0, target_case - len(cases)),
+                ar_marks=ar_marks,
+                fill_marks=fill_marks,
+                case_marks=case_marks,
+                school_name=req.school_name,
+                school_logo=req.school_logo,
+                user_email=req.user_email
+            )
+            fb_items = self._synthesize_fallback_curriculum_questions(fallback_req)
+            for fb in fb_items:
+                fb_type = fb.get("question_type", "")
+                if fb_type == "mcq" and len(mcqs) < target_mcq:
+                    mcqs.append(fb)
+                elif fb_type == "fill_in_the_blanks" and len(fills) < target_fill:
+                    fills.append(fb)
+                elif fb_type == "assertion_reason" and len(ars) < target_ar:
+                    ars.append(fb)
+                elif fb_type == "short" and len(shorts) < target_short:
+                    shorts.append(fb)
+                elif fb_type == "long" and len(longs) < target_long:
+                    longs.append(fb)
+                elif fb_type == "case_study" and len(cases) < target_case:
+                    cases.append(fb)
 
         # Assemble final indexed questions matching exact requested counts
         final_qs = []
