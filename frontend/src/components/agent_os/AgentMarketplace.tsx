@@ -793,7 +793,7 @@ export function AgentMarketplace() {
   const currentLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
   return (
-    <div className="max-w-full mx-auto animate-in fade-in duration-500 relative">
+    <div className="w-full max-w-full h-full flex-1 flex flex-col min-h-0 mx-auto animate-in fade-in duration-500 relative overflow-hidden">
       {/* XP TOAST NOTIFICATION */}
       {xpToast !== null && (
         <div className="fixed top-6 right-6 z-[9999] animate-in slide-in-from-top-4 fade-in duration-500">
@@ -1308,7 +1308,7 @@ export function AgentMarketplace() {
               </div>
 
               {/* Sub-bar footer */}
-              <div className="flex items-center justify-center gap-3 text-[10px] text-slate-400 font-bold mt-1.5">
+              <div className="hidden sm:flex items-center justify-center gap-3 text-[10px] text-slate-400 font-bold mt-1.5">
                 <span className="flex items-center gap-1">
                   <MessageSquare className="w-3 h-3 text-slate-400" />
                   Conversations are saved automatically

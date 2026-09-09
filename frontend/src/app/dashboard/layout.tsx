@@ -282,7 +282,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
       <div className={`flex-1 md:pl-64 flex flex-col ${
         isAIChatPage 
-          ? "h-[100dvh] max-h-[100dvh] overflow-hidden pb-16 md:pb-8 md:min-h-screen md:h-auto md:max-h-none md:overflow-visible" 
+          ? "h-[100dvh] max-h-[100dvh] overflow-hidden pb-[5.25rem] md:pb-8 md:min-h-screen md:h-auto md:max-h-none md:overflow-visible" 
           : "min-h-screen pb-36 md:pb-8"
       }`}>
         

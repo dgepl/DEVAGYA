@@ -744,7 +744,7 @@ export default function ChatStudioPage() {
               </button>
             )}
           </div>
-          <p className="mt-2 text-[10px] text-slate-400 font-semibold flex items-center gap-1.5">
+          <p className="mt-2 text-[10px] text-slate-400 font-semibold hidden sm:flex items-center gap-1.5">
             <RefreshCw className="w-3 h-3" />
             Conversations are saved automatically. Press the clock icon to revisit any past chat.
           </p>
