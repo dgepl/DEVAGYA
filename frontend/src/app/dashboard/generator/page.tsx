@@ -129,10 +129,9 @@ export default function GeneratorPage() {
   const [filePreviews, setFilePreviews] = useState<{ id: string; name: string; url?: string; isImage: boolean; sizeStr: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Active Paper, History Modal & Mobile View State
+  // Active Paper, History Modal & Editing State
   const [paper, setPaper] = useState<GeneratedPaperResponse | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [showMobilePaperModal, setShowMobilePaperModal] = useState(false);
   const [isEditingHeader, setIsEditingHeader] = useState(false);
 
   // Execution State
@@ -209,7 +208,6 @@ export default function GeneratorPage() {
     setTimeMins("");
     setCustomPrompt("");
     removeAllFiles();
-    setShowMobilePaperModal(false);
   };
 
   const handleGenerate = async () => {
@@ -350,7 +348,9 @@ export default function GeneratorPage() {
 
       setPaper(res);
       savePaper(res);
-      setShowMobilePaperModal(true);
+      setTimeout(() => {
+        document.getElementById("paper-studio")?.scrollIntoView({ behavior: "smooth" });
+      }, 150);
     } catch (err: any) {
       clearInterval(progressTimer);
       console.warn("Generation error notice:", err);
@@ -407,7 +407,9 @@ export default function GeneratorPage() {
         }
         setPaper(recoveredPaper);
         savePaper(recoveredPaper);
-        setShowMobilePaperModal(true);
+        setTimeout(() => {
+          document.getElementById("paper-studio")?.scrollIntoView({ behavior: "smooth" });
+        }, 150);
         setError(null);
       } else {
         console.error("Generation error:", err);
@@ -475,7 +477,9 @@ export default function GeneratorPage() {
   const handleSelectFromHistory = (selected: GeneratedPaperResponse) => {
     setPaper(selected);
     setShowHistory(false);
-    setShowMobilePaperModal(true);
+    setTimeout(() => {
+      document.getElementById("paper-studio")?.scrollIntoView({ behavior: "smooth" });
+    }, 150);
   };
 
   const handleDownloadStudentPDF = async () => {
@@ -871,34 +875,10 @@ export default function GeneratorPage() {
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>New Paper</span>
               </button>
-
-              <button
-                onClick={() => setShowMobilePaperModal(true)}
-                className="lg:hidden px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-2 shadow-lg cursor-pointer"
-              >
-                <Eye className="w-4 h-4 text-amber-300" />
-                <span>View Paper Studio</span>
-              </button>
             </>
           )}
         </div>
       </div>
-
-      {/* STICKY BOTTOM BAR FOR MOBILE WHEN A PAPER IS ACTIVE */}
-      {paper && (
-        <div className="lg:hidden fixed bottom-18 left-4 right-4 z-40 animate-in slide-in-from-bottom-5">
-          <button
-            onClick={() => setShowMobilePaperModal(true)}
-            className="w-full py-3.5 px-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-xs sm:text-sm rounded-2xl shadow-2xl shadow-indigo-600/40 flex items-center justify-between border border-white/20 cursor-pointer"
-          >
-            <span className="flex items-center gap-2 truncate">
-              <FileText className="w-4 h-4 text-amber-300 shrink-0" />
-              <span className="truncate">View Paper: {paper.title}</span>
-            </span>
-            <span className="bg-white/20 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase shrink-0">Open Pop-up ↗</span>
-          </button>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
@@ -1636,8 +1616,8 @@ export default function GeneratorPage() {
 
         </div>
 
-        {/* PAPER PREVIEW & EDIT STUDIO (RIGHT - DESKTOP ONLY) */}
-        <div className="hidden lg:block lg:col-span-7 space-y-6">
+        {/* PAPER PREVIEW & EDIT STUDIO (INLINE RESPONSIVE) */}
+        <div id="paper-studio" className={`lg:col-span-7 space-y-6 ${!paper ? 'hidden lg:block' : ''}`}>
           {!paper ? (
             <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4 shadow-sm flex flex-col items-center justify-center min-h-[500px]">
               <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -1654,43 +1634,6 @@ export default function GeneratorPage() {
         </div>
 
       </div>
-
-      {/* FULL-SCREEN MOBILE PAPER STUDIO POP-UP MODAL */}
-      {showMobilePaperModal && paper && (
-        <div className="lg:hidden fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex flex-col p-2 sm:p-4 pb-24 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl flex flex-col h-full overflow-hidden max-w-2xl mx-auto w-full animate-in zoom-in-95 duration-200">
-            
-            {/* MODAL TOP BAR */}
-            <div className="p-4 bg-gradient-to-r from-indigo-900 to-purple-900 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5 text-amber-300" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-black truncate">{paper.title}</h3>
-                  <p className="text-[11px] text-indigo-200 font-medium truncate">
-                    {paper.class_name} • {paper.subject} • {paper.total_marks} Marks
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowMobilePaperModal(false)}
-                className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors cursor-pointer shrink-0"
-                title="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* MODAL BODY (PAPER STUDIO) */}
-            <div className="flex-1 overflow-y-auto p-2 sm:p-4">
-              {renderPaperStudioContent(true)}
-            </div>
-
-          </div>
-        </div>
-      )}
 
       {/* PAPER HISTORY DRAWER / MODAL (CLOCK ICON 🕒) */}
       {showHistory && (
