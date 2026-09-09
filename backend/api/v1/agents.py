@@ -1,6 +1,8 @@
 import base64
 import io
 import logging
+import uuid
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Form, File, UploadFile, Query, HTTPException
@@ -82,7 +84,11 @@ def _derive_title(message: str) -> str:
 
 
 def _build_agent_ai_messages(
-    conversation_id: str, user_id: str, agent_system_prompt: str, language: str = "english"
+    conversation_id: str,
+    user_id: str,
+    agent_system_prompt: str,
+    language: str = "english",
+    conv: Optional[dict] = None,
 ) -> list:
     """Build full OpenAI-compatible message context from stored agent conversation history."""
     # Build system prompt with language instruction
@@ -93,11 +99,12 @@ def _build_agent_ai_messages(
 
     messages = [{"role": "system", "content": full_system}]
 
-    conv = chat_history_service.get_conversation(conversation_id, user_id)
+    if conv is None:
+        conv = chat_history_service.get_conversation(conversation_id, user_id)
     if not conv:
         return messages
 
-    conv_messages = conv["messages"]
+    conv_messages = conv.get("messages", [])
     total_msgs = len(conv_messages)
     for idx, msg in enumerate(conv_messages):
         msg_text = str(msg.get("content") or "").strip()
@@ -258,14 +265,25 @@ async def agent_chat_message(
         data_urls.append(_image_to_data_url(data, f.content_type or "image/jpeg"))
 
     # Persist the user message
+    user_msg_content = final_user_prompt or "*(Document attached)*"
     chat_history_service.add_message(
-        conv["id"], "user", final_user_prompt or "*(Document attached)*", data_urls
+        conv["id"], "user", user_msg_content, data_urls
     )
+    if "messages" not in conv or not isinstance(conv["messages"], list):
+        conv["messages"] = []
+    conv["messages"].append({
+        "id": f"usr-{uuid.uuid4().hex[:8]}",
+        "sender": "user",
+        "content": user_msg_content,
+        "image_urls": data_urls,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
     if conv.get("title") in ("New Chat", None) and final_user_prompt:
         chat_history_service.update_title(conv["id"], _derive_title(message or (all_doc_files[0].filename if all_doc_files else "New Chat")))
 
-    # Build AI messages from full conversation context
-    ai_messages = _build_agent_ai_messages(conv["id"], user_id, agent["system_prompt"], language)
+    # Build AI messages from full conversation context (reusing conv to save Supabase fetch latency)
+    ai_messages = _build_agent_ai_messages(conv["id"], user_id, agent["system_prompt"], language, conv=conv)
 
     if stream:
         async def event_generator():

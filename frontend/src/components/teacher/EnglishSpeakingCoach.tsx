@@ -150,6 +150,7 @@ export function EnglishSpeakingCoach() {
   const [soundMuted, setSoundMuted] = useState<boolean>(false);
   const [showTextKeyboard, setShowTextKeyboard] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [showScenarioModal, setShowScenarioModal] = useState<boolean>(false);
   const [micPermissionError, setMicPermissionError] = useState<string | null>(null);
 
   // Live Camera Vision States
@@ -191,6 +192,42 @@ export function EnglishSpeakingCoach() {
   useEffect(() => { isAiSpeakingRef.current = isAiSpeaking; }, [isAiSpeaking]);
   useEffect(() => { isAiThinkingRef.current = isAiThinking; }, [isAiThinking]);
   useEffect(() => { soundMutedRef.current = soundMuted; }, [soundMuted]);
+
+  // Clean & Deduplicate Speech Recognition Transcript to prevent stutter / repeats ("hlo hlo hlo" -> "hlo")
+  const cleanSpeechTranscript = (rawText: string): string => {
+    if (!rawText) return "";
+    const words = rawText.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return "";
+
+    // 1. Deduplicate consecutive identical words ("hlo hlo hlo" -> "hlo", "hello hello" -> "hello")
+    const dedupedWords: string[] = [];
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      const prev = dedupedWords[dedupedWords.length - 1];
+      const cleanW = w.toLowerCase().replace(/[^a-z0-9]/gi, "");
+      const cleanPrev = prev ? prev.toLowerCase().replace(/[^a-z0-9]/gi, "") : "";
+      if (cleanW && cleanW === cleanPrev) {
+        continue;
+      }
+      dedupedWords.push(w);
+    }
+
+    let text = dedupedWords.join(" ");
+
+    // 2. Deduplicate repeated multi-word phrases ("how are you how are you" -> "how are you")
+    for (let n = 2; n <= 5; n++) {
+      const arr = text.split(/\s+/);
+      if (arr.length >= n * 2) {
+        const tail = arr.slice(-n).join(" ").toLowerCase();
+        const prior = arr.slice(-2 * n, -n).join(" ").toLowerCase();
+        if (tail === prior) {
+          text = arr.slice(0, -n).join(" ");
+        }
+      }
+    }
+
+    return text.trim();
+  };
 
   // Clean Text Helper for TTS
   const cleanForSpeech = (raw: string): string => {
@@ -495,12 +532,7 @@ Instructions:
       fd.append("user_id", user?.id || user?.email || "teacher-guest");
       fd.append("language", immersionMode === "immersion" ? "english" : "hinglish");
 
-      // ATTACH LIVE REAL-TIME CAMERA SNAPSHOT FOR EMOTION & POSTURE ANALYSIS
-      const frameBlob = await captureLiveFrameBlob();
-      if (frameBlob) {
-        fd.append("images", frameBlob, "live_teacher_face.jpg");
-      }
-
+      // Send voice message as ultra-fast pure text conversation (no heavy vision processing delay)
       const res = await fetch(`${getApiBase()}/agents/chat`, {
         method: "POST",
         body: fd
@@ -635,36 +667,30 @@ Instructions:
         if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
 
         let sessionTranscript = "";
-        let isFinalDetected = false;
         for (let i = 0; i < event.results.length; i++) {
           sessionTranscript += event.results[i][0].transcript + " ";
-          if (event.results[i].isFinal) isFinalDetected = true;
         }
 
-        const base = turnBaseSpeechRef.current.trim();
-        const currentSession = sessionTranscript.trim();
-        const candidateText = (base ? base + " " + currentSession : currentSession).trim();
+        const candidateText = cleanSpeechTranscript(sessionTranscript);
 
         if (candidateText) {
           accumulatedSpeechRef.current = candidateText;
           setCurrentSpeechText(candidateText);
 
           // SMART NATURAL CONVERSATIONAL SILENCE DETECTION:
-          // In natural conversation, taking a breath or pausing to think takes 1.2 to 2 seconds.
-          // Never cut off prematurely, especially on connector words (and, but, because, so, etc.)
           clearTimeout(silenceTimerRef.current);
 
           const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for)\s*$/i.test(candidateText);
           const words = candidateText.split(/\s+/).filter(Boolean);
           const hasTerminalPunct = /[.!?]$/.test(candidateText);
 
-          let silenceDelay = 1800; // Base natural pause: 1.8 seconds
-          if (isConnectorWord || words.length < 4 || !hasTerminalPunct) {
-            silenceDelay = 2400; // Allow 2.4s when user is clearly mid-sentence or thinking
+          let silenceDelay = 1500; // Base natural pause: 1.5 seconds
+          if (isConnectorWord || words.length < 3 || !hasTerminalPunct) {
+            silenceDelay = 2100; // Allow 2.1s when user is mid-sentence or thinking
           }
 
           silenceTimerRef.current = setTimeout(() => {
-            const readyToSend = accumulatedSpeechRef.current.trim();
+            const readyToSend = cleanSpeechTranscript(accumulatedSpeechRef.current.trim());
             if (readyToSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               handleSendMessage(readyToSend);
             }
@@ -684,13 +710,9 @@ Instructions:
 
       recognition.onend = () => {
         setIsListening(false);
-        // Persist recognized speech so far in case speech recognition restarts mid-turn
-        if (accumulatedSpeechRef.current) {
-          turnBaseSpeechRef.current = accumulatedSpeechRef.current;
-        }
+        // Do NOT copy accumulatedSpeechRef into turnBaseSpeechRef to prevent repetitive stutter on restart!
 
         // Auto-restart recognition seamlessly if user is still in live mode
-        // Do NOT immediately trigger handleSendMessage here! Let the silence timer decide so pauses aren't cut off.
         if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
           clearTimeout(autoRestartTimerRef.current);
           autoRestartTimerRef.current = setTimeout(() => {
@@ -719,6 +741,29 @@ Instructions:
     setIsListening(false);
   };
 
+  // Start Live Session with a Selected Scenario (Modal callback)
+  const startCallWithScenario = (scenario: ScenarioTopic) => {
+    setActiveScenario(scenario);
+    setShowScenarioModal(false);
+    setIsLiveActive(true);
+    isLiveActiveRef.current = true;
+    startCamera();
+    const coachName = INDIAN_VOICES.find(v => v.code === selectedVoice)?.name || "your Coach";
+    const greeting = `Hello! I am ${coachName}. Let us practice ${scenario.title}. Speak whenever you are ready!`;
+    setLiveAiSpeech(greeting);
+    playCoachAudio(greeting, () => {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
+      if (isLiveActiveRef.current && !isAiThinkingRef.current) {
+        setTimeout(() => {
+          if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+            startListening();
+          }
+        }, 220);
+      }
+    });
+  };
+
   // Toggle Live Mode (Start / End Conversation)
   const toggleLiveConversation = () => {
     if (isLiveActive) {
@@ -736,23 +781,8 @@ Instructions:
       turnBaseSpeechRef.current = "";
       setCurrentSpeechText("");
     } else {
-      // Start Gemini Live Conversation
-      setIsLiveActive(true);
-      isLiveActiveRef.current = true;
-      startCamera();
-      const greeting = `Hello! I am ${INDIAN_VOICES.find(v => v.code === selectedVoice)?.name}. I can see you on camera. Let us practice ${activeScenario.title}. Speak whenever you are ready!`;
-      setLiveAiSpeech(greeting);
-      playCoachAudio(greeting, () => {
-        setIsAiSpeaking(false);
-        isAiSpeakingRef.current = false;
-        if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => {
-            if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-              startListening();
-            }
-          }, 220);
-        }
-      });
+      // Prompt user to select scenario before starting to talk with AI
+      setShowScenarioModal(true);
     }
   };
 
@@ -823,9 +853,20 @@ Instructions:
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 font-medium hidden sm:block">
-                AI notices posture, smile, and confidence with 0-delay Indian voice replies
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50/90 border border-indigo-200/80 text-[11px] font-bold text-indigo-900 shadow-2xs">
+                  <activeScenario.icon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span className="truncate max-w-[130px] sm:max-w-[200px]">{activeScenario.title}</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowScenarioModal(true)}
+                    className="ml-1 text-[9.5px] uppercase font-black text-indigo-600 hover:text-indigo-800 bg-white px-1.5 py-0.5 rounded border border-indigo-200 cursor-pointer shadow-2xs transition-all hover:scale-105"
+                    title="Change practice scenario"
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -893,34 +934,6 @@ Instructions:
               <History className="w-4 h-4" />
             </button>
           </div>
-        </div>
-
-        {/* SCENARIO SELECTOR STRIP */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-2.5 pb-0.5 scrollbar-none border-t border-slate-100 mt-2.5">
-          {PRACTICE_SCENARIOS.map((sc) => {
-            const Icon = sc.icon;
-            const isSelected = activeScenario.id === sc.id;
-            return (
-              <button
-                key={sc.id}
-                onClick={() => {
-                  setActiveScenario(sc);
-                  setLatestFeedback(null);
-                  setCurrentSpeechText("");
-                  const switchNotice = `Let us practice ${sc.title}. ${sc.starterPrompt}`;
-                  handleSendMessage(switchNotice);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
-                  isSelected
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100"
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${isSelected ? "text-rose-400" : "text-slate-400"}`} />
-                <span>{sc.shortTitle}</span>
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -1324,6 +1337,75 @@ Instructions:
                 className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SCENARIO SELECTION MODAL (User selects topic BEFORE talking with AI) */}
+      {showScenarioModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-5 sm:p-6 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+                  <Sparkles className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-slate-900">Choose Practice Scenario</h2>
+                  <p className="text-xs text-slate-500 font-semibold">Select what you want to practice before starting conversation</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowScenarioModal(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[60vh] overflow-y-auto p-0.5">
+              {PRACTICE_SCENARIOS.map((sc) => {
+                const Icon = sc.icon;
+                const isSelected = activeScenario.id === sc.id;
+                return (
+                  <button
+                    key={sc.id}
+                    onClick={() => startCallWithScenario(sc)}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer group flex flex-col justify-between gap-2 ${
+                      isSelected
+                        ? "bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-500/20 shadow-sm"
+                        : "bg-slate-50/70 hover:bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                        isSelected ? "bg-indigo-600 text-white" : "bg-white text-slate-600 border border-slate-200 group-hover:text-indigo-600"
+                      }`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-xs font-black text-slate-900 truncate">{sc.title}</h3>
+                        <span className="text-[10px] font-bold text-indigo-600 block">{sc.shortTitle}</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-medium line-clamp-2 leading-relaxed">
+                      {sc.quickStarters[0]}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-bold">
+              <span>Selected: {activeScenario.title}</span>
+              <button
+                onClick={() => startCallWithScenario(activeScenario)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <span>Start Speaking Now</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
