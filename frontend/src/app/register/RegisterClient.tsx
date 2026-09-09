@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Lock, Mail, User, Building2, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { OTPModal } from "@/components/auth/OTPModal";
+import { getApiBase } from "@/lib/api";
 
 export default function RegisterClient() {
   const [name, setName] = useState("");
@@ -65,20 +66,27 @@ export default function RegisterClient() {
 
     try {
       // Step 1: Send OTP to user's email via Resend API
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), name, role })
       });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        if (!res.ok) {
+          throw new Error("Unable to connect to authentication service. Please ensure the backend is running on port 8000.");
+        }
+      }
       if (!res.ok) throw new Error(data.detail || "Failed to send verification email.");
 
       // Open 6-digit OTP verification modal
       setIsOTPModalOpen(true);
     } catch (err: any) {
-      if (err?.message === "Failed to fetch") {
-        setError("Unable to connect to the authentication server. Please try again in a few seconds.");
+      if (err?.message === "Failed to fetch" || err?.message?.includes("fetch")) {
+        setError("Unable to connect to the authentication server. Please ensure the backend service is running on port 8000.");
       } else {
         setError(err.message || "Failed to send OTP code.");
       }
@@ -92,7 +100,7 @@ export default function RegisterClient() {
     setLoading(true);
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+      const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -104,7 +112,14 @@ export default function RegisterClient() {
           otp_code: otpCode
         })
       });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        if (!res.ok) {
+          throw new Error("Unable to connect to authentication service. Please ensure the backend is running on port 8000.");
+        }
+      }
       if (!res.ok) throw new Error(data.detail || "Registration failed.");
 
       const registeredUser = {
@@ -232,7 +247,7 @@ export default function RegisterClient() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                placeholder="••••••••••••"
                 required
                 className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold shadow-inner transition-all"
               />
