@@ -72,7 +72,7 @@ if custom_cors:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"^https:\/\/.*(\.vercel\.app|\.devgya\.com)$",
+    allow_origin_regex=r"^https:\/\/.*(\.vercel\.app|\.devgya\.com|\.onrender\.com)$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
