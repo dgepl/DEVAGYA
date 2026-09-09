@@ -58,6 +58,8 @@ ALLOWED_ORIGINS = [
     "http://localhost:3001",
     "https://devgya.com",
     "https://www.devgya.com",
+    "https://devgya.in",
+    "https://www.devgya.in",
 ]
 
 import os
@@ -72,7 +74,7 @@ if custom_cors:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"^https:\/\/.*(\.vercel\.app|\.devgya\.com|\.onrender\.com)$",
+    allow_origin_regex=r"^https:\/\/.*(\.vercel\.app|\.devgya\.com|\.devgya\.in|\.onrender\.com)$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],

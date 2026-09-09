@@ -20,7 +20,9 @@ const nextConfig = {
     ]
   },
   async rewrites() {
-    const rawBackend = process.env.BACKEND_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, '') : null) || 'http://127.0.0.1:8000';
+    // In unified single-service hosting (Render node start.js / devgya.in), the Python FastAPI backend
+    // runs on internal port 8000. Do NOT rewrite to devgya.in or NEXT_PUBLIC_API_URL if it points to self.
+    const rawBackend = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
     return [
       {
         source: '/api/:path*',
