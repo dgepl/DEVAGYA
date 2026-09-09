@@ -9,7 +9,7 @@ router = APIRouter(prefix="/tts", tags=["Text-to-Speech Engine"])
 class SpeakRequest(BaseModel):
     text: str
     voice: Optional[str] = DEFAULT_VOICE
-    rate: Optional[str] = "+0%"
+    rate: Optional[str] = "+15%"
 
 @router.get("/voices")
 async def list_voices():
@@ -23,8 +23,8 @@ async def list_voices():
 @router.get("/speak")
 async def speak_get(
     text: str = Query(..., description="Text content to speak"),
-    voice: str = Query(DEFAULT_VOICE, description="Voice ID e.g. en-IN-NeerjaNeural or hi-IN-SwaraNeural"),
-    rate: str = Query("+0%", description="Speech speed adjustment e.g. -5%, +0%, +5%")
+    voice: str = Query(DEFAULT_VOICE, description="Voice ID e.g. en-US-JennyNeural, en-IN-NeerjaNeural"),
+    rate: str = Query("+15%", description="Speech speed adjustment e.g. +10%, +15%, +20%")
 ):
     """Stream low-latency natural Indian accent audio via GET request."""
     if not text.strip():

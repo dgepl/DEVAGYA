@@ -6,11 +6,35 @@ import edge_tts
 
 logger = logging.getLogger("tts_service")
 
-# Official Indian Accent Neural Voices (Microsoft Edge Speech)
+# High-Fidelity Natural Conversational & Indian Neural Voices (Microsoft Edge Speech)
 INDIAN_VOICES: Dict[str, Dict[str, str]] = {
+    "en-US-JennyNeural": {
+        "id": "en-US-JennyNeural",
+        "name": "Jenny (Natural)",
+        "gender": "Female",
+        "lang": "en-US",
+        "label": "Natural Conversational English — Fluent & Expressive (Female)",
+        "description": "Ultra-natural, crisp, and fluent conversational AI coach voice."
+    },
+    "en-US-GuyNeural": {
+        "id": "en-US-GuyNeural",
+        "name": "Guy (Natural)",
+        "gender": "Male",
+        "lang": "en-US",
+        "label": "Natural Conversational English — Smooth & Professional (Male)",
+        "description": "Warm, engaging, and professional natural conversational voice."
+    },
+    "en-GB-SoniaNeural": {
+        "id": "en-GB-SoniaNeural",
+        "name": "Sonia (British)",
+        "gender": "Female",
+        "lang": "en-GB",
+        "label": "British English — Articulate & Academic (Female)",
+        "description": "Clear, cultured British English voice for pronunciation drills."
+    },
     "en-IN-NeerjaNeural": {
         "id": "en-IN-NeerjaNeural",
-        "name": "Neerja",
+        "name": "Neerja (Indian)",
         "gender": "Female",
         "lang": "en-IN",
         "label": "Indian English — Warm Educator (Female)",
@@ -18,7 +42,7 @@ INDIAN_VOICES: Dict[str, Dict[str, str]] = {
     },
     "en-IN-PrabhatNeural": {
         "id": "en-IN-PrabhatNeural",
-        "name": "Prabhat",
+        "name": "Prabhat (Indian)",
         "gender": "Male",
         "lang": "en-IN",
         "label": "Indian English — Professional Teacher (Male)",
@@ -26,7 +50,7 @@ INDIAN_VOICES: Dict[str, Dict[str, str]] = {
     },
     "hi-IN-SwaraNeural": {
         "id": "hi-IN-SwaraNeural",
-        "name": "Swara",
+        "name": "Swara (Hindi)",
         "gender": "Female",
         "lang": "hi-IN",
         "label": "Hindi — Expressive Mentor (Female)",
@@ -34,7 +58,7 @@ INDIAN_VOICES: Dict[str, Dict[str, str]] = {
     },
     "hi-IN-MadhurNeural": {
         "id": "hi-IN-MadhurNeural",
-        "name": "Madhur",
+        "name": "Madhur (Hindi)",
         "gender": "Male",
         "lang": "hi-IN",
         "label": "Hindi — Encouraging Coach (Male)",
@@ -42,7 +66,7 @@ INDIAN_VOICES: Dict[str, Dict[str, str]] = {
     }
 }
 
-DEFAULT_VOICE = "en-IN-NeerjaNeural"
+DEFAULT_VOICE = "en-US-JennyNeural"
 
 def clean_text_for_tts(raw: str) -> str:
     """Strips Markdown syntax, emojis, URLs, and code blocks so synthesized speech sounds natural."""
@@ -106,7 +130,7 @@ class TTSService:
         self,
         text: str,
         voice: str = DEFAULT_VOICE,
-        rate: str = "+0%"
+        rate: str = "+15%"
     ) -> AsyncGenerator[bytes, None]:
         """Streams MP3 audio chunks from Edge-TTS for low-latency playback."""
         clean = clean_text_for_tts(text)

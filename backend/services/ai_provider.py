@@ -329,7 +329,7 @@ class AIProviderService:
         # Build candidate fallback models list
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = [selected_model, "gemini-3.5-flash-lite"]
+            candidate_fallbacks = [selected_model, "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.6-flash"]
         else:
             candidate_fallbacks = ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
@@ -346,7 +346,8 @@ class AIProviderService:
         for m_idx, current_model in enumerate(fallback_models):
             payload["model"] = current_model
             try:
-                async with httpx.AsyncClient(timeout=60.0) as client:
+                # Fast connection & read timeout (6s) so stalled models fail over instantly
+                async with httpx.AsyncClient(timeout=httpx.Timeout(connect=4.5, read=7.0, write=4.5, pool=4.5)) as client:
                     async with client.stream("POST", f"{self.base_url}/chat/completions", headers=headers, json=payload) as response:
                         if response.status_code == 429 or response.status_code >= 400:
                             logger.warning(f"Model {current_model} returned HTTP {response.status_code}. Retrying with fallback model...")

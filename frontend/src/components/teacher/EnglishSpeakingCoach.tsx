@@ -44,10 +44,13 @@ interface VoiceOption {
 }
 
 const INDIAN_VOICES: VoiceOption[] = [
-  { code: "en-IN-NeerjaNeural", name: "Neerja", gender: "Female", lang: "en-IN", accent: "Indian English (Educator)", avatar: "👩‍🏫" },
-  { code: "en-IN-PrabhatNeural", name: "Prabhat", gender: "Male", lang: "en-IN", accent: "Indian English (Teacher)", avatar: "👨‍🏫" },
-  { code: "hi-IN-SwaraNeural", name: "Swara", gender: "Female", lang: "hi-IN", accent: "Hindi / Hinglish (Mentor)", avatar: "👩" },
-  { code: "hi-IN-MadhurNeural", name: "Madhur", gender: "Male", lang: "hi-IN", accent: "Hindi / Hinglish (Coach)", avatar: "👨" }
+  { code: "en-US-JennyNeural", name: "Jenny (Natural)", gender: "Female", lang: "en-US", accent: "Natural Conversational English", avatar: "👩" },
+  { code: "en-US-GuyNeural", name: "Guy (Natural)", gender: "Male", lang: "en-US", accent: "Natural Conversational English", avatar: "👨" },
+  { code: "en-GB-SoniaNeural", name: "Sonia (British)", gender: "Female", lang: "en-GB", accent: "British English (Academic)", avatar: "👩‍🏫" },
+  { code: "en-IN-NeerjaNeural", name: "Neerja (Indian)", gender: "Female", lang: "en-IN", accent: "Indian English (Educator)", avatar: "👩‍🏫" },
+  { code: "en-IN-PrabhatNeural", name: "Prabhat (Indian)", gender: "Male", lang: "en-IN", accent: "Indian English (Teacher)", avatar: "👨‍🏫" },
+  { code: "hi-IN-SwaraNeural", name: "Swara (Hindi)", gender: "Female", lang: "hi-IN", accent: "Hindi / Hinglish (Mentor)", avatar: "👩" },
+  { code: "hi-IN-MadhurNeural", name: "Madhur (Hindi)", gender: "Male", lang: "hi-IN", accent: "Hindi / Hinglish (Coach)", avatar: "👨" }
 ];
 
 interface ScenarioTopic {
@@ -138,7 +141,7 @@ export function EnglishSpeakingCoach() {
   const { user } = useAppStore();
 
   // Settings
-  const [selectedVoice, setSelectedVoice] = useState<string>("en-IN-NeerjaNeural");
+  const [selectedVoice, setSelectedVoice] = useState<string>("en-US-JennyNeural");
   const [immersionMode, setImmersionMode] = useState<"immersion" | "bilingual">("immersion");
   const [activeScenario, setActiveScenario] = useState<ScenarioTopic>(PRACTICE_SCENARIOS[0]);
 
@@ -356,28 +359,29 @@ export function EnglishSpeakingCoach() {
 
     setIsAiSpeaking(true);
     isAiSpeakingRef.current = true;
-    stopListening(); // Pause mic so it doesn't hear the speaker
+    stopListening(); // Pause mic while coach speaks
 
     const handleFinished = () => {
       currentAudioRef.current = null;
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
       if (onFinish) {
         onFinish();
       } else {
-        // Automatic hands-free listening resume (Gemini Live cycle)
+        setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
+        // Automatic hands-free listening resume once AI finishes speaking
         if (isLiveActiveRef.current && !isAiThinkingRef.current) {
           setTimeout(() => {
             if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               startListening();
             }
-          }, 220);
+          }, 350);
         }
       }
     };
 
     try {
-      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&text=${encodeURIComponent(cleanText)}`;
+      // Natural brisk speaking rate (+15%)
+      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&text=${encodeURIComponent(cleanText)}&rate=%2B15%25`;
       const audio = new Audio(streamUrl);
       currentAudioRef.current = audio;
 
@@ -405,7 +409,14 @@ export function EnglishSpeakingCoach() {
   const fallbackSpeechSynthesis = (text: string, onFinish?: () => void) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = selectedVoice.startsWith("hi") ? "hi-IN" : "en-IN";
+      utt.lang = selectedVoice.startsWith("hi") ? "hi-IN" : selectedVoice.startsWith("en-GB") ? "en-GB" : "en-US";
+      utt.rate = 1.15; // Natural brisk conversational pace
+      utt.pitch = 1.0;
+
+      const voices = window.speechSynthesis.getVoices();
+      const naturalVoice = voices.find(v => (v.lang.startsWith("en") || v.lang.startsWith("hi")) && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Karen") || v.name.includes("Zira")));
+      if (naturalVoice) utt.voice = naturalVoice;
+
       utt.onend = () => {
         setIsAiSpeaking(false);
         isAiSpeakingRef.current = false;
@@ -424,18 +435,18 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // 0-DELAY SEAMLESS AUDIO QUEUE ENGINE
+  // 0-DELAY SEAMLESS AUDIO QUEUE ENGINE (Plays sentence-by-sentence without mic thrashing)
   const playNextInQueue = useCallback(() => {
     if (audioQueueRef.current.length === 0) {
       isPlayingQueueRef.current = false;
       setIsAiSpeaking(false);
-      // Automatic hands-free listening resume (Gemini Live cycle)
+      // Automatic hands-free listening resume ONLY after entire queue finishes
       if (isLiveActiveRef.current && !isAiThinkingRef.current) {
         setTimeout(() => {
           if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
             startListening();
           }
-        }, 220);
+        }, 350);
       }
       return;
     }
@@ -709,18 +720,25 @@ Instructions:
       };
 
       recognition.onend = () => {
-        setIsListening(false);
-        // Do NOT copy accumulatedSpeechRef into turnBaseSpeechRef to prevent repetitive stutter on restart!
-
-        // Auto-restart recognition seamlessly if user is still in live mode
-        if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-          clearTimeout(autoRestartTimerRef.current);
-          autoRestartTimerRef.current = setTimeout(() => {
-            if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-              try { recognition.start(); } catch {}
-            }
-          }, 200);
+        // If live conversation ended or AI is active, shut down listening cleanly
+        if (!isLiveActiveRef.current || isAiSpeakingRef.current || isAiThinkingRef.current) {
+          setIsListening(false);
+          return;
         }
+
+        // Auto-restart recognition after a gentle pause without flapping UI state in a loop
+        clearTimeout(autoRestartTimerRef.current);
+        autoRestartTimerRef.current = setTimeout(() => {
+          if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+            try {
+              recognition.start();
+            } catch {
+              setIsListening(false);
+            }
+          } else {
+            setIsListening(false);
+          }
+        }, 800);
       };
 
       recognitionRef.current = recognition;
@@ -824,11 +842,11 @@ Instructions:
   }, []);
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-3 md:p-6 max-w-5xl mx-auto flex flex-col justify-between space-y-4">
+    <div className="w-full max-w-4xl mx-auto flex flex-col space-y-4 p-3 sm:p-5 pb-28 md:pb-8">
       
       {/* 1. TOP CONTROL BAR */}
       <div className="glass-panel p-3.5 md:p-4 rounded-3xl border border-slate-200/80 bg-white shadow-xs">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           
           {/* Header & Status Indicator */}
           <div className="flex items-center gap-2.5">
@@ -871,7 +889,7 @@ Instructions:
           </div>
 
           {/* Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap gap-2">
             {/* Camera Switcher Toggle */}
             <button
               onClick={() => cameraActive ? stopCamera() : startCamera()}
@@ -893,7 +911,7 @@ Instructions:
               </button>
             )}
 
-            {/* Indian Voice Selector */}
+            {/* Indian & Natural Voice Selector */}
             <div className="relative">
               <select
                 value={selectedVoice}
@@ -938,7 +956,7 @@ Instructions:
       </div>
 
       {/* 2. GEMINI LIVE STAGE WITH LIVE CAMERA HUD & PULSING ORB */}
-      <div className="glass-panel p-5 md:p-8 rounded-3xl border border-slate-200/80 bg-gradient-to-b from-white via-slate-50/50 to-white shadow-sm flex flex-col items-center justify-between text-center space-y-5 relative overflow-hidden flex-1 min-h-[460px]">
+      <div className="glass-panel p-4 sm:p-6 md:p-8 rounded-3xl border border-slate-200/80 bg-gradient-to-b from-white via-slate-50/50 to-white shadow-sm flex flex-col items-center justify-between text-center space-y-4 relative overflow-hidden flex-1 min-h-[420px]">
         
         {/* AMBIENT GLOW EFFECT */}
         <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl pointer-events-none transition-all duration-700 ${
@@ -953,10 +971,10 @@ Instructions:
             : "bg-slate-200/40"
         }`} />
 
-        {/* LIVE CAMERA VIEWFINDER (LARGER, SLEEK, ZERO TEXT OVERLAY) */}
+        {/* LIVE CAMERA VIEWFINDER (CENTERED, CLEAN BORDERS) */}
         {cameraActive ? (
-          <div className="flex flex-col items-center z-10">
-            <div className="relative w-56 h-56 sm:w-72 sm:h-72 md:w-80 md:h-80 rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-slate-950 ring-1 ring-slate-200/80">
+          <div className="flex flex-col items-center z-10 w-full">
+            <div className="relative w-44 h-44 sm:w-60 sm:h-60 md:w-72 md:h-72 mx-auto rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-slate-950 ring-1 ring-slate-200/80">
               <video
                 ref={videoRef}
                 autoPlay
@@ -976,7 +994,7 @@ Instructions:
             </div>
           </div>
         ) : (
-          <div className="w-56 h-48 sm:w-72 sm:h-56 md:w-80 md:h-64 rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-4 text-center bg-slate-50/60 z-10">
+          <div className="w-44 h-40 sm:w-60 sm:h-52 md:w-72 md:h-60 mx-auto rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-4 text-center bg-slate-50/60 z-10">
             <VideoOff className="w-8 h-8 text-slate-400 mb-2" />
             <p className="text-xs font-bold text-slate-600">Camera is Off</p>
             <button
@@ -990,7 +1008,7 @@ Instructions:
 
         {/* MIC PERMISSION ERROR NOTICE */}
         {micPermissionError && (
-          <div className="w-full max-w-md p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium text-left flex items-start gap-2 z-10">
+          <div className="w-full max-w-md mx-auto p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium text-left flex items-start gap-2 z-10">
             <Lightbulb className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <p className="font-bold">Microphone Access</p>
@@ -999,9 +1017,9 @@ Instructions:
           </div>
         )}
 
-        {/* COACH SUBTITLES CARD */}
-        <div className="w-full max-w-xl z-10">
-          <div className="p-4 md:p-5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-sm relative text-left">
+        {/* COACH SUBTITLES CARD (PERFECTLY CENTERED) */}
+        <div className="w-full max-w-xl mx-auto z-10">
+          <div className="p-3.5 sm:p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-sm relative text-left">
             <div className="flex items-center justify-between mb-2 text-[10px] font-black uppercase tracking-wider">
               <span className="flex items-center gap-1.5 text-indigo-600">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -1029,14 +1047,14 @@ Instructions:
               </div>
             </div>
 
-            <p className="text-sm md:text-base font-semibold text-slate-800 leading-relaxed">
+            <p className="text-xs sm:text-sm md:text-base font-semibold text-slate-800 leading-relaxed">
               {liveAiSpeech}
             </p>
           </div>
         </div>
 
         {/* 3. GEMINI LIVE CENTRAL PULSING ORB */}
-        <div className="relative flex flex-col items-center justify-center my-1 z-10">
+        <div className="relative flex flex-col items-center justify-center my-2 z-10 mx-auto">
           
           {/* Animated Wave Rings */}
           {isAiSpeaking && (

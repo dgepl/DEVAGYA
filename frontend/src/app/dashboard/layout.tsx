@@ -68,12 +68,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const isAgentsPage = pathname?.startsWith("/dashboard/agents");
   const isAIChatPage = 
     pathname?.startsWith("/dashboard/agents") ||
-    pathname?.startsWith("/dashboard/chat") ||
-    pathname?.startsWith("/dashboard/video-consultation") ||
-    pathname?.startsWith("/dashboard/english-coach") ||
-    pathname?.startsWith("/dashboard/student/tutor") ||
-    pathname?.startsWith("/dashboard/parent/coach") ||
-    pathname?.startsWith("/dashboard/teacher-olympiad");
+    pathname?.startsWith("/dashboard/chat");
 
   const agentParam = searchParams.get("agent");
 
