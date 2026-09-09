@@ -810,7 +810,7 @@ export function AgentMarketplace() {
       )}
 
       {/* FULL-WIDTH AGENT WORKSPACE */}
-      <div className="flex flex-col h-[calc(100vh-8.5rem)] min-h-[520px]">
+      <div className="flex flex-col flex-1 h-full min-h-0 overflow-hidden">
           {/* COMPACT & SLEEK AI AGENT HEADER (Maximizes chat space on mobile & desktop) */}
           {selectedAgent && (
             <div className="bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-2xs mb-2 flex items-center justify-between gap-3 shrink-0">
@@ -894,7 +894,7 @@ export function AgentMarketplace() {
           )}
 
           {/* 3. MAIN CHAT AREA WITH HISTORY OVERLAY & MESSAGE BUBBLES */}
-          <div className="flex-1 relative rounded-3xl border border-slate-200/90 overflow-hidden bg-slate-50 shadow-inner flex flex-col justify-between">
+          <div className="flex-1 min-h-0 relative rounded-2xl sm:rounded-3xl border border-slate-200/90 overflow-hidden bg-slate-50 shadow-inner flex flex-col justify-between">
             {/* HISTORY SLIDE-OUT PANEL */}
             {historyOpen && (
               <>
@@ -1000,7 +1000,7 @@ export function AgentMarketplace() {
             )}
 
             {/* MESSAGES AREA */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-4">
               <div className="max-w-3xl mx-auto space-y-4">
                 {messages.map((m) => (
                   <div
@@ -1153,7 +1153,7 @@ export function AgentMarketplace() {
             {/* 4. FLOATING ROUNDED PILL INPUT BAR */}
             <form
               onSubmit={handleSend}
-              className="p-3 bg-white/95 backdrop-blur-md border-t border-slate-200/90 rounded-b-3xl"
+              className="p-2.5 sm:p-3 bg-white/95 backdrop-blur-md border-t border-slate-200/90 rounded-b-2xl sm:rounded-b-3xl shrink-0"
             >
               {/* Attached file & document previews */}
               {attached.length > 0 && (

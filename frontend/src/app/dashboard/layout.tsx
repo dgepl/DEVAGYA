@@ -280,7 +280,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex-1 md:pl-64 flex flex-col min-h-screen pb-36 md:pb-8">
+      <div className={`flex-1 md:pl-64 flex flex-col ${
+        isAIChatPage 
+          ? "h-[100dvh] max-h-[100dvh] overflow-hidden pb-16 md:pb-8 md:min-h-screen md:h-auto md:max-h-none md:overflow-visible" 
+          : "min-h-screen pb-36 md:pb-8"
+      }`}>
         
         <MobileTopHeader />
         
@@ -323,14 +327,20 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className={`${isAgentsPage ? 'p-2 sm:p-3' : 'p-3 sm:p-6 lg:p-8'} flex-1 w-full max-w-full overflow-x-hidden`}>
+        <main className={`${
+          isAIChatPage 
+            ? "p-1.5 sm:p-3 md:p-6 lg:p-8 flex-1 w-full max-w-full flex flex-col min-h-0 overflow-hidden" 
+            : isAgentsPage 
+              ? "p-2 sm:p-3 flex-1 w-full max-w-full overflow-x-hidden" 
+              : "p-3 sm:p-6 lg:p-8 flex-1 w-full max-w-full overflow-x-hidden"
+        }`}>
           {currentComingSoonTool ? (
             <ComingSoonView
               tool={currentComingSoonTool}
               backUrl={user?.role === "student" ? "/dashboard/student" : user?.role === "parent" ? "/dashboard/parent" : "/dashboard"}
             />
           ) : (
-            <PageTransition>
+            <PageTransition className={isAIChatPage ? "h-full flex-1 flex flex-col min-h-0 w-full" : "w-full"}>
               {children}
             </PageTransition>
           )}

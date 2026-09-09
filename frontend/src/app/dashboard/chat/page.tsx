@@ -370,7 +370,7 @@ export default function ChatStudioPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-9rem)] flex glass-panel rounded-3xl border border-slate-200 overflow-hidden shadow-sm relative">
+    <div className="h-full flex-1 flex glass-panel rounded-2xl sm:rounded-3xl border border-slate-200 overflow-hidden shadow-sm relative min-h-0">
       {/* ============ HISTORY SIDEBAR (Clock / Reverse) ============ */}
       <aside
         className={`absolute md:relative z-30 inset-y-0 left-0 w-72 shrink-0 border-r border-slate-200 bg-white/95 backdrop-blur-xl flex flex-col transition-transform duration-300 ${
@@ -459,9 +459,9 @@ export default function ChatStudioPage() {
       )}
 
       {/* ============ MAIN CHAT AREA ============ */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
+        <div className="p-3 sm:p-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setHistoryOpen((v) => !v)}
@@ -548,7 +548,7 @@ export default function ChatStudioPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto bg-slate-50/50">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-slate-50/50">
           <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-4">
             {messages.map((m) => (
               <div
@@ -650,7 +650,7 @@ export default function ChatStudioPage() {
         </div>
 
         {/* Input Bar */}
-        <form onSubmit={handleSend} className="p-4 border-t border-slate-200 bg-white">
+        <form onSubmit={handleSend} className="p-3 sm:p-4 border-t border-slate-200 bg-white shrink-0">
           {/* Attached image & PDF previews */}
           {attached.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2.5">
