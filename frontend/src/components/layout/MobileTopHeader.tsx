@@ -31,7 +31,10 @@ import {
   Bell,
   CheckCircle2,
   Sliders,
-  Headphones
+  Headphones,
+  Briefcase,
+  Building2,
+  User
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
@@ -156,9 +159,15 @@ export function MobileTopHeader() {
     { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
+    { label: "Recruitment", href: "/dashboard/recruitment", icon: Briefcase },
   ];
 
-  if (role === "student") {
+  if (role === "school") {
+    navItems = [
+      { label: "School Portal", href: "/dashboard/school", icon: Building2 },
+      { label: "School Profile", href: "/dashboard/school", icon: User },
+    ];
+  } else if (role === "student") {
     navItems = [
       { label: "Student Home", href: "/dashboard/student", icon: LayoutDashboard },
       { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain },

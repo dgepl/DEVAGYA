@@ -251,8 +251,12 @@ async def login_user(payload: LoginPayload):
             detail="Incorrect password. Please check your credentials and try again."
         )
 
+    from services.recruitment_service import recruitment_service
+    school_rec = recruitment_service.get_school_by_email(email_clean)
     full_name = profile.get("full_name", email_clean.split('@')[0].capitalize())
-    user_role = profile.get("role", payload.role or "teacher")
+    user_role = profile.get("role") or payload.role or "teacher"
+    if school_rec or (payload.role and payload.role.strip().lower() == "school"):
+        user_role = "school"
     user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
 
     # Enforce strict Role Matching
@@ -301,8 +305,6 @@ async def login_user(payload: LoginPayload):
     }
 
     if user_role == "school":
-        from services.recruitment_service import recruitment_service
-        school_rec = recruitment_service.get_school_by_email(email_clean)
         if not school_rec:
             school_rec = recruitment_service.register_or_update_school(
                 email=email_clean,
@@ -333,7 +335,11 @@ async def get_profile(email: str):
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
 
+    from services.recruitment_service import recruitment_service
+    school_rec = recruitment_service.get_school_by_email(email_clean)
     user_role = profile.get("role", "teacher")
+    if school_rec or user_role == "school":
+        user_role = "school"
     user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
     user_data = {
         "id": user_id,
@@ -367,8 +373,6 @@ async def get_profile(email: str):
     }
 
     if user_role == "school":
-        from services.recruitment_service import recruitment_service
-        school_rec = recruitment_service.get_school_by_email(email_clean)
         if not school_rec:
             school_rec = recruitment_service.register_or_update_school(
                 email=email_clean,

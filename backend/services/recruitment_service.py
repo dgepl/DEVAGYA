@@ -144,6 +144,20 @@ class RecruitmentService:
         self.schools[school_id] = school
         _save_json(SCHOOLS_FILE, self.schools)
         self._sync_school_to_supabase(school)
+
+        # Also sync verification status and role to user profile store
+        try:
+            from services.supabase_service import supabase_service
+            school_email = school.get("email", "").strip().lower()
+            if school_email:
+                supabase_service.save_teacher_profile_details(
+                    email=school_email,
+                    verification_status=status,
+                    role="school"
+                )
+        except Exception as sync_err:
+            logger.warning(f"Notice syncing verification status to user profile: {sync_err}")
+
         return school
 
     def _sync_school_to_supabase(self, record: Dict[str, Any]):

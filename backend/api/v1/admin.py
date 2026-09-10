@@ -149,11 +149,15 @@ async def get_admin_schools(status: Optional[str] = Query(None)):
         "schools": schools
     }
 
+class VerifySchoolPayload(BaseModel):
+    notes: Optional[str] = ""
+
 @router.post("/schools/{school_id}/verify")
-async def verify_school_dashboard(school_id: str, notes: Optional[str] = Body(None)):
+async def verify_school_dashboard(school_id: str, payload: Optional[VerifySchoolPayload] = None):
     """Approve school verification and unlock their dashboard."""
     from services.recruitment_service import recruitment_service
     try:
+        notes = payload.notes if payload else ""
         school = recruitment_service.update_school_verification(school_id, status="verified", notes=notes)
         return {
             "status": "success",
@@ -164,10 +168,11 @@ async def verify_school_dashboard(school_id: str, notes: Optional[str] = Body(No
         raise HTTPException(status_code=404, detail=str(ve))
 
 @router.post("/schools/{school_id}/reject")
-async def reject_school_dashboard(school_id: str, notes: Optional[str] = Body(None)):
+async def reject_school_dashboard(school_id: str, payload: Optional[VerifySchoolPayload] = None):
     """Reject or suspend a school."""
     from services.recruitment_service import recruitment_service
     try:
+        notes = payload.notes if payload else ""
         school = recruitment_service.update_school_verification(school_id, status="rejected", notes=notes)
         return {
             "status": "success",

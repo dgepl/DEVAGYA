@@ -145,6 +145,8 @@ class SupabaseService:
         if classes is not None: current["classes"] = classes
         if school_logo is not None: current["school_logo"] = school_logo
         if avatar_url is not None: current["avatar_url"] = avatar_url
+        if "role" in kwargs and kwargs["role"]:
+            current["role"] = kwargs["role"]
         
         for k, v in kwargs.items():
             if v is not None:
@@ -209,11 +211,12 @@ class SupabaseService:
         
         # If no supabase record, fallback from local store
         if not profile_data and email_clean in _password_store:
+            stored_extra = _teacher_profiles_store.get(email_clean, {})
             profile_data = {
                 "id": f"usr-{email_clean.split('@')[0]}",
                 "email": email_clean,
                 "full_name": email_clean.split('@')[0].capitalize(),
-                "role": "teacher",
+                "role": stored_extra.get("role", "teacher"),
                 "is_active": True
             }
 
@@ -449,7 +452,8 @@ class SupabaseService:
             board=board,
             subject=subject,
             classes=classes,
-            school_logo=school_logo
+            school_logo=school_logo,
+            role=role
         )
 
         url = f"{SUPABASE_URL}/rest/v1/profiles"
@@ -458,7 +462,8 @@ class SupabaseService:
             "board": board,
             "subject": subject,
             "classes": classes,
-            "school_logo": school_logo
+            "school_logo": school_logo,
+            "role": role
         })
         payload = {
             "email": email_clean,

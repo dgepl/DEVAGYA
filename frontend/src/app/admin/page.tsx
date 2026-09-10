@@ -251,16 +251,19 @@ export default function SuperAdminPage() {
       const res = await fetch(`${baseUrl}/admin/schools/${schoolId}/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({})
+        body: JSON.stringify({ notes: "Approved by administrator" })
       });
       const data = await res.json();
       if (res.ok) {
         setActionMsg(data.message || "School verified and dashboard unlocked!");
         setSchoolsList(prev => prev.map(s => s.id === schoolId ? { ...s, verification_status: "verified" } : s));
+        setSelectedSchoolDetail((prev: any) => prev && prev.id === schoolId ? { ...prev, verification_status: "verified" } : prev);
         setTimeout(() => setActionMsg(null), 4000);
+      } else {
+        alert(data.detail || "Failed to verify school");
       }
-    } catch (err) {
-      alert("Failed to verify school");
+    } catch (err: any) {
+      alert("Failed to verify school: " + (err?.message || "Unknown error"));
     } finally {
       setVerifyingSchoolId(null);
     }
@@ -274,16 +277,19 @@ export default function SuperAdminPage() {
       const res = await fetch(`${baseUrl}/admin/schools/${schoolId}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({})
+        body: JSON.stringify({ notes: "Rejected by administrator" })
       });
       const data = await res.json();
       if (res.ok) {
         setActionMsg(data.message || "School verification rejected.");
         setSchoolsList(prev => prev.map(s => s.id === schoolId ? { ...s, verification_status: "rejected" } : s));
+        setSelectedSchoolDetail((prev: any) => prev && prev.id === schoolId ? { ...prev, verification_status: "rejected" } : prev);
         setTimeout(() => setActionMsg(null), 4000);
+      } else {
+        alert(data.detail || "Failed to reject school");
       }
-    } catch (err) {
-      alert("Failed to reject school");
+    } catch (err: any) {
+      alert("Failed to reject school: " + (err?.message || "Unknown error"));
     } finally {
       setVerifyingSchoolId(null);
     }

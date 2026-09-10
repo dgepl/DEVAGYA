@@ -15,7 +15,9 @@ import {
   FileText,
   Bot,
   Target,
-  Trophy
+  Trophy,
+  Building2,
+  Briefcase
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -28,6 +30,16 @@ export function MobileBottomDock() {
 
   // Custom role-tailored bottom navbar tabs (always 5 tabs with AI Agent in the exact center)
   const getTabs = () => {
+    if (role === "school") {
+      return [
+        { label: "Portal", href: "/dashboard/school", icon: Building2 },
+        { label: "Recruit", href: "/dashboard/school", icon: Briefcase },
+        { label: "AI Mentor", href: "/dashboard/agents?agent=teacher_mentor", icon: Sparkles, central: true, agentCode: "teacher_mentor" },
+        { label: "Vacancies", href: "/dashboard/school", icon: FileText },
+        { label: "Profile", href: "/dashboard/profile", icon: User },
+      ];
+    }
+
     if (role === "student") {
       return [
         { label: "Home", href: "/dashboard/student", icon: Home },

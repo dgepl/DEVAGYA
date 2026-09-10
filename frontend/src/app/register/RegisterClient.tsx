@@ -143,6 +143,7 @@ export default function RegisterClient() {
 
       const registeredUser = {
         ...data.user,
+        role: role,
         isProfileComplete: false
       };
       setUser(registeredUser);
@@ -155,7 +156,7 @@ export default function RegisterClient() {
       } else if (role === "parent") {
         router.push("/dashboard/parent");
       } else if (role === "school") {
-        router.push("/dashboard/school");
+        router.replace("/dashboard/school");
       } else {
         router.push("/dashboard");
       }
