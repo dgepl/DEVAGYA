@@ -203,8 +203,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (user.role === "school") {
     navItems = [
-      { label: "School Portal", href: "/dashboard/school", icon: Building2 },
-      { label: "School Profile", href: "/dashboard/school", icon: User },
+      { label: "School Overview", href: "/dashboard/school", icon: Building2 },
+      { label: "Job Vacancies", href: "/dashboard/school/vacancies", icon: Briefcase },
+      { label: "Applicants & Resumes", href: "/dashboard/school/applicants", icon: Users },
+      { label: "School Profile", href: "/dashboard/school/profile", icon: User },
     ];
   } else if (user.role === "student") {
     navItems = [

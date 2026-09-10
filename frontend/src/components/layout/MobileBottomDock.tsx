@@ -17,9 +17,19 @@ import {
   Target,
   Trophy,
   Building2,
-  Briefcase
+  Briefcase,
+  Plus,
+  Users
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+
+interface TabItem {
+  label: string;
+  href: string;
+  icon: any;
+  central?: boolean;
+  agentCode?: string;
+}
 
 export function MobileBottomDock() {
   const pathname = usePathname();
@@ -29,14 +39,14 @@ export function MobileBottomDock() {
   const agentParam = searchParams.get("agent");
 
   // Custom role-tailored bottom navbar tabs (always 5 tabs with AI Agent in the exact center)
-  const getTabs = () => {
+  const getTabs = (): TabItem[] => {
     if (role === "school") {
       return [
-        { label: "Portal", href: "/dashboard/school", icon: Building2 },
-        { label: "Recruit", href: "/dashboard/school", icon: Briefcase },
-        { label: "AI Mentor", href: "/dashboard/agents?agent=teacher_mentor", icon: Sparkles, central: true, agentCode: "teacher_mentor" },
-        { label: "Vacancies", href: "/dashboard/school", icon: FileText },
-        { label: "Profile", href: "/dashboard/profile", icon: User },
+        { label: "Home", href: "/dashboard/school", icon: Home },
+        { label: "Vacancies", href: "/dashboard/school/vacancies", icon: Briefcase },
+        { label: "Post Job", href: "/dashboard/school/vacancies?action=new", icon: Plus, central: true },
+        { label: "Applicants", href: "/dashboard/school/applicants", icon: Users },
+        { label: "Profile", href: "/dashboard/school/profile", icon: Building2 },
       ];
     }
 
@@ -78,11 +88,16 @@ export function MobileBottomDock() {
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           let isActive = false;
+          const tabBase = tab.href.split("?")[0];
 
           if (tab.agentCode) {
             isActive = pathname.startsWith("/dashboard/agents") && agentParam === tab.agentCode;
-          } else {
+          } else if (tab.href === "/dashboard/school" || tab.href === "/dashboard" || tab.href === "/dashboard/student" || tab.href === "/dashboard/parent") {
             isActive = pathname === tab.href;
+          } else if (tab.central && tab.href.includes("?action=new")) {
+            isActive = pathname === tabBase && searchParams.get("action") === "new";
+          } else {
+            isActive = pathname === tab.href || (tabBase !== "/dashboard" && pathname.startsWith(tabBase));
           }
 
           if (tab.central) {

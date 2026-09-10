@@ -34,7 +34,8 @@ import {
   Headphones,
   Briefcase,
   Building2,
-  User
+  User,
+  Users
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
@@ -164,8 +165,10 @@ export function MobileTopHeader() {
 
   if (role === "school") {
     navItems = [
-      { label: "School Portal", href: "/dashboard/school", icon: Building2 },
-      { label: "School Profile", href: "/dashboard/school", icon: User },
+      { label: "School Overview", href: "/dashboard/school", icon: LayoutDashboard },
+      { label: "Job Vacancies", href: "/dashboard/school/vacancies", icon: Briefcase },
+      { label: "Applicants & Resumes", href: "/dashboard/school/applicants", icon: Users },
+      { label: "School Profile", href: "/dashboard/school/profile", icon: Building2 },
     ];
   } else if (role === "student") {
     navItems = [
