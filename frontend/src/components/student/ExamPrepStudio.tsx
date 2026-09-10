@@ -578,7 +578,7 @@ export function ExamPrepStudio() {
             {/* MODAL FOOTER */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
               <span className="text-[11px] font-medium text-slate-500">
-                DEVAGYA AI NCERT Educator
+                DEVGYA AI NCERT Educator
               </span>
 
               <div className="flex items-center gap-2">

@@ -213,7 +213,7 @@ export default function SchoolProfilePage() {
             </h3>
             <p className="text-xs mt-0.5 leading-relaxed opacity-90">
               {isVerified 
-                ? "Your school is officially verified on DEVAGYA. Teachers can find your school and apply to active vacancies."
+                ? "Your school is officially verified on DEVGYA. Teachers can find your school and apply to active vacancies."
                 : "Your account is under admin review. Once verified, your teaching vacancies and candidate applications will unlock."}
             </p>
             {school?.verification_notes && (
@@ -383,7 +383,7 @@ export default function SchoolProfilePage() {
       {/* SUPPORT FOOTER */}
       <div className="text-center p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl text-xs text-indigo-950 flex items-center justify-center gap-2">
         <HelpCircle className="w-4 h-4 text-indigo-600 shrink-0" />
-        <span>Need help with school setup? Contact <strong>support@devagya.com</strong></span>
+        <span>Need help with school setup? Contact <strong>contact@devgya.in</strong></span>
       </div>
     </div>
   );

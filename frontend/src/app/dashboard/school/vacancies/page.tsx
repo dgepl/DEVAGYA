@@ -600,7 +600,7 @@ export default function SchoolVacanciesPage() {
                   className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>{postingJob ? "Publishing Opening..." : "Publish Vacancy on DEVAGYA"}</span>
+                  <span>{postingJob ? "Publishing Opening..." : "Publish Vacancy on DEVGYA"}</span>
                 </button>
               </div>
             </form>

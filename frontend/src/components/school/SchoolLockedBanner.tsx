@@ -66,8 +66,8 @@ export function SchoolLockedBanner({
             </h4>
             <p className="text-xs mt-0.5 opacity-90 leading-relaxed">
               {isRejected 
-                ? (school.verification_notes || "Your institution profile was not approved. Please contact DEVAGYA support.") 
-                : "DEVAGYA administrator is currently reviewing your CBSE/institutional credentials. Job posting and applicant access will unlock upon verification."}
+                ? (school.verification_notes || "Your institution profile was not approved. Please contact DEVGYA support.") 
+                : "DEVGYA administrator is currently reviewing your CBSE/institutional credentials. Job posting and applicant access will unlock upon verification."}
             </p>
           </div>
           {onRefresh && (
@@ -110,8 +110,8 @@ export function SchoolLockedBanner({
 
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
             {isRejected 
-              ? (school.verification_notes || "Your institution profile is currently suspended or not approved by DEVAGYA Administrator.")
-              : "To maintain top hiring trust for teachers, DEVAGYA reviews every school profile before unlocking recruitment, vacancy publishing, and teacher candidate contact info."}
+              ? (school.verification_notes || "Your institution profile is currently suspended or not approved by DEVGYA Administrator.")
+              : "To maintain top hiring trust for teachers, DEVGYA reviews every school profile before unlocking recruitment, vacancy publishing, and teacher candidate contact info."}
           </p>
 
           {/* VERIFICATION STEPS PROGRESS */}
@@ -207,7 +207,7 @@ export function SchoolLockedBanner({
       {/* HELP FOOTER */}
       <div className="text-center p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl text-xs text-indigo-950 flex items-center justify-center gap-2">
         <HelpCircle className="w-4 h-4 text-indigo-600 shrink-0" />
-        <span>Need expedited approval? Email support at <strong>support@devagya.com</strong></span>
+        <span>Need expedited approval? Email support at <strong>contact@devgya.in</strong></span>
       </div>
     </div>
   );

@@ -414,7 +414,7 @@ export default function SchoolDashboardHomePage() {
             <Users className="w-8 h-8 text-slate-400 mx-auto" />
             <p className="text-xs font-bold text-slate-700">No applications received yet</p>
             <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
-              Once you post active vacancies, certified teachers on DEVAGYA can apply with their PDF resumes.
+              Once you post active vacancies, certified teachers on DEVGYA can apply with their PDF resumes.
             </p>
           </div>
         ) : (
