@@ -166,7 +166,7 @@ class RecruitmentService:
         try:
             with httpx.Client(timeout=4.0) as client:
                 client.post(
-                    f"{SUPABASE_URL}/rest/v1/schools",
+                    f"{SUPABASE_URL}/rest/v1/recruitment_schools",
                     headers={**supabase_headers, "Prefer": "resolution=merge-duplicates"},
                     json=record
                 )
