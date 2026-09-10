@@ -11,7 +11,7 @@ export default function LoginClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<"teacher" | "student" | "parent">("teacher");
+  const [role, setRole] = useState<"teacher" | "student" | "parent" | "school">("teacher");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +72,7 @@ export default function LoginClient() {
 
       if (role === "student") router.push("/dashboard/student");
       else if (role === "parent") router.push("/dashboard/parent");
+      else if (role === "school") router.push("/dashboard/school");
       else {
         if (!data.user.schoolName || !data.user.subject || data.user.isProfileComplete === false) {
           router.push("/dashboard/profile?onboarding=true");
@@ -98,15 +99,15 @@ export default function LoginClient() {
         
         {/* LOGO BRANDING */}
         <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center justify-center">
+          <Link href="/" className="inline-flex items-center justify-center mb-1">
             <img 
               src="/logo.png" 
               alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED" 
-              className="h-16 w-auto max-h-16 object-contain mix-blend-multiply mx-auto" 
+              className="h-16 w-auto object-contain mx-auto mix-blend-multiply" 
             />
           </Link>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight">Portal Sign In</h1>
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Select your role to access your dashboard</p>
+          <h1 className="text-xl font-black text-slate-900 tracking-tight">Sign In to DEVGYA</h1>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">CBSE & NCERT AI Education Portal</p>
         </div>
 
         {error && (
@@ -118,20 +119,21 @@ export default function LoginClient() {
 
         <form onSubmit={handleLogin} className="space-y-5">
           
-          {/* PUBLIC ROLE SELECTOR (TEACHER, STUDENT, PARENT ONLY - SUPER ADMIN REMOVED) */}
+          {/* ROLE SELECTOR (TEACHER, STUDENT, PARENT, SCHOOL) */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Account Role</label>
-            <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200">
+            <div className="grid grid-cols-4 gap-1 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200">
               {[
                 { id: "teacher", label: "Teacher" },
                 { id: "student", label: "Student" },
-                { id: "parent", label: "Parent" }
+                { id: "parent", label: "Parent" },
+                { id: "school", label: "School" }
               ].map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setRole(tab.id as any)}
-                  className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
+                  className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
                     role === tab.id
                       ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
@@ -144,7 +146,9 @@ export default function LoginClient() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              {role === "school" ? "Official School Email" : "Email Address"}
+            </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -162,7 +166,7 @@ export default function LoginClient() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-bold text-slate-700">Password</label>
-              <Link href="/forgot-password" className="text-[11px] text-indigo-600 font-bold hover:underline">
+              <Link href="/forgot-password" className="text-xs text-indigo-600 font-bold hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -192,16 +196,16 @@ export default function LoginClient() {
             className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 transition-all flex items-center justify-center gap-2"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <ShieldCheck className="w-4 h-4" />}
-            Sign In to {role.toUpperCase()} Portal
+            Sign In to {role === "school" ? "School Portal" : "DEVGYA"}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        <div className="text-center pt-3 border-t border-slate-100 space-y-2">
+        <div className="text-center pt-2 border-t border-slate-100">
           <p className="text-xs text-slate-500 font-semibold">
-            Don&apos;t have an account yet?{" "}
+            {role === "school" ? "Registering a new institution?" : "Don't have an account yet?"}{" "}
             <Link href="/register" className="text-indigo-600 font-bold hover:underline">
-              Create Account
+              {role === "school" ? "Register School" : "Sign Up Free"}
             </Link>
           </p>
         </div>
@@ -210,4 +214,3 @@ export default function LoginClient() {
     </div>
   );
 }
-

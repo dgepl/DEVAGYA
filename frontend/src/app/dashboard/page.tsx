@@ -27,7 +27,9 @@ import {
   Video,
   Trophy,
   Sliders,
-  Headphones
+  Headphones,
+  Briefcase,
+  Building2
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF, GeneratedPaperResponse } from "@/lib/api";
@@ -155,6 +157,15 @@ export default function TeacherDashboardOverviewPage() {
       icon: Headphones,
       color: "from-rose-500 to-red-600",
       badge: "Live Spoken AI"
+    },
+    {
+      code: "recruitment",
+      href: "/dashboard/recruitment",
+      name: "School Recruitment Hub",
+      desc: "Discover verified CBSE/ICSE school vacancies and apply directly with your PDF resume.",
+      icon: Briefcase,
+      color: "from-amber-500 to-amber-700",
+      badge: "Hiring Portal"
     }
   ];
 

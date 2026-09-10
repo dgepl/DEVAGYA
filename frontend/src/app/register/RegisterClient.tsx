@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Lock, Mail, User, Building2, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowRight, Lock, Mail, User, Building2, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw, Phone, MapPin } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { OTPModal } from "@/components/auth/OTPModal";
 import { getApiBase } from "@/lib/api";
@@ -13,7 +13,14 @@ export default function RegisterClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<"teacher" | "student" | "parent">("teacher");
+  const [role, setRole] = useState<"teacher" | "student" | "parent" | "school">("teacher");
+
+  // School Specific Fields
+  const [schoolName, setSchoolName] = useState("");
+  const [affiliationBoard, setAffiliationBoard] = useState("CBSE");
+  const [city, setCity] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [phone, setPhone] = useState("");
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +34,7 @@ export default function RegisterClient() {
     if (user && user.email) {
       if (user.role === "student") router.replace("/dashboard/student");
       else if (user.role === "parent") router.replace("/dashboard/parent");
+      else if (user.role === "school") router.replace("/dashboard/school");
       else router.replace("/dashboard");
     }
   }, [user, router]);
@@ -61,6 +69,11 @@ export default function RegisterClient() {
       return;
     }
 
+    if (role === "school" && (!schoolName.trim() || !city.trim())) {
+      setError("Please provide School Name and City.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -70,7 +83,7 @@ export default function RegisterClient() {
       const res = await fetch(`${baseUrl}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), name, role })
+        body: JSON.stringify({ email: email.trim(), name: role === "school" ? (schoolName || name) : name, role })
       });
       let data: any = {};
       try {
@@ -107,9 +120,15 @@ export default function RegisterClient() {
         body: JSON.stringify({
           email: email.trim(),
           password,
-          name,
+          name: role === "school" ? (name || "Principal/Administrator") : name,
           role,
-          otp_code: otpCode
+          otp_code: otpCode,
+          school_name: role === "school" ? schoolName.trim() : "",
+          affiliation_board: affiliationBoard,
+          city: city.trim(),
+          state: stateName.trim(),
+          contact_person: name.trim(),
+          phone: phone.trim()
         })
       });
       let data: any = {};
@@ -128,13 +147,15 @@ export default function RegisterClient() {
       };
       setUser(registeredUser);
 
-      // Redirect to master TSO onboarding for teachers, or role dashboard for others
+      // Redirect to appropriate dashboard
       if (role === "teacher") {
         router.push("/onboarding");
       } else if (role === "student") {
         router.push("/dashboard/student");
       } else if (role === "parent") {
         router.push("/dashboard/parent");
+      } else if (role === "school") {
+        router.push("/dashboard/school");
       } else {
         router.push("/dashboard");
       }
@@ -160,8 +181,12 @@ export default function RegisterClient() {
               className="h-16 w-auto object-contain mx-auto mix-blend-multiply" 
             />
           </Link>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight">Create Your Account</h1>
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Join DEVGYA AI Learning Platform</p>
+          <h1 className="text-xl font-black text-slate-900 tracking-tight">
+            {role === "school" ? "Register Your School" : "Create Your Account"}
+          </h1>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+            {role === "school" ? "School Recruitment & AI Portal" : "Join DEVGYA AI Learning Platform"}
+          </p>
         </div>
 
         {error && (
@@ -173,14 +198,14 @@ export default function RegisterClient() {
 
         <form onSubmit={handleStartRegister} className="space-y-4">
           
-          {/* ROLE SELECTOR PILLS */}
+          {/* ROLE SELECTOR PILLS (4 TABS) */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Your Role</label>
-            <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200">
+            <div className="grid grid-cols-4 gap-1 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200">
               <button
                 type="button"
                 onClick={() => setRole("teacher")}
-                className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
+                className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
                   role === "teacher" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
               >
@@ -189,7 +214,7 @@ export default function RegisterClient() {
               <button
                 type="button"
                 onClick={() => setRole("student")}
-                className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
+                className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
                   role === "student" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
               >
@@ -198,17 +223,106 @@ export default function RegisterClient() {
               <button
                 type="button"
                 onClick={() => setRole("parent")}
-                className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
+                className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
                   role === "parent" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
               >
                 Parent
               </button>
+              <button
+                type="button"
+                onClick={() => setRole("school")}
+                className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
+                  role === "school" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                }`}
+              >
+                School
+              </button>
             </div>
           </div>
 
+          {/* SCHOOL SPECIFIC FIELDS */}
+          {role === "school" && (
+            <div className="space-y-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">School / Institution Name</label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="text"
+                    value={schoolName}
+                    onChange={(e) => setSchoolName(e.target.value)}
+                    placeholder="e.g. Delhi Public School, R.K. Puram"
+                    required
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Affiliation Board</label>
+                  <select
+                    value={affiliationBoard}
+                    onChange={(e) => setAffiliationBoard(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold"
+                  >
+                    <option value="CBSE">CBSE</option>
+                    <option value="ICSE">ICSE / ISC</option>
+                    <option value="State Board">State Board</option>
+                    <option value="IB">IB World School</option>
+                    <option value="Cambridge">Cambridge / IGCSE</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">City / District</label>
+                  <div className="relative">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="e.g. New Delhi"
+                      required
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">State</label>
+                  <input
+                    type="text"
+                    value={stateName}
+                    onChange={(e) => setStateName(e.target.value)}
+                    placeholder="e.g. Delhi"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Official Phone</label>
+                  <div className="relative">
+                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+91 9876543210"
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">Full Name</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              {role === "school" ? "Contact Person / Principal Name" : "Full Name"}
+            </label>
             <div className="relative">
               <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -216,7 +330,7 @@ export default function RegisterClient() {
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 onKeyDown={(e) => { if (/[0-9]/.test(e.key)) e.preventDefault(); }}
-                placeholder="Enter your full name (Numbers blocked)"
+                placeholder={role === "school" ? "e.g. Dr. Rajesh Kumar (Principal)" : "Enter your full name (Numbers blocked)"}
                 required
                 className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold shadow-inner transition-all"
               />
@@ -224,7 +338,9 @@ export default function RegisterClient() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              {role === "school" ? "Official School Email Address" : "Email Address"}
+            </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -232,7 +348,7 @@ export default function RegisterClient() {
                 value={email}
                 onChange={(e) => handleEmailChange(e.target.value)}
                 onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}
-                placeholder="you@domain.com (Spaces blocked)"
+                placeholder={role === "school" ? "principal@dpsrkp.edu.in" : "you@domain.com (Spaces blocked)"}
                 required
                 className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold shadow-inner transition-all"
               />
@@ -267,7 +383,7 @@ export default function RegisterClient() {
             className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 transition-all flex items-center justify-center gap-2"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <ShieldCheck className="w-4 h-4" />}
-            Send Verification Code
+            {role === "school" ? "Register School & Verify" : "Send Verification Code"}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
@@ -286,7 +402,7 @@ export default function RegisterClient() {
       {/* 6-DIGIT RESEND OTP MODAL */}
       <OTPModal
         email={email.trim()}
-        name={name}
+        name={role === "school" ? (schoolName || name) : name}
         isOpen={isOTPModalOpen}
         onClose={() => setIsOTPModalOpen(false)}
         onVerified={handleOTPVerified}

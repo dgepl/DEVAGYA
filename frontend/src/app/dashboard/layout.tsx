@@ -40,7 +40,9 @@ import {
   Video,
   Rocket,
   Sliders,
-  Headphones
+  Headphones,
+  Briefcase,
+  Building2
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -150,6 +152,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       if (!isParentAllowed) {
         router.replace("/dashboard/parent");
       }
+    } else if (user.role === "school") {
+      const isSchoolAllowed = 
+        pathname.startsWith("/dashboard/school") ||
+        pathname === "/dashboard/profile";
+
+      if (!isSchoolAllowed) {
+        router.replace("/dashboard/school");
+      }
     } else if (user.role === "teacher") {
       const isTeacherAllowed = 
         pathname === "/dashboard" ||
@@ -161,6 +171,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         pathname === "/dashboard/chat" ||
         pathname === "/dashboard/video-consultation" ||
         pathname.startsWith("/dashboard/english-coach") ||
+        pathname.startsWith("/dashboard/recruitment") ||
         pathname === "/dashboard/profile";
 
       if (!isTeacherAllowed) {
@@ -187,9 +198,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     { label: "Skill Enhance Program", href: "/dashboard/teacher-olympiad", icon: Trophy },
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
+    { label: "Recruitment", href: "/dashboard/recruitment", icon: Briefcase },
   ];
 
-  if (user.role === "student") {
+  if (user.role === "school") {
+    navItems = [
+      { label: "School Portal", href: "/dashboard/school", icon: Building2 },
+      { label: "School Profile", href: "/dashboard/school", icon: User },
+    ];
+  } else if (user.role === "student") {
     navItems = [
       { label: "Student Home", href: "/dashboard/student", icon: LayoutDashboard },
       { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain },

@@ -96,10 +96,15 @@ async def get_admin_dashboard_stats():
     submissions = olympiad_service.get_all_submissions()
     papers = paper_service.get_all_papers()
     
+    from services.recruitment_service import recruitment_service
+    all_schools = recruitment_service.get_all_schools()
+    pending_schools = [s for s in all_schools if s.get("verification_status") == "pending_verification"]
+    
     total_users = len(profiles)
     teachers_count = len([p for p in profiles if p.get("role") == "teacher"])
     students_count = len([p for p in profiles if p.get("role") == "student"])
     parents_count = len([p for p in profiles if p.get("role") == "parent"])
+    schools_count = len(all_schools)
 
     return {
         "metrics": {
@@ -107,6 +112,8 @@ async def get_admin_dashboard_stats():
             "teachers_count": teachers_count,
             "students_count": students_count,
             "parents_count": parents_count,
+            "schools_count": schools_count,
+            "pending_schools_count": len(pending_schools),
             "total_submissions": len(submissions),
             "total_papers": len(papers),
             "pending_submissions": len([s for s in submissions if s.get("review_status") == "pending_admin_review"]),
@@ -115,7 +122,8 @@ async def get_admin_dashboard_stats():
         },
         "profiles": profiles,
         "submissions": submissions,
-        "papers": papers
+        "papers": papers,
+        "schools": all_schools
     }
 
 @router.get("/users")
@@ -127,6 +135,47 @@ async def get_all_users():
         "count": len(profiles),
         "users": profiles
     }
+
+# --- SUPER ADMIN SCHOOL VERIFICATION ENDPOINTS ---
+
+@router.get("/schools")
+async def get_admin_schools(status: Optional[str] = Query(None)):
+    """Fetch registered schools with filter by status (pending_verification, verified, rejected)."""
+    from services.recruitment_service import recruitment_service
+    schools = recruitment_service.get_all_schools(status=status)
+    return {
+        "status": "success",
+        "count": len(schools),
+        "schools": schools
+    }
+
+@router.post("/schools/{school_id}/verify")
+async def verify_school_dashboard(school_id: str, notes: Optional[str] = Body(None)):
+    """Approve school verification and unlock their dashboard."""
+    from services.recruitment_service import recruitment_service
+    try:
+        school = recruitment_service.update_school_verification(school_id, status="verified", notes=notes)
+        return {
+            "status": "success",
+            "message": f"School '{school.get('school_name')}' verified successfully! Dashboard is now unlocked.",
+            "school": school
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+
+@router.post("/schools/{school_id}/reject")
+async def reject_school_dashboard(school_id: str, notes: Optional[str] = Body(None)):
+    """Reject or suspend a school."""
+    from services.recruitment_service import recruitment_service
+    try:
+        school = recruitment_service.update_school_verification(school_id, status="rejected", notes=notes)
+        return {
+            "status": "success",
+            "message": f"School '{school.get('school_name')}' verification has been rejected.",
+            "school": school
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
 
 # --- SUPER ADMIN OLYMPIAD SUBMISSION & RESULT DECLARATION ENDPOINTS ---
 

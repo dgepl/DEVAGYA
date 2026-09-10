@@ -47,7 +47,8 @@ import {
   LayoutGrid,
   Table as TableIcon,
   Tag,
-  MessageSquare
+  MessageSquare,
+  MapPin
 } from "lucide-react";
 import { useToolConfigStore, ToolItem } from "@/store/useToolConfigStore";
 import { ComingSoonView } from "@/components/common/ComingSoonView";
@@ -67,7 +68,7 @@ export default function SuperAdminPage() {
   };
 
   // Main Tab State
-  const [adminTab, setAdminTab] = useState<"tools_hub" | "paper_studio" | "olympiad" | "users" | "analytics">("tools_hub");
+  const [adminTab, setAdminTab] = useState<"tools_hub" | "paper_studio" | "olympiad" | "users" | "schools" | "analytics">("tools_hub");
 
   // Platform Tools Hub State
   const { tools, updateTool, toggleComingSoon, setAllComingSoon, resetToDefaults, fetchFromServer, saveToServer } = useToolConfigStore();
@@ -83,6 +84,12 @@ export default function SuperAdminPage() {
   useEffect(() => {
     fetchFromServer();
   }, []);
+
+  // School Management & Verification State
+  const [schoolsList, setSchoolsList] = useState<any[]>([]);
+  const [schoolFilter, setSchoolFilter] = useState<"all" | "pending_verification" | "verified" | "rejected">("all");
+  const [selectedSchoolDetail, setSelectedSchoolDetail] = useState<any | null>(null);
+  const [verifyingSchoolId, setVerifyingSchoolId] = useState<string | null>(null);
 
   // Paper Studio Sub-Tab State
   const [paperStudioSubTab, setPaperStudioSubTab] = useState<"tso_100_ai" | "manual_builder" | "repository">("tso_100_ai");
@@ -229,10 +236,56 @@ export default function SuperAdminPage() {
       if (data.profiles) setUsersList(data.profiles);
       if (data.submissions) setSubmissions(data.submissions);
       if (data.papers) setPapersList(data.papers);
+      if (data.schools) setSchoolsList(data.schools);
     } catch (e) {
       console.error("Error fetching admin data", e);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const handleVerifySchool = async (schoolId: string) => {
+    setVerifyingSchoolId(schoolId);
+    try {
+      const baseUrl = getApiBase();
+      const res = await fetch(`${baseUrl}/admin/schools/${schoolId}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg(data.message || "School verified and dashboard unlocked!");
+        setSchoolsList(prev => prev.map(s => s.id === schoolId ? { ...s, verification_status: "verified" } : s));
+        setTimeout(() => setActionMsg(null), 4000);
+      }
+    } catch (err) {
+      alert("Failed to verify school");
+    } finally {
+      setVerifyingSchoolId(null);
+    }
+  };
+
+  const handleRejectSchool = async (schoolId: string) => {
+    if (!confirm("Are you sure you want to reject/suspend this school?")) return;
+    setVerifyingSchoolId(schoolId);
+    try {
+      const baseUrl = getApiBase();
+      const res = await fetch(`${baseUrl}/admin/schools/${schoolId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg(data.message || "School verification rejected.");
+        setSchoolsList(prev => prev.map(s => s.id === schoolId ? { ...s, verification_status: "rejected" } : s));
+        setTimeout(() => setActionMsg(null), 4000);
+      }
+    } catch (err) {
+      alert("Failed to reject school");
+    } finally {
+      setVerifyingSchoolId(null);
     }
   };
 
@@ -1016,6 +1069,16 @@ export default function SuperAdminPage() {
         >
           <Users className="w-4 h-4 text-teal-300" />
           <span>User Profiles & Role Control ({usersList.length})</span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab("schools")}
+          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            adminTab === "schools" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <Building2 className="w-4 h-4 text-emerald-400" />
+          <span>School Verification ({schoolsList.filter(s => s.verification_status === "pending_verification").length} Pending)</span>
         </button>
       </div>
 
@@ -2804,6 +2867,291 @@ export default function SuperAdminPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: SCHOOL VERIFICATION & RECRUITMENT MANAGEMENT PORTAL                  */}
+      {/* ========================================================================= */}
+      {adminTab === "schools" && (
+        <div className="space-y-6">
+          
+          {/* TOP METRICS STRIP */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Registered Schools</span>
+              <p className="text-2xl font-black text-slate-900">{schoolsList.length}</p>
+              <span className="text-[11px] text-slate-500 font-semibold">Institutions across India</span>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 shadow-xs space-y-1">
+              <span className="text-xs font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                Pending Verification Review
+              </span>
+              <p className="text-2xl font-black text-amber-900">
+                {schoolsList.filter(s => s.verification_status === "pending_verification" || !s.verification_status).length}
+              </p>
+              <span className="text-[11px] text-amber-700 font-semibold">Require Super Admin action</span>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 shadow-xs space-y-1">
+              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Verified Partner Schools</span>
+              <p className="text-2xl font-black text-emerald-900">
+                {schoolsList.filter(s => s.verification_status === "verified").length}
+              </p>
+              <span className="text-[11px] text-emerald-700 font-semibold">Unlocked dashboards & live hiring</span>
+            </div>
+          </div>
+
+          {/* FILTER AND CONTROLS BAR */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <span className="text-xs font-bold text-slate-400 mr-1 flex items-center gap-1">
+                <Filter className="w-3.5 h-3.5" /> Filter Status:
+              </span>
+              {[
+                { id: "all", label: "All Schools", count: schoolsList.length },
+                { id: "pending_verification", label: "Pending", count: schoolsList.filter(s => s.verification_status === "pending_verification" || !s.verification_status).length },
+                { id: "verified", label: "Verified & Unlocked", count: schoolsList.filter(s => s.verification_status === "verified").length },
+                { id: "rejected", label: "Rejected", count: schoolsList.filter(s => s.verification_status === "rejected").length },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setSchoolFilter(f.id as any)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer border ${
+                    schoolFilter === f.id
+                      ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                      : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                    schoolFilter === f.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                  }`}>
+                    {f.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => fetchAdminData()}
+              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh Schools</span>
+            </button>
+          </div>
+
+          {/* SCHOOLS TABLE */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider">
+                    <th className="p-4">School / Institution</th>
+                    <th className="p-4">Affiliation & Location</th>
+                    <th className="p-4">Contact Person</th>
+                    <th className="p-4">Verification Status</th>
+                    <th className="p-4 text-right">Admin Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {schoolsList
+                    .filter(s => {
+                      if (schoolFilter === "pending_verification") {
+                        return s.verification_status === "pending_verification" || !s.verification_status;
+                      }
+                      if (schoolFilter !== "all") {
+                        return s.verification_status === schoolFilter;
+                      }
+                      return true;
+                    })
+                    .map(s => {
+                      const isPending = s.verification_status === "pending_verification" || !s.verification_status;
+                      const isApproved = s.verification_status === "verified";
+                      return (
+                        <tr key={s.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-black shrink-0">
+                                <Building2 className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h4 className="font-extrabold text-slate-900 text-xs">{s.school_name}</h4>
+                                <span className="text-[10px] text-slate-400 font-mono">ID: {s.id}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="p-4">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 font-black text-slate-800 text-[10px] uppercase block w-fit">
+                              {s.affiliation_board || "CBSE"} Board
+                            </span>
+                            <span className="text-slate-500 text-[11px] font-semibold mt-0.5 flex items-center gap-0.5">
+                              <MapPin className="w-3 h-3 text-slate-400" />
+                              {s.city || "N/A"}{s.state ? `, ${s.state}` : ""}
+                            </span>
+                          </td>
+
+                          <td className="p-4">
+                            <p className="font-bold text-slate-800">{s.contact_person || "Principal"}</p>
+                            <span className="text-slate-400 text-[11px] block">{s.email}</span>
+                            {s.phone && <span className="text-slate-400 text-[10px] block">{s.phone}</span>}
+                          </td>
+
+                          <td className="p-4">
+                            {isApproved ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                Verified & Unlocked
+                              </span>
+                            ) : isPending ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-black uppercase">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                                Pending Review
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black uppercase">
+                                <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                                Rejected / Suspended
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {isApproved ? (
+                                <button
+                                  onClick={() => handleRejectSchool(s.id)}
+                                  disabled={verifyingSchoolId === s.id}
+                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer"
+                                >
+                                  Suspend
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleVerifySchool(s.id)}
+                                  disabled={verifyingSchoolId === s.id}
+                                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[11px] font-black shadow-md shadow-emerald-600/25 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>{verifyingSchoolId === s.id ? "Verifying..." : "Approve & Unlock"}</span>
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => setSelectedSchoolDetail(s)}
+                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                                title="Inspect School Details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  {schoolsList.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-12 text-center text-slate-400">
+                        <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                        <p className="font-bold text-slate-700">No registered schools yet</p>
+                        <p className="text-[11px]">Schools that register will automatically appear here for verification review.</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SCHOOL DETAIL INSPECTOR MODAL */}
+      {selectedSchoolDetail && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">{selectedSchoolDetail.school_name}</h3>
+                  <p className="text-xs text-slate-500 font-medium">ID: {selectedSchoolDetail.id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedSchoolDetail(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Affiliation Board</span>
+                  <span className="font-black text-slate-900">{selectedSchoolDetail.affiliation_board || "CBSE"}</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Status</span>
+                  <span className="font-black text-slate-900 uppercase">{selectedSchoolDetail.verification_status || "Pending"}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Location & Address</span>
+                <p className="font-bold text-slate-800">{selectedSchoolDetail.city}, {selectedSchoolDetail.state}</p>
+                {selectedSchoolDetail.address && <p className="text-slate-500">{selectedSchoolDetail.address}</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Official Email</span>
+                  <span className="font-bold text-slate-800 truncate block">{selectedSchoolDetail.email}</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Phone</span>
+                  <span className="font-bold text-slate-800">{selectedSchoolDetail.phone || "N/A"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedSchoolDetail(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+              >
+                Close
+              </button>
+              {selectedSchoolDetail.verification_status !== "verified" ? (
+                <button
+                  onClick={() => {
+                    handleVerifySchool(selectedSchoolDetail.id);
+                    setSelectedSchoolDetail(null);
+                  }}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Approve & Unlock Dashboard
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    handleRejectSchool(selectedSchoolDetail.id);
+                    setSelectedSchoolDetail(null);
+                  }}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+                >
+                  Suspend School
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

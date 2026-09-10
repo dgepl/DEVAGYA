@@ -5,7 +5,7 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  role: "teacher" | "super_admin" | "student" | "parent" | "management";
+  role: "teacher" | "super_admin" | "student" | "parent" | "management" | "school";
   schoolName: string;
   schoolLogo?: string;
   avatarUrl?: string;
@@ -17,6 +17,14 @@ export interface UserProfile {
   streak?: number;
   level?: number;
   coins?: number;
+
+  // School Specific
+  schoolId?: string;
+  verificationStatus?: "pending_verification" | "verified" | "rejected";
+  affiliationBoard?: string;
+  schoolCity?: string;
+  schoolState?: string;
+  contactPerson?: string;
 
   // Student Specific
   targetExam?: string;
@@ -58,7 +66,7 @@ interface AppState {
   activeChildId: string;
   setUser: (user: UserProfile) => void;
   updateUserProfile: (updates: Partial<UserProfile>) => void;
-  switchRole: (role: "teacher" | "student" | "parent" | "super_admin") => void;
+  switchRole: (role: "teacher" | "student" | "parent" | "super_admin" | "school") => void;
   setActivePaper: (paper: GeneratedPaperResponse | null) => void;
   savePaper: (paper: GeneratedPaperResponse) => void;
   deleteSavedPaper: (index: number) => void;

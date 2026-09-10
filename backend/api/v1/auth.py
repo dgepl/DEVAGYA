@@ -41,6 +41,12 @@ class RegisterPayload(BaseModel):
     tso_category_level: Optional[str] = "Secondary"
     tso_medium: Optional[str] = "English"
     trial_activated: Optional[bool] = True
+    # School specific
+    affiliation_board: Optional[str] = "CBSE"
+    city: Optional[str] = ""
+    state: Optional[str] = ""
+    contact_person: Optional[str] = ""
+    address: Optional[str] = ""
 
 class LoginPayload(BaseModel):
     email: str
@@ -170,6 +176,25 @@ async def register_user(payload: RegisterPayload):
         # Also store password in persistent store
         supabase_service.set_user_password(email_clean, payload.password)
 
+        # If registering as a school, save into recruitment_service as pending verification
+        school_id = ""
+        verification_status = "verified"
+        if payload.role == "school":
+            from services.recruitment_service import recruitment_service
+            sch = recruitment_service.register_or_update_school(
+                email=email_clean,
+                school_name=payload.school_name or payload.name,
+                phone=payload.phone or "",
+                affiliation_board=payload.affiliation_board or payload.board or "CBSE",
+                city=payload.city or "",
+                state=payload.state or "",
+                contact_person=payload.contact_person or payload.name,
+                address=payload.address or "",
+                logo_url=payload.school_logo or ""
+            )
+            school_id = sch.get("id", "")
+            verification_status = sch.get("verification_status", "pending_verification")
+
         # Cryptographically signed JWT Token
         signed_token = jwt_auth.create_access_token(
             user_id=user_id,
@@ -182,13 +207,15 @@ async def register_user(payload: RegisterPayload):
             "email": email_clean,
             "name": payload.name,
             "role": payload.role,
-            "schoolName": profile.get("school_name", ""),
+            "schoolName": profile.get("school_name", "") or payload.school_name,
             "board": profile.get("board", "CBSE"),
             "subject": profile.get("subject", ""),
             "classes": profile.get("classes", "Class 10"),
             "schoolLogo": profile.get("school_logo", ""),
             "avatarUrl": profile.get("avatar_url", ""),
             "isProfileComplete": profile.get("is_profile_complete", False),
+            "schoolId": school_id,
+            "verificationStatus": verification_status,
             "token": signed_token
         }
         return {
@@ -272,6 +299,24 @@ async def login_user(payload: LoginPayload):
         "weeklyReportAlerts": profile.get("weekly_report_alerts", True),
         "token": signed_token
     }
+
+    if user_role == "school":
+        from services.recruitment_service import recruitment_service
+        school_rec = recruitment_service.get_school_by_email(email_clean)
+        if not school_rec:
+            school_rec = recruitment_service.register_or_update_school(
+                email=email_clean,
+                school_name=profile.get("school_name") or full_name,
+                phone=profile.get("phone", ""),
+                affiliation_board=profile.get("board", "CBSE")
+            )
+        user_data["schoolId"] = school_rec.get("id")
+        user_data["verificationStatus"] = school_rec.get("verification_status", "pending_verification")
+        user_data["affiliationBoard"] = school_rec.get("affiliation_board", "CBSE")
+        user_data["schoolCity"] = school_rec.get("city", "")
+        user_data["schoolState"] = school_rec.get("state", "")
+        user_data["contactPerson"] = school_rec.get("contact_person", "")
+
     return {
         "status": "success",
         "message": "Login successful!",
@@ -320,6 +365,24 @@ async def get_profile(email: str):
         "weeklyReportAlerts": profile.get("weekly_report_alerts", True),
         "token": f"devgya-jwt-{user_role}-token-{user_id}"
     }
+
+    if user_role == "school":
+        from services.recruitment_service import recruitment_service
+        school_rec = recruitment_service.get_school_by_email(email_clean)
+        if not school_rec:
+            school_rec = recruitment_service.register_or_update_school(
+                email=email_clean,
+                school_name=profile.get("school_name") or user_data["name"],
+                phone=profile.get("phone", ""),
+                affiliation_board=profile.get("board", "CBSE")
+            )
+        user_data["schoolId"] = school_rec.get("id")
+        user_data["verificationStatus"] = school_rec.get("verification_status", "pending_verification")
+        user_data["affiliationBoard"] = school_rec.get("affiliation_board", "CBSE")
+        user_data["schoolCity"] = school_rec.get("city", "")
+        user_data["schoolState"] = school_rec.get("state", "")
+        user_data["contactPerson"] = school_rec.get("contact_person", "")
+
     return {
         "status": "success",
         "user": user_data
