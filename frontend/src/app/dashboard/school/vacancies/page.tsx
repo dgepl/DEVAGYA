@@ -443,12 +443,12 @@ export default function SchoolVacanciesPage() {
         </div>
       )}
 
-      {/* POST VACANCY MODAL (Thumb-friendly mobile bottom-sheet) */}
+      {/* POST VACANCY MODAL (Thumb-friendly mobile bottom-sheet with sticky footer) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-200">
+        <div className="fixed inset-0 z-[99] bg-slate-900/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[85vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-200">
             {/* MODAL HEADER */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                   <Briefcase className="w-4 h-4" />
@@ -456,6 +456,7 @@ export default function SchoolVacanciesPage() {
                 <h3 className="text-sm font-black text-slate-900">Post New Teaching Vacancy</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl cursor-pointer"
               >
@@ -463,138 +464,140 @@ export default function SchoolVacanciesPage() {
               </button>
             </div>
 
-            {/* MODAL BODY */}
-            <form onSubmit={handleCreateVacancy} className="p-4 sm:p-6 overflow-y-auto space-y-4">
-              {formError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-700 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-                  <span>{formError}</span>
-                </div>
-              )}
-              {formSuccess && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
-                  <span>{formSuccess}</span>
-                </div>
-              )}
+            {/* MODAL BODY (SCROLLABLE) */}
+            <form onSubmit={handleCreateVacancy} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                {formError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-700 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                    <span>{formError}</span>
+                  </div>
+                )}
+                {formSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                    <span>{formSuccess}</span>
+                  </div>
+                )}
 
-              {/* JOB TITLE */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Job Title / Designation *</label>
-                <input
-                  type="text"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. TGT Mathematics Teacher (Classes 6-10)"
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold"
-                />
-              </div>
-
-              {/* LEVEL & SUBJECT GRID */}
-              <div className="grid grid-cols-2 gap-3">
+                {/* JOB TITLE */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Grade Level *</label>
-                  <select
-                    value={newLevel}
-                    onChange={(e) => setNewLevel(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
-                  >
-                    {LEVEL_OPTIONS.map((lvl) => (
-                      <option key={lvl} value={lvl}>{lvl}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Subject *</label>
-                  <select
-                    value={newSubject}
-                    onChange={(e) => setNewSubject(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
-                  >
-                    {SUBJECT_OPTIONS.map((sub) => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* SALARY & SEATS GRID */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Salary Range</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Job Title / Designation *</label>
                   <input
                     type="text"
-                    value={newSalary}
-                    onChange={(e) => setNewSalary(e.target.value)}
-                    placeholder="e.g. ₹30,000 - ₹50,000 / mo"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="e.g. TGT Mathematics Teacher (Classes 6-10)"
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 font-semibold"
                   />
                 </div>
 
+                {/* LEVEL & SUBJECT GRID */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Grade Level *</label>
+                    <select
+                      value={newLevel}
+                      onChange={(e) => setNewLevel(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                    >
+                      {LEVEL_OPTIONS.map((lvl) => (
+                        <option key={lvl} value={lvl}>{lvl}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Subject *</label>
+                    <select
+                      value={newSubject}
+                      onChange={(e) => setNewSubject(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                    >
+                      {SUBJECT_OPTIONS.map((sub) => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* SALARY & SEATS GRID */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Salary Range</label>
+                    <input
+                      type="text"
+                      value={newSalary}
+                      onChange={(e) => setNewSalary(e.target.value)}
+                      placeholder="e.g. ₹30,000 - ₹50,000 / mo"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Number of Openings</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={newOpenings}
+                      onChange={(e) => setNewOpenings(parseInt(e.target.value) || 1)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                    />
+                  </div>
+                </div>
+
+                {/* EXPERIENCE & BOARD GRID */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Experience Required</label>
+                    <select
+                      value={newExp}
+                      onChange={(e) => setNewExp(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                    >
+                      <option value="Fresher / 0-1 Years">Fresher / 0-1 Years</option>
+                      <option value="1-3 Years">1-3 Years</option>
+                      <option value="3-5 Years">3-5 Years</option>
+                      <option value="5+ Years">5+ Years</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Board</label>
+                    <select
+                      value={newBoard}
+                      onChange={(e) => setNewBoard(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                    >
+                      <option value="CBSE">CBSE</option>
+                      <option value="ICSE">ICSE</option>
+                      <option value="State Board">State Board</option>
+                      <option value="IB / Cambridge">IB / Cambridge</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* DESCRIPTION & REQUIREMENTS */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Number of Openings</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={newOpenings}
-                    onChange={(e) => setNewOpenings(parseInt(e.target.value) || 1)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Job Description & Responsibilities</label>
+                  <textarea
+                    rows={3}
+                    value={newDesc}
+                    onChange={(e) => setNewDesc(e.target.value)}
+                    placeholder="Key responsibilities, teaching medium, class assignments, etc."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
                   />
                 </div>
               </div>
 
-              {/* EXPERIENCE & BOARD GRID */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Experience Required</label>
-                  <select
-                    value={newExp}
-                    onChange={(e) => setNewExp(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
-                  >
-                    <option value="Fresher / 0-1 Years">Fresher / 0-1 Years</option>
-                    <option value="1-3 Years">1-3 Years</option>
-                    <option value="3-5 Years">3-5 Years</option>
-                    <option value="5+ Years">5+ Years</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Board</label>
-                  <select
-                    value={newBoard}
-                    onChange={(e) => setNewBoard(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
-                  >
-                    <option value="CBSE">CBSE</option>
-                    <option value="ICSE">ICSE</option>
-                    <option value="State Board">State Board</option>
-                    <option value="IB / Cambridge">IB / Cambridge</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* DESCRIPTION & REQUIREMENTS */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Job Description & Responsibilities</label>
-                <textarea
-                  rows={3}
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="Key responsibilities, teaching medium, class assignments, etc."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 font-semibold focus:outline-none focus:border-indigo-600"
-                />
-              </div>
-
-              {/* SUBMIT BUTTON */}
-              <div className="pt-2">
+              {/* MODAL STICKY FOOTER (ALWAYS VISIBLE PINNED TO BOTTOM) */}
+              <div className="p-4 border-t border-slate-100 bg-white sticky bottom-0 z-10 shrink-0 shadow-lg">
                 <button
                   type="submit"
                   disabled={postingJob}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   <span>{postingJob ? "Publishing Opening..." : "Publish Vacancy on DEVAGYA"}</span>
