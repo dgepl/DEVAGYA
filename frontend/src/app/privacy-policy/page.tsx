@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PageTransition } from "@/components/ui/PageTransition";
@@ -109,11 +109,15 @@ export default function PrivacyPolicyPage() {
           {/* LEGAL NOTICE FOOTNOTE */}
           <div className="p-8 rounded-3xl bg-slate-100 border border-slate-200 text-slate-700 space-y-4">
             <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-              Policy Compliance & Updates
+              Policy Compliance & Support
             </h4>
             <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
               We may update this policy periodically to reflect evolving technology, school safety regulations, and legal compliance. Continued use of Devgya indicates acceptance of any updated privacy terms.
             </p>
+            <div className="pt-2 border-t border-slate-200 text-xs text-slate-600 space-y-1">
+              <p><strong className="text-slate-900">DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</strong></p>
+              <p>Email: <a href="mailto:dgepl.info@gmail.com" className="text-indigo-600 font-bold underline">dgepl.info@gmail.com</a> | Phone: +91 8307224756</p>
+            </div>
             <p className="text-xs text-slate-500 font-semibold">
               Last Updated: September 2026 • DEVGYA GLOBAL EDUTECH PRIVATE LIMITED
             </p>

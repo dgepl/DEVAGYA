@@ -198,7 +198,7 @@ def _download_image_bytes(url: Optional[str]) -> Optional[bytes]:
 
     try:
         import httpx
-        headers = {"User-Agent": "DEVGYA-Educational-App/1.0 (https://devgya.in; contact@devgya.in)"}
+        headers = {"User-Agent": "DEVGYA-Educational-App/1.0 (https://devgya.in; dgepl.info@gmail.com)"}
         with httpx.Client(timeout=6.0, headers=headers, follow_redirects=True) as client:
             resp = client.get(url_str)
             if resp.status_code == 200 and len(resp.content) > 500:
@@ -225,7 +225,7 @@ async def _resolve_real_topic_image(topic: str, slide_title: str, keyword: str) 
         f"{topic} {slide_title}".strip(),
         f"{slide_title}".strip()
     ]
-    headers = {"User-Agent": "DEVGYA-Educational-App/1.0 (https://devgya.in; contact@devgya.in)"}
+    headers = {"User-Agent": "DEVGYA-Educational-App/1.0 (https://devgya.in; dgepl.info@gmail.com)"}
 
     try:
         import httpx

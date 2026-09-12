@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PageTransition } from "@/components/ui/PageTransition";
@@ -118,6 +118,9 @@ export default function SafetyStandardsPage() {
             </h2>
             <p className="text-slate-300 text-sm max-w-2xl mx-auto font-medium">
               We regularly review and update our systems to ensure they align with the latest educational guidelines, CBSE NEP 2020 directives, and highest security benchmarks.
+            </p>
+            <p className="text-xs text-emerald-200 pt-2 border-t border-emerald-800/60 font-semibold">
+              Quality Assurance & Support Helpline: <a href="mailto:dgepl.info@gmail.com" className="text-white underline font-bold">dgepl.info@gmail.com</a> | +91 8307224756
             </p>
           </div>
 

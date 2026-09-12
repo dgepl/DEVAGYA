@@ -201,12 +201,15 @@ export default function LoginClient() {
           </button>
         </form>
 
-        <div className="text-center pt-2 border-t border-slate-100">
+        <div className="text-center pt-2 border-t border-slate-100 space-y-1">
           <p className="text-xs text-slate-500 font-semibold">
             {role === "school" ? "Registering a new institution?" : "Don't have an account yet?"}{" "}
             <Link href="/register" className="text-indigo-600 font-bold hover:underline">
               {role === "school" ? "Register School" : "Sign Up Free"}
             </Link>
+          </p>
+          <p className="text-[11px] text-slate-400">
+            Need login assistance? Contact <a href="mailto:dgepl.info@gmail.com" className="text-indigo-600 font-bold hover:underline">dgepl.info@gmail.com</a>
           </p>
         </div>
 

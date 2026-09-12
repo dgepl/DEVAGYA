@@ -443,6 +443,17 @@ export default function SchoolVacanciesPage() {
         </div>
       )}
 
+      {/* SUPPORT FOOTER */}
+      <div className="p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-xs text-indigo-950 flex flex-col sm:flex-row items-center justify-between gap-2 shadow-2xs">
+        <span className="font-semibold">Need assistance posting or managing institutional vacancies?</span>
+        <a 
+          href="mailto:dgepl.info@gmail.com" 
+          className="font-extrabold text-indigo-700 underline hover:text-indigo-900"
+        >
+          Email Support: dgepl.info@gmail.com
+        </a>
+      </div>
+
       {/* POST VACANCY MODAL (Thumb-friendly mobile bottom-sheet with sticky footer) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[99] bg-slate-900/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">

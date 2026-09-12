@@ -283,7 +283,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="pt-3 border-t border-slate-200 space-y-1.5">
+        <div className="pt-3 border-t border-slate-200 space-y-1">
+          <a
+            href="mailto:dgepl.info@gmail.com"
+            className="w-full px-3 py-2 text-[11px] text-slate-600 hover:text-indigo-600 font-bold flex items-center gap-2 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer group"
+            title="Email Support"
+          >
+            <Headphones className="w-4 h-4 text-indigo-500 shrink-0" />
+            <span className="truncate">Support: dgepl.info@gmail.com</span>
+          </a>
           <button
             onClick={handleSignOut}
             className="w-full px-3 py-1.5 text-xs text-slate-600 hover:text-red-600 font-bold flex items-center gap-2.5 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
@@ -363,7 +371,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         {!isAIChatPage && (
           <footer className="mt-auto px-4 sm:px-8 py-3 mb-12 md:mb-0 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-1 text-center sm:text-left">
             <p className="text-[11px] sm:text-xs text-slate-500 font-semibold">
-              &copy; 2026 DEVGYA Global Edutech Private Limited. All Rights Reserved.
+              &copy; 2026 DEVGYA Global Edutech Private Limited. Support: <a href="mailto:dgepl.info@gmail.com" className="text-indigo-600 font-bold hover:underline">dgepl.info@gmail.com</a>
             </p>
             <p className="text-[9.5px] sm:text-[11px] text-slate-400 font-medium tracking-tight">
               Designed &amp; Developed by <span className="text-indigo-600 font-semibold">Pratikk Yadav and Team (+91 8307224756)</span>

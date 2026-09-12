@@ -540,6 +540,17 @@ export default function TeacherRecruitmentPage() {
         </div>
       )}
 
+      {/* RECRUITMENT HELPLINE FOOTER */}
+      <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-xs text-indigo-950 flex flex-col sm:flex-row items-center justify-between gap-2 shadow-2xs">
+        <span className="font-semibold">Questions about recruitment or career opportunities?</span>
+        <a 
+          href="mailto:dgepl.info@gmail.com" 
+          className="font-extrabold text-indigo-700 underline hover:text-indigo-900"
+        >
+          Email Support: dgepl.info@gmail.com
+        </a>
+      </div>
+
       {/* 4. APPLY MODAL (STRICTLY PDF RESUME) */}
       {applyingVacancy && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">

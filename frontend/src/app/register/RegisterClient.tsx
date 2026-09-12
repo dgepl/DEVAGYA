@@ -389,12 +389,15 @@ export default function RegisterClient() {
           </button>
         </form>
 
-        <div className="text-center pt-2 border-t border-slate-100">
+        <div className="text-center pt-2 border-t border-slate-100 space-y-1">
           <p className="text-xs text-slate-500 font-semibold">
             Already have an account?{" "}
             <Link href="/login" className="text-indigo-600 font-bold hover:underline">
               Sign In
             </Link>
+          </p>
+          <p className="text-[11px] text-slate-400">
+            Need registration help? Contact <a href="mailto:dgepl.info@gmail.com" className="text-indigo-600 font-bold hover:underline">dgepl.info@gmail.com</a>
           </p>
         </div>
 

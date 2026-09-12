@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Mail, Phone } from "lucide-react";
 
 export function FAQSection() {
   const faqs = [
@@ -51,6 +51,28 @@ export function FAQSection() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* STILL HAVE QUESTIONS HELP CARD */}
+        <div className="mt-12 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-950 text-white shadow-xl text-center space-y-3">
+          <p className="text-xs font-black uppercase tracking-widest text-indigo-400">Direct Support Helpline</p>
+          <h3 className="text-lg sm:text-xl font-black">Still Have Questions or Need Assistance?</h3>
+          <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto font-medium">
+            Our educational support and onboarding team is here to assist schools, teachers, students, and parents.
+          </p>
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-4 text-xs font-bold">
+            <a 
+              href="mailto:dgepl.info@gmail.com" 
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-all flex items-center gap-2 shadow-sm"
+            >
+              <Mail className="w-4 h-4 text-cyan-300" />
+              <span>Email: dgepl.info@gmail.com</span>
+            </a>
+            <span className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 text-slate-200 flex items-center gap-2">
+              <Phone className="w-4 h-4 text-emerald-400" />
+              <span>Phone: +91 8307224756</span>
+            </span>
+          </div>
         </div>
 
       </div>

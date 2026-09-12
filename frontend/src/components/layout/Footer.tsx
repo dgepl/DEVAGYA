@@ -10,7 +10,8 @@ import {
   ArrowRight, 
   CheckCircle2, 
   Heart, 
-  Code2 
+  Code2,
+  Mail
 } from "lucide-react";
 
 export function Footer() {
@@ -50,13 +51,22 @@ export function Footer() {
           {/* COLUMN 1: NAVIGATION & COMPANY */}
           <div className="space-y-3">
             <h4 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/10 pb-2">
-              Company Navigation
+              Company &amp; Support
             </h4>
             <ul className="space-y-2 text-xs font-semibold text-slate-400">
               <li><Link href="/" className="hover:text-cyan-300 transition-colors">Home Page</Link></li>
               <li><Link href="/about" className="hover:text-cyan-300 transition-colors">About Us</Link></li>
               <li><Link href="/why-choose-us" className="hover:text-cyan-300 transition-colors">Why Choose Us</Link></li>
-              <li><Link href="/faq" className="hover:text-cyan-300 transition-colors">FAQ & Support</Link></li>
+              <li><Link href="/faq" className="hover:text-cyan-300 transition-colors">FAQ &amp; Support</Link></li>
+              <li className="pt-2 border-t border-white/10">
+                <a 
+                  href="mailto:dgepl.info@gmail.com" 
+                  className="text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-bold"
+                >
+                  <Mail className="w-3.5 h-3.5 shrink-0" />
+                  <span>dgepl.info@gmail.com</span>
+                </a>
+              </li>
             </ul>
           </div>
 

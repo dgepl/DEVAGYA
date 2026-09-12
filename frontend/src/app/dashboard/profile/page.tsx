@@ -568,11 +568,16 @@ function ProfileContent() {
 
           </div>
 
-          {/* CLOUD BACKUP BADGE */}
-          <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 text-indigo-900 text-xs flex items-center gap-3">
-            <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0" />
-            <p className="font-semibold text-[11px] leading-relaxed">
-              Your profile credentials, generated papers, and assessments are automatically synced to Cloud.
+          {/* CLOUD BACKUP & SUPPORT BADGE */}
+          <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 text-indigo-900 text-xs space-y-2">
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
+              <p className="font-semibold text-[11px] leading-relaxed">
+                Your profile credentials and assessments are automatically synced to Cloud.
+              </p>
+            </div>
+            <p className="text-[10px] text-indigo-700 font-bold border-t border-indigo-100/80 pt-1.5">
+              Support Helpline: <a href="mailto:dgepl.info@gmail.com" className="underline hover:text-indigo-900">dgepl.info@gmail.com</a>
             </p>
           </div>
         </div>

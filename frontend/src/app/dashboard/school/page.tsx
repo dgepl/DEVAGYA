@@ -17,7 +17,9 @@ import {
   TrendingUp,
   Award,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Mail,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { getApiBase } from "@/lib/api";
@@ -447,6 +449,26 @@ export default function SchoolDashboardHomePage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* SCHOOL SUPPORT HELPLINE BANNER */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50/80 via-white to-purple-50/80 border border-indigo-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Mail className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="font-extrabold text-slate-900">Dedicated School Partner Support</p>
+            <p className="text-[11px] text-slate-500">Need vacancy assistance, teacher recruitment help, or portal access?</p>
+          </div>
+        </div>
+        <a 
+          href="mailto:dgepl.info@gmail.com"
+          className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0 transition-colors shadow-xs flex items-center gap-1.5"
+        >
+          <Mail className="w-3.5 h-3.5" />
+          <span>Email: dgepl.info@gmail.com</span>
+        </a>
       </div>
     </div>
   );

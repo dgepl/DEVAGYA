@@ -207,7 +207,7 @@ export function SchoolLockedBanner({
       {/* HELP FOOTER */}
       <div className="text-center p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl text-xs text-indigo-950 flex items-center justify-center gap-2">
         <HelpCircle className="w-4 h-4 text-indigo-600 shrink-0" />
-        <span>Need expedited approval? Email support at <strong>contact@devgya.in</strong></span>
+        <span>Need expedited approval? Email support at <a href="mailto:dgepl.info@gmail.com" className="font-extrabold text-indigo-700 underline hover:text-indigo-900">dgepl.info@gmail.com</a></span>
       </div>
     </div>
   );

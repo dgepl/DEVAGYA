@@ -404,6 +404,17 @@ export default function SchoolApplicantsPage() {
           ))}
         </div>
       )}
+
+      {/* SUPPORT FOOTER */}
+      <div className="text-center p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-xs text-indigo-950 flex flex-col sm:flex-row items-center justify-between gap-2 shadow-2xs">
+        <span className="font-semibold">Need assistance reviewing applicants or conducting recruitment?</span>
+        <a 
+          href="mailto:dgepl.info@gmail.com" 
+          className="font-extrabold text-indigo-700 underline hover:text-indigo-900"
+        >
+          Email Support: dgepl.info@gmail.com
+        </a>
+      </div>
     </div>
   );
 }

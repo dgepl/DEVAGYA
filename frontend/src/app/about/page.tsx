@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -15,7 +15,9 @@ import {
   Globe2, 
   Award, 
   HeartHandshake, 
-  Lightbulb 
+  Lightbulb,
+  Mail,
+  Phone
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -194,6 +196,22 @@ export default function AboutPage() {
               <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl mx-auto font-medium">
                 Driven by innovation and a commitment to excellence, Devgya Global Edutech is your trusted partner in shaping a smarter, brighter future for the next generation.
               </p>
+
+              {/* DIRECT CONTACT & SUPPORT */}
+              <div className="pt-6 border-t border-white/10 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-300">
+                <a href="mailto:dgepl.info@gmail.com" className="inline-flex items-center gap-2 hover:text-cyan-300 font-bold transition-colors">
+                  <Mail className="w-4 h-4 text-cyan-400" />
+                  <span>Email: dgepl.info@gmail.com</span>
+                </a>
+                <span className="inline-flex items-center gap-2 font-bold text-slate-300">
+                  <Phone className="w-4 h-4 text-emerald-400" />
+                  <span>Helpline: +91 8307224756</span>
+                </span>
+                <span className="inline-flex items-center gap-2 font-medium text-slate-400">
+                  <MapPin className="w-4 h-4 text-rose-400" />
+                  <span>Jhajjar, Haryana, India</span>
+                </span>
+              </div>
             </div>
           </section>
 
