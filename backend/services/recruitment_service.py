@@ -53,6 +53,59 @@ class RecruitmentService:
         self.schools: Dict[str, Dict[str, Any]] = _load_json(SCHOOLS_FILE)
         self.vacancies: Dict[str, Dict[str, Any]] = _load_json(VACANCIES_FILE)
         self.applications: Dict[str, Dict[str, Any]] = _load_json(APPLICATIONS_FILE)
+        # Pull live data from Supabase Cloud on initialization
+        self._sync_from_supabase_cloud()
+
+    def _sync_from_supabase_cloud(self):
+        """Pulls all schools, vacancies, and applications live from Supabase Cloud."""
+        if not SERVICE_KEY or not SUPABASE_URL:
+            return
+        try:
+            with httpx.Client(timeout=8.0) as client:
+                # 1. Sync schools
+                res_sch = client.get(
+                    f"{SUPABASE_URL}/rest/v1/recruitment_schools?select=*&order=created_at.desc", 
+                    headers=supabase_headers
+                )
+                if res_sch.status_code == 200:
+                    cloud_schools = res_sch.json()
+                    if isinstance(cloud_schools, list):
+                        for s in cloud_schools:
+                            s_id = s.get("id")
+                            if s_id:
+                                self.schools[s_id] = s
+                        _save_json(SCHOOLS_FILE, self.schools)
+                        logger.info(f"Synced {len(cloud_schools)} schools from Supabase Cloud.")
+
+                # 2. Sync vacancies
+                res_vac = client.get(
+                    f"{SUPABASE_URL}/rest/v1/vacancies?select=*&order=created_at.desc", 
+                    headers=supabase_headers
+                )
+                if res_vac.status_code == 200:
+                    cloud_vac = res_vac.json()
+                    if isinstance(cloud_vac, list):
+                        for v in cloud_vac:
+                            v_id = v.get("id")
+                            if v_id:
+                                self.vacancies[v_id] = v
+                        _save_json(VACANCIES_FILE, self.vacancies)
+
+                # 3. Sync job applications
+                res_app = client.get(
+                    f"{SUPABASE_URL}/rest/v1/job_applications?select=*&order=created_at.desc", 
+                    headers=supabase_headers
+                )
+                if res_app.status_code == 200:
+                    cloud_app = res_app.json()
+                    if isinstance(cloud_app, list):
+                        for a in cloud_app:
+                            a_id = a.get("id")
+                            if a_id:
+                                self.applications[a_id] = a
+                        _save_json(APPLICATIONS_FILE, self.applications)
+        except Exception as e:
+            logger.warning(f"Notice during Supabase recruitment sync: {e}")
 
     # ==========================================
     # SCHOOL MANAGEMENT & VERIFICATION
@@ -69,19 +122,36 @@ class RecruitmentService:
         address: Optional[str] = "",
         logo_url: Optional[str] = ""
     ) -> Dict[str, Any]:
-        """Registers a school with initial verification_status as pending_verification."""
+        """Registers a school. Preserves existing verified status if already approved."""
         email_clean = email.strip().lower()
         now_iso = datetime.utcnow().isoformat()
 
+        # Check in-memory first
         existing_id = None
+        school_record = {}
         for s_id, s_data in self.schools.items():
             if s_data.get("email", "").lower() == email_clean:
                 existing_id = s_id
+                school_record = s_data
                 break
 
+        # If not in-memory, check Supabase Cloud
+        if not existing_id and SERVICE_KEY and SUPABASE_URL:
+            try:
+                with httpx.Client(timeout=6.0) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/recruitment_schools?email=eq.{email_clean}&select=*",
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200:
+                        rows = res.json()
+                        if rows and isinstance(rows, list):
+                            existing_id = rows[0].get("id")
+                            school_record = rows[0]
+            except Exception as e:
+                logger.warning(f"Error checking cloud school during register: {e}")
+
         school_id = existing_id or f"sch-{uuid.uuid4().hex[:10]}"
-        school_record = self.schools.get(school_id, {})
-        
         current_status = school_record.get("verification_status", "pending_verification")
         
         record = {
@@ -105,7 +175,7 @@ class RecruitmentService:
         self.schools[school_id] = record
         _save_json(SCHOOLS_FILE, self.schools)
 
-        # Sync to Supabase if table exists
+        # Sync to Supabase Cloud
         self._sync_school_to_supabase(record)
         return record
 
@@ -114,12 +184,54 @@ class RecruitmentService:
         for s in self.schools.values():
             if s.get("email", "").lower() == email_clean:
                 return s
+
+        # Direct cloud check if not in local memory
+        if SERVICE_KEY and SUPABASE_URL:
+            try:
+                with httpx.Client(timeout=6.0) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/recruitment_schools?email=eq.{email_clean}&select=*",
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200:
+                        rows = res.json()
+                        if rows and isinstance(rows, list) and len(rows) > 0:
+                            sch = rows[0]
+                            self.schools[sch["id"]] = sch
+                            _save_json(SCHOOLS_FILE, self.schools)
+                            return sch
+            except Exception as e:
+                logger.warning(f"Error fetching school by email from cloud: {e}")
+
         return None
 
     def get_school_by_id(self, school_id: str) -> Optional[Dict[str, Any]]:
-        return self.schools.get(school_id)
+        if school_id in self.schools:
+            return self.schools[school_id]
+
+        # Direct cloud check if not in local memory
+        if SERVICE_KEY and SUPABASE_URL:
+            try:
+                with httpx.Client(timeout=6.0) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/recruitment_schools?id=eq.{school_id}&select=*",
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200:
+                        rows = res.json()
+                        if rows and isinstance(rows, list) and len(rows) > 0:
+                            sch = rows[0]
+                            self.schools[sch["id"]] = sch
+                            _save_json(SCHOOLS_FILE, self.schools)
+                            return sch
+            except Exception as e:
+                logger.warning(f"Error fetching school by id from cloud: {e}")
+
+        return None
 
     def get_all_schools(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        # Always perform a live refresh from Supabase Cloud so the Admin panel stays 100% up-to-date
+        self._sync_from_supabase_cloud()
         schools = list(self.schools.values())
         if status:
             schools = [s for s in schools if s.get("verification_status") == status]
@@ -132,18 +244,43 @@ class RecruitmentService:
         notes: Optional[str] = ""
     ) -> Dict[str, Any]:
         """Admin action to approve/verify or reject school."""
-        if school_id not in self.schools:
+        school = self.get_school_by_id(school_id)
+        if not school:
             raise ValueError("School not found")
 
-        school = self.schools[school_id]
+        now_iso = datetime.utcnow().isoformat()
         school["verification_status"] = status  # "verified" | "rejected" | "pending_verification"
         school["verification_notes"] = notes or ""
-        school["verified_at"] = datetime.utcnow().isoformat() if status == "verified" else None
-        school["updated_at"] = datetime.utcnow().isoformat()
+        school["verified_at"] = now_iso if status == "verified" else None
+        school["updated_at"] = now_iso
 
         self.schools[school_id] = school
         _save_json(SCHOOLS_FILE, self.schools)
-        self._sync_school_to_supabase(school)
+
+        # Sync PATCH to Supabase Cloud
+        if SERVICE_KEY and SUPABASE_URL:
+            try:
+                patch_payload = {
+                    "verification_status": status,
+                    "verification_notes": notes or "",
+                    "verified_at": now_iso if status == "verified" else None,
+                    "updated_at": now_iso
+                }
+                with httpx.Client(timeout=6.0) as client:
+                    patch_res = client.patch(
+                        f"{SUPABASE_URL}/rest/v1/recruitment_schools?id=eq.{school_id}",
+                        headers={**supabase_headers, "Prefer": "return=representation"},
+                        json=patch_payload
+                    )
+                    if patch_res.status_code not in (200, 204):
+                        # Fallback to merge-duplicates
+                        client.post(
+                            f"{SUPABASE_URL}/rest/v1/recruitment_schools",
+                            headers={**supabase_headers, "Prefer": "resolution=merge-duplicates"},
+                            json=school
+                        )
+            except Exception as patch_err:
+                logger.warning(f"Error patching school verification to Supabase: {patch_err}")
 
         # Also sync verification status and role to user profile store
         try:
@@ -164,12 +301,19 @@ class RecruitmentService:
         if not SERVICE_KEY or not SUPABASE_URL:
             return
         try:
-            with httpx.Client(timeout=4.0) as client:
-                client.post(
+            with httpx.Client(timeout=6.0) as client:
+                res = client.post(
                     f"{SUPABASE_URL}/rest/v1/recruitment_schools",
                     headers={**supabase_headers, "Prefer": "resolution=merge-duplicates"},
                     json=record
                 )
+                if res.status_code not in (200, 201):
+                    # Try PATCH if record already exists
+                    client.patch(
+                        f"{SUPABASE_URL}/rest/v1/recruitment_schools?id=eq.{record.get('id')}",
+                        headers=supabase_headers,
+                        json=record
+                    )
         except Exception as e:
             logger.debug(f"Supabase school sync notice: {e}")
 

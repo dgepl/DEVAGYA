@@ -169,16 +169,16 @@ async def register_user(payload: RegisterPayload):
         )
 
     try:
+        # Store password in persistent store and cloud metadata
+        supabase_service.set_user_password(email_clean, payload.password)
+
         # Create Master Profile in Supabase Cloud
         profile = await supabase_service.create_master_profile(payload.dict())
         user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
-        
-        # Also store password in persistent store
-        supabase_service.set_user_password(email_clean, payload.password)
 
         # If registering as a school, save into recruitment_service as pending verification
         school_id = ""
-        verification_status = "verified"
+        verification_status = "pending_verification"
         if payload.role == "school":
             from services.recruitment_service import recruitment_service
             sch = recruitment_service.register_or_update_school(
@@ -255,7 +255,7 @@ async def login_user(payload: LoginPayload):
     school_rec = recruitment_service.get_school_by_email(email_clean)
     full_name = profile.get("full_name", email_clean.split('@')[0].capitalize())
     user_role = profile.get("role") or payload.role or "teacher"
-    if school_rec or (payload.role and payload.role.strip().lower() == "school"):
+    if school_rec or (payload.role and payload.role.strip().lower() == "school") or user_role == "school":
         user_role = "school"
     user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
 
@@ -306,6 +306,8 @@ async def login_user(payload: LoginPayload):
 
     if user_role == "school":
         if not school_rec:
+            school_rec = recruitment_service.get_school_by_email(email_clean)
+        if not school_rec:
             school_rec = recruitment_service.register_or_update_school(
                 email=email_clean,
                 school_name=profile.get("school_name") or full_name,
@@ -318,6 +320,7 @@ async def login_user(payload: LoginPayload):
         user_data["schoolCity"] = school_rec.get("city", "")
         user_data["schoolState"] = school_rec.get("state", "")
         user_data["contactPerson"] = school_rec.get("contact_person", "")
+        user_data["schoolName"] = school_rec.get("school_name", "") or profile.get("school_name", "")
 
     return {
         "status": "success",

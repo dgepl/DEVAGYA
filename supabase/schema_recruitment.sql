@@ -3,6 +3,14 @@
 -- Run this in your Supabase SQL Editor: Dashboard -> SQL Editor
 -- ================================================================
 
+-- 0. ALLOW 'school' IN user_role ENUM IF ENUM EXISTS
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+        ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'school';
+    END IF;
+END$$;
+
 -- 1. RECRUITMENT SCHOOLS TABLE
 CREATE TABLE IF NOT EXISTS public.recruitment_schools (
     id TEXT PRIMARY KEY,

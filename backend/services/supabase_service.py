@@ -88,14 +88,58 @@ class SupabaseService:
 
     def set_user_password(self, email: str, password: str):
         email_clean = email.strip().lower()
-        _password_store[email_clean] = self.hash_password(password)
+        pwd_hash = self.hash_password(password)
+        _password_store[email_clean] = pwd_hash
         _save_password_store(_password_store)
+
+        # Sync password hash to Supabase Cloud profile metadata so it survives restarts & reloads
+        if SERVICE_KEY:
+            try:
+                with httpx.Client(timeout=6.0) as client:
+                    res = client.get(f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{email_clean}&select=*", headers=headers)
+                    if res.status_code == 200 and res.json():
+                        row = res.json()[0]
+                        raw_av = row.get("avatar_url") or ""
+                        meta = {}
+                        if raw_av and isinstance(raw_av, str) and raw_av.startswith("{") and raw_av.endswith("}"):
+                            try:
+                                meta = json.loads(raw_av)
+                            except Exception:
+                                meta = {}
+                        meta["pwd_hash"] = pwd_hash
+                        client.patch(
+                            f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{email_clean}",
+                            headers=headers,
+                            json={"avatar_url": json.dumps(meta)}
+                        )
+            except Exception as e:
+                logger.warning(f"Cloud password sync notice: {e}")
 
     def check_user_password(self, email: str, password: str) -> bool:
         email_clean = email.strip().lower()
         stored = _password_store.get(email_clean)
+
+        # If not in local cache, check Supabase Cloud profile metadata
+        if not stored and SERVICE_KEY:
+            try:
+                with httpx.Client(timeout=6.0) as client:
+                    res = client.get(f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{email_clean}&select=avatar_url", headers=headers)
+                    if res.status_code == 200 and res.json():
+                        raw_av = res.json()[0].get("avatar_url") or ""
+                        if raw_av and isinstance(raw_av, str) and raw_av.startswith("{") and raw_av.endswith("}"):
+                            try:
+                                meta = json.loads(raw_av)
+                                if meta.get("pwd_hash"):
+                                    stored = meta["pwd_hash"]
+                                    _password_store[email_clean] = stored
+                                    _save_password_store(_password_store)
+                            except Exception:
+                                pass
+            except Exception as e:
+                logger.warning(f"Error checking cloud password: {e}")
+
         if not stored:
-            # If account has no password set in persistent store, register this initial password
+            # If account has no password set anywhere yet, register this initial password
             self.set_user_password(email_clean, password)
             return True
         return self.verify_password(password, stored)
@@ -208,6 +252,56 @@ class SupabaseService:
                             profile_data = data[0]
                 except Exception as e:
                     logger.error(f"Error fetching Supabase profile for {email}: {e}")
+
+        # Check if this email is a registered school in Supabase Cloud recruitment_schools
+        if not profile_data and SERVICE_KEY:
+            try:
+                sch_url = f"{SUPABASE_URL}/rest/v1/recruitment_schools?email=eq.{email_clean}&select=*"
+                async with httpx.AsyncClient(timeout=8.0) as client:
+                    sch_res = await client.get(sch_url, headers=headers)
+                    if sch_res.status_code == 200:
+                        schools = sch_res.json()
+                        if schools and isinstance(schools, list) and len(schools) > 0:
+                            sch = schools[0]
+                            meta_json = json.dumps({
+                                "role": "school",
+                                "school_name": sch.get("school_name", ""),
+                                "board": sch.get("affiliation_board", "CBSE"),
+                                "city": sch.get("city", ""),
+                                "state": sch.get("state", ""),
+                                "contact_person": sch.get("contact_person", ""),
+                                "phone": sch.get("phone", ""),
+                                "school_logo": sch.get("logo_url", ""),
+                                "verification_status": sch.get("verification_status", "verified"),
+                                "pwd_hash": _password_store.get(email_clean, "")
+                            })
+                            # Auto-create profile in Supabase profiles table using 'management' as SQL enum
+                            ins_row = {
+                                "email": email_clean,
+                                "full_name": sch.get("contact_person") or sch.get("school_name") or email_clean.split('@')[0].capitalize(),
+                                "role": "management",
+                                "avatar_url": meta_json,
+                                "is_active": True
+                            }
+                            try:
+                                post_res = await client.post(f"{SUPABASE_URL}/rest/v1/profiles", headers=headers, json=ins_row)
+                                if post_res.status_code in (200, 201):
+                                    created = post_res.json()
+                                    profile_data = created[0] if isinstance(created, list) else created
+                            except Exception as pe:
+                                logger.warning(f"Auto-link school profile notice: {pe}")
+
+                            if not profile_data:
+                                profile_data = {
+                                    "id": f"usr-{sch.get('id', email_clean.split('@')[0])}",
+                                    "email": email_clean,
+                                    "full_name": sch.get("contact_person") or sch.get("school_name"),
+                                    "role": "school",
+                                    "avatar_url": meta_json,
+                                    "is_active": True
+                                }
+            except Exception as sch_err:
+                logger.warning(f"Check recruitment_schools fallback notice: {sch_err}")
         
         # If no supabase record, fallback from local store
         if not profile_data and email_clean in _password_store:
@@ -227,8 +321,18 @@ class SupabaseService:
                 try:
                     unpacked = json.loads(raw_avatar)
                     if isinstance(unpacked, dict):
+                        # Restore stored password hash to local cache if missing
+                        if unpacked.get("pwd_hash") and email_clean not in _password_store:
+                            _password_store[email_clean] = unpacked["pwd_hash"]
+                            _save_password_store(_password_store)
+
+                        # Restore role='school' if saved in metadata
+                        if unpacked.get("role") == "school":
+                            profile_data["role"] = "school"
+
                         for k, v in unpacked.items():
-                            profile_data[k] = v
+                            if k not in ("pwd_hash",):
+                                profile_data[k] = v
 
                         # Extract clean image URL if present
                         inner_avatar = unpacked.get("avatar_url", "")
@@ -246,6 +350,18 @@ class SupabaseService:
                     profile_data["avatar_url"] = ""
             elif not raw_avatar or not (isinstance(raw_avatar, str) and (raw_avatar.startswith("http") or raw_avatar.startswith("data:image"))):
                 profile_data["avatar_url"] = ""
+
+            # Check if this user is a school in recruitment_service or recruitment_schools
+            try:
+                from services.recruitment_service import recruitment_service
+                sch_info = recruitment_service.get_school_by_email(email_clean)
+                if sch_info:
+                    profile_data["role"] = "school"
+                    profile_data["school_name"] = sch_info.get("school_name", profile_data.get("school_name", ""))
+                    profile_data["school_id"] = sch_info.get("id", "")
+                    profile_data["verification_status"] = sch_info.get("verification_status", "pending_verification")
+            except Exception:
+                pass
 
             # Also merge local fallback store
             extra = _teacher_profiles_store.get(email_clean, {})
@@ -457,18 +573,26 @@ class SupabaseService:
         )
 
         url = f"{SUPABASE_URL}/rest/v1/profiles"
-        meta_json = json.dumps({
+        meta_dict = {
             "school_name": school_name,
             "board": board,
             "subject": subject,
             "classes": classes,
             "school_logo": school_logo,
             "role": role
-        })
+        }
+        if email_clean in _password_store:
+            meta_dict["pwd_hash"] = _password_store[email_clean]
+
+        meta_json = json.dumps(meta_dict)
+
+        # Handle Postgres enum restriction: 'school' is mapped to 'management' in enum column
+        # while role='school' is preserved in metadata JSON
+        db_role = "management" if role == "school" else role
         payload = {
             "email": email_clean,
             "full_name": full_name,
-            "role": role,
+            "role": db_role,
             "avatar_url": meta_json,
             "is_active": True
         }
@@ -484,13 +608,24 @@ class SupabaseService:
                     if role == "student":
                         await self._create_student_record(record.get("id"))
                     
-                    # Merge extra fields
+                    # Merge extra fields & preserve intended role
+                    record["role"] = role
                     record["school_name"] = school_name
                     record["board"] = board
                     record["subject"] = subject
                     record["classes"] = classes
                     record["school_logo"] = school_logo
                     return record
+                elif "user_role" in res.text:
+                    # Fallback for Postgres enum constraint
+                    payload["role"] = "management"
+                    retry_res = await client.post(url, headers=headers, json=payload)
+                    if retry_res.status_code in (200, 201):
+                        created = retry_res.json()
+                        record = created[0] if isinstance(created, list) else created
+                        record["role"] = role
+                        record["school_name"] = school_name
+                        return record
                 else:
                     logger.error(f"Supabase create profile error ({res.status_code}): {res.text}")
             except Exception as e:
@@ -538,9 +673,22 @@ class SupabaseService:
                 except Exception as e:
                     logger.error(f"Error fetching all Supabase profiles: {e}")
 
+        # Also pull all schools from Supabase recruitment_schools to guarantee schools are never omitted from user list
+        cloud_schools = []
+        if SERVICE_KEY:
+            try:
+                from services.recruitment_service import recruitment_service
+                cloud_schools = recruitment_service.get_all_schools()
+            except Exception:
+                pass
+
+        school_map = {s.get("email", "").lower(): s for s in cloud_schools if s.get("email")}
+
         # Enrich every profile with unpacked metadata and teacher store metadata
+        existing_emails = set()
         for p in profiles:
             email_clean = (p.get("email") or "").strip().lower()
+            existing_emails.add(email_clean)
 
             # 1. Unpack JSON metadata stored in Supabase avatar_url
             raw_avatar = p.get("avatar_url")
@@ -553,13 +701,24 @@ class SupabaseService:
                             p["avatar_url"] = inner_avatar
                         else:
                             p["avatar_url"] = ""
+                        
+                        if unpacked.get("role") == "school":
+                            p["role"] = "school"
+
                         for k, v in unpacked.items():
-                            if k != "avatar_url" and v:
+                            if k not in ("avatar_url", "pwd_hash") and v:
                                 p[k] = v
                 except Exception:
                     p["avatar_url"] = ""
             elif not raw_avatar or not (isinstance(raw_avatar, str) and (raw_avatar.startswith("http") or raw_avatar.startswith("data:image"))):
                 p["avatar_url"] = ""
+
+            # Check if matching school exists
+            if email_clean in school_map:
+                p["role"] = "school"
+                p["school_name"] = school_map[email_clean].get("school_name", p.get("school_name", ""))
+                p["school_id"] = school_map[email_clean].get("id", "")
+                p["verification_status"] = school_map[email_clean].get("verification_status", "pending_verification")
 
             # 2. Merge local persistent teacher profile store
             extra = _teacher_profiles_store.get(email_clean, {})
@@ -581,6 +740,26 @@ class SupabaseService:
                 extra.get("is_profile_complete")
             )
             p["is_profile_complete"] = is_complete
+
+        # Include any registered schools not yet present in profiles list
+        for s_email, s_data in school_map.items():
+            if s_email not in existing_emails:
+                profiles.append({
+                    "id": f"usr-{s_data.get('id', s_email.split('@')[0])}",
+                    "email": s_email,
+                    "full_name": s_data.get("contact_person") or s_data.get("school_name") or s_email.split('@')[0].capitalize(),
+                    "role": "school",
+                    "school_name": s_data.get("school_name"),
+                    "board": s_data.get("affiliation_board", "CBSE"),
+                    "city": s_data.get("city", ""),
+                    "state": s_data.get("state", ""),
+                    "phone": s_data.get("phone", ""),
+                    "school_id": s_data.get("id"),
+                    "verification_status": s_data.get("verification_status", "pending_verification"),
+                    "is_active": True,
+                    "is_profile_complete": True,
+                    "created_at": s_data.get("created_at")
+                })
 
         return profiles
 
