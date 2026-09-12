@@ -194,12 +194,12 @@ export default function SchoolDashboardHomePage() {
           </div>
         </div>
 
-        {/* 3D Graduation Cap & Book Illustration */}
+        {/* 3D Graduation Cap & Book Illustration (Transparent PNG) */}
         <div className="absolute -right-2 sm:right-4 top-1/2 -translate-y-1/2 w-32 h-32 sm:w-44 sm:h-44 pointer-events-none select-none flex items-center justify-center">
           <img 
-            src="/images/school_hero_cap.jpg" 
+            src="/images/school_hero_cap.png" 
             alt="School Portal" 
-            className="w-full h-full object-contain drop-shadow-md rounded-2xl"
+            className="w-full h-full object-contain filter drop-shadow-[0_12px_24px_rgba(79,70,229,0.18)]"
           />
         </div>
       </div>
@@ -280,76 +280,76 @@ export default function SchoolDashboardHomePage() {
         </div>
       </div>
 
-      {/* 3. QUICK NAVIGATION */}
+      {/* 3. QUICK NAVIGATION (4 SQUARES IN 2 LINES ON MOBILE) */}
       <div className="space-y-3">
         <h2 className="text-base font-extrabold text-slate-900 px-1">Quick Navigation</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {/* 1. Job Vacancies */}
           <Link
             href="/dashboard/school/vacancies"
-            className="p-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-100 shadow-xs flex items-center justify-between gap-3 group active:scale-98 transition-all"
+            className="p-4 sm:p-5 bg-white rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1]"
           >
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <div className="flex items-center justify-between w-full">
+              <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Building2 className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Job Vacancies</h3>
-                <p className="text-[11px] text-slate-400 truncate mt-0.5">Manage open openings</p>
-              </div>
+              <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Job Vacancies</h3>
+              <p className="text-[10.5px] text-slate-400 truncate mt-0.5">Manage open openings</p>
+            </div>
           </Link>
 
           {/* 2. Applicants & CVs */}
           <Link
             href="/dashboard/school/applicants"
-            className="p-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-100 shadow-xs flex items-center justify-between gap-3 group active:scale-98 transition-all"
+            className="p-4 sm:p-5 bg-white rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1]"
           >
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <div className="flex items-center justify-between w-full">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Users className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Applicants & CVs</h3>
-                <p className="text-[11px] text-slate-400 truncate mt-0.5">Review PDF resumes</p>
-              </div>
+              <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Applicants & CVs</h3>
+              <p className="text-[10.5px] text-slate-400 truncate mt-0.5">Review PDF resumes</p>
+            </div>
           </Link>
 
           {/* 3. + Post Vacancy */}
           <Link
             href="/dashboard/school/vacancies?action=new"
-            className="p-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-100 shadow-xs flex items-center justify-between gap-3 group active:scale-98 transition-all"
+            className="p-4 sm:p-5 bg-white rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1]"
           >
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <div className="flex items-center justify-between w-full">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Plus className="w-5 h-5 stroke-[2.5]" />
               </div>
-              <div className="min-w-0">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">+ Post Vacancy</h3>
-                <p className="text-[11px] text-slate-400 truncate mt-0.5">TGT, PGT, PRT roles</p>
-              </div>
+              <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">+ Post Vacancy</h3>
+              <p className="text-[10.5px] text-slate-400 truncate mt-0.5">TGT, PGT, PRT roles</p>
+            </div>
           </Link>
 
           {/* 4. School Profile */}
           <Link
             href="/dashboard/school/profile"
-            className="p-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-100 shadow-xs flex items-center justify-between gap-3 group active:scale-98 transition-all"
+            className="p-4 sm:p-5 bg-white rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1]"
           >
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <div className="flex items-center justify-between w-full">
+              <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <FileText className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">School Profile</h3>
-                <p className="text-[11px] text-slate-400 truncate mt-0.5">Credentials & Board</p>
-              </div>
+              <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">School Profile</h3>
+              <p className="text-[10.5px] text-slate-400 truncate mt-0.5">Credentials & Board</p>
+            </div>
           </Link>
         </div>
       </div>
