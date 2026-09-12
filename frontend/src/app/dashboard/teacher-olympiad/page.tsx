@@ -1215,7 +1215,7 @@ export default function TeacherOlympiadPage() {
           )}
           
           {/* EXAM HALL HEADER: TIMER, SECTION SWITCHER & MOBILE PALETTE BUTTON */}
-          <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 border border-slate-200 shadow-md flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
             
             {/* Section Switcher Tabs & Security Badge */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -1361,7 +1361,10 @@ export default function TeacherOlympiadPage() {
                       <button
                         type="button"
                         disabled={currentIdx === 0}
-                        onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
+                        onClick={() => {
+                          setCurrentIdx(prev => Math.max(0, prev - 1));
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
                         className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" />
@@ -1380,7 +1383,10 @@ export default function TeacherOlympiadPage() {
                     <button
                       type="button"
                       disabled={currentIdx >= questions.length - 1}
-                      onClick={() => setCurrentIdx(prev => Math.min(questions.length - 1, prev + 1))}
+                      onClick={() => {
+                        setCurrentIdx(prev => Math.min(questions.length - 1, prev + 1));
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
                       className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
                     >
                       <span>Next Question</span>
@@ -1395,7 +1401,7 @@ export default function TeacherOlympiadPage() {
             </div>
 
             {/* DESKTOP QUESTION PALETTE GRID (1 COL) */}
-            <div className="hidden lg:block bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4 h-fit sticky top-36">
+            <div className="hidden lg:block bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4 h-fit sticky top-20">
               <div className="space-y-1">
                 <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
                   Question Palette (100 MCQs)
@@ -1427,6 +1433,7 @@ export default function TeacherOlympiadPage() {
                       onClick={() => {
                         setCurrentIdx(idx);
                         setActiveSection(q.section);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       className={`h-8 rounded-lg text-[11px] transition-all cursor-pointer flex items-center justify-center ${bg}`}
                     >
@@ -1513,6 +1520,7 @@ export default function TeacherOlympiadPage() {
                           setCurrentIdx(idx);
                           setActiveSection(q.section);
                           setShowMobilePalette(false);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
                         className={`h-10 rounded-xl text-xs flex items-center justify-center transition-all cursor-pointer ${bg}`}
                       >
