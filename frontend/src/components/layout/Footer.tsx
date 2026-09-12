@@ -90,11 +90,14 @@ export function Footer() {
         {/* BOTTOM COPYRIGHT & DEVELOPER CREDITS BAR */}
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
           
-          <div className="space-y-1.5 text-center md:text-left">
+          <div className="space-y-1 text-center md:text-left">
             <p className="text-xs text-slate-400 font-medium">
-              &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved. Support: <a href="mailto:dgepl.info@gmail.com" className="text-cyan-400 hover:text-cyan-300 font-semibold underline">dgepl.info@gmail.com</a>
+              &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.
             </p>
-            <p className="text-[10px] md:text-xs font-semibold text-slate-400 flex items-center justify-center md:justify-start gap-1.5">
+            <p className="text-xs text-slate-400 font-medium">
+              Support: <a href="mailto:dgepl.info@gmail.com" className="text-cyan-400 hover:text-cyan-300 font-semibold underline">dgepl.info@gmail.com</a>
+            </p>
+            <p className="text-[10px] md:text-xs font-semibold text-slate-400 flex items-center justify-center md:justify-start gap-1.5 pt-0.5">
               <Code2 className="w-3.5 h-3.5 text-cyan-400 inline shrink-0" />
               <span>Designed and Developed by <strong className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300">Pratikk Yadav and Team +91 8307224756</strong></span>
             </p>
