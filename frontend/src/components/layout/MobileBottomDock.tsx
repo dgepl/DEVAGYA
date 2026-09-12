@@ -43,10 +43,9 @@ export function MobileBottomDock() {
     if (role === "school") {
       return [
         { label: "Home", href: "/dashboard/school", icon: Home },
-        { label: "Vacancies", href: "/dashboard/school/vacancies", icon: Briefcase },
-        { label: "Post Job", href: "/dashboard/school/vacancies?action=new", icon: Plus, central: true },
-        { label: "Applicants", href: "/dashboard/school/applicants", icon: Users },
-        { label: "Profile", href: "/dashboard/school/profile", icon: Building2 },
+        { label: "Jobs", href: "/dashboard/school/vacancies", icon: Briefcase },
+        { label: "Candidates", href: "/dashboard/school/applicants", icon: Users },
+        { label: "Profile", href: "/dashboard/school/profile", icon: User },
       ];
     }
 
@@ -84,7 +83,7 @@ export function MobileBottomDock() {
 
   return (
     <nav className="fixed bottom-3 left-3 right-3 z-50 bg-white/95 backdrop-blur-2xl border border-slate-200/90 py-1.5 px-1 shadow-[0_12px_36px_rgba(0,0,0,0.14)] rounded-2xl md:hidden">
-      <div className="grid grid-cols-5 items-center w-full max-w-md mx-auto">
+      <div className={`grid ${tabs.length === 4 ? "grid-cols-4" : "grid-cols-5"} items-center w-full max-w-md mx-auto`}>
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           let isActive = false;
