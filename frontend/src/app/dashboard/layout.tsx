@@ -70,7 +70,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const isAgentsPage = pathname?.startsWith("/dashboard/agents");
   const isAIChatPage = 
     pathname?.startsWith("/dashboard/agents") ||
-    pathname?.startsWith("/dashboard/chat");
+    pathname?.startsWith("/dashboard/chat") ||
+    pathname?.startsWith("/dashboard/student/tutor");
 
   const agentParam = searchParams.get("agent");
 
@@ -304,7 +305,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
       <div className={`flex-1 md:pl-64 flex flex-col ${
         isAIChatPage 
-          ? "h-[100dvh] max-h-[100dvh] overflow-hidden pb-[5.25rem] md:pb-8 md:min-h-screen md:h-auto md:max-h-none md:overflow-visible" 
+          ? "h-[100dvh] max-h-[100dvh] overflow-hidden pb-[5.25rem] md:h-screen md:max-h-screen md:overflow-hidden md:pb-0" 
           : "min-h-screen pb-36 md:pb-8"
       }`}>
         

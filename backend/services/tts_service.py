@@ -10,19 +10,19 @@ logger = logging.getLogger("tts_service")
 INDIAN_VOICES: Dict[str, Dict[str, str]] = {
     "en-US-JennyNeural": {
         "id": "en-US-JennyNeural",
-        "name": "Jenny (Natural)",
+        "name": "Female Voice (Girl)",
         "gender": "Female",
         "lang": "en-US",
-        "label": "Natural Conversational English — Fluent & Expressive (Female)",
-        "description": "Ultra-natural, crisp, and fluent conversational AI coach voice."
+        "label": "Female Voice (Girl) — Natural Human Accent",
+        "description": "Ultra-natural, crisp, and fluent conversational human voice."
     },
     "en-US-GuyNeural": {
         "id": "en-US-GuyNeural",
-        "name": "Guy (Natural)",
+        "name": "Male Voice (Boy)",
         "gender": "Male",
         "lang": "en-US",
-        "label": "Natural Conversational English — Smooth & Professional (Male)",
-        "description": "Warm, engaging, and professional natural conversational voice."
+        "label": "Male Voice (Boy) — Natural Human Accent",
+        "description": "Warm, engaging, and professional natural conversational human voice."
     },
     "en-GB-SoniaNeural": {
         "id": "en-GB-SoniaNeural",

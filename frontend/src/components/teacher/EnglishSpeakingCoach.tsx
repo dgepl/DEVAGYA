@@ -43,14 +43,9 @@ interface VoiceOption {
   avatar: string;
 }
 
-const INDIAN_VOICES: VoiceOption[] = [
-  { code: "en-US-JennyNeural", name: "Jenny (Natural)", gender: "Female", lang: "en-US", accent: "Natural Conversational English", avatar: "👩" },
-  { code: "en-US-GuyNeural", name: "Guy (Natural)", gender: "Male", lang: "en-US", accent: "Natural Conversational English", avatar: "👨" },
-  { code: "en-GB-SoniaNeural", name: "Sonia (British)", gender: "Female", lang: "en-GB", accent: "British English (Academic)", avatar: "👩‍🏫" },
-  { code: "en-IN-NeerjaNeural", name: "Neerja (Indian)", gender: "Female", lang: "en-IN", accent: "Indian English (Educator)", avatar: "👩‍🏫" },
-  { code: "en-IN-PrabhatNeural", name: "Prabhat (Indian)", gender: "Male", lang: "en-IN", accent: "Indian English (Teacher)", avatar: "👨‍🏫" },
-  { code: "hi-IN-SwaraNeural", name: "Swara (Hindi)", gender: "Female", lang: "hi-IN", accent: "Hindi / Hinglish (Mentor)", avatar: "👩" },
-  { code: "hi-IN-MadhurNeural", name: "Madhur (Hindi)", gender: "Male", lang: "hi-IN", accent: "Hindi / Hinglish (Coach)", avatar: "👨" }
+const COACH_VOICES: VoiceOption[] = [
+  { code: "en-US-JennyNeural", name: "Female Voice (Girl)", gender: "Female", lang: "en-US", accent: "Natural Fluent Accent", avatar: "👩" },
+  { code: "en-US-GuyNeural", name: "Male Voice (Boy)", gender: "Male", lang: "en-US", accent: "Natural Fluent Accent", avatar: "👨" },
 ];
 
 interface ScenarioTopic {
@@ -70,7 +65,7 @@ const PRACTICE_SCENARIOS: ScenarioTopic[] = [
     shortTitle: "Classroom",
     icon: GraduationCap,
     starterPrompt: "Hello coach! I want to practice giving smooth, clear classroom instructions to my students in English.",
-    starterDisplay: "Hello teacher! I see you on camera. What classroom instruction would you like to practice giving your students?",
+    starterDisplay: "Hello! I am Devgya English Coach. What classroom instruction would you like to practice giving your students?",
     quickStarters: [
       "Please settle down and open page 42.",
       "Work in pairs and discuss this problem.",
@@ -83,7 +78,7 @@ const PRACTICE_SCENARIOS: ScenarioTopic[] = [
     shortTitle: "Parent PTM",
     icon: Users,
     starterPrompt: "Hello coach! Let us roleplay a parent-teacher meeting where a parent is worried about their child's marks.",
-    starterDisplay: "Welcome! I am observing your expressions. In PTMs, always balance positive reinforcement with constructive guidance. What would you like to say first?",
+    starterDisplay: "Hello! I am Devgya English Coach. In PTMs, always balance positive reinforcement with constructive guidance. What would you like to say first?",
     quickStarters: [
       "Aarav is very creative, but needs more focus in homework.",
       "We can work together to help improve their test scores.",
@@ -96,7 +91,7 @@ const PRACTICE_SCENARIOS: ScenarioTopic[] = [
     shortTitle: "Staff & Principal",
     icon: BookOpen,
     starterPrompt: "Hello coach! I want to practice proposing an inter-house science exhibition to our School Principal.",
-    starterDisplay: "Good day! Speaking with school leadership requires confidence and structured points. How would you introduce your proposal?",
+    starterDisplay: "Hello! I am Devgya English Coach. Speaking with school leadership requires confidence and structured points. How would you introduce your proposal?",
     quickStarters: [
       "I would like to propose an inter-house science exhibition.",
       "We require permission to use the school auditorium next Friday.",
@@ -109,7 +104,7 @@ const PRACTICE_SCENARIOS: ScenarioTopic[] = [
     shortTitle: "Free Fluency",
     icon: MessageSquare,
     starterPrompt: "Hello coach! Let us have a spontaneous, flowing spoken conversation about interactive teaching techniques.",
-    starterDisplay: "Hello! Keep relaxed eye contact with the camera. Continuous conversation is the fastest way to build spoken fluency. How was your day in class?",
+    starterDisplay: "Hello! I am Devgya English Coach. Continuous conversation is the fastest way to build spoken fluency. How was your day in class?",
     quickStarters: [
       "Today my students were really engaged in our interactive quiz.",
       "I tried a new active learning method in class.",
@@ -122,7 +117,7 @@ const PRACTICE_SCENARIOS: ScenarioTopic[] = [
     shortTitle: "Pronunciation",
     icon: Zap,
     starterPrompt: "Hello coach! Please give me a pronunciation challenge for tricky sounds like /w/ vs /v/.",
-    starterDisplay: "Let us polish your phonetics and lip movement! Try practicing the difference between /v/ (teeth on lip) and /w/ (rounded lips). Repeat after me!",
+    starterDisplay: "Hello! I am Devgya English Coach. Let us polish your phonetics and lip movement! Repeat after me when ready.",
     quickStarters: [
       "Which wristwatches are Swiss wristwatches?",
       "Vincent vowed vengeance very vehemently.",
@@ -542,7 +537,7 @@ export function EnglishSpeakingCoach() {
     };
 
     try {
-      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&text=${encodeURIComponent(cleanText)}&rate=%2B15%25`;
+      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&text=${encodeURIComponent(cleanText)}&rate=%2B10%25`;
       const audio = new Audio(streamUrl);
       currentAudioRef.current = audio;
 
@@ -750,7 +745,6 @@ Instructions:
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let fullAiText = "";
-        let streamCursor = 0;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -763,26 +757,6 @@ Instructions:
           if (isAiThinkingRef.current) {
             setIsAiThinking(false);
           }
-
-          // 0-DELAY SENTENCE STREAMING TO AUDIO QUEUE:
-          const unhandled = fullAiText.slice(streamCursor);
-          const delimiterMatch = unhandled.match(/([.!?\n]+)(?:\s+|$)/);
-          if (delimiterMatch && delimiterMatch.index !== undefined) {
-            const sentenceEnd = streamCursor + delimiterMatch.index + delimiterMatch[0].length;
-            const newSentence = fullAiText.slice(streamCursor, sentenceEnd).trim();
-            // ALWAYS advance streamCursor to prevent parser locks
-            streamCursor = sentenceEnd;
-            if (newSentence.length >= 2) {
-              enqueueSentence(newSentence);
-            }
-          }
-        }
-
-        // Enqueue any remaining tail of speech
-        const remainingTail = fullAiText.slice(streamCursor).trim();
-        if (remainingTail.length >= 2) {
-          setIsAiThinking(false);
-          enqueueSentence(remainingTail);
         }
 
         try {
@@ -802,9 +776,16 @@ Instructions:
         setConversationHistory(prev => [...prev, aiMsgItem]);
         setIsAiThinking(false);
 
-        // Fallback: if audio was never started during stream, enqueue full text
-        if (!isPlayingQueueRef.current && audioQueueRef.current.length === 0) {
-          enqueueSentence(fullAiText);
+        // Seamless speech playback: synthesize the clean conversational reply in one fluid stream
+        // This ensures Edge-TTS natural neural punctuation cadence without awkward multi-second gaps between sentences
+        const speechToPlay = cleanForSpeech(fullAiText);
+        if (speechToPlay) {
+          playCoachAudio(speechToPlay);
+        } else {
+          setIsAiSpeaking(false);
+          if (isLiveActiveRef.current) {
+            startListening();
+          }
         }
       } else {
         const data = await res.json();
@@ -812,7 +793,7 @@ Instructions:
         setLiveAiSpeech(fullAiText);
         parseFeedback(fullAiText, input);
         setIsAiThinking(false);
-        enqueueSentence(fullAiText);
+        playCoachAudio(cleanForSpeech(fullAiText));
       }
     } catch (err) {
       console.error("Conversation error:", err);
@@ -821,9 +802,9 @@ Instructions:
         ? "Your facial expression looks very confident! Take a gentle breath, your pronunciation is coming along nicely. Shall we practice the next line?"
         : "Your pronunciation is coming along nicely! Take a relaxed breath. Shall we practice the next line?";
       setLiveAiSpeech(fallbackMsg);
-      enqueueSentence(fallbackMsg);
+      playCoachAudio(fallbackMsg);
     }
-  }, [immersionMode, activeScenario, conversationId, user?.id, enqueueSentence, cameraActive]);
+  }, [immersionMode, activeScenario, conversationId, user?.id, cameraActive, playCoachAudio]);
 
   // Explicit Manual Send
   const triggerManualSend = () => {
@@ -953,8 +934,7 @@ Instructions:
     setIsLiveActive(true);
     isLiveActiveRef.current = true;
     startCamera();
-    const coachName = INDIAN_VOICES.find(v => v.code === selectedVoice)?.name || "your Coach";
-    const greeting = `Hello! I am ${coachName}. Let us practice ${scenario.title}. Speak whenever you are ready!`;
+    const greeting = `Hello! I am Devgya English Coach. Let us practice ${scenario.title}. Speak whenever you are ready!`;
     setLiveAiSpeech(greeting);
     playCoachAudio(greeting, () => {
       setIsAiSpeaking(false);
@@ -998,7 +978,7 @@ Instructions:
     setLatestFeedback(null);
     setCurrentSpeechText("");
     accumulatedSpeechRef.current = "";
-    const resetGreeting = `New conversation started! We are practicing ${activeScenario.title}. Speak whenever you are ready.`;
+    const resetGreeting = `Hello! I am Devgya English Coach. We are practicing ${activeScenario.title}. Speak whenever you are ready!`;
     setLiveAiSpeech(resetGreeting);
     if (isLiveActive) {
       playCoachAudio(resetGreeting, () => {
@@ -1098,14 +1078,14 @@ Instructions:
               </button>
             )}
 
-            {/* Indian & Natural Voice Selector */}
+            {/* Girl / Boy Natural Voice Selector */}
             <div className="relative">
               <select
                 value={selectedVoice}
                 onChange={(e) => setSelectedVoice(e.target.value)}
-                className="appearance-none pl-7 pr-7 py-1.5 bg-slate-100 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="appearance-none pl-7 pr-7 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
-                {INDIAN_VOICES.map((v) => (
+                {COACH_VOICES.map((v) => (
                   <option key={v.code} value={v.code}>
                     {v.avatar} {v.name}
                   </option>
@@ -1115,22 +1095,10 @@ Instructions:
               <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
             </div>
 
-            {/* Immersion Mode Toggle with Auto-Voice Switch */}
+            {/* Immersion Mode Toggle */}
             <button
               onClick={() => {
-                setImmersionMode(prev => {
-                  const next = prev === "immersion" ? "bilingual" : "immersion";
-                  if (next === "bilingual") {
-                    if (!selectedVoice.startsWith("hi-")) {
-                      setSelectedVoice("hi-IN-SwaraNeural");
-                    }
-                  } else {
-                    if (selectedVoice.startsWith("hi-")) {
-                      setSelectedVoice("en-US-JennyNeural");
-                    }
-                  }
-                  return next;
-                });
+                setImmersionMode(prev => prev === "immersion" ? "bilingual" : "immersion");
               }}
               className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
                 immersionMode === "immersion"
@@ -1233,7 +1201,7 @@ Instructions:
             <div className="flex items-center justify-between mb-2 text-[10px] font-black uppercase tracking-wider">
               <span className="flex items-center gap-1.5 text-indigo-600">
                 <Sparkles className="w-3.5 h-3.5" />
-                Coach {INDIAN_VOICES.find(v => v.code === selectedVoice)?.name} ({INDIAN_VOICES.find(v => v.code === selectedVoice)?.accent})
+                Devgya English Coach • {COACH_VOICES.find(v => v.code === selectedVoice)?.name || "Female Voice (Girl)"}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -1549,7 +1517,7 @@ Instructions:
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                        {item.sender === "user" ? "You (Teacher)" : `AI Coach (${INDIAN_VOICES.find(v => v.code === selectedVoice)?.name})`}
+                        {item.sender === "user" ? "You (Teacher)" : `Devgya English Coach (${COACH_VOICES.find(v => v.code === selectedVoice)?.name || "Female Voice"})`}
                       </span>
                       <span className="text-[9px] text-slate-400">{item.timestamp}</span>
                     </div>

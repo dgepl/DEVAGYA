@@ -159,17 +159,23 @@ export function PracticeQuizRunner() {
       const formData = new FormData();
       if (selectedFile) {
         formData.append("file", selectedFile);
+        formData.append("student_class", selectedClass || "General");
+        formData.append("subject", "Extracted from File");
+        formData.append("topic", selectedFile.name);
+      } else {
+        formData.append("student_class", selectedClass || "Class 10");
+        formData.append("subject", subject || "General Knowledge");
+        formData.append("topic", effectiveTopic || "");
       }
-      formData.append("student_class", selectedClass || "Class 10");
-      formData.append("subject", subject || "General Knowledge");
-      formData.append("topic", effectiveTopic || "");
       formData.append("difficulty", difficulty || "Medium");
       formData.append("num_questions", String(numQuestions));
 
       const data = await generatePracticeQuizFromFile(formData);
       if (data.questions && data.questions.length > 0) {
         setQuiz({
-          title: `${selectedClass} ${subject || "Practice"} Quiz - ${effectiveTopic || "General"} (${difficulty})`,
+          title: selectedFile
+            ? `Quiz from ${selectedFile.name} (${difficulty})`
+            : `${selectedClass} ${subject || "Practice"} Quiz - ${effectiveTopic || "General"} (${difficulty})`,
           questions: data.questions.map((q: any, i: number) => {
             let correctAns = "";
             if (q.correct_answer) {
@@ -185,8 +191,8 @@ export function PracticeQuizRunner() {
               question: q.question,
               options: q.options || ["Option A", "Option B", "Option C", "Option D"],
               correct_answer: correctAns,
-              explanation: q.explanation || "Based on standard NCERT concepts.",
-              hint: q.hint || "Refer to core chapter definitions.",
+              explanation: q.explanation || "Based on standard concepts.",
+              hint: q.hint || "Refer to core definitions in the source material.",
             };
           }),
         });
@@ -326,87 +332,114 @@ export function PracticeQuizRunner() {
             )}
           </div>
 
-          {/* 2. CASCADING CLASS, SUBJECT & TOPIC DROPDOWNS */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            
-            {/* CLASS SELECTOR */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <GraduationCap className="w-4 h-4 text-indigo-500" /> Target Class
-              </label>
-              <select
-                value={selectedClass}
-                onChange={(e) => handleClassChange(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer"
+          {/* 2. CASCADING CLASS, SUBJECT & TOPIC (ONLY WHEN NO FILE ATTACHED) */}
+          {selectedFile ? (
+            <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50/60 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20 shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-slate-900">Direct Document Quiz Mode Active</span>
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs">
+                      100% File Sourced
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Questions will be synthesized directly from <strong className="text-emerald-800 font-semibold">{selectedFile.name}</strong>. Class, subject, and chapter are automatically extracted from your file!
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={removeFile}
+                className="text-xs font-bold text-slate-600 hover:text-red-600 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 transition-colors shrink-0 cursor-pointer self-start sm:self-center shadow-2xs"
               >
-                {CLASS_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                Switch to Class/Subject
+              </button>
             </div>
-
-            {/* SUBJECT DROPDOWN */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <BookOpen className="w-4 h-4 text-emerald-500" /> Subject
-              </label>
-              {availableSubjects.length > 0 ? (
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* CLASS SELECTOR */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4 text-indigo-500" /> Target Class
+                </label>
                 <select
-                  value={subject}
-                  onChange={(e) => handleSubjectChange(e.target.value)}
+                  value={selectedClass}
+                  onChange={(e) => handleClassChange(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer"
                 >
-                  {availableSubjects.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
+                  {CLASS_OPTIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
                     </option>
                   ))}
                 </select>
-              ) : (
-                <input
-                  type="text"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="e.g. Science, Mathematics"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-                />
-              )}
-            </div>
+              </div>
 
-            {/* TOPIC / CHAPTER DROPDOWN */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-amber-500" /> Topic / Chapter
-              </label>
-              <select
-                value={isCustomTopic ? "__custom__" : selectedTopic}
-                onChange={(e) => handleTopicChange(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer"
-              >
-                {availableChapters.map((ch) => (
-                  <option key={ch} value={ch}>
-                    {ch}
-                  </option>
-                ))}
-                <option value="__custom__">✏️ Other / Custom Topic...</option>
-              </select>
-
-              {isCustomTopic && (
-                <div className="mt-2">
+              {/* SUBJECT DROPDOWN */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-emerald-500" /> Subject
+                </label>
+                {availableSubjects.length > 0 ? (
+                  <select
+                    value={subject}
+                    onChange={(e) => handleSubjectChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer"
+                  >
+                    {availableSubjects.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
                   <input
                     type="text"
-                    value={customTopic}
-                    onChange={(e) => setCustomTopic(e.target.value)}
-                    placeholder="Type custom chapter or concept..."
-                    className="w-full bg-white border border-emerald-400 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-xs"
-                    autoFocus
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="e.g. Science, Mathematics"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                   />
-                </div>
-              )}
+                )}
+              </div>
+
+              {/* TOPIC / CHAPTER DROPDOWN */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-amber-500" /> Topic / Chapter
+                </label>
+                <select
+                  value={isCustomTopic ? "__custom__" : selectedTopic}
+                  onChange={(e) => handleTopicChange(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer"
+                >
+                  {availableChapters.map((ch) => (
+                    <option key={ch} value={ch}>
+                      {ch}
+                    </option>
+                  ))}
+                  <option value="__custom__">✏️ Other / Custom Topic...</option>
+                </select>
+
+                {isCustomTopic && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={customTopic}
+                      onChange={(e) => setCustomTopic(e.target.value)}
+                      placeholder="Type custom chapter or concept..."
+                      className="w-full bg-white border border-emerald-400 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-xs"
+                      autoFocus
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 3. DIFFICULTY LEVEL SELECTOR (EASY, MEDIUM, HARD) */}
           <div>
