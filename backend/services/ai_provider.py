@@ -326,15 +326,15 @@ class AIProviderService:
         }
         selected_model = model or (self.vision_model if self._has_images(messages) else self.model)
         
-        # Build candidate fallback models list
+        # Build candidate fallback models list with ultra-fast models
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = [selected_model, "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.6-flash"]
+            candidate_fallbacks = [selected_model, "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-flash-latest"]
         else:
             candidate_fallbacks = ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
         for alt_m in candidate_fallbacks:
-            if alt_m not in fallback_models:
+            if alt_m and alt_m not in fallback_models:
                 fallback_models.append(alt_m)
 
         payload = {

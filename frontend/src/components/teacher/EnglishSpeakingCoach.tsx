@@ -137,6 +137,45 @@ interface FeedbackItem {
   pedagogicalTip?: string;
 }
 
+interface LiveFaceState {
+  hasFace: boolean;
+  expression: string;
+  emoji: string;
+  label: string;
+}
+
+// Global dynamic face-api loader singleton
+let faceapi: any = null;
+let faceModelsLoaded = false;
+let modelLoadingPromise: Promise<boolean> | null = null;
+
+async function loadFaceExpressionModels(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (faceModelsLoaded) return true;
+  if (modelLoadingPromise) return modelLoadingPromise;
+
+  modelLoadingPromise = (async () => {
+    try {
+      if (!faceapi) {
+        faceapi = await import("@vladmandic/face-api");
+      }
+      if (!faceapi.nets.tinyFaceDetector.isLoaded) {
+        await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
+      }
+      if (!faceapi.nets.faceExpressionNet.isLoaded) {
+        await faceapi.nets.faceExpressionNet.loadFromUri("/models");
+      }
+      faceModelsLoaded = true;
+      return true;
+    } catch (err) {
+      console.warn("Face expression models loading notice:", err);
+      return false;
+    }
+  })();
+
+  return modelLoadingPromise;
+}
+
 export function EnglishSpeakingCoach() {
   const { user } = useAppStore();
 
@@ -161,6 +200,20 @@ export function EnglishSpeakingCoach() {
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
+
+  // Real-time Facial Perception State
+  const [liveFace, setLiveFace] = useState<LiveFaceState>({
+    hasFace: true,
+    expression: "neutral",
+    emoji: "🎯",
+    label: "Focused & Attentive"
+  });
+  const liveFaceRef = useRef<LiveFaceState>({
+    hasFace: true,
+    expression: "neutral",
+    emoji: "🎯",
+    label: "Focused & Attentive"
+  });
 
   // Multi-Turn Conversation History Context
   const [conversationId, setConversationId] = useState<string>("");
@@ -202,23 +255,27 @@ export function EnglishSpeakingCoach() {
     const words = rawText.trim().split(/\s+/).filter(Boolean);
     if (words.length === 0) return "";
 
-    // 1. Deduplicate consecutive identical words ("hlo hlo hlo" -> "hlo", "hello hello" -> "hello")
     const dedupedWords: string[] = [];
     for (let i = 0; i < words.length; i++) {
       const w = words[i];
-      const prev = dedupedWords[dedupedWords.length - 1];
+      const prev1 = dedupedWords[dedupedWords.length - 1];
+      const prev2 = dedupedWords[dedupedWords.length - 2];
       const cleanW = w.toLowerCase().replace(/[^a-z0-9]/gi, "");
-      const cleanPrev = prev ? prev.toLowerCase().replace(/[^a-z0-9]/gi, "") : "";
-      if (cleanW && cleanW === cleanPrev) {
-        continue;
+      const clean1 = prev1 ? prev1.toLowerCase().replace(/[^a-z0-9]/gi, "") : "";
+      const clean2 = prev2 ? prev2.toLowerCase().replace(/[^a-z0-9]/gi, "") : "";
+
+      const isValidDouble = ["had", "that", "it"].includes(cleanW);
+      if (cleanW && cleanW === clean1) {
+        if (!isValidDouble || cleanW === clean2) {
+          continue;
+        }
       }
       dedupedWords.push(w);
     }
 
     let text = dedupedWords.join(" ");
 
-    // 2. Deduplicate repeated multi-word phrases ("how are you how are you" -> "how are you")
-    for (let n = 2; n <= 5; n++) {
+    for (let n = 2; n <= 4; n++) {
       const arr = text.split(/\s+/);
       if (arr.length >= n * 2) {
         const tail = arr.slice(-n).join(" ").toLowerCase();
@@ -232,19 +289,20 @@ export function EnglishSpeakingCoach() {
     return text.trim();
   };
 
-  // Clean Text Helper for TTS
+  // Clean Text Helper for TTS: strips markdown, better phrasing lines, tips, quotes and emojis
   const cleanForSpeech = (raw: string): string => {
     if (!raw) return "";
     let clean = raw;
-    clean = clean.replace(/✨\s*\*?Better Phrasing\*?:\s*["“]([^"”\n]+)["”]/gi, "");
-    clean = clean.replace(/💡\s*\*?Tip\*?:\s*([^\n]+)/gi, "");
+    clean = clean.replace(/✨?\s*\*?Better(?:\s+Phrasing)?\*?:\s*["“]?([^"”\n\r]+)["”]?/gi, "");
+    clean = clean.replace(/💡?\s*\*?Tip\*?:\s*([^\n\r]+)/gi, "");
     clean = clean.replace(/\*\*([^*]+)\*\*/g, "$1");
     clean = clean.replace(/\*([^*]+)\*/g, "$1");
     clean = clean.replace(/`([^`]+)`/g, "$1");
     clean = clean.replace(/#+\s+/g, "");
     clean = clean.replace(/^[-*•]\s+/gm, "");
+    clean = clean.replace(/["“]([^"”]+)["”]/g, "$1");
     clean = clean.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, "");
-    return clean.trim();
+    return clean.replace(/\s+/g, " ").trim();
   };
 
   // Camera Management
@@ -279,6 +337,9 @@ export function EnglishSpeakingCoach() {
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
+    const offState = { hasFace: false, expression: "off", emoji: "📷", label: "Camera Off" };
+    liveFaceRef.current = offState;
+    setLiveFace(offState);
   }, []);
 
   const switchCamera = () => {
@@ -286,7 +347,7 @@ export function EnglishSpeakingCoach() {
     startCamera(next);
   };
 
-  // Instant Snapshot Grabber for Vision (ultra-light 160x160, ~1.5KB for instant transmission)
+  // Instant Snapshot Grabber for Vision (ultra-light 240x240, ~4KB for instant transmission)
   const captureLiveFrameBlob = (): Promise<Blob | null> => {
     return new Promise((resolve) => {
       if (!videoRef.current || !cameraActive) {
@@ -300,7 +361,7 @@ export function EnglishSpeakingCoach() {
       }
       try {
         const canvas = document.createElement("canvas");
-        const dim = 160;
+        const dim = 240;
         canvas.width = dim;
         canvas.height = dim;
         const ctx = canvas.getContext("2d");
@@ -311,28 +372,116 @@ export function EnglishSpeakingCoach() {
         ctx.drawImage(video, 0, 0, dim, dim);
         canvas.toBlob((blob) => {
           resolve(blob);
-        }, "image/jpeg", 0.35);
+        }, "image/jpeg", 0.45);
       } catch {
         resolve(null);
       }
     });
   };
 
+  // Continuous real-time facial expression perception loop (every 450ms)
+  useEffect(() => {
+    if (!cameraActive) {
+      const offState = { hasFace: false, expression: "off", emoji: "📷", label: "Camera Off" };
+      liveFaceRef.current = offState;
+      setLiveFace(offState);
+      return;
+    }
+
+    let isSubscribed = true;
+    loadFaceExpressionModels();
+
+    const intervalId = setInterval(async () => {
+      if (!isSubscribed || !videoRef.current || !cameraActive) return;
+      const video = videoRef.current;
+      if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) return;
+
+      try {
+        if (!faceModelsLoaded) {
+          const ok = await loadFaceExpressionModels();
+          if (!ok) return;
+        }
+
+        if (faceapi && faceModelsLoaded && isSubscribed) {
+          const detection = await faceapi
+            .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.35 }))
+            .withFaceExpressions();
+
+          if (!isSubscribed) return;
+
+          if (detection && detection.expressions) {
+            const exp = detection.expressions;
+            let dominant = "neutral";
+            let emoji = "🎯";
+            let label = "Focused & Attentive";
+
+            if (exp.happy > 0.28) {
+              dominant = "happy";
+              emoji = "😊";
+              label = "Warm Smile";
+            } else if (exp.surprised > 0.35) {
+              dominant = "surprised";
+              emoji = "😲";
+              label = "Expressive & Engaging";
+            } else if ((exp.sad || 0) + (exp.fearful || 0) > 0.32) {
+              dominant = "thoughtful";
+              emoji = "🤔";
+              label = "Thoughtful & Intent";
+            } else if (exp.neutral > 0.35) {
+              dominant = "neutral";
+              emoji = "🎯";
+              label = "Focused & Attentive";
+            }
+
+            const state: LiveFaceState = {
+              hasFace: true,
+              expression: dominant,
+              emoji,
+              label
+            };
+            liveFaceRef.current = state;
+            setLiveFace(state);
+          } else {
+            const state: LiveFaceState = {
+              hasFace: false,
+              expression: "searching",
+              emoji: "👀",
+              label: "Position Face in Frame"
+            };
+            liveFaceRef.current = state;
+            setLiveFace(state);
+          }
+        }
+      } catch {
+        // Fallback gracefully on individual frame glitch
+      }
+    }, 450);
+
+    return () => {
+      isSubscribed = false;
+      clearInterval(intervalId);
+    };
+  }, [cameraActive]);
+
   // Parse feedback from coach response
   const parseFeedback = (text: string, originalText: string) => {
-    const phrasingMatch = text.match(/✨\s*\*?Better Phrasing\*?:\s*["“]([^"”\n]+)["”]|Better Phrasing:\s*([^\n]+)/i);
-    const tipMatch = text.match(/💡\s*\*?Tip\*?:\s*([^\n]+)|Tip:\s*([^\n]+)/i);
+    const phrasingMatch = text.match(/✨?\s*\*?Better(?:\s+Phrasing)?\*?:\s*["“]?([^"”\n\r]+)["”]?/i);
+    const tipMatch = text.match(/💡?\s*\*?Tip\*?:\s*([^\n\r]+)/i);
 
     if (phrasingMatch || tipMatch) {
-      setLatestFeedback({
-        originalText,
-        polishedPhrasing: (phrasingMatch?.[1] || phrasingMatch?.[2] || "").trim(),
-        pedagogicalTip: (tipMatch?.[1] || tipMatch?.[2] || "").trim()
-      });
+      const polished = (phrasingMatch?.[1] || "").replace(/^["“]|["”]$/g, "").trim();
+      const tip = (tipMatch?.[1] || "").trim();
+      if (polished || tip) {
+        setLatestFeedback({
+          originalText,
+          polishedPhrasing: polished || undefined,
+          pedagogicalTip: tip || undefined
+        });
+      }
     }
   };
 
-  // Ultra-Fast TTS Audio Player for Single Sentence
+  // Ultra-Fast TTS Audio Player for Single Sentence with Race-Condition Guard
   const playCoachAudio = useCallback((textToSpeak: string, onFinish?: () => void) => {
     if (soundMutedRef.current) {
       setIsAiSpeaking(false);
@@ -342,6 +491,9 @@ export function EnglishSpeakingCoach() {
     }
 
     if (currentAudioRef.current) {
+      currentAudioRef.current.onplay = null;
+      currentAudioRef.current.onended = null;
+      currentAudioRef.current.onerror = null;
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
     }
@@ -350,7 +502,7 @@ export function EnglishSpeakingCoach() {
     }
 
     const cleanText = cleanForSpeech(textToSpeak);
-    if (!cleanText) {
+    if (!cleanText || cleanText.length < 2) {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
       onFinish?.();
@@ -361,8 +513,18 @@ export function EnglishSpeakingCoach() {
     isAiSpeakingRef.current = true;
     stopListening(); // Pause mic while coach speaks
 
+    let hasHandledFinish = false;
     const handleFinished = () => {
-      currentAudioRef.current = null;
+      if (hasHandledFinish) return;
+      hasHandledFinish = true;
+
+      if (currentAudioRef.current) {
+        currentAudioRef.current.onplay = null;
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
+        currentAudioRef.current = null;
+      }
+
       if (onFinish) {
         onFinish();
       } else {
@@ -374,13 +536,12 @@ export function EnglishSpeakingCoach() {
             if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               startListening();
             }
-          }, 350);
+          }, 300);
         }
       }
     };
 
     try {
-      // Natural brisk speaking rate (+15%)
       const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&text=${encodeURIComponent(cleanText)}&rate=%2B15%25`;
       const audio = new Audio(streamUrl);
       currentAudioRef.current = audio;
@@ -395,11 +556,15 @@ export function EnglishSpeakingCoach() {
       };
 
       audio.onerror = () => {
-        fallbackSpeechSynthesis(cleanText, handleFinished);
+        if (!hasHandledFinish) {
+          fallbackSpeechSynthesis(cleanText, handleFinished);
+        }
       };
 
       audio.play().catch(() => {
-        fallbackSpeechSynthesis(cleanText, handleFinished);
+        if (!hasHandledFinish) {
+          fallbackSpeechSynthesis(cleanText, handleFinished);
+        }
       });
     } catch {
       fallbackSpeechSynthesis(cleanText, handleFinished);
@@ -408,25 +573,30 @@ export function EnglishSpeakingCoach() {
 
   const fallbackSpeechSynthesis = (text: string, onFinish?: () => void) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
       const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = selectedVoice.startsWith("hi") ? "hi-IN" : selectedVoice.startsWith("en-GB") ? "en-GB" : "en-US";
-      utt.rate = 1.15; // Natural brisk conversational pace
+      utt.lang = selectedVoice.startsWith("hi") ? "hi-IN" : selectedVoice.startsWith("en-GB") ? "en-GB" : "en-IN";
+      utt.rate = 1.15;
       utt.pitch = 1.0;
 
       const voices = window.speechSynthesis.getVoices();
-      const naturalVoice = voices.find(v => (v.lang.startsWith("en") || v.lang.startsWith("hi")) && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Karen") || v.name.includes("Zira")));
+      const naturalVoice = voices.find(v => 
+        (v.lang.startsWith("en") || v.lang.startsWith("hi")) && 
+        (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Karen") || v.name.includes("Zira"))
+      );
       if (naturalVoice) utt.voice = naturalVoice;
 
-      utt.onend = () => {
+      let called = false;
+      const done = () => {
+        if (called) return;
+        called = true;
         setIsAiSpeaking(false);
         isAiSpeakingRef.current = false;
         onFinish?.();
       };
-      utt.onerror = () => {
-        setIsAiSpeaking(false);
-        isAiSpeakingRef.current = false;
-        onFinish?.();
-      };
+
+      utt.onend = done;
+      utt.onerror = done;
       window.speechSynthesis.speak(utt);
     } else {
       setIsAiSpeaking(false);
@@ -446,7 +616,7 @@ export function EnglishSpeakingCoach() {
           if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
             startListening();
           }
-        }, 350);
+        }, 300);
       }
       return;
     }
@@ -475,6 +645,9 @@ export function EnglishSpeakingCoach() {
   // Interrupt AI Speaking (Like Gemini Live: tap to interrupt)
   const handleInterruptAi = () => {
     if (currentAudioRef.current) {
+      currentAudioRef.current.onplay = null;
+      currentAudioRef.current.onended = null;
+      currentAudioRef.current.onerror = null;
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
     }
@@ -507,7 +680,7 @@ export function EnglishSpeakingCoach() {
     audioQueueRef.current = [];
     isPlayingQueueRef.current = false;
 
-    // Save to conversation history
+    // Save clean teacher speech to conversation history
     const userMsgItem = {
       id: `usr-${Date.now()}`,
       sender: "user" as const,
@@ -521,18 +694,23 @@ export function EnglishSpeakingCoach() {
         ? "Respond in conversational, natural, supportive English."
         : "The educator is in bilingual mode. Provide conversational English coaching with simple Hindi hints where helpful.";
 
+      const visualDirective = cameraActive
+        ? `[LIVE CAMERA ON - Teacher's Live Face Expression: ${liveFaceRef.current.label} (${liveFaceRef.current.emoji}) - Naturally acknowledge their expression and presence in 3-5 words]`
+        : `[CAMERA OFF - Audio Only Practice - Focus strictly on spoken English]`;
+
       const promptDirective = `[GEMINI LIVE SPOKEN CONVERSATION]
 Scenario: ${activeScenario.title}
 Mode: ${immersionMode} (${modeInstruction})
+${visualDirective}
 Teacher said: "${input}"
 
 Instructions:
-- Reply in 1-2 ultra-crisp spoken sentences (max 30 words total).
-- Acknowledge what they said naturally like a warm, supportive colleague.
-- If there is an obvious grammar or pronunciation slip, provide:
-✨ Better Phrasing: "[Polished line]"
+- Reply in 1-2 ultra-crisp spoken sentences (max 25-30 words total).
+- Acknowledge what they said and their facial expression warmly like an enthusiastic colleague.
+- If there is an obvious grammar or pronunciation slip, append strictly at the end:
+✨ Better: [Polished Line]
 💡 Tip: [1 short tip]
-- End with a snappy question to keep the conversation flowing. Keep it super brief so audio starts instantly!`;
+- End with a snappy question to keep the conversation flowing smoothly!`;
 
       const fd = new FormData();
       fd.append("message", promptDirective);
@@ -543,14 +721,21 @@ Instructions:
       fd.append("user_id", user?.id || user?.email || "teacher-guest");
       fd.append("language", immersionMode === "immersion" ? "english" : "hinglish");
 
-      // Send voice message as ultra-fast pure text conversation (no heavy vision processing delay)
+      // Attach live camera snapshot frame if camera is on
+      if (cameraActive) {
+        const liveBlob = await captureLiveFrameBlob();
+        if (liveBlob) {
+          fd.append("images", liveBlob, "live_frame.jpg");
+        }
+      }
+
       const res = await fetch(`${getApiBase()}/agents/chat`, {
         method: "POST",
         body: fd
       });
 
       if (!res.ok) {
-        setConversationId(""); // Reset so next attempt creates fresh conversation
+        setConversationId("");
         const errText = await res.text().catch(() => "");
         console.warn("Agents chat error status:", res.status, errText);
         throw new Error(`Server returned status ${res.status}`);
@@ -574,28 +759,28 @@ Instructions:
           fullAiText += chunk;
           setLiveAiSpeech(fullAiText);
 
-          // As soon as first streaming tokens arrive, turn off thinking spinner
+          // As soon as first streaming tokens arrive, immediately turn off thinking spinner
           if (isAiThinkingRef.current) {
             setIsAiThinking(false);
           }
 
           // 0-DELAY SENTENCE STREAMING TO AUDIO QUEUE:
-          // Check if a sentence delimiter has arrived since streamCursor
           const unhandled = fullAiText.slice(streamCursor);
-          const delimiterMatch = unhandled.match(/([.!?\n]+)(\s+|$)/);
+          const delimiterMatch = unhandled.match(/([.!?\n]+)(?:\s+|$)/);
           if (delimiterMatch && delimiterMatch.index !== undefined) {
             const sentenceEnd = streamCursor + delimiterMatch.index + delimiterMatch[0].length;
             const newSentence = fullAiText.slice(streamCursor, sentenceEnd).trim();
-            if (newSentence.length >= 6) {
+            // ALWAYS advance streamCursor to prevent parser locks
+            streamCursor = sentenceEnd;
+            if (newSentence.length >= 2) {
               enqueueSentence(newSentence);
-              streamCursor = sentenceEnd;
             }
           }
         }
 
         // Enqueue any remaining tail of speech
         const remainingTail = fullAiText.slice(streamCursor).trim();
-        if (remainingTail.length >= 5) {
+        if (remainingTail.length >= 2) {
           setIsAiThinking(false);
           enqueueSentence(remainingTail);
         }
@@ -632,11 +817,13 @@ Instructions:
     } catch (err) {
       console.error("Conversation error:", err);
       setIsAiThinking(false);
-      const fallbackMsg = "I can see you clearly on camera! Don't feel nervous—take a gentle breath and smile, your pronunciation is coming along nicely. Shall we practice the next line?";
+      const fallbackMsg = cameraActive
+        ? "Your facial expression looks very confident! Take a gentle breath, your pronunciation is coming along nicely. Shall we practice the next line?"
+        : "Your pronunciation is coming along nicely! Take a relaxed breath. Shall we practice the next line?";
       setLiveAiSpeech(fallbackMsg);
       enqueueSentence(fallbackMsg);
     }
-  }, [immersionMode, activeScenario, conversationId, user?.id, enqueueSentence]);
+  }, [immersionMode, activeScenario, conversationId, user?.id, enqueueSentence, cameraActive]);
 
   // Explicit Manual Send
   const triggerManualSend = () => {
@@ -647,7 +834,7 @@ Instructions:
   };
 
   // Continuous Speech Recognition (Gemini Live Mode)
-  const startListening = () => {
+  const startListening = useCallback(() => {
     setMicPermissionError(null);
     if (typeof window === "undefined") return;
 
@@ -671,7 +858,7 @@ Instructions:
 
       recognition.onstart = () => {
         setIsListening(true);
-        // Do NOT wipe accumulated speech here so recognition can restart seamlessly
+        isListeningRef.current = true;
       };
 
       recognition.onresult = (event: any) => {
@@ -693,11 +880,11 @@ Instructions:
 
           const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for)\s*$/i.test(candidateText);
           const words = candidateText.split(/\s+/).filter(Boolean);
-          const hasTerminalPunct = /[.!?]$/.test(candidateText);
+          const hasTerminalPunct = /[.!?]$/.test(candidateText.trim());
 
-          let silenceDelay = 1500; // Base natural pause: 1.5 seconds
+          let silenceDelay = 1250; // Fast natural pause: 1.25s
           if (isConnectorWord || words.length < 3 || !hasTerminalPunct) {
-            silenceDelay = 2100; // Allow 2.1s when user is mid-sentence or thinking
+            silenceDelay = 2000; // Allow 2.0s when mid-sentence or thinking
           }
 
           silenceTimerRef.current = setTimeout(() => {
@@ -714,31 +901,29 @@ Instructions:
           console.warn("Speech recognition notice:", e.error);
         }
         setIsListening(false);
+        isListeningRef.current = false;
         if (e.error === "not-allowed" || e.error === "permission-denied") {
           setMicPermissionError("Microphone permission was denied. Please allow microphone access in your browser to practice speaking.");
         }
       };
 
       recognition.onend = () => {
-        // If live conversation ended or AI is active, shut down listening cleanly
         if (!isLiveActiveRef.current || isAiSpeakingRef.current || isAiThinkingRef.current) {
           setIsListening(false);
+          isListeningRef.current = false;
           return;
         }
 
-        // Auto-restart recognition after a gentle pause without flapping UI state in a loop
+        // Auto-restart recognition cleanly by calling startListening() to instantiate a fresh object
         clearTimeout(autoRestartTimerRef.current);
         autoRestartTimerRef.current = setTimeout(() => {
           if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-            try {
-              recognition.start();
-            } catch {
-              setIsListening(false);
-            }
+            startListening();
           } else {
             setIsListening(false);
+            isListeningRef.current = false;
           }
-        }, 800);
+        }, 250);
       };
 
       recognitionRef.current = recognition;
@@ -746,10 +931,11 @@ Instructions:
     } catch (err) {
       console.warn("Could not start recognition:", err);
       setIsListening(false);
+      isListeningRef.current = false;
     }
-  };
+  }, [immersionMode, handleSendMessage]);
 
-  const stopListening = () => {
+  const stopListening = useCallback(() => {
     clearTimeout(silenceTimerRef.current);
     clearTimeout(autoRestartTimerRef.current);
     if (recognitionRef.current) {
@@ -757,7 +943,8 @@ Instructions:
       recognitionRef.current = null;
     }
     setIsListening(false);
-  };
+    isListeningRef.current = false;
+  }, []);
 
   // Start Live Session with a Selected Scenario (Modal callback)
   const startCallWithScenario = (scenario: ScenarioTopic) => {
@@ -863,11 +1050,11 @@ Instructions:
                 {isLiveActive ? (
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    Vision Active
+                    {cameraActive ? `${liveFace.emoji} Live Vision: ${liveFace.label}` : "Audio Session"}
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-600">
-                    Ready
+                    {cameraActive ? `${liveFace.emoji} ${liveFace.label}` : "Ready"}
                   </span>
                 )}
               </div>
@@ -928,10 +1115,24 @@ Instructions:
               <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
             </div>
 
-            {/* Immersion Mode Toggle */}
+            {/* Immersion Mode Toggle with Auto-Voice Switch */}
             <button
-              onClick={() => setImmersionMode(prev => prev === "immersion" ? "bilingual" : "immersion")}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border transition-all ${
+              onClick={() => {
+                setImmersionMode(prev => {
+                  const next = prev === "immersion" ? "bilingual" : "immersion";
+                  if (next === "bilingual") {
+                    if (!selectedVoice.startsWith("hi-")) {
+                      setSelectedVoice("hi-IN-SwaraNeural");
+                    }
+                  } else {
+                    if (selectedVoice.startsWith("hi-")) {
+                      setSelectedVoice("en-US-JennyNeural");
+                    }
+                  }
+                  return next;
+                });
+              }}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
                 immersionMode === "immersion"
                   ? "bg-indigo-50 text-indigo-700 border-indigo-200"
                   : "bg-amber-50 text-amber-800 border-amber-200"
@@ -946,7 +1147,7 @@ Instructions:
             {/* History Drawer Toggle */}
             <button
               onClick={() => setShowHistoryModal(prev => !prev)}
-              className="p-1.5 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors"
+              className="p-1.5 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
               title="View Conversation Log"
             >
               <History className="w-4 h-4" />
@@ -971,7 +1172,7 @@ Instructions:
             : "bg-slate-200/40"
         }`} />
 
-        {/* LIVE CAMERA VIEWFINDER (CENTERED, CLEAN BORDERS) */}
+        {/* LIVE CAMERA VIEWFINDER (CENTERED, CLEAN BORDERS WITH REAL-TIME EMOTION HUD) */}
         {cameraActive ? (
           <div className="flex flex-col items-center z-10 w-full">
             <div className="relative w-44 h-44 sm:w-60 sm:h-60 md:w-72 md:h-72 mx-auto rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-slate-950 ring-1 ring-slate-200/80">
@@ -983,10 +1184,19 @@ Instructions:
                 className="w-full h-full object-cover scale-x-[-1]"
               />
 
+              {/* Real-time Facial Perception HUD Pill */}
+              <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md border border-white/20 text-white shadow-md pointer-events-none z-20">
+                <span className={`w-2 h-2 rounded-full ${liveFace.hasFace ? "bg-emerald-400 animate-ping" : "bg-amber-400"}`} />
+                <span className="text-[10.5px] font-black tracking-wide flex items-center gap-1">
+                  <span>{liveFace.emoji}</span>
+                  <span className="truncate max-w-[120px]">{liveFace.label}</span>
+                </span>
+              </div>
+
               {/* Minimal translucent Camera Switch Button */}
               <button
                 onClick={switchCamera}
-                className="absolute top-3 right-3 p-2 rounded-full bg-black/40 hover:bg-black/70 text-white/90 backdrop-blur-md transition-colors cursor-pointer"
+                className="absolute top-3 right-3 p-2 rounded-full bg-black/40 hover:bg-black/70 text-white/90 backdrop-blur-md transition-colors cursor-pointer z-20"
                 title="Switch Camera"
               >
                 <SwitchCamera className="w-4 h-4" />

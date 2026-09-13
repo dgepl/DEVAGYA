@@ -266,6 +266,15 @@ async def agent_chat_message(
 
     # Persist the user message
     user_msg_content = final_user_prompt or "*(Document attached)*"
+    # If this is English Speaking Coach with structured live directive, extract clean user speech for Supabase & titles
+    if agent_code == "english_coach" and 'Teacher said: "' in message:
+        try:
+            extracted_speech = message.split('Teacher said: "', 1)[1].split('"', 1)[0].strip()
+            if extracted_speech:
+                user_msg_content = extracted_speech
+        except Exception:
+            pass
+
     chat_history_service.add_message(
         conv["id"], "user", user_msg_content, data_urls
     )
@@ -280,7 +289,8 @@ async def agent_chat_message(
     })
 
     if conv.get("title") in ("New Chat", None) and final_user_prompt:
-        chat_history_service.update_title(conv["id"], _derive_title(message or (all_doc_files[0].filename if all_doc_files else "New Chat")))
+        title_source = user_msg_content if (agent_code == "english_coach" and user_msg_content != final_user_prompt) else (message or (all_doc_files[0].filename if all_doc_files else "New Chat"))
+        chat_history_service.update_title(conv["id"], _derive_title(title_source))
 
     # Build AI messages from full conversation context (reusing conv to save Supabase fetch latency)
     ai_messages = _build_agent_ai_messages(conv["id"], user_id, agent["system_prompt"], language, conv=conv)
@@ -289,13 +299,18 @@ async def agent_chat_message(
         async def event_generator():
             full = ""
             try:
-                async for chunk in ai_provider.stream_chat_completion(ai_messages):
+                fast_model = "gemini-3.1-flash-lite" if agent_code == "english_coach" else None
+                async for chunk in ai_provider.stream_chat_completion(ai_messages, model=fast_model):
                     full += chunk
                     yield chunk
             except Exception as e:
                 logger.error(f"Agent chat streaming error: {e}")
                 if agent_code == "english_coach":
-                    fallback = "I can see you on camera! If you felt a bit nervous, take a relaxed breath—your speech was actually very clear. Shall we practice the next line?"
+                    has_cam = len(data_urls) > 0 or "camera is on" in (message or "").lower()
+                    if has_cam:
+                        fallback = "Your facial expression and delivery were very natural! Shall we practice the next sentence?"
+                    else:
+                        fallback = "Your speech was clear and articulate! Shall we practice the next sentence?"
                 else:
                     fallback = f"*(Temporary AI connection delay. Please ask your question again.)*"
                 full += fallback
@@ -303,7 +318,11 @@ async def agent_chat_message(
             finally:
                 if not full.strip() or "processing high traffic" in full or "temporarily busy" in full:
                     if agent_code == "english_coach":
-                        fallback_msg = "I can see you clearly on camera! Don't feel nervous at all—relax and smile, your pronunciation was wonderful. Let us try the next sentence together!"
+                        has_cam = len(data_urls) > 0 or "camera is on" in (message or "").lower()
+                        if has_cam:
+                            fallback_msg = "Your expression looks confident and engaged! Take a gentle breath, and let's try the next sentence."
+                        else:
+                            fallback_msg = "Your pronunciation is coming along nicely! Speak whenever you are ready for the next line."
                     else:
                         fallback_msg = "Hello! I'm here and ready to help. What topic or lesson would you like to explore?"
                     full = fallback_msg
