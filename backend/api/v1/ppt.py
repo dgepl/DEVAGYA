@@ -1,7 +1,7 @@
 import io
 import re
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Response, Query
+from fastapi import APIRouter, HTTPException, Response, Query, BackgroundTasks
 from pydantic import BaseModel
 from services.ppt_service import (
     ppt_service, GeneratePPTRequest, PresentationData, RefineSlideRequest, SlideItem
@@ -15,15 +15,14 @@ class SavePPTRequest(BaseModel):
     deck: PresentationData
 
 @router.post("/generate", response_model=PresentationData)
-async def generate_presentation_endpoint(request: GeneratePPTRequest):
+async def generate_presentation_endpoint(request: GeneratePPTRequest, background_tasks: BackgroundTasks):
     """Generate an AI-powered presentation on any study-related topic with teacher guidance."""
     deck = await ppt_service.generate_presentation(request)
     user_identifier = request.user_id or request.user_email
     if user_identifier:
         try:
-            saved_id = ppt_history_service.save_deck(user_identifier, deck.dict())
-            if saved_id:
-                deck.id = saved_id
+            deck_dict = deck.model_dump() if hasattr(deck, "model_dump") else deck.dict()
+            background_tasks.add_task(ppt_history_service.save_deck, user_identifier, deck_dict)
         except Exception as e:
             pass
     return deck

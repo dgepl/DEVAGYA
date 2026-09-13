@@ -209,11 +209,13 @@ def _download_image_bytes(url: Optional[str]) -> Optional[bytes]:
     return None
 
 
+_IMAGE_SEMAPHORE = asyncio.Semaphore(6)
+
 async def _resolve_real_topic_image(topic: str, slide_title: str, keyword: str) -> str:
     """
     Dynamically finds real, authentic educational images matching the specific topic & slide concept.
     Uses Wikimedia Commons / Wikipedia API for authentic diagrams, maps, and photographs,
-    falling back to Pollinations AI for photorealistic topic diagrams.
+    falling back to curated educational photo keywords.
     """
     cache_key = f"{topic}_{slide_title}_{keyword}".lower().strip()
     if cache_key in _REAL_IMAGE_URL_CACHE:
@@ -221,46 +223,38 @@ async def _resolve_real_topic_image(topic: str, slide_title: str, keyword: str) 
 
     queries = [
         f"{topic} {keyword}".strip(),
-        f"{keyword}".strip(),
-        f"{topic} {slide_title}".strip(),
-        f"{slide_title}".strip()
+        f"{keyword}".strip()
     ]
     headers = {"User-Agent": "DEVGYA-Educational-App/1.0 (https://devgya.in; dgepl.info@gmail.com)"}
 
     try:
         import httpx
         import urllib.parse
-        async with httpx.AsyncClient(timeout=4.0, headers=headers, follow_redirects=True) as client:
-            for q in queries:
-                if not q or len(q) < 3:
-                    continue
-                try:
-                    url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=3&prop=pageimages&piprop=thumbnail&pithumbsize=800&format=json"
-                    res = await client.get(url)
-                    if res.status_code == 200:
-                        data = res.json()
-                        pages = data.get("query", {}).get("pages", {})
-                        for _, p in pages.items():
-                            thumb = p.get("thumbnail", {}).get("source")
-                            if thumb and not thumb.lower().endswith(".svg"):
-                                _REAL_IMAGE_URL_CACHE[cache_key] = thumb
-                                return thumb
-                            elif thumb:
-                                _REAL_IMAGE_URL_CACHE[cache_key] = thumb
-                                return thumb
-                except Exception:
-                    continue
+        async with _IMAGE_SEMAPHORE:
+            async with httpx.AsyncClient(timeout=2.5, headers=headers, follow_redirects=True) as client:
+                for q in queries:
+                    if not q or len(q) < 3:
+                        continue
+                    try:
+                        url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=2&prop=pageimages&piprop=thumbnail&pithumbsize=800&format=json"
+                        res = await client.get(url)
+                        if res.status_code == 200:
+                            data = res.json()
+                            pages = data.get("query", {}).get("pages", {})
+                            for _, p in pages.items():
+                                thumb = p.get("thumbnail", {}).get("source")
+                                if thumb:
+                                    _REAL_IMAGE_URL_CACHE[cache_key] = thumb
+                                    return thumb
+                    except Exception:
+                        continue
     except Exception as e:
-        logger.warning(f"Error querying real educational image for {keyword}: {e}")
+        logger.debug(f"Error querying real educational image for {keyword}: {e}")
 
-    # Fallback to Pollinations AI real topic diagram
-    import urllib.parse
-    clean_title = re.sub(r'[^a-zA-Z0-9 ]', '', slide_title)[:50].strip()
-    clean_top = re.sub(r'[^a-zA-Z0-9 ]', '', topic)[:40].strip()
-    safe_prompt = urllib.parse.quote(f"clear educational illustration diagram of {clean_title} for {clean_top}, detailed science textbook quality, 8k")
-    pollination_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=500&nologo=true"
-    _REAL_IMAGE_URL_CACHE[cache_key] = pollination_url
-    return pollination_url
+    # Fallback to curated topic image
+    fallback_img = _get_image_for_keyword(f"{topic} {keyword} {slide_title}")
+    _REAL_IMAGE_URL_CACHE[cache_key] = fallback_img
+    return fallback_img
 
 
 def _get_image_for_keyword(keyword: str) -> str:
@@ -326,7 +320,7 @@ class PPTGeneratorService:
             presenter = "Educator"
 
         prompt = f"""You are DEVGYA's Master Educational Presentation Architect.
-Synthesize a comprehensive, beautifully structured slide deck for teachers and learners.
+Synthesize a comprehensive, high-quality educational slide deck for teachers and students.
 
 TOPIC: {req.topic}
 TARGET AUDIENCE: {req.target_audience}
@@ -335,58 +329,28 @@ PRESENTATION TONE: {req.tone}
 LANGUAGE: {req.language}
 COLOR THEME: {req.theme}
 PRESENTER / AUTHOR: {presenter}
-{f"TEACHER SPECIFIC GUIDANCE & PEDAGOGY MANDATES: {req.teacher_guidance}" if req.teacher_guidance else ""}
+{f"TEACHER SPECIFIC GUIDANCE: {req.teacher_guidance}" if req.teacher_guidance else ""}
 
 CRITICAL ARCHITECTURAL MANDATES:
-1. FIRST SLIDE (SLIDE 1) MUST BE A DEDICATED COVER / TITLE SLIDE:
-   - "layout": "cover"
-   - "category": "Presentation Cover"
-   - "title": Main punchy presentation title
-   - "subtitle": Clear, engaging subtitle summarizing audience goals
-   - "bullets": [
-       "Presented by: {presenter}",
-       "Target Audience: {req.target_audience}",
-       "Curriculum Focus: {req.topic}"
-     ]
-   - "speaker_notes": Welcoming opening script introducing the session, presenter, and overarching goals.
+1. SLIDE 1 MUST BE COVER:
+   - "layout": "cover", "category": "Presentation Cover", "title": Main presentation title, "subtitle": Clear audience goals subtitle, "bullets": ["Presented by: {presenter}", "Target Audience: {req.target_audience}", "Curriculum Focus: {req.topic}"], "speaker_notes": Welcoming opening remarks.
 
-2. FINAL SLIDE (SLIDE {req.num_slides}) MUST BE A DEDICATED THANK YOU & DISCUSSION SLIDE:
-   - "layout": "thank_you"
-   - "category": "Conclusion & Discussion"
-   - "title": "Thank You!"
-   - "subtitle": "Questions & Classroom Discussion"
-   - "bullets": [
-       "**Core Key Takeaway**: [1 crisp, memorable summary sentence]",
-       "**Classroom Discussion Question**: [1 thought-provoking discussion prompt for students]",
-       "**Next Steps & Review**: Concept consolidation, chapter exercises, and open Q&A"
-     ]
-   - "speaker_notes": Warm closing remarks thanking students/audience and opening the floor for discussion.
+2. FINAL SLIDE (SLIDE {req.num_slides}) MUST BE THANK YOU & DISCUSSION:
+   - "layout": "thank_you", "category": "Conclusion & Discussion", "title": "Thank You!", "subtitle": "Questions & Classroom Discussion", "bullets": ["**Core Takeaway**: 1 crisp summary takeaway", "**Discussion Question**: 1 thought-provoking discussion prompt", "**Next Steps**: Review notes, chapter exercises, and open Q&A"], "speaker_notes": Warm closing remarks.
 
-3. DYNAMIC & FRESH LOOKS (NO REPETITIVE MONOTONOUS SLIDES):
-   Vary slide layouts across middle slides (Slides 2 to {req.num_slides - 1}) based on the specific content:
-   - 'two_column': Comparison, theoretical vs practical, advantages vs challenges.
-   - 'stat_highlight': 2-3 prominent quantitative metrics or pivotal numbers with values and descriptions.
-   - 'process_timeline': 3-4 sequential stages, milestones, or procedural steps with titles and descriptions.
-   - 'quote_insight': Powerful conceptual quote, foundational axiom, or thought leader insight.
-   - 'split_image_text': High-impact concept explanation paired with visual focal illustration.
-   - 'title_bullets': Structured points with bold lead-in keywords (**Concept**: Explanation).
-   Every slide must feel intentionally crafted, professional, and visually distinct. Never repeat identical layout formats consecutively.
+3. DYNAMIC LAYOUT VARIETY ACROSS MIDDLE SLIDES (Slides 2 to {req.num_slides - 1}):
+   Vary layouts across: 'title_bullets', 'two_column', 'stat_highlight', 'process_timeline', 'quote_insight', 'split_image_text'.
+   Never repeat the exact same layout consecutively.
+   Provide 2-3 crisp, high-impact bullet points with bold lead-ins (**Concept**: Explanation).
 
-4. CRITICAL SLIDE COUNT ENFORCEMENT:
-   The user explicitly requested NUMBER OF SLIDES: {req.num_slides}.
-   You MUST generate EXACTLY {req.num_slides} SLIDES in the "slides" array.
-   - Slide 1: Cover slide
-   - Slides 2 to {req.num_slides - 1}: Varied content modules
-   - Slide {req.num_slides}: Final Thank You & Discussion slide
-   Do NOT stop or truncate early. Output ALL {req.num_slides} slides in full!
+4. EXACT SLIDE COUNT:
+   Generate EXACTLY {req.num_slides} SLIDES in the "slides" array.
+   Keep bullet points crisp (1-2 sentences) so all {req.num_slides} slides are fully returned without hitting token limits.
 
-5. JSON EFFICIENCY:
-   Only output fields relevant to each slide's chosen layout. Do NOT output unnecessary null fields. This ensures all {req.num_slides} slides are fully generated within the token limit.
-
-RETURN VALID JSON ONLY matching this structure:
+RETURN VALID JSON ONLY:
 {{
   "title": "Main Presentation Title",
-  "subtitle": "Clear, engaging subtitle summarizing audience goal",
+  "subtitle": "Clear Subtitle for {req.target_audience}",
   "slides": [
     {{
       "slide_number": 1,
@@ -400,26 +364,20 @@ RETURN VALID JSON ONLY matching this structure:
         "Subject: {req.topic}"
       ],
       "image_keyword": "{req.topic}",
-      "image_caption": "Presentation Cover",
       "speaker_notes": "Welcome everyone to today's session on {req.topic}..."
     }},
     {{
       "slide_number": 2,
       "layout": "two_column",
-      "category": "Core Mechanism Comparison",
-      "title": "Comparative Analysis",
-      "subtitle": "Theoretical vs practical dimensions",
-      "left_column": {{
-        "title": "Theoretical View",
-        "bullets": ["Point A", "Point B"]
-      }},
-      "right_column": {{
-        "title": "Practical View",
-        "bullets": ["Point X", "Point Y"]
-      }},
+      "category": "Core Concept",
+      "title": "Core Foundations & Mechanisms",
+      "subtitle": "Theoretical principles and observable practice",
+      "bullets": [
+        "**Theoretical Framework**: Governing scientific/academic axioms.",
+        "**Practical Application**: Real-world experimental relevance."
+      ],
       "image_keyword": "{req.topic}",
-      "image_caption": "Comparative analysis",
-      "speaker_notes": "Highlight how the transition occurred..."
+      "speaker_notes": "Guide students through the core mechanisms..."
     }}
   ]
 }}
@@ -432,7 +390,7 @@ Generate ALL {req.num_slides} slides completely!"""
                     {"role": "system", "content": "You are DEVGYA's premier AI Slide Deck Architect. Output strictly valid JSON without markdown formatting."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.35,
+                temperature=0.3,
                 max_tokens=8192,
                 response_format_json=True
             )
@@ -490,6 +448,40 @@ Generate ALL {req.num_slides} slides completely!"""
                     if not sub_str:
                         sub_str = "Questions & Classroom Discussion"
 
+                # Auto-enrich structured layouts if nested data is missing
+                left_col = s.get("left_column") if isinstance(s.get("left_column"), dict) else None
+                right_col = s.get("right_column") if isinstance(s.get("right_column"), dict) else None
+                metrics = s.get("metrics") if isinstance(s.get("metrics"), list) else None
+                timeline_steps = s.get("timeline_steps") if isinstance(s.get("timeline_steps"), list) else None
+                quote = s.get("quote") if isinstance(s.get("quote"), dict) else None
+
+                if layout_str == "two_column" and (not left_col or not right_col):
+                    b_len = len(bullets)
+                    mid = max(1, b_len // 2)
+                    left_col = {"title": "Theoretical Framework", "bullets": bullets[:mid] or [f"Core theoretical foundations of {title_str}"]}
+                    right_col = {"title": "Practical Application", "bullets": bullets[mid:] or [f"Real-world observation and application"]}
+
+                elif layout_str == "stat_highlight" and not metrics:
+                    metrics = [
+                        {"label": "Retention Rate", "value": "95%", "description": f"Benchmark for {title_str}"},
+                        {"label": "Curriculum Priority", "value": "High", "description": "Core NCERT/CBSE syllabus guideline"}
+                    ]
+
+                elif layout_str == "process_timeline" and not timeline_steps:
+                    src_steps = bullets if len(bullets) >= 3 else [
+                        f"Foundational setup: {title_str}",
+                        f"Core Progression: Process and mechanics",
+                        f"Equilibrium: Final outcomes and analysis"
+                    ]
+                    timeline_steps = [
+                        {"step": str(si + 1), "title": f"Phase {si + 1}", "desc": sb.replace("**", "").split(":")[-1].strip() or sb}
+                        for si, sb in enumerate(src_steps[:4])
+                    ]
+
+                elif layout_str == "quote_insight" and not quote:
+                    quote_text = bullets[0].replace("**", "") if bullets else f"Deep conceptual clarity in {title_str} unlocks mastery of {req.topic}."
+                    quote = {"quote": quote_text, "author": f"Pedagogical Insight — {req.topic}"}
+
                 item = SlideItem(
                     slide_number=num,
                     layout=layout_str,
@@ -497,15 +489,15 @@ Generate ALL {req.num_slides} slides completely!"""
                     title=title_str,
                     subtitle=sub_str,
                     bullets=bullets,
-                    left_column=s.get("left_column") if isinstance(s.get("left_column"), dict) else None,
-                    right_column=s.get("right_column") if isinstance(s.get("right_column"), dict) else None,
-                    metrics=s.get("metrics") if isinstance(s.get("metrics"), list) else None,
-                    timeline_steps=s.get("timeline_steps") if isinstance(s.get("timeline_steps"), list) else None,
-                    quote=s.get("quote") if isinstance(s.get("quote"), dict) else None,
+                    left_column=left_col,
+                    right_column=right_col,
+                    metrics=metrics,
+                    timeline_steps=timeline_steps,
+                    quote=quote,
                     image_keyword=kw,
                     image_url=img_url,
                     image_caption=s.get("image_caption") or f"Visual guide for {req.topic}",
-                    speaker_notes=str(s.get("speaker_notes") or f"Guide students through key ideas of this slide.")
+                    speaker_notes=str(s.get("speaker_notes") or f"Guide students through key ideas of {title_str}.")
                 )
                 slides_list.append(item)
 
@@ -601,7 +593,7 @@ Generate ALL {req.num_slides} slides completely!"""
             if not slides_list:
                 raise ValueError("Could not assemble valid slides from LLM output.")
 
-            deck_res = PresentationData(
+            return PresentationData(
                 id=f"ppt-{uuid.uuid4().hex[:12]}",
                 title=str(parsed.get("title") or req.topic),
                 subtitle=str(parsed.get("subtitle") or f"A comprehensive study presentation for {req.target_audience}"),
@@ -614,16 +606,6 @@ Generate ALL {req.num_slides} slides completely!"""
                 presenter_name=presenter,
                 slides=slides_list
             )
-
-            # Auto-save deck into user's personal Supabase cloud history
-            clean_user = (req.user_id or req.user_email or "").strip()
-            if clean_user:
-                try:
-                    ppt_history_service.save_deck(clean_user, deck_res.dict())
-                except Exception as save_err:
-                    logger.warning(f"Failed to auto-save deck to Supabase: {save_err}")
-
-            return deck_res
 
         except Exception as e:
             logger.warning(f"AI presentation generation error: {e}. Generating fallback structured presentation.")
@@ -760,22 +742,6 @@ Generate ALL {req.num_slides} slides completely!"""
             presenter_name=presenter,
             slides=slides
         )
-
-        clean_user = (req.user_id or req.user_email or "").strip()
-        if clean_user:
-            try:
-                ppt_history_service.save_deck(clean_user, fallback_deck.dict())
-            except Exception as save_err:
-                logger.warning(f"Failed to auto-save fallback deck to Supabase: {save_err}")
-
-        return fallback_deck
-
-        clean_user = (req.user_id or req.user_email or "").strip()
-        if clean_user:
-            try:
-                ppt_history_service.save_deck(clean_user, fallback_deck.dict())
-            except Exception as save_err:
-                logger.warning(f"Failed to auto-save fallback deck to Supabase: {save_err}")
 
         return fallback_deck
 

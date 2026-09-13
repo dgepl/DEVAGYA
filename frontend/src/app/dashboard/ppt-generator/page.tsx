@@ -600,13 +600,13 @@ export default function PPTGeneratorPage() {
             </div>
 
             {/* 2. Target Audience & Slide Count */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="min-w-0">
                 <label className="block text-xs font-extrabold text-slate-700 mb-1">Target Audience</label>
                 <select
                   value={targetAudience}
                   onChange={(e) => setTargetAudience(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer"
+                  className="w-full min-w-0 bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 cursor-pointer truncate"
                 >
                   <option value="Middle School (Class 6-8)">Middle School (Class 6-8)</option>
                   <option value="Class 9-10 (CBSE/NCERT)">Class 9-10 (CBSE/NCERT)</option>
@@ -616,11 +616,11 @@ export default function PPTGeneratorPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-extrabold text-slate-700 mb-1">
                   Slide Count <span className="text-indigo-600 font-black">({numSlides} Slides)</span>
                 </label>
-                <div className="flex gap-1.5 items-center">
+                <div className="flex gap-1.5 items-center w-full min-w-0">
                   <select
                     value={[5, 8, 10, 12, 15, 18, 20, 25, 30].includes(numSlides) ? numSlides : "custom"}
                     onChange={(e) => {
@@ -628,19 +628,19 @@ export default function PPTGeneratorPage() {
                         setNumSlides(Number(e.target.value));
                       }
                     }}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer"
+                    className="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-bold text-slate-800 cursor-pointer truncate"
                   >
-                    <option value={5}>5 Slides (Quick Summary)</option>
-                    <option value={8}>8 Slides (Standard Deck)</option>
-                    <option value={10}>10 Slides (Classroom Lecture)</option>
+                    <option value={5}>5 Slides (Summary)</option>
+                    <option value={8}>8 Slides (Standard)</option>
+                    <option value={10}>10 Slides (Lecture)</option>
                     <option value={12}>12 Slides (Deep Dive)</option>
                     <option value={15}>15 Slides (Masterclass)</option>
-                    <option value={18}>18 Slides (Advanced Workshop)</option>
-                    <option value={20}>20 Slides (Complete Chapter)</option>
-                    <option value={25}>25 Slides (Curriculum Overview)</option>
-                    <option value={30}>30 Slides (Mega Presentation)</option>
+                    <option value={18}>18 Slides (Workshop)</option>
+                    <option value={20}>20 Slides (Full Chapter)</option>
+                    <option value={25}>25 Slides (Overview)</option>
+                    <option value={30}>30 Slides (Mega Deck)</option>
                     {![5, 8, 10, 12, 15, 18, 20, 25, 30].includes(numSlides) && (
-                      <option value="custom">Custom ({numSlides} Slides)</option>
+                      <option value="custom">Custom ({numSlides})</option>
                     )}
                   </select>
                   <input
@@ -654,7 +654,7 @@ export default function PPTGeneratorPage() {
                         setNumSlides(Math.max(3, Math.min(50, val)));
                       }
                     }}
-                    className="w-16 bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-black text-indigo-700 text-center focus:outline-none focus:border-indigo-500"
+                    className="w-12 shrink-0 bg-slate-50 border border-slate-300 rounded-xl px-1 py-2 text-xs font-black text-indigo-700 text-center focus:outline-none focus:border-indigo-500"
                     title="Enter custom slide count (3 - 50)"
                   />
                 </div>
@@ -662,13 +662,13 @@ export default function PPTGeneratorPage() {
             </div>
 
             {/* 3. Tone & Language */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="min-w-0">
                 <label className="block text-xs font-extrabold text-slate-700 mb-1">Tone & Style</label>
                 <select
                   value={tone}
                   onChange={(e) => setTone(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer"
+                  className="w-full min-w-0 bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 cursor-pointer truncate"
                 >
                   <option value="Engaging & Visual">Engaging & Visual</option>
                   <option value="Academic & Rigorous">Academic & Rigorous</option>
@@ -677,12 +677,12 @@ export default function PPTGeneratorPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-xs font-extrabold text-slate-700 mb-1">Language</label>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer"
+                  className="w-full min-w-0 bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 cursor-pointer"
                 >
                   <option value="English">English</option>
                   <option value="Hindi">Hindi (हिंदी)</option>
