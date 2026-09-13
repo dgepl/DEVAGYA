@@ -16,8 +16,7 @@ import {
   Award, 
   HeartHandshake, 
   Lightbulb,
-  Mail,
-  Phone
+  Mail
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -203,10 +202,6 @@ export default function AboutPage() {
                   <Mail className="w-4 h-4 text-cyan-400" />
                   <span>Email: dgepl.info@gmail.com</span>
                 </a>
-                <span className="inline-flex items-center gap-2 font-bold text-slate-300">
-                  <Phone className="w-4 h-4 text-emerald-400" />
-                  <span>Helpline: +91 8307224756</span>
-                </span>
                 <span className="inline-flex items-center gap-2 font-medium text-slate-400">
                   <MapPin className="w-4 h-4 text-rose-400" />
                   <span>Jhajjar, Haryana, India</span>

@@ -477,7 +477,7 @@ export function PracticeQuizRunner() {
               <Hash className="w-4 h-4 text-violet-500" /> Number of Questions
             </label>
             <div className="flex items-center gap-2">
-              {[3, 5, 8, 10, 15, 20].map((n) => (
+              {[3, 5, 8, 10, 15, 20, 25].map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -491,15 +491,6 @@ export function PracticeQuizRunner() {
                   {n}
                 </button>
               ))}
-              <input
-                type="number"
-                min={1}
-                max={25}
-                value={numQuestions}
-                onChange={(e) => setNumQuestions(Math.max(1, Math.min(25, Number(e.target.value) || 5)))}
-                className="w-16 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-black text-center text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                title="Custom Question Count"
-              />
             </div>
           </div>
 
