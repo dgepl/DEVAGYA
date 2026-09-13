@@ -32,10 +32,14 @@ import {
   FileText,
   Filter,
   Grid,
-  X
+  X,
+  EyeOff,
+  Video,
+  ScanFace
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
+import { analyzeVideoFrame, loadFaceDetectionModels } from "@/lib/proctorGazeEngine";
 
 export default function TeacherOlympiadPage() {
   const { user } = useAppStore();
@@ -86,6 +90,94 @@ export default function TeacherOlympiadPage() {
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const warningTimeoutRef = useRef<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Real-time AI Face & Gaze Tracking State
+  const [liveGazeStatus, setLiveGazeStatus] = useState<string>("looking_at_screen");
+  const [liveGazeReason, setLiveGazeReason] = useState<string>("Face and gaze focused on examination screen");
+  const [isTestModeActive, setIsTestModeActive] = useState<boolean>(false);
+  const [testStream, setTestStream] = useState<MediaStream | null>(null);
+  const testVideoRef = useRef<HTMLVideoElement>(null);
+  const [testGazeStatus, setTestGazeStatus] = useState<string>("waiting");
+  const [testGazeReason, setTestGazeReason] = useState<string>("Click to start camera & eye tracking test");
+  const [testWarningsCount, setTestWarningsCount] = useState<number>(0);
+  const [testLookingAwayAlert, setTestLookingAwayAlert] = useState<boolean>(false);
+
+  // Pre-load AI Face & Gaze Tracking Neural Models
+  useEffect(() => {
+    loadFaceDetectionModels().catch(() => {});
+  }, []);
+
+  // Cleanup camera streams on unmount
+  useEffect(() => {
+    return () => {
+      if (testStream) {
+        testStream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, [testStream]);
+
+  // Start Live Interactive Camera & Gaze Test (in Rules Modal)
+  const startCameraTest = async () => {
+    setIsTestModeActive(true);
+    setTestGazeStatus("initializing");
+    setTestGazeReason("Initializing AI camera & gaze tracker...");
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+          audio: false
+        });
+        setTestStream(stream);
+        if (testVideoRef.current) {
+          testVideoRef.current.srcObject = stream;
+          try { await testVideoRef.current.play(); } catch (e) {}
+        }
+      }
+    } catch (err) {
+      console.warn("Test camera access failed:", err);
+      setTestGazeStatus("no_face");
+      setTestGazeReason("Camera access not granted. Please allow camera permissions in browser.");
+    }
+  };
+
+  // Stop Live Camera Test
+  const stopCameraTest = () => {
+    if (testStream) {
+      testStream.getTracks().forEach((track) => track.stop());
+      setTestStream(null);
+    }
+    setIsTestModeActive(false);
+  };
+
+  // Live Camera Test Gaze Tracking Loop
+  useEffect(() => {
+    if (!isTestModeActive || !testStream) return;
+
+    let testStreak = 0;
+    const interval = setInterval(async () => {
+      if (!testVideoRef.current || testVideoRef.current.readyState < 2) return;
+      try {
+        const result = await analyzeVideoFrame(testVideoRef.current);
+        setTestGazeStatus(result.status);
+        setTestGazeReason(result.reason);
+
+        if (!result.isLookingAtScreen) {
+          testStreak += 1;
+          if (testStreak >= 3) {
+            testStreak = 0;
+            setTestLookingAwayAlert(true);
+            setTestWarningsCount((prev) => prev + 1);
+          }
+        } else {
+          testStreak = 0;
+        }
+      } catch (e) {
+        console.warn("Test frame analysis error:", e);
+      }
+    }, 400);
+
+    return () => clearInterval(interval);
+  }, [isTestModeActive, testStream]);
 
   // Admin Declared Results & Detailed Answer Review State
   const [publishedResults, setPublishedResults] = useState<any[]>([]);
@@ -381,15 +473,12 @@ export default function TeacherOlympiadPage() {
     };
   }, [examStarted, examSubmitted, isAutoTerminated]);
 
-  // 3. Camera Stream & Video Presence Proctor Monitor (Fair, practical, zero-false-positive engine)
+  // 3. Camera Stream & AI Face/Gaze Presence Proctor Monitor (Continuous Real-Time Detection)
   useEffect(() => {
     if (!examStarted || examSubmitted || !mediaStream || isAutoTerminated) return;
 
-    if (!offscreenCanvasRef.current) {
-      offscreenCanvasRef.current = document.createElement("canvas");
-      offscreenCanvasRef.current.width = 160;
-      offscreenCanvasRef.current.height = 120;
-    }
+    let gazeAwayStreak = 0;
+    let cameraDisabledStreak = 0;
 
     const visionTimer = setInterval(async () => {
       if (!videoRef.current || examSubmitted || isAutoTerminated) return;
@@ -398,66 +487,53 @@ export default function TeacherOlympiadPage() {
 
       const videoTrack = mediaStream.getVideoTracks()[0];
       if (!videoTrack || videoTrack.readyState !== "live" || !videoTrack.enabled || videoTrack.muted) {
-        faceMissingStreakRef.current += 1;
-        if (faceMissingStreakRef.current >= 4) {
-          faceMissingStreakRef.current = 0;
+        cameraDisabledStreak += 1;
+        if (cameraDisabledStreak >= 3) {
+          cameraDisabledStreak = 0;
           triggerProctorWarning(
             "Webcam Feed Inactive",
-            "Your webcam video feed appears to be disabled or paused. Please ensure your camera remains enabled and uncovered during the Olympiad.",
+            "Your webcam video feed appears disabled or paused. Please ensure your camera remains enabled and uncovered during the assessment.",
             "face_away"
           );
         }
         return;
       }
-
-      const canvas = offscreenCanvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
-
-      let isFrameValid = true;
+      cameraDisabledStreak = 0;
 
       try {
-        ctx.drawImage(video, 0, 0, 160, 120);
-        const imgData = ctx.getImageData(0, 0, 160, 120);
-        const data = imgData.data;
-        let totalLum = 0;
-        const sampleStep = 8; // fast sampling
-        let sampledCount = 0;
+        const result = await analyzeVideoFrame(video);
+        setLiveGazeStatus(result.status);
+        setLiveGazeReason(result.reason);
 
-        for (let i = 0; i < data.length; i += 4 * sampleStep) {
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-          totalLum += (0.299 * r + 0.587 * g + 0.114 * b);
-          sampledCount++;
+        // Check if candidate is looking away (left, right, up, down, off-screen, or multiple faces)
+        if (!result.isLookingAtScreen) {
+          gazeAwayStreak += 1;
+          // Trigger after 3 consecutive intervals (~1.35 seconds) to avoid false positives on natural quick blinks
+          if (gazeAwayStreak >= 3) {
+            gazeAwayStreak = 0;
+            const title =
+              result.status === "multiple_faces"
+                ? "Multiple Faces Detected in View"
+                : result.status === "no_face"
+                ? "Face Not Detected on Screen"
+                : "Gaze Shifted Away from Screen";
+
+            const reason =
+              result.status === "multiple_faces"
+                ? "Multiple faces were detected by the AI proctor. The assessment must be taken alone without external assistance."
+                : result.status === "no_face"
+                ? "Your face was not detected in the camera frame. Please keep your face centered in front of the screen."
+                : `You looked away from the assessment screen (${result.reason}). Please keep your eyes and attention focused directly on the exam.`;
+
+            triggerProctorWarning(title, reason, "face_away");
+          }
+        } else {
+          gazeAwayStreak = 0;
         }
-
-        const avgLum = totalLum / sampledCount;
-
-        // Frame is only considered obstructed if it is pitch black (lens physically covered/shutter closed < 5)
-        if (avgLum < 5) {
-          isFrameValid = false;
-        }
-      } catch (e) {
-        isFrameValid = true;
+      } catch (err) {
+        console.warn("Vision proctor loop error:", err);
       }
-
-      if (!isFrameValid) {
-        faceMissingStreakRef.current += 1;
-        // 5 consecutive obstructed checks (approx 12.5 seconds) = true camera obstruction
-        if (faceMissingStreakRef.current >= 5) {
-          faceMissingStreakRef.current = 0;
-          triggerProctorWarning(
-            "Camera Feed Obstructed",
-            "Your camera lens appears completely covered or darkened. Please ensure your workspace is illuminated and your face is visible.",
-            "face_away"
-          );
-        }
-      } else {
-        faceMissingStreakRef.current = 0;
-      }
-    }, 2500);
+    }, 450);
 
     return () => clearInterval(visionTimer);
   }, [examStarted, examSubmitted, mediaStream, isAutoTerminated]);
@@ -488,11 +564,13 @@ export default function TeacherOlympiadPage() {
 
     setRulesAgreed(false);
     setShowRulesModal(true);
+    startCameraTest();
   };
 
   // Start Real 60-Minute Exam after candidate confirms and clicks continue
   const handleProceedStartExam = async () => {
     if (!rulesAgreed) return;
+    stopCameraTest();
     setShowRulesModal(false);
 
     // Try requesting fullscreen
@@ -983,7 +1061,10 @@ export default function TeacherOlympiadPage() {
 
               <button
                 type="button"
-                onClick={() => setShowRulesModal(false)}
+                onClick={() => {
+                  stopCameraTest();
+                  setShowRulesModal(false);
+                }}
                 className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1087,7 +1168,160 @@ export default function TeacherOlympiadPage() {
                 </div>
               </div>
 
-              {/* SECTION 4: CANDIDATE UNDERTAKING */}
+              {/* SECTION 4: INTERACTIVE LIVE CAMERA & GAZE TRACKING TEST */}
+              <div className="p-4 sm:p-5 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl border border-indigo-500/40 space-y-4 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shrink-0">
+                      <Camera className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-300 block">
+                        Live Anti-Cheating Verification (Camera & Eye Tracker)
+                      </span>
+                      <h3 className="text-xs sm:text-sm font-black text-white">
+                        Live Testing: Face & Gaze Tracking
+                      </h3>
+                    </div>
+                  </div>
+
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border flex items-center gap-1.5 w-fit ${
+                    testGazeStatus === "looking_at_screen"
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                      : testGazeStatus === "initializing"
+                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                      : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${
+                      testGazeStatus === "looking_at_screen"
+                        ? "bg-emerald-400 animate-pulse"
+                        : testGazeStatus === "initializing"
+                        ? "bg-amber-400 animate-pulse"
+                        : "bg-rose-400 animate-ping"
+                    }`} />
+                    <span>
+                      {testGazeStatus === "looking_at_screen"
+                        ? "Looking at Screen (Compliant ✓)"
+                        : testGazeStatus === "initializing"
+                        ? "Starting Camera..."
+                        : testGazeStatus === "no_face"
+                        ? "No Face in View"
+                        : "Looking Away Detected ⚠️"}
+                    </span>
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
+                  The Skill Enhance Program monitors your live webcam feed using real-time AI. 
+                  Test your camera below: <strong>Try looking away (left, right, down)</strong> to see the AI detect gaze shifts live in real time.
+                </p>
+
+                {/* Live Camera Viewport */}
+                <div className="relative w-full max-w-sm mx-auto h-48 sm:h-56 bg-slate-950 rounded-2xl overflow-hidden border border-slate-700 shadow-inner flex items-center justify-center">
+                  {isTestModeActive ? (
+                    <>
+                      <video
+                        ref={testVideoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover mirror scale-x-[-1]"
+                      />
+                      
+                      {/* Real-time Status Overlay Badge */}
+                      <div className="absolute top-2 left-2 bg-black/85 backdrop-blur-xs text-white text-[10px] font-black px-2.5 py-1 rounded-xl flex items-center gap-2 border border-white/10">
+                        <span className={`w-2 h-2 rounded-full ${
+                          testGazeStatus === "looking_at_screen" ? "bg-emerald-400 animate-pulse" : "bg-rose-500 animate-ping"
+                        }`} />
+                        <span>
+                          {testGazeStatus === "looking_at_screen"
+                            ? "Focused on Screen ✓"
+                            : testGazeStatus === "no_face"
+                            ? "Face Missing ⚠️"
+                            : "Looking Away ⚠️"}
+                        </span>
+                      </div>
+
+                      {/* Warnings Counter Badge in Test Mode */}
+                      <div className="absolute top-2 right-2 bg-slate-900/90 backdrop-blur-xs text-white text-[10px] font-black px-2.5 py-1 rounded-xl border border-white/10">
+                        Test Warnings: <span className={testWarningsCount > 0 ? "text-rose-400 font-black" : "text-emerald-400"}>{testWarningsCount}</span>
+                      </div>
+
+                      {/* Live Gaze Explanation Bar */}
+                      <div className="absolute bottom-2 inset-x-2 bg-black/85 backdrop-blur-xs p-2 rounded-xl text-center border border-white/10">
+                        <p className={`text-[10px] font-bold ${
+                          testGazeStatus === "looking_at_screen" ? "text-emerald-300" : "text-rose-300 animate-pulse"
+                        }`}>
+                          {testGazeReason}
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center p-4 space-y-2">
+                      <Camera className="w-8 h-8 text-indigo-400 mx-auto opacity-70" />
+                      <p className="text-xs text-slate-400 font-medium">Click below to activate live webcam and gaze verification test</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Test Action Controls */}
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  {!isTestModeActive ? (
+                    <button
+                      type="button"
+                      onClick={startCameraTest}
+                      className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Start Live Camera & Gaze Test</span>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTestWarningsCount((c) => c + 1);
+                          setTestLookingAwayAlert(true);
+                        }}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>Simulate Looking-Away Warning</span>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={stopCameraTest}
+                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-slate-300 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                      >
+                        Stop Camera Test
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Simulated Warning Alert in Test Mode */}
+                {testLookingAwayAlert && (
+                  <div className="p-3 bg-rose-500/20 border border-rose-500/50 rounded-2xl flex items-center justify-between gap-3 text-rose-200 text-xs animate-in zoom-in-95 duration-150">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                      <div>
+                        <strong className="text-rose-300 font-black block">Warning #{testWarningsCount} Triggered! (Simulated)</strong>
+                        <span>Looking away from screen detected on live webcam feed. During the exam, this increments 1 security warning.</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTestLookingAwayAlert(false)}
+                      className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] rounded-lg shrink-0 cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 5: CANDIDATE UNDERTAKING */}
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
@@ -1110,7 +1344,10 @@ export default function TeacherOlympiadPage() {
             <div className="p-4 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => setShowRulesModal(false)}
+                onClick={() => {
+                  stopCameraTest();
+                  setShowRulesModal(false);
+                }}
                 className="px-5 py-2.5 border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer"
               >
                 Cancel / Return
@@ -1400,57 +1637,25 @@ export default function TeacherOlympiadPage() {
 
             </div>
 
-            {/* DESKTOP QUESTION PALETTE GRID (1 COL) */}
-            <div className="hidden lg:block bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4 h-fit sticky top-20">
-              <div className="space-y-1">
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                  Question Palette (100 MCQs)
-                </h3>
-                <div className="grid grid-cols-2 gap-1.5 text-[10px] font-bold text-slate-500 pt-1">
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Answered</span>
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Review</span>
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-200" /> Unanswered</span>
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-indigo-600" /> Current</span>
+            {/* DESKTOP & MOBILE SIDEBAR / PROCTORING PALETTE */}
+            <div className="space-y-4">
+              {/* Webcam Preview & Live Proctoring Widget - Always rendered in DOM & visible */}
+              <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <div className="flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="font-extrabold text-slate-900">AI Proctor Feed</span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                    liveGazeStatus === "looking_at_screen"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-rose-50 text-rose-700 border border-rose-200 animate-pulse"
+                  }`}>
+                    {liveGazeStatus === "looking_at_screen" ? "Focused ✓" : "Looking Away ⚠️"}
+                  </span>
                 </div>
-              </div>
 
-              {/* 100 Grid Cells */}
-              <div className="grid grid-cols-5 gap-1.5 max-h-[340px] overflow-y-auto pr-1">
-                {questions.map((q, idx) => {
-                  const isCurrent = currentIdx === idx;
-                  const isAnswered = answers[q.id] !== undefined;
-                  const isReview = markedForReview[q.id];
-
-                  let bg = "bg-slate-100 text-slate-600 hover:bg-slate-200";
-                  if (isCurrent) bg = "bg-indigo-600 text-white ring-2 ring-indigo-600 ring-offset-1 font-black";
-                  else if (isReview) bg = "bg-purple-500 text-white font-bold";
-                  else if (isAnswered) bg = "bg-emerald-500 text-white font-bold";
-
-                  return (
-                    <button
-                      key={q.id}
-                      type="button"
-                      onClick={() => {
-                        setCurrentIdx(idx);
-                        setActiveSection(q.section);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className={`h-8 rounded-lg text-[11px] transition-all cursor-pointer flex items-center justify-center ${bg}`}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="pt-2 border-t border-slate-100 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-600">
-                  <span>Total Answered:</span>
-                  <span className="font-black text-indigo-600">{Object.keys(answers).length} / 100</span>
-                </div>
-                
-                {/* Webcam Preview & Live Proctoring Widget */}
-                <div className="relative w-full h-24 bg-slate-950 rounded-2xl overflow-hidden border border-slate-300 shadow-inner">
+                <div className="relative w-full h-28 sm:h-32 bg-slate-950 rounded-2xl overflow-hidden border border-slate-300 shadow-inner">
                   <video 
                     ref={videoRef} 
                     autoPlay 
@@ -1460,17 +1665,85 @@ export default function TeacherOlympiadPage() {
                   />
                   
                   {/* Status Overlay Badges */}
-                  <div className="absolute top-1.5 left-1.5 bg-black/75 backdrop-blur-xs text-white text-[9px] font-black px-2 py-0.5 rounded-md flex items-center gap-1.5 shadow-xs">
-                    <span className={`w-2 h-2 rounded-full ${webcamEnabled ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
-                    <span>{webcamEnabled ? "Camera Monitored" : "Camera Initializing..."}</span>
+                  <div className="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur-xs text-white text-[9px] font-black px-2 py-0.5 rounded-md flex items-center gap-1.5 shadow-xs">
+                    <span className={`w-2 h-2 rounded-full ${
+                      liveGazeStatus === "looking_at_screen" ? "bg-emerald-400 animate-pulse" : "bg-rose-500 animate-ping"
+                    }`} />
+                    <span>
+                      {liveGazeStatus === "looking_at_screen"
+                        ? "Looking at Screen"
+                        : liveGazeStatus === "no_face"
+                        ? "Face Missing ⚠️"
+                        : "Looking Away ⚠️"}
+                    </span>
                   </div>
 
-                  {tabSwitches > 0 && (
-                    <div className="absolute bottom-1.5 right-1.5 bg-rose-600/90 backdrop-blur-xs text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs animate-pulse">
-                      {tabSwitches} Warning(s)
+                  {proctorWarnings > 0 && (
+                    <div className="absolute bottom-1.5 right-1.5 bg-rose-600/95 backdrop-blur-xs text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs animate-pulse">
+                      {proctorWarnings} / 5 Warning(s)
                     </div>
                   )}
+
+                  <div className="absolute bottom-1.5 left-1.5 bg-black/60 backdrop-blur-xs text-[8px] text-slate-300 font-semibold px-1.5 py-0.5 rounded">
+                    Real-Time Eye-Tracking
+                  </div>
                 </div>
+
+                <p className="text-[10px] text-slate-500 font-medium leading-tight">
+                  Keep eyes focused on the questions. Looking away from screen triggers a security warning.
+                </p>
+              </div>
+
+              {/* DESKTOP QUESTION PALETTE GRID (1 COL) */}
+              <div className="hidden lg:block bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4 h-fit sticky top-20">
+                <div className="space-y-1">
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    Question Palette (100 MCQs)
+                  </h3>
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px] font-bold text-slate-500 pt-1">
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Answered</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Review</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-200" /> Unanswered</span>
+                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-indigo-600" /> Current</span>
+                  </div>
+                </div>
+
+                {/* 100 Grid Cells */}
+                <div className="grid grid-cols-5 gap-1.5 max-h-[340px] overflow-y-auto pr-1">
+                  {questions.map((q, idx) => {
+                    const isCurrent = currentIdx === idx;
+                    const isAnswered = answers[q.id] !== undefined;
+                    const isReview = markedForReview[q.id];
+
+                    let bg = "bg-slate-100 text-slate-600 hover:bg-slate-200";
+                    if (isCurrent) bg = "bg-indigo-600 text-white ring-2 ring-indigo-600 ring-offset-1 font-black";
+                    else if (isReview) bg = "bg-purple-500 text-white font-bold";
+                    else if (isAnswered) bg = "bg-emerald-500 text-white font-bold";
+
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => {
+                          setCurrentIdx(idx);
+                          setActiveSection(q.section);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className={`h-8 rounded-lg text-[11px] transition-all cursor-pointer flex items-center justify-center ${bg}`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                    <span>Total Answered:</span>
+                    <span className="font-black text-indigo-600">{Object.keys(answers).length} / 100</span>
+                  </div>
+                </div>
+
               </div>
 
             </div>
