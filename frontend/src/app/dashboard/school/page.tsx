@@ -22,6 +22,7 @@ import {
 import { useAppStore } from "@/store/useAppStore";
 import { getApiBase } from "@/lib/api";
 import { SchoolLockedBanner } from "@/components/school/SchoolLockedBanner";
+import { MobileSchoolDashboard } from "@/components/dashboard/MobileSchoolDashboard";
 
 interface SchoolData {
   id: string;
@@ -163,10 +164,19 @@ export default function SchoolDashboardHomePage() {
   const hiredCount = applications.filter(a => a.status === "selected").length;
 
   return (
-    <div className="space-y-5 pb-24 max-w-4xl mx-auto">
-      {/* 1. HERO BANNER: WELCOME BACK, SCHOOL PORTAL WITH 3D GRADUATION CAP & BOOK */}
-      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-purple-50/70 border border-indigo-100/70 shadow-xs">
-        {/* Subtle Decorative Sparkles */}
+    <>
+      {/* Mobile School Dashboard (Hidden on Desktop) */}
+      <MobileSchoolDashboard
+        school={school}
+        vacancies={vacancies}
+        applications={applications}
+      />
+
+      {/* Desktop School Dashboard (Hidden on Mobile) */}
+      <div className="hidden md:block space-y-6 pb-24 max-w-5xl mx-auto">
+        {/* 1. HERO BANNER: WELCOME BACK, SCHOOL PORTAL WITH 3D GRADUATION CAP & BOOK */}
+        <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-purple-50/70 border border-indigo-100/70 shadow-xs">
+          {/* Subtle Decorative Sparkles */}
         <div className="absolute top-4 right-36 w-3 h-3 select-none pointer-events-none opacity-80">
           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
         </div>
@@ -444,6 +454,7 @@ export default function SchoolDashboardHomePage() {
           <span>dgepl.info@gmail.com</span>
         </a>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
