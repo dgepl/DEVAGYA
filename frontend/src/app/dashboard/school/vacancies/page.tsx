@@ -25,6 +25,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { getApiBase } from "@/lib/api";
 import { MobileSchoolHeader } from "@/components/school/MobileSchoolHeader";
 import { SchoolLockedBanner } from "@/components/school/SchoolLockedBanner";
+import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 
 interface SchoolData {
   id: string;
@@ -97,6 +98,10 @@ export default function SchoolVacanciesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  // Deletion modal state
+  const [vacancyToDelete, setVacancyToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isDeletingVacancy, setIsDeletingVacancy] = useState(false);
 
   // Post Vacancy Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -230,22 +235,28 @@ export default function SchoolVacanciesPage() {
     }
   };
 
-  const handleDeleteVacancy = async (vacId: string) => {
-    if (!confirm("Are you sure you want to delete this vacancy?")) return;
+  const handleDeleteVacancy = async () => {
+    if (!vacancyToDelete) return;
+    setIsDeletingVacancy(true);
     try {
       const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/recruitment/vacancies/${vacId}`, {
+      const res = await fetch(`${baseUrl}/recruitment/vacancies/${vacancyToDelete.id}`, {
         method: "DELETE"
       });
       if (res.ok) {
         setVacancies(prev => {
-          const next = prev.filter(v => v.id !== vacId);
+          const next = prev.filter(v => v.id !== vacancyToDelete.id);
           setSchoolVacancies(next);
           return next;
         });
+        setVacancyToDelete(null);
+      } else {
+        alert("Failed to delete vacancy.");
       }
     } catch (e) {
       alert("Failed to delete vacancy.");
+    } finally {
+      setIsDeletingVacancy(false);
     }
   };
 
@@ -445,7 +456,7 @@ export default function SchoolVacanciesPage() {
 
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => handleDeleteVacancy(vac.id)}
+                    onClick={() => setVacancyToDelete({ id: vac.id, title: vac.title })}
                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
                     title="Delete vacancy"
                   >
@@ -633,6 +644,17 @@ export default function SchoolVacanciesPage() {
           </div>
         </div>
       )}
+
+      {/* DELETE VACANCY CONFIRMATION MODAL */}
+      <DeleteConfirmModal
+        isOpen={!!vacancyToDelete}
+        onClose={() => setVacancyToDelete(null)}
+        onConfirm={handleDeleteVacancy}
+        title="Delete Job Vacancy"
+        itemName={vacancyToDelete?.title}
+        description="Are you sure you want to permanently remove this job posting? Candidates will no longer be able to view or apply for this opening."
+        isLoading={isDeletingVacancy}
+      />
     </div>
   );
 }

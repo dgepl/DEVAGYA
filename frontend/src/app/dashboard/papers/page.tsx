@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FileText, Download, CheckCircle, Trash2, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF } from "@/lib/api";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 
 export default function PapersPage() {
   const { user, savedPapers, activePaper, deleteSavedPaper, fetchSavedPapers } = useAppStore();
+  const [paperToDelete, setPaperToDelete] = useState<{ idx: number; title: string } | null>(null);
 
   useEffect(() => {
     if (user?.email) {
@@ -71,8 +73,9 @@ export default function PapersPage() {
                   Answer Key
                 </button>
                 <button
-                  onClick={() => deleteSavedPaper(idx)}
-                  className="p-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-400 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+                  type="button"
+                  onClick={() => setPaperToDelete({ idx, title: paper.title || `${paper.subject} Exam` })}
+                  className="p-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-400 border border-slate-200 rounded-xl transition-colors cursor-pointer"
                   title="Delete from archive"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -90,6 +93,22 @@ export default function PapersPage() {
           </p>
         </div>
       )}
+
+      {/* MINIMAL & PROFESSIONAL DELETE CONFIRMATION MODAL */}
+      <DeleteConfirmModal
+        isOpen={!!paperToDelete}
+        onClose={() => setPaperToDelete(null)}
+        onConfirm={() => {
+          if (paperToDelete !== null) {
+            deleteSavedPaper(paperToDelete.idx);
+            setPaperToDelete(null);
+          }
+        }}
+        title="Delete Question Paper"
+        itemName={paperToDelete?.title}
+        description="Are you sure you want to remove this paper from your archive? This action cannot be undone."
+        confirmLabel="Delete Paper"
+      />
 
     </div>
   );

@@ -778,3 +778,6 @@ export default function Markdown({ text, content }: { text?: string; content?: s
 
   return <div className="text-slate-800 text-xs sm:text-sm font-sans space-y-1">{blocks}</div>;
 }
+
+export { Markdown };
+

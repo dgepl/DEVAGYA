@@ -45,10 +45,12 @@ import {
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
 import { CBSE_NCERT_CURRICULUM } from "@/lib/cbseNcertCurriculum";
+import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 
 export default function GeneratorPage() {
   const router = useRouter();
   const { user, ocrDraftText, savedPapers, savePaper, deleteSavedPaper, setOcrDraftText } = useAppStore();
+  const [paperToDelete, setPaperToDelete] = useState<{ idx: number; title: string } | null>(null);
 
   // Dynamic NCERT Curriculum Lookups
   const availableClasses = Object.keys(CBSE_NCERT_CURRICULUM);
@@ -1737,7 +1739,7 @@ export default function GeneratorPage() {
                         Load
                       </button>
                       <button
-                        onClick={() => deleteSavedPaper(idx)}
+                        onClick={() => setPaperToDelete({ idx, title: saved.title || "Untitled Question Paper" })}
                         className="p-1.5 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors cursor-pointer"
                         title="Delete from history"
                       >
@@ -1752,6 +1754,21 @@ export default function GeneratorPage() {
           </div>
         </div>
       )}
+
+      {/* MINIMAL CONFIRMATION MODAL FOR PAPER HISTORY */}
+      <DeleteConfirmModal
+        isOpen={!!paperToDelete}
+        onClose={() => setPaperToDelete(null)}
+        onConfirm={() => {
+          if (paperToDelete) {
+            deleteSavedPaper(paperToDelete.idx);
+            setPaperToDelete(null);
+          }
+        }}
+        title="Delete Paper History"
+        itemName={paperToDelete?.title}
+        description="Are you sure you want to remove this question paper from your saved history? This action cannot be undone."
+      />
 
     </div>
   );

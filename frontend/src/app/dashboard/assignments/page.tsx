@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 
 import { CBSE_NCERT_CURRICULUM } from "@/lib/cbseNcertCurriculum";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 
 export default function AssignmentMakerPage() {
   const {
@@ -49,6 +50,7 @@ export default function AssignmentMakerPage() {
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<"studio" | "archive">("studio");
+  const [assignmentToDelete, setAssignmentToDelete] = useState<{ idx: number; title: string } | null>(null);
 
   useEffect(() => {
     if (user?.email) {
@@ -597,7 +599,7 @@ export default function AssignmentMakerPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => deleteSavedAssignment(idx)}
+                      onClick={() => setAssignmentToDelete({ idx, title: asg.title || `${asg.subject} Assignment` })}
                       className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-xl transition cursor-pointer"
                       title="Delete from archive"
                     >
@@ -1378,6 +1380,22 @@ export default function AssignmentMakerPage() {
           </div>
         </div>
       )}
+
+      {/* MINIMAL & PROFESSIONAL DELETE CONFIRMATION MODAL */}
+      <DeleteConfirmModal
+        isOpen={!!assignmentToDelete}
+        onClose={() => setAssignmentToDelete(null)}
+        onConfirm={() => {
+          if (assignmentToDelete !== null) {
+            deleteSavedAssignment(assignmentToDelete.idx);
+            setAssignmentToDelete(null);
+          }
+        }}
+        title="Delete Assignment"
+        itemName={assignmentToDelete?.title}
+        description="Are you sure you want to remove this worksheet from your archive? This action cannot be undone."
+        confirmLabel="Delete Assignment"
+      />
 
     </div>
   );

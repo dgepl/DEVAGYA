@@ -853,6 +853,8 @@ export interface SlideItem {
   speaker_notes: string;
 }
 
+export type SlideData = SlideItem;
+
 export interface GeneratePPTRequest {
   topic: string;
   target_audience?: string;

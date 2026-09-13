@@ -37,6 +37,7 @@ import {
   Check,
   Loader2
 } from "lucide-react";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import {
   generatePPT,
   refinePPTSlide,
@@ -48,12 +49,11 @@ import {
   savePPTDeck,
   deletePPTDeck,
   PresentationData,
-  SlideItem,
-  GeneratePPTRequest,
-  PPTHistoryItem
+  SlideData,
+  SlideItem
 } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
-import Markdown from "@/components/chat/Markdown";
+import { Markdown } from "@/components/chat/Markdown";
 
 const THEMES = [
   { id: "modern_navy", name: "Modern Navy", primary: "#1E3A8A", accent: "#0D9488", bg: "bg-slate-50" },
@@ -175,6 +175,7 @@ export default function PPTGeneratorPage() {
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [loadingDeckId, setLoadingDeckId] = useState<string | null>(null);
   const [deletingDeckId, setDeletingDeckId] = useState<string | null>(null);
+  const [deckToDelete, setDeckToDelete] = useState<{ id: string; title: string } | null>(null);
 
   const userKey = user?.email?.trim().toLowerCase() || user?.id || "guest";
 
@@ -240,6 +241,7 @@ export default function PPTGeneratorPage() {
       return;
     }
     if (!deck.id) return;
+    if (loadingDeckId) return;
     setLoadingDeckId(deck.id);
     try {
       const fullDeck = await getPPTDeck(deck.id, userKey);
@@ -252,11 +254,14 @@ export default function PPTGeneratorPage() {
     }
   };
 
-  const handleDeleteDeck = async (deckId: string, e: React.MouseEvent) => {
+  const handleDeleteDeck = (deck: { id: string; title: string }, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this presentation? It will be deleted from your cloud account across all devices.")) {
-      return;
-    }
+    setDeckToDelete(deck);
+  };
+
+  const handleConfirmDeleteDeck = async () => {
+    if (!deckToDelete) return;
+    const deckId = deckToDelete.id;
     setDeletingDeckId(deckId);
     try {
       await deletePPTDeck(deckId, userKey);
@@ -274,6 +279,7 @@ export default function PPTGeneratorPage() {
       alert(err.message || "Failed to delete presentation from cloud.");
     } finally {
       setDeletingDeckId(null);
+      setDeckToDelete(null);
     }
   };
 
@@ -777,7 +783,7 @@ export default function PPTGeneratorPage() {
                       )}
                       <button
                         type="button"
-                        onClick={(e) => handleDeleteDeck(deck.id, e)}
+                        onClick={(e) => handleDeleteDeck({ id: deck.id, title: deck.title || "Presentation Deck" }, e)}
                         disabled={deletingDeckId === deck.id}
                         title="Delete presentation from cloud (all devices)"
                         className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
@@ -2172,6 +2178,18 @@ export default function PPTGeneratorPage() {
           </div>
         </div>
       )}
+
+      {/* MINIMAL & PROFESSIONAL DELETE CONFIRMATION MODAL */}
+      <DeleteConfirmModal
+        isOpen={!!deckToDelete}
+        onClose={() => setDeckToDelete(null)}
+        onConfirm={handleConfirmDeleteDeck}
+        title="Delete Presentation Deck"
+        itemName={deckToDelete?.title}
+        description="Are you sure you want to delete this presentation? It will be permanently removed from your cloud account across all devices."
+        confirmLabel="Delete Presentation"
+        isDeleting={!!deletingDeckId}
+      />
 
     </div>
   );

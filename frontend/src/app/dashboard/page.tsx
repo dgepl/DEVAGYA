@@ -34,6 +34,7 @@ import {
 import { useAppStore } from "@/store/useAppStore";
 import { downloadPDF, GeneratedPaperResponse } from "@/lib/api";
 import { MobileTeacherDashboard } from "@/components/dashboard/MobileTeacherDashboard";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 
 interface ChatConvSummary {
   id: string;
@@ -45,6 +46,7 @@ interface ChatConvSummary {
 export default function TeacherDashboardOverviewPage() {
   const router = useRouter();
   const { user, savedPapers, setActivePaper, deleteSavedPaper } = useAppStore();
+  const [paperToDelete, setPaperToDelete] = useState<{ idx: number; title: string } | null>(null);
   const [conversations, setConversations] = useState<ChatConvSummary[]>([]);
   const [loadingConvs, setLoadingConvs] = useState<boolean>(true);
   const [downloadingIdx, setDownloadingIdx] = useState<number | null>(null);
@@ -430,9 +432,10 @@ export default function TeacherDashboardOverviewPage() {
                         </button>
 
                         <button
-                          onClick={() => deleteSavedPaper(idx)}
+                          type="button"
+                          onClick={() => setPaperToDelete({ idx, title: paper.title || `${paper.subject} Exam` })}
                           title="Delete Paper"
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -586,6 +589,22 @@ export default function TeacherDashboardOverviewPage() {
         )}
       </div>
     </div>
+
+    {/* MINIMAL & PROFESSIONAL DELETE CONFIRMATION MODAL */}
+    <DeleteConfirmModal
+      isOpen={!!paperToDelete}
+      onClose={() => setPaperToDelete(null)}
+      onConfirm={() => {
+        if (paperToDelete !== null) {
+          deleteSavedPaper(paperToDelete.idx);
+          setPaperToDelete(null);
+        }
+      }}
+      title="Delete Question Paper"
+      itemName={paperToDelete?.title}
+      description="Are you sure you want to delete this question paper from your archive? This action cannot be undone."
+      confirmLabel="Delete Paper"
+    />
   </>
 );
 }

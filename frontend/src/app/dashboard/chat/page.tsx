@@ -27,6 +27,7 @@ import {
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
 import { speakChatMessage, stopSpeech } from "@/lib/speechSynthesis";
+import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 
 const LANGUAGES = [
   { code: "english", label: "English", flag: "🇬🇧" },
@@ -103,6 +104,8 @@ export default function ChatStudioPage() {
   const [streaming, setStreaming] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [convToDelete, setConvToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isDeletingConv, setIsDeletingConv] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [attached, setAttached] = useState<AttachedImage[]>([]);
   const [language, setLanguage] = useState("english");
@@ -344,17 +347,20 @@ export default function ChatStudioPage() {
 
   const stopGenerating = () => abortRef.current?.abort();
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!window.confirm("Delete this conversation permanently?")) return;
+  const confirmDeleteConv = async () => {
+    if (!convToDelete) return;
+    setIsDeletingConv(true);
     try {
-      await fetch(`${API_BASE}/chat/conversations/${id}?user_id=${encodeURIComponent(user.id)}`, {
+      await fetch(`${API_BASE}/chat/conversations/${convToDelete.id}?user_id=${encodeURIComponent(user.id)}`, {
         method: "DELETE"
       });
-      if (activeId === id) newChat();
+      if (activeId === convToDelete.id) newChat();
       refreshConversations();
+      setConvToDelete(null);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsDeletingConv(false);
     }
   };
 
@@ -430,8 +436,11 @@ export default function ChatStudioPage() {
                     </span>
                   </div>
                   <span
-                    onClick={(e) => handleDelete(conv.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConvToDelete({ id: conv.id, title: conv.title });
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all shrink-0 cursor-pointer"
                     title="Delete conversation"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -750,6 +759,17 @@ export default function ChatStudioPage() {
           </p>
         </form>
       </div>
+
+      {/* CONFIRMATION MODAL */}
+      <DeleteConfirmModal
+        isOpen={!!convToDelete}
+        onClose={() => setConvToDelete(null)}
+        onConfirm={confirmDeleteConv}
+        title="Delete Conversation"
+        itemName={convToDelete?.title}
+        description="Are you sure you want to permanently delete this conversation history? All messages in this chat will be removed."
+        isLoading={isDeletingConv}
+      />
     </div>
   );
 }
