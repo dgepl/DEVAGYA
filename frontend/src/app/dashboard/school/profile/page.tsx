@@ -42,36 +42,37 @@ interface SchoolData {
 }
 
 export default function SchoolProfilePage() {
-  const { user, setUser, logout } = useAppStore();
+  const { user, setUser, logout, schoolProfile: cachedSchool, setSchoolProfile } = useAppStore();
   const router = useRouter();
 
-  const [school, setSchool] = useState<SchoolData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [school, setSchool] = useState<SchoolData | null>(cachedSchool || null);
+  const [loading, setLoading] = useState(!cachedSchool && !user?.schoolName);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Form fields
-  const [schoolName, setSchoolName] = useState("");
-  const [affiliationBoard, setAffiliationBoard] = useState("CBSE");
-  const [phone, setPhone] = useState("");
-  const [contactPerson, setContactPerson] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [address, setAddress] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
+  // Form fields initialized immediately from cache or user profile
+  const [schoolName, setSchoolName] = useState(cachedSchool?.school_name || user?.schoolName || "");
+  const [affiliationBoard, setAffiliationBoard] = useState(cachedSchool?.affiliation_board || user?.affiliationBoard || "CBSE");
+  const [phone, setPhone] = useState(cachedSchool?.phone || user?.phone || "");
+  const [contactPerson, setContactPerson] = useState(cachedSchool?.contact_person || user?.contactPerson || "");
+  const [city, setCity] = useState(cachedSchool?.city || user?.schoolCity || "");
+  const [state, setState] = useState(cachedSchool?.state || user?.schoolState || "");
+  const [address, setAddress] = useState(cachedSchool?.address || "");
+  const [logoUrl, setLogoUrl] = useState(cachedSchool?.logo_url || user?.schoolLogo || "");
 
-  const fetchSchoolProfile = async () => {
+  const fetchSchoolProfile = async (forceRefresh = false) => {
     if (!user?.email) return;
-    setLoading(true);
+    if (!cachedSchool && !user?.schoolName) setLoading(true);
     try {
       const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/recruitment/schools/me?email=${encodeURIComponent(user.email.trim().toLowerCase())}`);
+      const res = await fetch(`${baseUrl}/recruitment/schools/me?email=${encodeURIComponent(user.email.trim().toLowerCase())}${forceRefresh ? "&refresh=true" : ""}`);
       if (res.ok) {
         const data = await res.json();
         if (data.school) {
           const s = data.school;
           setSchool(s);
+          setSchoolProfile(s);
           setSchoolName(s.school_name || "");
           setAffiliationBoard(s.affiliation_board || "CBSE");
           setPhone(s.phone || "");
@@ -90,7 +91,19 @@ export default function SchoolProfilePage() {
   };
 
   useEffect(() => {
-    fetchSchoolProfile();
+    if (cachedSchool) {
+      setSchool(cachedSchool);
+      setSchoolName(cachedSchool.school_name || "");
+      setAffiliationBoard(cachedSchool.affiliation_board || "CBSE");
+      setPhone(cachedSchool.phone || "");
+      setContactPerson(cachedSchool.contact_person || "");
+      setCity(cachedSchool.city || "");
+      setState(cachedSchool.state || "");
+      setAddress(cachedSchool.address || "");
+      setLogoUrl(cachedSchool.logo_url || "");
+      setLoading(false);
+    }
+    fetchSchoolProfile(false);
   }, [user?.email]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,6 +145,7 @@ export default function SchoolProfilePage() {
       const data = await res.json();
       if (res.ok) {
         setSchool(data.school);
+        setSchoolProfile(data.school);
         setUser({
           ...user,
           schoolName: data.school.school_name,

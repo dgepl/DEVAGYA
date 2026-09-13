@@ -65,27 +65,37 @@ interface JobApplication {
 }
 
 export default function SchoolDashboardHomePage() {
-  const { user, setUser } = useAppStore();
+  const { 
+    user, 
+    setUser, 
+    schoolProfile: cachedSchool, 
+    schoolVacancies: cachedVacancies, 
+    schoolApplications: cachedApplications, 
+    setSchoolOverview 
+  } = useAppStore();
   const router = useRouter();
 
-  const [school, setSchool] = useState<SchoolData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [school, setSchool] = useState<SchoolData | null>(cachedSchool || null);
+  const [loading, setLoading] = useState(!cachedSchool);
   const [refreshing, setRefreshing] = useState(false);
-  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
-  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [vacancies, setVacancies] = useState<Vacancy[]>(cachedVacancies || []);
+  const [applications, setApplications] = useState<JobApplication[]>(cachedApplications || []);
 
-  const fetchSchoolProfile = async (silent = false) => {
+  const loadDashboardData = async (forceRefresh = false) => {
     if (!user?.email) return;
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
+    if (forceRefresh) setRefreshing(true);
+    else if (!school && !cachedSchool) setLoading(true);
 
     try {
       const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/recruitment/schools/me?email=${encodeURIComponent(user.email.trim().toLowerCase())}`);
+      const res = await fetch(`${baseUrl}/recruitment/schools/overview?email=${encodeURIComponent(user.email.trim().toLowerCase())}${forceRefresh ? "&refresh=true" : ""}`);
       if (res.ok) {
         const data = await res.json();
         if (data.school) {
           setSchool(data.school);
+          setVacancies(data.vacancies || []);
+          setApplications(data.applications || []);
+          setSchoolOverview(data.school, data.vacancies || [], data.applications || []);
           setUser({
             ...user,
             schoolId: data.school.id,
@@ -96,43 +106,26 @@ export default function SchoolDashboardHomePage() {
             schoolState: data.school.state,
             contactPerson: data.school.contact_person
           });
-
-          if (data.school.verification_status === "verified") {
-            fetchSchoolData(data.school.id);
-          }
         }
       }
     } catch (e) {
-      console.error("Failed to load school profile", e);
+      console.error("Failed to load school overview", e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const fetchSchoolData = async (schoolId: string) => {
-    try {
-      const baseUrl = getApiBase();
-      const [vacRes, appRes] = await Promise.all([
-        fetch(`${baseUrl}/recruitment/vacancies?school_id=${schoolId}&status=all`),
-        fetch(`${baseUrl}/recruitment/applications/school?school_id=${schoolId}`)
-      ]);
-
-      if (vacRes.ok) {
-        const vacData = await vacRes.json();
-        setVacancies(vacData.vacancies || []);
-      }
-      if (appRes.ok) {
-        const appData = await appRes.json();
-        setApplications(appData.applications || []);
-      }
-    } catch (e) {
-      console.error("Failed to load recruitment data", e);
-    }
-  };
-
   useEffect(() => {
-    fetchSchoolProfile();
+    // If cached data exists in store, use it immediately
+    if (cachedSchool) {
+      setSchool(cachedSchool);
+      setVacancies(cachedVacancies || []);
+      setApplications(cachedApplications || []);
+      setLoading(false);
+    }
+    // Revalidate data in background or fetch if missing
+    loadDashboardData(false);
   }, [user?.email]);
 
   if (loading && !school) {
@@ -150,7 +143,7 @@ export default function SchoolDashboardHomePage() {
       <div className="space-y-4">
         <SchoolLockedBanner 
           school={school} 
-          onRefresh={() => fetchSchoolProfile(true)} 
+          onRefresh={() => loadDashboardData(true)} 
           refreshing={refreshing} 
         />
       </div>

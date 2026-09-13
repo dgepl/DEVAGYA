@@ -77,13 +77,20 @@ const STATUS_FILTERS = [
 ];
 
 export default function SchoolApplicantsPage() {
-  const { user } = useAppStore();
+  const { 
+    user, 
+    schoolProfile: cachedSchool, 
+    schoolVacancies: cachedVacancies, 
+    schoolApplications: cachedApplications, 
+    setSchoolOverview,
+    setSchoolApplications 
+  } = useAppStore();
   const searchParams = useSearchParams();
 
-  const [school, setSchool] = useState<SchoolData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [applications, setApplications] = useState<JobApplication[]>([]);
-  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
+  const [school, setSchool] = useState<SchoolData | null>(cachedSchool || null);
+  const [loading, setLoading] = useState(!cachedSchool);
+  const [applications, setApplications] = useState<JobApplication[]>(cachedApplications || []);
+  const [vacancies, setVacancies] = useState<Vacancy[]>(cachedVacancies || []);
   const [loadingData, setLoadingData] = useState(false);
 
   // Filters
@@ -95,54 +102,38 @@ export default function SchoolApplicantsPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedAppModal, setSelectedAppModal] = useState<JobApplication | null>(null);
 
-  const fetchSchoolProfile = async () => {
+  const loadApplicantsData = async (forceRefresh = false) => {
     if (!user?.email) return;
-    setLoading(true);
+    if (!cachedSchool && !school) setLoading(true);
+
     try {
       const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/recruitment/schools/me?email=${encodeURIComponent(user.email.trim().toLowerCase())}`);
+      const res = await fetch(`${baseUrl}/recruitment/schools/overview?email=${encodeURIComponent(user.email.trim().toLowerCase())}${forceRefresh ? "&refresh=true" : ""}`);
       if (res.ok) {
         const data = await res.json();
         if (data.school) {
           setSchool(data.school);
-          if (data.school.verification_status === "verified") {
-            fetchApplicationsAndVacancies(data.school.id);
-          }
+          setApplications(data.applications || []);
+          setVacancies(data.vacancies || []);
+          setSchoolOverview(data.school, data.vacancies || [], data.applications || []);
         }
-      }
-    } catch (e) {
-      console.error("Failed to load school profile", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchApplicationsAndVacancies = async (schoolId: string) => {
-    setLoadingData(true);
-    try {
-      const baseUrl = getApiBase();
-      const [appRes, vacRes] = await Promise.all([
-        fetch(`${baseUrl}/recruitment/applications/school?school_id=${schoolId}`),
-        fetch(`${baseUrl}/recruitment/vacancies?school_id=${schoolId}&status=all`)
-      ]);
-
-      if (appRes.ok) {
-        const appData = await appRes.json();
-        setApplications(appData.applications || []);
-      }
-      if (vacRes.ok) {
-        const vacData = await vacRes.json();
-        setVacancies(vacData.vacancies || []);
       }
     } catch (e) {
       console.error("Failed to load applicants", e);
     } finally {
+      setLoading(false);
       setLoadingData(false);
     }
   };
 
   useEffect(() => {
-    fetchSchoolProfile();
+    if (cachedSchool) {
+      setSchool(cachedSchool);
+      setApplications(cachedApplications || []);
+      setVacancies(cachedVacancies || []);
+      setLoading(false);
+    }
+    loadApplicantsData(false);
   }, [user?.email]);
 
   useEffect(() => {
@@ -163,7 +154,11 @@ export default function SchoolApplicantsPage() {
         body: JSON.stringify({ status: newStatus })
       });
       if (res.ok) {
-        setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus as any } : a));
+        setApplications(prev => {
+          const next = prev.map(a => a.id === appId ? { ...a, status: newStatus as any } : a);
+          setSchoolApplications(next);
+          return next;
+        });
         if (selectedAppModal && selectedAppModal.id === appId) {
           setSelectedAppModal({ ...selectedAppModal, status: newStatus as any });
         }
@@ -189,8 +184,10 @@ export default function SchoolApplicantsPage() {
   if (school && school.verification_status !== "verified") {
     return (
       <div className="space-y-4">
-        <MobileSchoolHeader school={school} />
-        <SchoolLockedBanner school={school} onRefresh={fetchSchoolProfile} />
+        <SchoolLockedBanner 
+          school={school} 
+          onRefresh={() => loadApplicantsData(true)} 
+        />
       </div>
     );
   }
@@ -211,7 +208,7 @@ export default function SchoolApplicantsPage() {
   return (
     <div className="space-y-4 pb-28">
       {/* MOBILE SCHOOL HEADER */}
-      <MobileSchoolHeader school={school} onRefresh={fetchSchoolProfile} />
+      <MobileSchoolHeader school={school} onRefresh={() => loadApplicantsData(true)} />
 
       {/* PAGE TITLE & SUMMARY */}
       <div className="flex items-center justify-between gap-3">

@@ -58,14 +58,29 @@ class UpdateSchoolProfilePayload(BaseModel):
 # ==========================================
 
 @router.get("/schools/me")
-async def get_my_school(email: str = Query(...)):
+async def get_my_school(email: str = Query(...), refresh: bool = Query(False)):
     """Fetch current school profile and verification status."""
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
-    school = recruitment_service.get_school_by_email(email)
+    school = recruitment_service.get_school_by_email(email, force_sync=refresh)
     if not school:
         raise HTTPException(status_code=404, detail="School profile not found")
     return {"status": "success", "school": school}
+
+@router.get("/schools/overview")
+async def get_school_overview(email: str = Query(...), refresh: bool = Query(False)):
+    """Consolidated endpoint: returns school profile, vacancies, and applications in a single ultra-fast query."""
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    data = recruitment_service.get_school_overview(email, force_sync=refresh)
+    if not data:
+        raise HTTPException(status_code=404, detail="School profile not found")
+    return {
+        "status": "success",
+        "school": data["school"],
+        "vacancies": data["vacancies"],
+        "applications": data["applications"]
+    }
 
 @router.put("/schools/me")
 async def update_my_school(payload: UpdateSchoolProfilePayload):
@@ -119,14 +134,16 @@ async def list_vacancies(
     school_id: Optional[str] = Query(None),
     level: Optional[str] = Query(None),
     subject: Optional[str] = Query(None),
-    status: Optional[str] = Query("active")
+    status: Optional[str] = Query("active"),
+    refresh: bool = Query(False)
 ):
     """List vacancies with optional level/subject/school filters."""
     vacancies = recruitment_service.get_vacancies(
         school_id=school_id,
         level=level,
         subject=subject,
-        status=status if status != "all" else None
+        status=status if status != "all" else None,
+        force_sync=refresh
     )
     return {"status": "success", "count": len(vacancies), "vacancies": vacancies}
 
@@ -250,9 +267,9 @@ async def apply_to_vacancy(payload: SubmitApplicationPayload):
 # ==========================================
 
 @router.get("/applications/school")
-async def get_school_applications(school_id: str = Query(...)):
+async def get_school_applications(school_id: str = Query(...), refresh: bool = Query(False)):
     """Fetch all teacher applications received by a school."""
-    apps = recruitment_service.get_applications_for_school(school_id)
+    apps = recruitment_service.get_applications_for_school(school_id, force_sync=refresh)
     return {"status": "success", "count": len(apps), "applications": apps}
 
 @router.get("/applications/teacher")

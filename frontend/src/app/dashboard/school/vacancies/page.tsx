@@ -77,13 +77,20 @@ const SUBJECT_OPTIONS = [
 const LEVEL_OPTIONS = ["PRT", "TGT", "PGT", "NTT", "Activity / Sports", "Coordinator / Vice Principal"];
 
 export default function SchoolVacanciesPage() {
-  const { user } = useAppStore();
+  const { 
+    user, 
+    schoolProfile: cachedSchool, 
+    schoolVacancies: cachedVacancies, 
+    schoolApplications: cachedApplications, 
+    setSchoolOverview,
+    setSchoolVacancies 
+  } = useAppStore();
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [school, setSchool] = useState<SchoolData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
+  const [school, setSchool] = useState<SchoolData | null>(cachedSchool || null);
+  const [loading, setLoading] = useState(!cachedSchool);
+  const [vacancies, setVacancies] = useState<Vacancy[]>(cachedVacancies || []);
   const [loadingData, setLoadingData] = useState(false);
 
   // Filters & Search
@@ -108,46 +115,36 @@ export default function SchoolVacanciesPage() {
   const [newType, setNewType] = useState("Full Time");
   const [newDesc, setNewDesc] = useState("");
 
-  const fetchSchoolProfile = async () => {
+  const loadVacanciesData = async (forceRefresh = false) => {
     if (!user?.email) return;
-    setLoading(true);
+    if (!cachedSchool && !school) setLoading(true);
+
     try {
       const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/recruitment/schools/me?email=${encodeURIComponent(user.email.trim().toLowerCase())}`);
+      const res = await fetch(`${baseUrl}/recruitment/schools/overview?email=${encodeURIComponent(user.email.trim().toLowerCase())}${forceRefresh ? "&refresh=true" : ""}`);
       if (res.ok) {
         const data = await res.json();
         if (data.school) {
           setSchool(data.school);
-          if (data.school.verification_status === "verified") {
-            fetchVacancies(data.school.id);
-          }
+          setVacancies(data.vacancies || []);
+          setSchoolOverview(data.school, data.vacancies || [], data.applications || []);
         }
-      }
-    } catch (e) {
-      console.error("Failed to fetch school", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchVacancies = async (schoolId: string) => {
-    setLoadingData(true);
-    try {
-      const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/recruitment/vacancies?school_id=${schoolId}&status=all`);
-      if (res.ok) {
-        const data = await res.json();
-        setVacancies(data.vacancies || []);
       }
     } catch (e) {
       console.error("Failed to load vacancies", e);
     } finally {
+      setLoading(false);
       setLoadingData(false);
     }
   };
 
   useEffect(() => {
-    fetchSchoolProfile();
+    if (cachedSchool) {
+      setSchool(cachedSchool);
+      setVacancies(cachedVacancies || []);
+      setLoading(false);
+    }
+    loadVacanciesData(false);
   }, [user?.email]);
 
   useEffect(() => {
@@ -189,7 +186,15 @@ export default function SchoolVacanciesPage() {
         setFormSuccess("Vacancy posted successfully! Certified teachers can now apply.");
         setNewTitle("");
         setNewDesc("");
-        fetchVacancies(school.id);
+        if (data.vacancy) {
+          setVacancies(prev => {
+            const next = [data.vacancy, ...prev];
+            setSchoolVacancies(next);
+            return next;
+          });
+        } else {
+          loadVacanciesData(false);
+        }
         setTimeout(() => {
           setFormSuccess(null);
           setIsModalOpen(false);
@@ -214,7 +219,11 @@ export default function SchoolVacanciesPage() {
         body: JSON.stringify({ status: nextStatus })
       });
       if (res.ok) {
-        setVacancies(prev => prev.map(v => v.id === vacId ? { ...v, status: nextStatus as any } : v));
+        setVacancies(prev => {
+          const next = prev.map(v => v.id === vacId ? { ...v, status: nextStatus as any } : v);
+          setSchoolVacancies(next);
+          return next;
+        });
       }
     } catch (e) {
       alert("Failed to update status.");
@@ -229,7 +238,11 @@ export default function SchoolVacanciesPage() {
         method: "DELETE"
       });
       if (res.ok) {
-        setVacancies(prev => prev.filter(v => v.id !== vacId));
+        setVacancies(prev => {
+          const next = prev.filter(v => v.id !== vacId);
+          setSchoolVacancies(next);
+          return next;
+        });
       }
     } catch (e) {
       alert("Failed to delete vacancy.");
@@ -248,8 +261,10 @@ export default function SchoolVacanciesPage() {
   if (school && school.verification_status !== "verified") {
     return (
       <div className="space-y-4">
-        <MobileSchoolHeader school={school} />
-        <SchoolLockedBanner school={school} onRefresh={fetchSchoolProfile} />
+        <SchoolLockedBanner 
+          school={school} 
+          onRefresh={() => loadVacanciesData(true)} 
+        />
       </div>
     );
   }
@@ -266,7 +281,7 @@ export default function SchoolVacanciesPage() {
   return (
     <div className="space-y-4 pb-28">
       {/* MOBILE SCHOOL HEADER */}
-      <MobileSchoolHeader school={school} onRefresh={fetchSchoolProfile} />
+      <MobileSchoolHeader school={school} onRefresh={() => loadVacanciesData(true)} />
 
       {/* PAGE TITLE & CTA */}
       <div className="flex items-center justify-between gap-3">

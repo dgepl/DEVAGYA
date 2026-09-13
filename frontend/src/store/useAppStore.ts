@@ -83,6 +83,15 @@ interface AppState {
   syncProfileFromServer: (email?: string) => Promise<void>;
   fetchSavedPapers: (email?: string) => Promise<void>;
   fetchSavedAssignments: (email?: string) => Promise<void>;
+  // School Portal Cached State
+  schoolProfile: any | null;
+  schoolVacancies: any[];
+  schoolApplications: any[];
+  setSchoolProfile: (profile: any) => void;
+  setSchoolVacancies: (vacancies: any[]) => void;
+  setSchoolApplications: (applications: any[]) => void;
+  setSchoolOverview: (school: any, vacancies: any[], applications: any[]) => void;
+
   initSession: () => void;
   logout: () => void;
 }
@@ -188,6 +197,20 @@ export const useAppStore = create<AppState>((set, get) => {
     dismissedNotificationIds: initialDismissed,
     isMobileDrawerOpen: false,
     setMobileDrawerOpen: (open: boolean) => set({ isMobileDrawerOpen: open }),
+
+    // School Portal Cached State & Actions
+    schoolProfile: null,
+    schoolVacancies: [],
+    schoolApplications: [],
+    setSchoolProfile: (profile: any) => set({ schoolProfile: profile }),
+    setSchoolVacancies: (vacancies: any[]) => set({ schoolVacancies: vacancies }),
+    setSchoolApplications: (applications: any[]) => set({ schoolApplications: applications }),
+    setSchoolOverview: (school: any, vacancies: any[], applications: any[]) => set({
+      schoolProfile: school,
+      schoolVacancies: vacancies,
+      schoolApplications: applications
+    }),
+
     dismissNotification: (id: string) => set((state) => {
       if (state.dismissedNotificationIds.includes(id)) return state;
       const updated = [...state.dismissedNotificationIds, id];

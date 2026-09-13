@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import time
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -53,15 +54,22 @@ class RecruitmentService:
         self.schools: Dict[str, Dict[str, Any]] = _load_json(SCHOOLS_FILE)
         self.vacancies: Dict[str, Dict[str, Any]] = _load_json(VACANCIES_FILE)
         self.applications: Dict[str, Dict[str, Any]] = _load_json(APPLICATIONS_FILE)
+        self._last_cloud_sync: float = 0
         # Pull live data from Supabase Cloud on initialization
-        self._sync_from_supabase_cloud()
+        self._sync_from_supabase_cloud(force=True)
 
-    def _sync_from_supabase_cloud(self):
-        """Pulls all schools, vacancies, and applications live from Supabase Cloud."""
+    def _sync_from_supabase_cloud(self, force: bool = False):
+        """Pulls all schools, vacancies, and applications live from Supabase Cloud with a 60s cache TTL to ensure instant speed."""
         if not SERVICE_KEY or not SUPABASE_URL:
             return
+
+        now = time.time()
+        if not force and (now - getattr(self, "_last_cloud_sync", 0) < 60.0):
+            return
+
+        self._last_cloud_sync = now
         try:
-            with httpx.Client(timeout=8.0) as client:
+            with httpx.Client(timeout=5.0) as client:
                 # 1. Sync schools
                 res_sch = client.get(
                     f"{SUPABASE_URL}/rest/v1/recruitment_schools?select=*&order=created_at.desc", 
@@ -179,8 +187,11 @@ class RecruitmentService:
         self._sync_school_to_supabase(record)
         return record
 
-    def get_school_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+    def get_school_by_email(self, email: str, force_sync: bool = False) -> Optional[Dict[str, Any]]:
         email_clean = email.strip().lower()
+        if force_sync:
+            self._sync_from_supabase_cloud(force=True)
+
         for s in self.schools.values():
             if s.get("email", "").lower() == email_clean:
                 return s
@@ -188,7 +199,7 @@ class RecruitmentService:
         # Direct cloud check if not in local memory
         if SERVICE_KEY and SUPABASE_URL:
             try:
-                with httpx.Client(timeout=6.0) as client:
+                with httpx.Client(timeout=4.0) as client:
                     res = client.get(
                         f"{SUPABASE_URL}/rest/v1/recruitment_schools?email=eq.{email_clean}&select=*",
                         headers=supabase_headers
@@ -377,9 +388,10 @@ class RecruitmentService:
         school_id: Optional[str] = None,
         level: Optional[str] = None,
         subject: Optional[str] = None,
-        status: Optional[str] = "active"
+        status: Optional[str] = "active",
+        force_sync: bool = False
     ) -> List[Dict[str, Any]]:
-        self._sync_from_supabase_cloud()
+        self._sync_from_supabase_cloud(force=force_sync)
         results = []
         for vac in self.vacancies.values():
             if school_id and vac.get("school_id") != school_id:
@@ -567,16 +579,30 @@ class RecruitmentService:
         self._sync_application_to_supabase(record)
         return record
 
-    def get_applications_for_school(self, school_id: str) -> List[Dict[str, Any]]:
-        self._sync_from_supabase_cloud()
+    def get_applications_for_school(self, school_id: str, force_sync: bool = False) -> List[Dict[str, Any]]:
+        self._sync_from_supabase_cloud(force=force_sync)
         results = [a for a in self.applications.values() if a.get("school_id") == school_id]
         return sorted(results, key=lambda x: x.get("created_at", ""), reverse=True)
 
-    def get_applications_for_teacher(self, teacher_email: str) -> List[Dict[str, Any]]:
-        self._sync_from_supabase_cloud()
+    def get_applications_for_teacher(self, teacher_email: str, force_sync: bool = False) -> List[Dict[str, Any]]:
+        self._sync_from_supabase_cloud(force=force_sync)
         email_clean = teacher_email.strip().lower()
         results = [a for a in self.applications.values() if a.get("teacher_email", "").lower() == email_clean]
         return sorted(results, key=lambda x: x.get("created_at", ""), reverse=True)
+
+    def get_school_overview(self, email: str, force_sync: bool = False) -> Optional[Dict[str, Any]]:
+        """Ultra-fast consolidated school data: returns school profile, all vacancies, and all applications in 1 pass."""
+        school = self.get_school_by_email(email, force_sync=force_sync)
+        if not school:
+            return None
+        school_id = school.get("id")
+        vacancies = self.get_vacancies(school_id=school_id, status="all", force_sync=False)
+        applications = self.get_applications_for_school(school_id=school_id, force_sync=False)
+        return {
+            "school": school,
+            "vacancies": vacancies,
+            "applications": applications
+        }
 
     def update_application_status(
         self,
