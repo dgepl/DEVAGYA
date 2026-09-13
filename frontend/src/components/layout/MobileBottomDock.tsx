@@ -63,7 +63,7 @@ export function MobileBottomDock() {
     if (role === "parent") {
       return [
         { label: "Home", href: "/dashboard/parent", icon: Home },
-        { label: "Consult", href: "/dashboard/video-consultation", icon: Video },
+        { label: "Career", href: "/dashboard/agents?agent=career_counselor", icon: GraduationCap },
         { label: "Coach AI", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake, central: true, agentCode: "parent_coach" },
         { label: "Progress", href: "/dashboard/parent", icon: Target },
         { label: "Profile", href: "/dashboard/profile", icon: User }

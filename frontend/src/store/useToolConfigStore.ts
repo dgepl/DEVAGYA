@@ -365,23 +365,6 @@ export const INITIAL_TOOLS: ToolItem[] = [
     icon_name: "Zap",
     color: "from-amber-500 to-orange-600"
   },
-  {
-    id: "parent_video_consultation",
-    name: "Expert Video Consultation",
-    role: "parent",
-    category: "1-on-1 Advisory",
-    path: "/dashboard/video-consultation",
-    badge: "EXPERT CALL",
-    description: "Book 1-on-1 video sessions with senior academic counselors and child psychologists.",
-    greeting: "Schedule a private consultation with licensed education and career advisors.",
-    is_coming_soon: false,
-    coming_soon_title: "Instant Video Hotline",
-    coming_soon_message: "Direct on-demand video connect with available career and psychological counselors.",
-    coming_soon_eta: "Coming in 2026",
-    coming_soon_badge: "On Demand",
-    icon_name: "Video",
-    color: "from-rose-500 to-red-600"
-  },
 
   // --- ADMIN TOOLS ---
   {

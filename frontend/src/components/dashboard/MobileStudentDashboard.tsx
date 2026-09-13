@@ -26,7 +26,6 @@ export function MobileStudentDashboard() {
     { name: "Socratic AI Tutor", sub: "Step-by-Step Concept Master", href: "/dashboard/agents?agent=student_tutor", icon: Brain, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "AI Tutor" },
     { name: "AI Exam Prep", sub: "CBSE Roadmaps & Expected Qs", href: "/dashboard/student/exam-prep", icon: Trophy, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "Board Prep" },
     { name: "Practice Quizzes", sub: "Chapter Mocks & Testing", href: "/dashboard/student/practice", icon: Target, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Quiz & Drill" },
-    { name: "Live Video Room", sub: "1-on-1 Voice & Video Tutor", href: "/dashboard/video-consultation", icon: Video, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", type: "Live Room" },
     { name: "Notion Smart Notes", sub: "AI Organized Class Notes", href: "/dashboard/student/notes", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Notes" },
     { name: "Pomodoro Timer", sub: "25m Focus & Rest Cycles", href: "/dashboard/student/timer", icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Focus Timer" },
   ];
@@ -105,11 +104,12 @@ export function MobileStudentDashboard() {
           </Link>
           
           <Link
-            href="/dashboard/video-consultation"
-            className="p-2.5 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer"
-            title="Live Video Room"
+            href="/dashboard/student/practice"
+            className="p-2.5 px-3 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer text-xs font-bold gap-1.5"
+            title="Practice Quizzes"
           >
-            <Video className="w-5 h-5 text-indigo-200" />
+            <Target className="w-4 h-4 text-emerald-300" />
+            <span>Quiz</span>
           </Link>
         </div>
       </div>

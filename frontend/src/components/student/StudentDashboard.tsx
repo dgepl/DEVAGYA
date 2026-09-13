@@ -48,7 +48,6 @@ export function StudentDashboard() {
     { label: "Practice Quizzes", href: "/dashboard/student/practice", icon: Target, color: "from-emerald-500 to-teal-600", desc: "Untimed Chapter Mocks" },
     { label: "Notion Smart Notes", href: "/dashboard/student/notes", icon: FileText, color: "from-blue-500 to-cyan-600", desc: "AI Class Notebook" },
     { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock, color: "from-amber-500 to-orange-600", desc: "Focus & Retain" },
-    { label: "Video Call Room", href: "/dashboard/video-consultation", icon: Video, color: "from-purple-500 to-fuchsia-600", desc: "Live Voice & Face AI" },
   ];
 
   const RANK_COLORS = ["from-amber-400 to-yellow-500", "from-slate-300 to-slate-400", "from-amber-600 to-orange-700"];
@@ -259,9 +258,9 @@ export function StudentDashboard() {
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2">
               <Target className="w-4 h-4" /> Start Practice Quiz
             </Link>
-            <Link href="/dashboard/video-consultation"
+            <Link href="/dashboard/student/exam-prep"
               className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2">
-              <Video className="w-4 h-4" /> Live Video Call
+              <Trophy className="w-4 h-4" /> AI Exam Prep Strategy
             </Link>
           </div>
         </div>

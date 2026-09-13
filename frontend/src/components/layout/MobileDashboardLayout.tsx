@@ -63,8 +63,8 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
   const parentBottomTabs = [
     { label: "Home", href: "/dashboard/parent", icon: LayoutDashboard },
     { label: "Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake },
-    { label: "Speed Dial", href: "/dashboard/video-consultation", isSpeedDial: true, icon: Zap },
-    { label: "Consultation", href: "/dashboard/video-consultation", icon: Video },
+    { label: "Speed Dial", href: "/dashboard/agents?agent=parent_coach", isSpeedDial: true, icon: Zap },
+    { label: "Career", href: "/dashboard/agents?agent=career_counselor", icon: GraduationCap },
     { label: "Profile", href: "/dashboard/profile", icon: User },
   ];
 
@@ -178,10 +178,12 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
                   </>
                 )}
 
-                <Link href="/dashboard/video-consultation" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                  <span className="flex items-center gap-2.5"><Video className="w-4 h-4 text-red-500" /> Video Mentoring</span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </Link>
+                {role === "teacher" && (
+                  <Link href="/dashboard/video-consultation" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                    <span className="flex items-center gap-2.5"><Video className="w-4 h-4 text-red-500" /> Video Mentoring</span>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </Link>
+                )}
               </div>
             </div>
 

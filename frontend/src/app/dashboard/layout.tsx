@@ -137,7 +137,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         pathname.startsWith("/dashboard/agents") ||
         pathname === "/dashboard/knowledge" ||
         pathname === "/dashboard/chat" ||
-        pathname === "/dashboard/video-consultation" ||
         pathname === "/dashboard/profile";
 
       if (!isStudentAllowed) {
@@ -147,7 +146,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       const isParentAllowed = 
         pathname.startsWith("/dashboard/parent") ||
         pathname.startsWith("/dashboard/agents") ||
-        pathname === "/dashboard/video-consultation" ||
         pathname === "/dashboard/profile";
 
       if (!isParentAllowed) {
@@ -217,7 +215,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       { label: "Practice & Quizzes", href: "/dashboard/student/practice", icon: Target },
       { label: "Notion Smart Notes", href: "/dashboard/student/notes", icon: FileText },
       { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock },
-      { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
       { label: "Leaderboard", href: "/dashboard/student/leaderboard", icon: Trophy },
     ];
   } else if (user.role === "parent") {
@@ -228,8 +225,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       // General AI Agents
       { label: "English Coach", href: "/dashboard/english-coach", icon: Headphones },
       { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
-      // Other tools
-      { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
     ];
   }
 

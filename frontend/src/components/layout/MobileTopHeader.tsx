@@ -178,7 +178,6 @@ export function MobileTopHeader() {
       { label: "Practice & Quizzes", href: "/dashboard/student/practice", icon: Target },
       { label: "Notion Smart Notes", href: "/dashboard/student/notes", icon: FileText },
       { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock },
-      { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
       { label: "Leaderboard", href: "/dashboard/student/leaderboard", icon: Trophy },
     ];
   } else if (role === "parent") {
@@ -187,7 +186,6 @@ export function MobileTopHeader() {
       { label: "Parenting Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake },
       { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
       { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
-      { label: "Video Consultation", href: "/dashboard/video-consultation", icon: Video },
     ];
   }
 

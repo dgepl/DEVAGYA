@@ -4,7 +4,7 @@ import Link from "next/link";
 import { 
   HeartHandshake, 
   Sparkles, 
-  Video, 
+  GraduationCap, 
   MessageSquare, 
   Search, 
   Clock, 
@@ -75,22 +75,22 @@ export function ParentDashboard() {
           </div>
         </Link>
 
-        {/* LIVE VIDEO CONSULTATION */}
+        {/* CAREER COUNSELOR */}
         <Link 
-          href="/dashboard/video-consultation" 
+          href="/dashboard/agents?agent=career_counselor" 
           className="p-6 bg-white border border-slate-200 rounded-3xl shadow-sm hover:border-indigo-300 transition-all flex flex-col justify-between group h-48"
         >
           <div className="space-y-2">
             <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center">
-              <Video className="w-5 h-5" />
+              <GraduationCap className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-extrabold text-slate-900">Video Consultation</h3>
+            <h3 className="text-base font-extrabold text-slate-900">Career Counselor</h3>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              Schedule 1-on-1 video calls with academic mentors & teachers.
+              Explore career paths, board streams, competitive exams & college degrees.
             </p>
           </div>
           <div className="flex items-center gap-1.5 text-xs font-bold text-purple-600 group-hover:translate-x-1 transition-transform">
-            <span>Book Live Call</span>
+            <span>Career Guidance</span>
             <ArrowRight className="w-4 h-4" />
           </div>
         </Link>
