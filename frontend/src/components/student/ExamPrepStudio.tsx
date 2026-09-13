@@ -208,7 +208,7 @@ export function ExamPrepStudio() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-28 md:pb-16 px-2 sm:px-4">
+    <div className="max-w-6xl mx-auto space-y-6 pb-40 md:pb-16 px-2 sm:px-4">
       
       {/* ============================================================ */}
       {/* 1. HERO READINESS SCORECARD (MODERN & IMPACTFUL)             */}
@@ -279,52 +279,52 @@ export function ExamPrepStudio() {
           </div>
         </div>
 
-        {/* --- MOBILE COMPACT HORIZONTAL PILLS (FOR MOBILE VIEW) --- */}
+        {/* --- MOBILE VIEW: CLEAN SELECT DROPDOWNS (EASY & INTUITIVE) --- */}
         <div className="block md:hidden space-y-3.5">
-          {/* CLASS SELECTION CHIPS */}
+          {/* CLASS SELECTION DROPDOWN */}
           <div>
             <label className="text-[11px] font-bold text-slate-700 block mb-1.5 flex items-center gap-1">
               <GraduationCap className="w-3.5 h-3.5 text-indigo-600" /> Select Grade / Class
             </label>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <select
+              value={selectedClass}
+              onChange={(e) => handleClassChange(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+            >
               {CLASS_OPTIONS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => handleClassChange(c)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                    selectedClass === c
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {c}
-                </button>
+                <option key={c} value={c}>
+                  🎓 {c}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
-          {/* SUBJECT SELECTION CHIPS */}
+          {/* SUBJECT SELECTION DROPDOWN */}
           <div>
             <label className="text-[11px] font-bold text-slate-700 block mb-1.5 flex items-center gap-1">
               <BookOpen className="w-3.5 h-3.5 text-emerald-600" /> Subject
             </label>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              {availableSubjects.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleSubjectChange(s)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                    subject === s
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+            {availableSubjects.length > 0 ? (
+              <select
+                value={subject}
+                onChange={(e) => handleSubjectChange(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+              >
+                {availableSubjects.map((s) => (
+                  <option key={s} value={s}>
+                    📚 {s}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Enter subject name..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            )}
           </div>
 
           {/* CHAPTER / FOCUS MODE SELECTION */}
@@ -864,8 +864,8 @@ export function ExamPrepStudio() {
         </div>
       </div>
 
-      {/* MOBILE FLOATING DOCKED BOTTOM BAR (DEDICATED FOR MOBILE UX) */}
-      <div className="block md:hidden fixed bottom-14 left-0 right-0 z-30 p-2.5 px-4 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl">
+      {/* MOBILE FLOATING DOCKED BOTTOM BAR (DEDICATED FOR MOBILE UX - DOCKED ABOVE BOTTOM NAV DOCK) */}
+      <div className="block md:hidden fixed bottom-[72px] sm:bottom-[76px] left-0 right-0 z-40 p-2.5 px-4 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl">
         <button
           type="button"
           onClick={handleGenerate}

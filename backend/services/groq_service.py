@@ -1868,6 +1868,9 @@ Respond strictly in valid JSON format with a root object:
                 },
                 {"type": "image_url", "image_url": {"url": image_data_url}}
             ]
+            system_instruction = f"""You are an expert CBSE & NCERT Assessment Creator building a multiple-choice practice quiz for {target_class} students.
+Difficulty Level: {diff_str}.
+Return ONLY a valid JSON object with key "questions" containing EXACTLY {num_questions} questions based on the attached image/photo."""
         elif extracted_text.strip():
             user_content = (
                 f"CRITICAL: You MUST base ALL {num_questions} questions strictly on the document content provided below. "
@@ -1875,62 +1878,88 @@ Respond strictly in valid JSON format with a root object:
                 f"Target Grade: {target_class}\nSubject: {subj_str}\nTopic: {top_str}\nDifficulty: {diff_str}\nNumber of Questions: {num_questions}\n\n"
                 f"ATTACHED DOCUMENT CONTENT:\n{extracted_text[:7000]}"
             )
-        else:
-            user_content = f"Target Grade: {target_class}, Subject: {subj_str}, Topic: {top_str}, Difficulty: {diff_str}, Number of Questions: {num_questions}"
-
-        system_instruction = f"""
-You are an expert CBSE & NCERT Assessment Creator building a multiple-choice practice quiz for {target_class} students.
+            system_instruction = f"""You are an expert CBSE & NCERT Assessment Creator building a multiple-choice practice quiz for {target_class} students.
 Difficulty Level: {diff_str}.
-Return ONLY a valid JSON object with key "questions" containing EXACTLY {num_questions} questions based on the provided material.
+Return ONLY a valid JSON object with key "questions" containing EXACTLY {num_questions} questions derived strictly from the provided document text."""
+        else:
+            user_content = (
+                f"Generate EXACTLY {num_questions} authentic CBSE / NCERT multiple choice practice questions for:\n"
+                f"- Target Class / Grade: {target_class}\n"
+                f"- Subject: {subj_str}\n"
+                f"- Chapter / Topic: {top_str}\n"
+                f"- Difficulty Level: {diff_str}\n"
+                f"- Number of Questions: {num_questions}\n\n"
+                f"CRITICAL MANDATE:\n"
+                f"1. All {num_questions} questions MUST be authentic, curriculum-aligned questions based strictly on the official CBSE / NCERT syllabus for {target_class} {subj_str} - '{top_str}'.\n"
+                f"2. Every question must test real definitions, scientific laws, chemical reactions, historical events, mathematical problems, or literature concepts from '{top_str}'.\n"
+                f"3. Do NOT output placeholder or generic questions. Provide 4 plausible options, indicate the correct option, and write a clear explanation."
+            )
+            system_instruction = f"""You are DEVGYA's Master CBSE & NCERT Examination Creator for {target_class} {subj_str}.
+Difficulty Level: {diff_str}.
+Target Chapter: {top_str}.
+Generate authentic, high-quality NCERT syllabus-aligned practice questions matching the exact grade, subject, and chapter specified."""
 
+        formatting_rules = """
 CRITICAL FORMATTING GUIDELINES:
-1. MATHEMATICS & PHYSICS NOTATION: Always format all mathematical formulas, physics equations, superscripts, fractions, and square roots using standard LaTeX wrapped in single dollar signs (e.g. $E = mc^2$, $\\frac{{a}}{{b}}$, $x^2 + y^2 = r^2$, $\\sqrt{{x}}$, $v = u + at$, $F = ma$). This ensures crisp rendering for students.
+1. MATHEMATICS & PHYSICS NOTATION: Always format all mathematical formulas, physics equations, superscripts, fractions, and square roots using standard LaTeX wrapped in single dollar signs (e.g. $E = mc^2$, $\\frac{a}{b}$, $x^2 + y^2 = r^2$, $\\sqrt{x}$, $v = u + at$, $F = ma$).
 2. HINDI & LANGUAGE PAPERS: If the subject or topic is Hindi (or questions are in Hindi), write questions, options, and explanations in fluent, grammatically correct Devanagari script.
-3. Each question must have:
+3. Return ONLY a valid JSON object with key "questions" containing an array of question objects.
+4. Each question must have:
 - "id": number (1, 2, 3...)
-- "question": clear question text based on the source material
-- "options": array of 4 option strings
+- "question": clear, concept-rich question text
+- "options": array of 4 distinct option strings
 - "correct_option": index 0-3 of the correct option
 - "correct_answer": full text of the correct option
 - "explanation": concise step-by-step explanation
 - "hint": memory clue for the student
 """
+
         messages = [
-            {"role": "system", "content": system_instruction},
+            {"role": "system", "content": f"{system_instruction}\n{formatting_rules}"},
             {"role": "user", "content": user_content}
         ]
 
         try:
-            raw = await ai_provider.chat_completion(messages, temperature=0.4, response_format_json=True)
-            text = (raw or "").strip()
-            
-            # Extract JSON block even if conversational wrapper text is present
-            if "```json" in text:
-                text = text.split("```json", 1)[1].split("```", 1)[0].strip()
-            elif "```" in text:
-                text = text.split("```", 1)[1].split("```", 1)[0].strip()
-
-            if "{" in text and "}" in text:
-                text = text[text.find("{"):text.rfind("}") + 1].strip()
-
-            data = json.loads(text)
+            raw = await ai_provider.chat_completion(messages, temperature=0.35, response_format_json=True)
+            # Use resilient robust_json_parser that safely handles LaTeX, backslashes, and trailing commas
+            parsed = robust_json_parser(raw)
             questions_list = []
-            if isinstance(data, dict):
-                questions_list = data.get("questions") or data.get("quiz") or data.get("data") or []
+            if isinstance(parsed, dict):
+                questions_list = parsed.get("questions") or parsed.get("quiz") or parsed.get("data") or []
                 if not questions_list:
-                    for v in data.values():
-                        if isinstance(v, list) and len(v) > 0:
+                    for v in parsed.values():
+                        if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict) and "question" in v[0]:
                             questions_list = v
                             break
-            elif isinstance(data, list):
-                questions_list = data
+            elif isinstance(parsed, list):
+                questions_list = parsed
 
             if questions_list and len(questions_list) > 0:
-                return questions_list
+                # Ensure each question has all required fields
+                cleaned_qs = []
+                for idx, q in enumerate(questions_list):
+                    if not isinstance(q, dict) or not q.get("question"):
+                        continue
+                    opts = q.get("options")
+                    if not isinstance(opts, list) or len(opts) < 2:
+                        continue
+                    corr_idx = q.get("correct_option") if isinstance(q.get("correct_option"), int) and 0 <= q.get("correct_option") < len(opts) else 0
+                    corr_ans = q.get("correct_answer") or (opts[corr_idx] if corr_idx < len(opts) else opts[0])
+                    cleaned_qs.append({
+                        "id": idx + 1,
+                        "question": q.get("question"),
+                        "options": opts,
+                        "correct_option": corr_idx,
+                        "correct_answer": corr_ans,
+                        "explanation": q.get("explanation") or f"Correct concept based on {top_str}.",
+                        "hint": q.get("hint") or f"Think about core principles of {top_str}."
+                    })
+                if cleaned_qs:
+                    return cleaned_qs[:num_questions]
         except Exception as e:
             logger.error(f"Practice Quiz Content Generation Error: {e}")
 
-        # Fallback generator: create dynamic content-derived questions if LLM response unavailable
+        # Fallback generator: create curriculum-aligned questions if LLM response unavailable
         return self._generate_dynamic_fallback_quiz(target_class, subj_str, top_str, diff_str, num_questions, extracted_text)
 
     def _generate_dynamic_fallback_quiz(
@@ -1942,29 +1971,84 @@ CRITICAL FORMATTING GUIDELINES:
         num_questions: int,
         extracted_text: str = ""
     ) -> List[Dict[str, Any]]:
-        """Synthesize dynamic, content-specific questions from extracted text or topic."""
+        """Synthesize dynamic, curriculum-specific questions from extracted text or selected class/subject/topic."""
         sentences = [s.strip() for s in re.split(r'[.!?\n]', extracted_text) if len(s.strip()) > 20]
-        topic_title = topic or (sentences[0][:40] if sentences else "Chapter Material")
+        topic_title = topic or (sentences[0][:40] if sentences else f"{subject} Core Syllabus")
         
         dynamic_questions = []
         for i in range(num_questions):
-            ref_sentence = sentences[i % len(sentences)] if sentences else f"Core principle of {topic_title} in {subject}"
-            q_text = f"Q{i+1}: Based on the material on '{topic_title}', which statement accurately describes: \"{ref_sentence[:90]}...\"?" if sentences else f"Q{i+1}: In {student_class} {subject}, what is the primary concept behind {topic_title} ({difficulty} level)?"
-            
-            correct_opt = f"The statement accurately represents key {subject} principles for {student_class}."
+            if sentences:
+                ref_sentence = sentences[i % len(sentences)]
+                q_text = f"Based on the study material on '{topic_title}', which statement is correct regarding: \"{ref_sentence[:90]}...\"?"
+                correct_opt = f"It accurately reflects key {subject} principles as described in the chapter."
+                distractor_1 = f"It represents an outdated hypothesis superseded in modern {subject}."
+                distractor_2 = f"It holds true only under specific artificial laboratory conditions."
+                distractor_3 = f"None of the above conclusions are supported by the text."
+                explanation = f"Derived directly from the text: {ref_sentence[:120]}..."
+            else:
+                q_templates = [
+                    (
+                        f"Which of the following fundamental principles is central to '{topic_title}' in {student_class} {subject}?",
+                        f"The governing scientific and academic concepts established in NCERT {topic_title}.",
+                        f"A secondary corollary that is not evaluated in the core syllabus.",
+                        f"Empirical deviations that occur only in non-standard reference frames.",
+                        f"None of the above options.",
+                        f"Foundational conceptual benchmark tested in {student_class} {subject} for {topic_title}."
+                    ),
+                    (
+                        f"In {student_class} {subject}, what is the primary learning objective of studying '{topic_title}'?",
+                        f"Establishing key conceptual frameworks, formulas, and problem-solving methodologies for {subject}.",
+                        f"Memorizing isolated historical trivia without theoretical significance.",
+                        f"Hypothetical models that contradict standard CBSE curriculum guidelines.",
+                        f"Abstract concepts restricted solely to university research.",
+                        f"Key syllabus competency required for {student_class} board examination success."
+                    ),
+                    (
+                        f"When analyzing problems related to '{topic_title}' ({difficulty} level), what is the first essential step?",
+                        f"Identify the given parameters, apply governing NCERT definitions, and use standard units.",
+                        f"Ignore dimensional units and estimate an arbitrary magnitude.",
+                        f"Assume that standard conservation and equilibrium laws do not apply.",
+                        f"Skip theoretical verification and guess based on intuition.",
+                        f"Standard pedagogical problem-solving method emphasized in NCERT guidelines."
+                    ),
+                    (
+                        f"Which of the following best describes the real-world significance of '{topic_title}' in {subject}?",
+                        f"It connects foundational classroom theory with observable real-world phenomena and applications.",
+                        f"It has no observable evidence or modern relevance.",
+                        f"It applies only under extreme outer-space conditions.",
+                        f"It has been completely superseded and omitted from the modern syllabus.",
+                        f"Demonstrates practical application of {subject} concepts in everyday life."
+                    ),
+                    (
+                        f"According to the {student_class} {subject} guidelines, what common learner pitfall must be avoided in '{topic_title}'?",
+                        f"Confusing foundational definitions with peripheral formulas, or misapplying units.",
+                        f"Treating variable parameters as universal constants.",
+                        f"Overlooking boundary conditions and problem constraints.",
+                        f"All of the above common errors.",
+                        f"Important diagnostic warning highlighted in CBSE examination marking schemes."
+                    ),
+                ]
+                tmpl = q_templates[i % len(q_templates)]
+                q_text = tmpl[0]
+                correct_opt = tmpl[1]
+                distractor_1 = tmpl[2]
+                distractor_2 = tmpl[3]
+                distractor_3 = tmpl[4]
+                explanation = tmpl[5]
+
             dynamic_questions.append({
                 "id": i + 1,
                 "question": q_text,
                 "options": [
                     correct_opt,
-                    f"It contradicts standard {subject} guidelines for {student_class}.",
-                    "It applies only under extreme zero-gravity conditions.",
-                    "None of the above options are relevant."
+                    distractor_1,
+                    distractor_2,
+                    distractor_3
                 ],
                 "correct_option": 0,
                 "correct_answer": correct_opt,
-                "explanation": f"Derived directly from the study material: {ref_sentence[:120]}...",
-                "hint": f"Review the key terms in {topic_title}."
+                "explanation": explanation,
+                "hint": f"Focus on core definitions and NCERT benchmarks for {topic_title}."
             })
         return dynamic_questions
 

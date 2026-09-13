@@ -89,10 +89,11 @@ async def generate_practice_quiz_from_file(
     extracted_text = ""
     image_data_url = None
 
-    if file:
+    if file and getattr(file, "filename", None) and file.filename.strip():
         file_bytes = await file.read()
-        filename = file.filename or "attachment"
-        content_type = (file.content_type or "").lower()
+        if file_bytes and len(file_bytes) > 0:
+            filename = file.filename or "attachment"
+            content_type = (file.content_type or "").lower()
 
         if "image" in content_type or filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
             try:
