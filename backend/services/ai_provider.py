@@ -103,13 +103,13 @@ class AIProviderService:
             "model": selected_model,
             "messages": self._optimize_messages(messages),
             "temperature": temperature,
-            "max_tokens": min(max_tokens or 4096, 8192)
+            "max_tokens": min(max_tokens or 4096, 12288)
         }
         
         if response_format_json and "qwen" not in str(selected_model).lower():
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=90.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
                 models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"]
             elif has_imgs:

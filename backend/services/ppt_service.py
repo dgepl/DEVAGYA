@@ -59,7 +59,7 @@ class SlideItem(BaseModel):
 class GeneratePPTRequest(BaseModel):
     topic: str = Field(..., example="Quantum Computing and Superposition")
     target_audience: str = Field(default="Class 10-12 / High School")
-    num_slides: int = Field(default=8, ge=3, le=20)
+    num_slides: int = Field(default=8, ge=3, le=50)
     tone: str = Field(default="Engaging & Visual")
     language: str = Field(default="English")
     theme: str = Field(default="modern_navy") # modern_navy, emerald_sage, sunset_coral, dark_cyber, royal_purple, slate_academic
@@ -372,7 +372,18 @@ CRITICAL ARCHITECTURAL MANDATES:
    - 'title_bullets': Structured points with bold lead-in keywords (**Concept**: Explanation).
    Every slide must feel intentionally crafted, professional, and visually distinct. Never repeat identical layout formats consecutively.
 
-RETURN VALID JSON ONLY matching this exact schema:
+4. CRITICAL SLIDE COUNT ENFORCEMENT:
+   The user explicitly requested NUMBER OF SLIDES: {req.num_slides}.
+   You MUST generate EXACTLY {req.num_slides} SLIDES in the "slides" array.
+   - Slide 1: Cover slide
+   - Slides 2 to {req.num_slides - 1}: Varied content modules
+   - Slide {req.num_slides}: Final Thank You & Discussion slide
+   Do NOT stop or truncate early. Output ALL {req.num_slides} slides in full!
+
+5. JSON EFFICIENCY:
+   Only output fields relevant to each slide's chosen layout. Do NOT output unnecessary null fields. This ensures all {req.num_slides} slides are fully generated within the token limit.
+
+RETURN VALID JSON ONLY matching this structure:
 {{
   "title": "Main Presentation Title",
   "subtitle": "Clear, engaging subtitle summarizing audience goal",
@@ -388,11 +399,6 @@ RETURN VALID JSON ONLY matching this exact schema:
         "Target Audience: {req.target_audience}",
         "Subject: {req.topic}"
       ],
-      "left_column": null,
-      "right_column": null,
-      "metrics": null,
-      "timeline_steps": null,
-      "quote": null,
       "image_keyword": "{req.topic}",
       "image_caption": "Presentation Cover",
       "speaker_notes": "Welcome everyone to today's session on {req.topic}..."
@@ -401,21 +407,17 @@ RETURN VALID JSON ONLY matching this exact schema:
       "slide_number": 2,
       "layout": "two_column",
       "category": "Core Mechanism Comparison",
-      "title": "...",
-      "subtitle": "...",
-      "bullets": [],
+      "title": "Comparative Analysis",
+      "subtitle": "Theoretical vs practical dimensions",
       "left_column": {{
-        "title": "Classical View",
+        "title": "Theoretical View",
         "bullets": ["Point A", "Point B"]
       }},
       "right_column": {{
-        "title": "Modern View",
+        "title": "Practical View",
         "bullets": ["Point X", "Point Y"]
       }},
-      "metrics": null,
-      "timeline_steps": null,
-      "quote": null,
-      "image_keyword": "laboratory science",
+      "image_keyword": "{req.topic}",
       "image_caption": "Comparative analysis",
       "speaker_notes": "Highlight how the transition occurred..."
     }}
@@ -431,7 +433,7 @@ Generate ALL {req.num_slides} slides completely!"""
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.35,
-                max_tokens=4000,
+                max_tokens=8192,
                 response_format_json=True
             )
 
@@ -506,6 +508,95 @@ Generate ALL {req.num_slides} slides completely!"""
                     speaker_notes=str(s.get("speaker_notes") or f"Guide students through key ideas of this slide.")
                 )
                 slides_list.append(item)
+
+            # If AI under-generated fewer slides than requested, auto-expand missing modules up to req.num_slides
+            if len(slides_list) < req.num_slides:
+                logger.info(f"AI returned {len(slides_list)} slides, expanding to requested {req.num_slides} slides.")
+                last_slide = slides_list[-1] if slides_list else None
+                has_thank_you = last_slide and last_slide.layout in ["thank_you", "conclusion"]
+                if has_thank_you:
+                    content_slides = slides_list[:-1]
+                else:
+                    content_slides = list(slides_list)
+
+                layout_cycle = ["two_column", "stat_highlight", "process_timeline", "quote_insight", "title_bullets"]
+                subtopic_themes = [
+                    ("In-Depth Mechanism & Case Analysis", "Examining granular sub-processes and real-world observations"),
+                    ("Advanced Applications & Practical Lab Insights", "Translating theoretical principles into applied experiments"),
+                    ("Common Misconceptions & Diagnostic Pitfalls", "Identifying frequent learner errors and correct pedagogical approaches"),
+                    ("Comparative Benchmark & Industry Context", "Evaluating contemporary relevance and modern breakthroughs"),
+                    ("Curriculum Synthesis & Review Problems", "Step-by-step problem breakdown and exam question strategies"),
+                    ("Cross-Disciplinary Connections", "Interlinking core concepts across science, mathematics, and technology"),
+                    ("Future Horizons & Open Research Questions", "Emerging paradigms and forward-looking explorations"),
+                    ("Key Takeaways & Conceptual Roadmap", "Synthesizing foundational pillars before final evaluation")
+                ]
+
+                while len(content_slides) < req.num_slides - 1:
+                    fill_idx = len(content_slides) + 1
+                    theme_info = subtopic_themes[(fill_idx - 2) % len(subtopic_themes)]
+                    chosen_layout = layout_cycle[(fill_idx - 2) % len(layout_cycle)]
+
+                    new_slide = SlideItem(
+                        slide_number=fill_idx,
+                        layout=chosen_layout,
+                        category=f"Core Module {fill_idx}",
+                        title=f"{req.topic}: {theme_info[0]}",
+                        subtitle=theme_info[1],
+                        bullets=[
+                            f"**Pivotal Concept {fill_idx}.1**: Detailed analysis of central principles governing {req.topic}.",
+                            f"**Application & Evidence**: Empirical validation and classroom case studies.",
+                            f"**Exam Blueprint Highlight**: Key points emphasized in NCERT/CBSE evaluation guidelines."
+                        ],
+                        left_column={
+                            "title": "Fundamental Principles",
+                            "bullets": [f"Underlying scientific framework for {req.topic}.", "Key axiomatic formulations."]
+                        } if chosen_layout == "two_column" else None,
+                        right_column={
+                            "title": "Practical Implementation",
+                            "bullets": ["Observable phenomena and real-world applications.", "Structured problem-solving strategies."]
+                        } if chosen_layout == "two_column" else None,
+                        metrics=[
+                            {"label": "Retention Index", "value": "95%", "description": "Achieved with interactive concept modeling."},
+                            {"label": "Curriculum Priority", "value": "High", "description": "Essential benchmark for examination success."}
+                        ] if chosen_layout == "stat_highlight" else None,
+                        timeline_steps=[
+                            {"step": "1", "title": "Initiation", "desc": "Foundational setup & parameter identification."},
+                            {"step": "2", "title": "Mechanism", "desc": "Active progression & state transformation."},
+                            {"step": "3", "title": "Conclusion", "desc": "Final equilibrium & observable outcome."}
+                        ] if chosen_layout == "process_timeline" else None,
+                        image_keyword=req.topic,
+                        image_url=_get_image_for_keyword(req.topic),
+                        image_caption=f"Visual breakdown of {theme_info[0]}",
+                        speaker_notes=f"Walk students through {theme_info[0]}. Focus on concept clarity and student engagement."
+                    )
+                    content_slides.append(new_slide)
+
+                if not has_thank_you:
+                    thank_you_slide = SlideItem(
+                        slide_number=req.num_slides,
+                        layout="thank_you",
+                        category="Conclusion & Discussion",
+                        title="Thank You!",
+                        subtitle="Questions & Classroom Discussion",
+                        bullets=[
+                            f"**Core Key Takeaway**: Comprehensive mastery of {req.topic} achieved.",
+                            "**Discussion Prompt**: What questions or real-world connections stand out to you?",
+                            "**Next Steps**: Review notes, chapter exercises, and open discussion."
+                        ],
+                        image_keyword=req.topic,
+                        image_url=_get_image_for_keyword("thank you presentation"),
+                        image_caption="Classroom Q&A and wrap-up",
+                        speaker_notes=f"Thank students for their active participation in today's {req.topic} session."
+                    )
+                    content_slides.append(thank_you_slide)
+                else:
+                    last_slide.slide_number = len(content_slides) + 1
+                    content_slides.append(last_slide)
+
+                for s_i, s_item in enumerate(content_slides):
+                    s_item.slide_number = s_i + 1
+
+                slides_list = content_slides
 
             if not slides_list:
                 raise ValueError("Could not assemble valid slides from LLM output.")

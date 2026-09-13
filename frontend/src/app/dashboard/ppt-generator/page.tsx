@@ -617,18 +617,47 @@ export default function PPTGeneratorPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">Slide Count</label>
-                <select
-                  value={numSlides}
-                  onChange={(e) => setNumSlides(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer"
-                >
-                  <option value={5}>5 Slides (Summary)</option>
-                  <option value={8}>8 Slides (Standard Deck)</option>
-                  <option value={10}>10 Slides (Comprehensive)</option>
-                  <option value={12}>12 Slides (Deep Dive)</option>
-                  <option value={15}>15 Slides (Masterclass)</option>
-                </select>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                  Slide Count <span className="text-indigo-600 font-black">({numSlides} Slides)</span>
+                </label>
+                <div className="flex gap-1.5 items-center">
+                  <select
+                    value={[5, 8, 10, 12, 15, 18, 20, 25, 30].includes(numSlides) ? numSlides : "custom"}
+                    onChange={(e) => {
+                      if (e.target.value !== "custom") {
+                        setNumSlides(Number(e.target.value));
+                      }
+                    }}
+                    className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer"
+                  >
+                    <option value={5}>5 Slides (Quick Summary)</option>
+                    <option value={8}>8 Slides (Standard Deck)</option>
+                    <option value={10}>10 Slides (Classroom Lecture)</option>
+                    <option value={12}>12 Slides (Deep Dive)</option>
+                    <option value={15}>15 Slides (Masterclass)</option>
+                    <option value={18}>18 Slides (Advanced Workshop)</option>
+                    <option value={20}>20 Slides (Complete Chapter)</option>
+                    <option value={25}>25 Slides (Curriculum Overview)</option>
+                    <option value={30}>30 Slides (Mega Presentation)</option>
+                    {![5, 8, 10, 12, 15, 18, 20, 25, 30].includes(numSlides) && (
+                      <option value="custom">Custom ({numSlides} Slides)</option>
+                    )}
+                  </select>
+                  <input
+                    type="number"
+                    min={3}
+                    max={50}
+                    value={numSlides}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val)) {
+                        setNumSlides(Math.max(3, Math.min(50, val)));
+                      }
+                    }}
+                    className="w-16 bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-black text-indigo-700 text-center focus:outline-none focus:border-indigo-500"
+                    title="Enter custom slide count (3 - 50)"
+                  />
+                </div>
               </div>
             </div>
 
