@@ -116,7 +116,7 @@ export default function PrivacyPolicyPage() {
             </p>
             <div className="pt-2 border-t border-slate-200 text-xs text-slate-600 space-y-1">
               <p><strong className="text-slate-900">DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</strong></p>
-              <p>Email: <a href="mailto:dgepl.info@gmail.com" className="text-indigo-600 font-bold underline">dgepl.info@gmail.com</a> | Phone: +91 8307224756</p>
+              <p>Email: <a href="mailto:dgepl.info@gmail.com" className="text-indigo-600 font-bold underline">dgepl.info@gmail.com</a></p>
             </div>
             <p className="text-xs text-slate-500 font-semibold">
               Last Updated: September 2026 • DEVGYA GLOBAL EDUTECH PRIVATE LIMITED

@@ -375,7 +375,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.
             </p>
             <p className="text-[10px] sm:text-xs text-slate-400 font-medium tracking-tight sm:text-right">
-              Designed and Developed by <span className="text-indigo-600 font-semibold">Pratikk Yadav and Team +91 8307224756</span>
+              Designed and Developed by <span className="text-indigo-600 font-semibold whitespace-nowrap">Pratikk Yadav and Team (+91 8307224756)</span>
             </p>
           </footer>
         )}

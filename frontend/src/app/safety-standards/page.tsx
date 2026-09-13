@@ -120,7 +120,7 @@ export default function SafetyStandardsPage() {
               We regularly review and update our systems to ensure they align with the latest educational guidelines, CBSE NEP 2020 directives, and highest security benchmarks.
             </p>
             <p className="text-xs text-emerald-200 pt-2 border-t border-emerald-800/60 font-semibold">
-              Quality Assurance & Support Helpline: <a href="mailto:dgepl.info@gmail.com" className="text-white underline font-bold">dgepl.info@gmail.com</a> | +91 8307224756
+              Quality Assurance & Support: <a href="mailto:dgepl.info@gmail.com" className="text-white underline font-bold">dgepl.info@gmail.com</a>
             </p>
           </div>
 

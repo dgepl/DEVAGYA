@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PageTransition } from "@/components/ui/PageTransition";
@@ -112,7 +112,7 @@ export default function TermsOfServicePage() {
               <p className="text-xs text-slate-600">
                 For contract or technical support inquiries:<br />
                 <strong className="text-slate-900">DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</strong><br />
-                Phone: +91 8307224756 | Email: dgepl.info@gmail.com
+                Email: <a href="mailto:dgepl.info@gmail.com" className="text-indigo-600 font-bold underline">dgepl.info@gmail.com</a>
               </p>
             </section>
 

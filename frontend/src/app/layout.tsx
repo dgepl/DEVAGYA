@@ -137,7 +137,7 @@ export default function RootLayout({
         "foundingLocation": "India",
         "contactPoint": {
           "@type": "ContactPoint",
-          "telephone": "+91-8307224756",
+          "email": "dgepl.info@gmail.com",
           "contactType": "customer support",
           "areaServed": "IN",
           "availableLanguage": ["English", "Hindi"]
