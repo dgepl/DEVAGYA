@@ -847,6 +847,9 @@ export interface SlideItem {
   metrics?: { value: string; label: string }[] | null;
   timeline_steps?: { step?: number | string; title?: string; desc?: string; description?: string }[] | null;
   quote?: { text: string; author: string } | null;
+  cards?: { title: string; description: string; badge?: string }[] | null;
+  has_image?: boolean;
+  image_search_query?: string | null;
   image_keyword: string;
   image_url?: string | null;
   image_caption?: string | null;

@@ -41,7 +41,7 @@ logger = logging.getLogger("ppt_service")
 
 class SlideItem(BaseModel):
     slide_number: int
-    layout: str = "title_bullets" # cover, title_bullets, two_column, stat_highlight, process_timeline, quote_insight, split_image_text, thank_you
+    layout: str = "title_bullets" # cover, title_bullets, two_column, stat_highlight, process_timeline, quote_insight, split_image_text, hero_concept, cards_grid, thank_you
     category: str = "Concept"
     title: str
     subtitle: Optional[str] = None
@@ -51,6 +51,9 @@ class SlideItem(BaseModel):
     metrics: Optional[List[Dict[str, Any]]] = None
     timeline_steps: Optional[List[Dict[str, Any]]] = None
     quote: Optional[Dict[str, Any]] = None
+    cards: Optional[List[Dict[str, Any]]] = None
+    has_image: bool = False
+    image_search_query: Optional[str] = None
     image_keyword: str = "education study concept"
     image_url: Optional[str] = None
     image_caption: Optional[str] = None
@@ -211,116 +214,196 @@ def _download_image_bytes(url: Optional[str]) -> Optional[bytes]:
 
 _IMAGE_SEMAPHORE = asyncio.Semaphore(6)
 
-async def _resolve_real_topic_image(topic: str, slide_title: str, keyword: str) -> str:
-    """
-    Dynamically finds real, authentic educational images matching the specific topic & slide concept.
-    Uses Wikimedia Commons / Wikipedia API for authentic diagrams, maps, and photographs,
-    falling back to curated educational photo keywords.
-    """
-    cache_key = f"{topic}_{slide_title}_{keyword}".lower().strip()
-    if cache_key in _REAL_IMAGE_URL_CACHE:
-        return _REAL_IMAGE_URL_CACHE[cache_key]
-
-    queries = [
-        f"{topic} {keyword}".strip(),
-        f"{keyword}".strip()
+# High-resolution educational photo repository with multiple unique visuals per domain
+_TOPIC_PHOTO_POOLS: Dict[str, List[str]] = {
+    "neuroscience": [
+        "https://images.unsplash.com/photo-1559757175-5700dde675bc?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1576086213369-97a306d36557?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "cardiology": [
+        "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "biology": [
+        "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1582719471384-894fbb16e074?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "astronomy": [
+        "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "chemistry": [
+        "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1603126857599-f6e157fa2fe6?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "physics": [
+        "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "mathematics": [
+        "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "history": [
+        "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1568667256549-094345857637?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "technology": [
+        "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "geography": [
+        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1000&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "civics": [
+        "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "literature": [
+        "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1000&auto=format&fit=crop&q=80"
+    ],
+    "economics": [
+        "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1000&auto=format&fit=crop&q=80"
     ]
+}
+
+
+def _get_image_for_keyword(keyword: str, used_urls: Optional[Set[str]] = None) -> Optional[str]:
+    """Finds an unused, authentic educational image based on keyword theme. Prevents any repetition."""
+    kw = (keyword or "").lower()
+    used = used_urls if used_urls is not None else set()
+
+    for domain, pool in _TOPIC_PHOTO_POOLS.items():
+        if domain in kw or any(k in kw for k in [
+            "nervous", "brain", "neuron", "spine"
+        ] if domain == "neuroscience") or any(k in kw for k in [
+            "heart", "cardio", "blood", "vessel"
+        ] if domain == "cardiology") or any(k in kw for k in [
+            "cell", "dna", "plant", "organism", "botany", "microbe", "photosynth"
+        ] if domain == "biology") or any(k in kw for k in [
+            "space", "planet", "galaxy", "orbit", "universe", "star"
+        ] if domain == "astronomy") or any(k in kw for k in [
+            "chem", "molecule", "reaction", "lab", "acid", "element"
+        ] if domain == "chemistry") or any(k in kw for k in [
+            "phys", "quantum", "electric", "magnet", "energy", "wave", "optics"
+        ] if domain == "physics") or any(k in kw for k in [
+            "math", "geometry", "calculus", "algebra", "number"
+        ] if domain == "mathematics") or any(k in kw for k in [
+            "history", "war", "revolut", "ancient", "civil", "empire"
+        ] if domain == "history") or any(k in kw for k in [
+            "ai", "robot", "comput", "tech", "code", "cyber", "software"
+        ] if domain == "technology") or any(k in kw for k in [
+            "earth", "climate", "eco", "river", "mountain", "ocean", "weather"
+        ] if domain == "geography"):
+            for img in pool:
+                if img not in used:
+                    return img
+
+    return None
+
+
+async def _resolve_real_topic_image(
+    topic: str,
+    slide_title: str,
+    keyword: str,
+    used_urls: Optional[Set[str]] = None
+) -> Optional[str]:
+    """
+    Dynamically finds authentic educational visual diagrams & photographs matching the specific slide concept.
+    Uses Wikimedia Commons & Wikipedia API with strict deduplication to prevent repetitive images across the deck.
+    Returns None if no unique, high-relevance visual is found, allowing the slide to render in a clean full-width layout.
+    """
+    if used_urls is None:
+        used_urls = set()
+
+    clean_kw = (keyword or "").strip()
+    clean_st = (slide_title or "").strip()
+    clean_tp = (topic or "").strip()
+
+    # Search queries prioritized from most specific to broad
+    queries = []
+    if clean_kw and clean_kw.lower() != clean_tp.lower():
+        queries.append(f"{clean_tp} {clean_kw}")
+        queries.append(clean_kw)
+    if clean_st and clean_st.lower() != clean_tp.lower():
+        queries.append(f"{clean_tp} {clean_st}")
+    queries.append(clean_tp)
+
     headers = {"User-Agent": "DEVGYA-Educational-App/1.0 (https://devgya.in; dgepl.info@gmail.com)"}
 
     try:
         import httpx
         import urllib.parse
         async with _IMAGE_SEMAPHORE:
-            async with httpx.AsyncClient(timeout=2.5, headers=headers, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=3.0, headers=headers, follow_redirects=True) as client:
                 for q in queries:
                     if not q or len(q) < 3:
                         continue
+                    # 1. Try Wikipedia page thumbnail (high relevance)
                     try:
-                        url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=2&prop=pageimages&piprop=thumbnail&pithumbsize=800&format=json"
+                        encoded = urllib.parse.quote(q)
+                        url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={encoded}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=1000&format=json"
                         res = await client.get(url)
                         if res.status_code == 200:
                             data = res.json()
                             pages = data.get("query", {}).get("pages", {})
-                            for _, p in pages.items():
+                            for _, p in sorted(pages.items(), key=lambda x: x[1].get("index", 99)):
                                 thumb = p.get("thumbnail", {}).get("source")
-                                if thumb:
-                                    _REAL_IMAGE_URL_CACHE[cache_key] = thumb
-                                    return thumb
+                                if thumb and thumb.startswith("http") and thumb not in used_urls:
+                                    if not any(bad in thumb.lower() for bad in ["wikiquote", "disambig", "icon", "logo", "flag"]):
+                                        used_urls.add(thumb)
+                                        return thumb
                     except Exception:
-                        continue
+                        pass
+
+                    # 2. Try Wikimedia Commons direct image search for scientific diagrams/specimens
+                    try:
+                        commons_url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch={encoded}&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url|mime&format=json"
+                        res = await client.get(commons_url)
+                        if res.status_code == 200:
+                            data = res.json()
+                            pages = data.get("query", {}).get("pages", {})
+                            for _, p in pages.items():
+                                info_list = p.get("imageinfo", [])
+                                if info_list:
+                                    img_info = info_list[0]
+                                    mime = img_info.get("mime", "")
+                                    img_url = img_info.get("url")
+                                    if img_url and img_url not in used_urls and ("jpeg" in mime or "png" in mime or "jpg" in mime):
+                                        if not any(bad in img_url.lower() for bad in ["logo", "icon", "flag", "symbol"]):
+                                            used_urls.add(img_url)
+                                            return img_url
+                    except Exception:
+                        pass
     except Exception as e:
-        logger.debug(f"Error querying real educational image for {keyword}: {e}")
+        logger.debug(f"Error querying real educational visual for {keyword}: {e}")
 
-    # Fallback to curated topic image
-    fallback_img = _get_image_for_keyword(f"{topic} {keyword} {slide_title}")
-    _REAL_IMAGE_URL_CACHE[cache_key] = fallback_img
-    return fallback_img
+    # Fallback to curated domain pool ONLY if an unused high-res image exists
+    fallback_img = _get_image_for_keyword(f"{clean_tp} {clean_kw} {clean_st}", used_urls)
+    if fallback_img and fallback_img not in used_urls:
+        used_urls.add(fallback_img)
+        return fallback_img
 
-
-def _get_image_for_keyword(keyword: str) -> str:
-    """Provides authentic educational image URL based on keyword theme without generic stock icons."""
-    kw = (keyword or "").lower()
-    # Neuroscience & Human Nervous System
-    if any(k in kw for k in ["nervous", "brain", "neuron", "synapse", "spine", "nerve", "reflex", "cortex"]):
-        return "https://images.unsplash.com/photo-1559757175-5700dde675bc?w=800&auto=format&fit=crop&q=80"
-    # Cardiology & Circulatory System
-    if any(k in kw for k in ["heart", "cardio", "blood", "circulat", "artery", "vessel"]):
-        return "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=800&auto=format&fit=crop&q=80"
-    # Anatomy & Medical Biology
-    if any(k in kw for k in ["anatomy", "skeleton", "body", "muscle", "organ", "digest", "respirat", "medical", "disease", "health"]):
-        return "https://images.unsplash.com/photo-1576086213369-97a306d36557?w=800&auto=format&fit=crop&q=80"
-    # Space & Astronomy
-    if any(k in kw for k in ["space", "astronomy", "planet", "galaxy", "solar", "orbit", "universe", "star"]):
-        return "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80"
-    # Biology & Genetics
-    if any(k in kw for k in ["bio", "dna", "cell", "organism", "genet", "microbe"]):
-        return "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=800&auto=format&fit=crop&q=80"
-    # Botany & Plant Sciences
-    if any(k in kw for k in ["plant", "photosynth", "flower", "leaf", "chloroplast", "botany", "crop", "forest"]):
-        return "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=800&auto=format&fit=crop&q=80"
-    # Chemistry & Lab Experiments
-    if any(k in kw for k in ["chem", "molecule", "reaction", "lab", "experiment", "acid", "compound", "periodic", "element"]):
-        return "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&auto=format&fit=crop&q=80"
-    # Physics & Energy
-    if any(k in kw for k in ["phys", "quantum", "electric", "magnet", "energy", "wave", "motion", "gravity", "optics"]):
-        return "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=800&auto=format&fit=crop&q=80"
-    # Mathematics & Geometry
-    if any(k in kw for k in ["math", "geometry", "calculus", "algebra", "number", "vedic", "trig", "statistic"]):
-        return "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&auto=format&fit=crop&q=80"
-    # History & Civilization
-    if any(k in kw for k in ["history", "war", "revolut", "ancient", "monument", "civil", "india", "gandhi", "mughal", "empire"]):
-        return "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=800&auto=format&fit=crop&q=80"
-    # Technology & Computer Science
-    if any(k in kw for k in ["ai", "robot", "comput", "tech", "program", "code", "cyber", "software", "network"]):
-        return "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&auto=format&fit=crop&q=80"
-    # Earth Sciences, Climate & Geography
-    if any(k in kw for k in ["earth", "climate", "environment", "geography", "eco", "river", "mountain", "soil", "ocean", "weather"]):
-        return "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&auto=format&fit=crop&q=80"
-    # Civics, Law & Politics
-    if any(k in kw for k in ["civics", "polity", "constitution", "democracy", "parliament", "law", "government", "rights"]):
-        return "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&auto=format&fit=crop&q=80"
-    # Literature & Languages
-    if any(k in kw for k in ["liter", "english", "poem", "book", "lang", "grammar", "poetry", "novel"]):
-        return "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&auto=format&fit=crop&q=80"
-    # Economics & Commerce
-    if any(k in kw for k in ["econ", "market", "trade", "finance", "money", "commerce", "budget", "bank"]):
-        return "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&auto=format&fit=crop&q=80"
-    # Sleek modern academic study & research background (NEVER an apple-on-books)
-    return "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80"
+    return None
 
 
 class PPTGeneratorService:
 
     async def generate_presentation(self, req: GeneratePPTRequest) -> PresentationData:
-        """Generates a complete, high-quality presentation structure on any topic with teacher AI guidance."""
+        """Generates a complete, executive-grade presentation strictly customized to the user's prompt & guidance."""
         presenter = (req.presenter_name or "").strip()
         if not presenter and req.user_email:
             presenter = req.user_email.split("@")[0].replace(".", " ").title()
         if not presenter:
             presenter = "Educator"
 
-        prompt = f"""You are DEVGYA's Master Educational Presentation Architect.
-Synthesize a comprehensive, high-quality educational slide deck for teachers and students.
+        prompt = f"""You are DEVGYA's Executive AI Presentation Designer & Pedagogical Architect.
+Synthesize an elite, modern, executive-grade educational presentation strictly adhering to the user's prompt, curriculum standards, and teacher guidance.
 
 TOPIC: {req.topic}
 TARGET AUDIENCE: {req.target_audience}
@@ -329,55 +412,71 @@ PRESENTATION TONE: {req.tone}
 LANGUAGE: {req.language}
 COLOR THEME: {req.theme}
 PRESENTER / AUTHOR: {presenter}
-{f"TEACHER SPECIFIC GUIDANCE: {req.teacher_guidance}" if req.teacher_guidance else ""}
+{f"TEACHER SPECIFIC GUIDANCE (STRICTLY ADHERE TO THIS): {req.teacher_guidance}" if req.teacher_guidance else ""}
 
-CRITICAL ARCHITECTURAL MANDATES:
-1. SLIDE 1 MUST BE COVER:
-   - "layout": "cover", "category": "Presentation Cover", "title": Main presentation title, "subtitle": Clear audience goals subtitle, "bullets": ["Presented by: {presenter}", "Target Audience: {req.target_audience}", "Curriculum Focus: {req.topic}"], "speaker_notes": Welcoming opening remarks.
+CRITICAL PRO-LEVEL DESIGN MANDATES:
+1. STRICT ADHERENCE TO USER PROMPT:
+   - Deeply address the specific topic, syllabus context, and all teacher instructions.
+   - Do NOT produce generic placeholder content. Every slide must deliver rich, rigorous educational insights.
 
-2. FINAL SLIDE (SLIDE {req.num_slides}) MUST BE THANK YOU & DISCUSSION:
-   - "layout": "thank_you", "category": "Conclusion & Discussion", "title": "Thank You!", "subtitle": "Questions & Classroom Discussion", "bullets": ["**Core Takeaway**: 1 crisp summary takeaway", "**Discussion Question**: 1 thought-provoking discussion prompt", "**Next Steps**: Review notes, chapter exercises, and open Q&A"], "speaker_notes": Warm closing remarks.
+2. NO MONOTONE OR COOKIE-CUTTER TEMPLATES:
+   - NEVER repeat the exact same layout across consecutive slides.
+   - Avoid monotonous lists of 2 bullets. Use varied, modern, professional layouts suited to the pedagogical intent of each slide:
+     * "cover": Slide 1 must be cover with title, audience context, and presenter attribution.
+     * "hero_concept": For major foundational ideas, axioms, or central thesis. Includes a strong core statement in subtitle/title and 2-3 structured supporting points.
+     * "cards_grid": For concepts featuring 3 or 4 components, principles, categories, or dimensions. Provide "cards": [{{"title": "...", "description": "...", "badge": "..."}}].
+     * "two_column": For direct side-by-side comparison, contrast, dual perspectives, or Theory vs Practical Application. Provide "left_column" and "right_column".
+     * "stat_highlight": For quantifiable data, exam benchmarks, formulas, historical dates, or percentages. Provide "metrics": [{{"value": "...", "label": "...", "description": "..."}}].
+     * "process_timeline": For sequential workflows, cycles, historical timelines, or problem-solving steps. Provide "timeline_steps": [{{"step": "1", "title": "...", "description": "..."}}].
+     * "quote_insight": For memorable quotes, philosophical insights, or core laws. Provide "quote": {{"text": "...", "author": "..."}}.
+     * "split_image_text": When an authentic visual or scientific diagram is genuinely needed, paired with rich bullet points.
+     * "title_bullets": For structured breakdowns with 3-4 comprehensive bullet points with high visual hierarchy.
+     * "thank_you": Final slide ({req.num_slides}) must be conclusion with core takeaways and classroom discussion questions.
 
-3. DYNAMIC LAYOUT VARIETY ACROSS MIDDLE SLIDES (Slides 2 to {req.num_slides - 1}):
-   Vary layouts across: 'title_bullets', 'two_column', 'stat_highlight', 'process_timeline', 'quote_insight', 'split_image_text'.
-   Never repeat the exact same layout consecutively.
-   Provide 2-3 crisp, high-impact bullet points with bold lead-ins (**Concept**: Explanation).
+3. SELECTIVE IMAGES ONLY WHEN ESSENTIAL:
+   - Do NOT force images on every slide! Most slides look cleaner, more executive, and more readable with full-width typography and card grids.
+   - Set "has_image": true ONLY when a real diagram, anatomical chart, scientific apparatus, historical artifact, or geographical visual genuinely aids learning (typically 20% to 40% of slides in the deck).
+   - For slides focusing on theory, formulas, steps, lists, comparisons, quotes, and wrap-ups, set "has_image": false and "image_search_query": null.
+   - When "has_image" is true: provide a hyper-specific "image_search_query" targeting that exact slide's concept (e.g., "human kidney nephron glomerulus diagram" NOT just "biology"). Also provide an educational "image_caption".
 
 4. EXACT SLIDE COUNT:
-   Generate EXACTLY {req.num_slides} SLIDES in the "slides" array.
-   Keep bullet points crisp (1-2 sentences) so all {req.num_slides} slides are fully returned without hitting token limits.
+   - Generate EXACTLY {req.num_slides} SLIDES in the "slides" array.
 
-RETURN VALID JSON ONLY:
+RETURN VALID JSON ONLY matching this format:
 {{
   "title": "Main Presentation Title",
-  "subtitle": "Clear Subtitle for {req.target_audience}",
+  "subtitle": "Subtitle for {req.target_audience}",
   "slides": [
     {{
       "slide_number": 1,
       "layout": "cover",
       "category": "Presentation Cover",
       "title": "{req.topic}",
-      "subtitle": "A Comprehensive Guide for {req.target_audience}",
+      "subtitle": "Comprehensive Guide for {req.target_audience}",
       "bullets": [
         "Presented by: {presenter}",
         "Target Audience: {req.target_audience}",
-        "Subject: {req.topic}"
+        "Subject Focus: {req.topic}"
       ],
-      "image_keyword": "{req.topic}",
-      "speaker_notes": "Welcome everyone to today's session on {req.topic}..."
+      "has_image": false,
+      "image_search_query": null,
+      "speaker_notes": "Welcome remarks and session overview..."
     }},
     {{
       "slide_number": 2,
-      "layout": "two_column",
-      "category": "Core Concept",
-      "title": "Core Foundations & Mechanisms",
-      "subtitle": "Theoretical principles and observable practice",
-      "bullets": [
-        "**Theoretical Framework**: Governing scientific/academic axioms.",
-        "**Practical Application**: Real-world experimental relevance."
+      "layout": "cards_grid",
+      "category": "Core Architecture",
+      "title": "Fundamental Dimensions & Principles",
+      "subtitle": "Essential pillars governing {req.topic}",
+      "bullets": [],
+      "cards": [
+        {{"title": "Pillar 1", "description": "In-depth explanation of first pillar...", "badge": "Principle 1"}},
+        {{"title": "Pillar 2", "description": "In-depth explanation of second pillar...", "badge": "Principle 2"}},
+        {{"title": "Pillar 3", "description": "In-depth explanation of third pillar...", "badge": "Principle 3"}}
       ],
-      "image_keyword": "{req.topic}",
-      "speaker_notes": "Guide students through the core mechanisms..."
+      "has_image": false,
+      "image_search_query": null,
+      "speaker_notes": "Walk students through the foundational pillars..."
     }}
   ]
 }}
@@ -387,7 +486,7 @@ Generate ALL {req.num_slides} slides completely!"""
         try:
             raw = await ai_provider.chat_completion(
                 messages=[
-                    {"role": "system", "content": "You are DEVGYA's premier AI Slide Deck Architect. Output strictly valid JSON without markdown formatting."},
+                    {"role": "system", "content": "You are DEVGYA's premier AI Presentation Designer. Output strictly valid JSON without markdown formatting."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
@@ -402,15 +501,22 @@ Generate ALL {req.num_slides} slides completely!"""
             if not slides_raw or not isinstance(slides_raw, list):
                 raise ValueError("No valid slides parsed from AI response.")
 
-            # Concurrently resolve real educational topic images for every slide
+            # Strict deduplication tracker across the entire presentation
+            used_image_urls: Set[str] = set()
+
+            # Concurrently resolve images ONLY for slides that explicitly requested a visual
             async def _fill_slide_image(s_dict):
                 if not isinstance(s_dict, dict):
                     return None
-                kw = str(s_dict.get("image_keyword") or req.topic)
+                # Check if slide genuinely requested an image
+                has_img_flag = bool(s_dict.get("has_image"))
+                layout_val = str(s_dict.get("layout") or "")
+                if not has_img_flag and layout_val != "split_image_text":
+                    return None
+
+                query = str(s_dict.get("image_search_query") or s_dict.get("image_keyword") or s_dict.get("title") or req.topic)
                 stitle = str(s_dict.get("title") or req.topic)
-                img = s_dict.get("image_url")
-                if not img or "unsplash.com" in str(img):
-                    img = await _resolve_real_topic_image(req.topic, stitle, kw)
+                img = await _resolve_real_topic_image(req.topic, stitle, query, used_image_urls)
                 return img
 
             resolved_imgs = await asyncio.gather(*[_fill_slide_image(s) for s in slides_raw], return_exceptions=True)
@@ -421,9 +527,8 @@ Generate ALL {req.num_slides} slides completely!"""
                 if not isinstance(s, dict):
                     continue
                 num = idx + 1
-                kw = str(s.get("image_keyword") or req.topic)
                 r_img = resolved_imgs[idx] if idx < len(resolved_imgs) and isinstance(resolved_imgs[idx], str) and resolved_imgs[idx] else None
-                img_url = r_img or s.get("image_url") or _get_image_for_keyword(kw)
+                has_valid_img = bool(r_img)
 
                 bullets = s.get("bullets") if isinstance(s.get("bullets"), list) else []
                 if not bullets and s.get("content"):
@@ -448,12 +553,17 @@ Generate ALL {req.num_slides} slides completely!"""
                     if not sub_str:
                         sub_str = "Questions & Classroom Discussion"
 
+                # If split_image_text was selected but no image was found, adapt to a clean full-width layout
+                if layout_str == "split_image_text" and not has_valid_img:
+                    layout_str = "title_bullets"
+
                 # Auto-enrich structured layouts if nested data is missing
                 left_col = s.get("left_column") if isinstance(s.get("left_column"), dict) else None
                 right_col = s.get("right_column") if isinstance(s.get("right_column"), dict) else None
                 metrics = s.get("metrics") if isinstance(s.get("metrics"), list) else None
                 timeline_steps = s.get("timeline_steps") if isinstance(s.get("timeline_steps"), list) else None
                 quote = s.get("quote") if isinstance(s.get("quote"), dict) else None
+                cards = s.get("cards") if isinstance(s.get("cards"), list) else None
 
                 if layout_str == "two_column" and (not left_col or not right_col):
                     b_len = len(bullets)
@@ -482,6 +592,16 @@ Generate ALL {req.num_slides} slides completely!"""
                     quote_text = bullets[0].replace("**", "") if bullets else f"Deep conceptual clarity in {title_str} unlocks mastery of {req.topic}."
                     quote = {"quote": quote_text, "author": f"Pedagogical Insight — {req.topic}"}
 
+                elif layout_str == "cards_grid" and not cards and bullets:
+                    cards = [
+                        {
+                            "title": b.split(":")[0].replace("**", "").strip() or f"Aspect {bi + 1}",
+                            "description": b.split(":")[-1].replace("**", "").strip() or b,
+                            "badge": f"Point {bi + 1}"
+                        }
+                        for bi, b in enumerate(bullets[:4])
+                    ]
+
                 item = SlideItem(
                     slide_number=num,
                     layout=layout_str,
@@ -494,9 +614,12 @@ Generate ALL {req.num_slides} slides completely!"""
                     metrics=metrics,
                     timeline_steps=timeline_steps,
                     quote=quote,
-                    image_keyword=kw,
-                    image_url=img_url,
-                    image_caption=s.get("image_caption") or f"Visual guide for {req.topic}",
+                    cards=cards,
+                    has_image=has_valid_img,
+                    image_search_query=str(s.get("image_search_query") or s.get("image_keyword") or ""),
+                    image_keyword=str(s.get("image_keyword") or req.topic),
+                    image_url=r_img,
+                    image_caption=s.get("image_caption") if has_valid_img else None,
                     speaker_notes=str(s.get("speaker_notes") or f"Guide students through key ideas of {title_str}.")
                 )
                 slides_list.append(item)
@@ -511,9 +634,9 @@ Generate ALL {req.num_slides} slides completely!"""
                 else:
                     content_slides = list(slides_list)
 
-                layout_cycle = ["two_column", "stat_highlight", "process_timeline", "quote_insight", "title_bullets"]
+                layout_cycle = ["cards_grid", "two_column", "stat_highlight", "process_timeline", "quote_insight", "title_bullets"]
                 subtopic_themes = [
-                    ("In-Depth Mechanism & Case Analysis", "Examining granular sub-processes and real-world observations"),
+                    ("In-Depth Mechanism & Case Analysis", "Granular sub-processes and real-world empirical observations"),
                     ("Advanced Applications & Practical Lab Insights", "Translating theoretical principles into applied experiments"),
                     ("Common Misconceptions & Diagnostic Pitfalls", "Identifying frequent learner errors and correct pedagogical approaches"),
                     ("Comparative Benchmark & Industry Context", "Evaluating contemporary relevance and modern breakthroughs"),
@@ -556,9 +679,14 @@ Generate ALL {req.num_slides} slides completely!"""
                             {"step": "2", "title": "Mechanism", "desc": "Active progression & state transformation."},
                             {"step": "3", "title": "Conclusion", "desc": "Final equilibrium & observable outcome."}
                         ] if chosen_layout == "process_timeline" else None,
-                        image_keyword=req.topic,
-                        image_url=_get_image_for_keyword(req.topic),
-                        image_caption=f"Visual breakdown of {theme_info[0]}",
+                        cards=[
+                            {"title": "Core Mechanism", "description": f"Foundational dynamics governing {req.topic}.", "badge": "Step 1"},
+                            {"title": "Observation", "description": "Laboratory measurements and case analysis.", "badge": "Step 2"},
+                            {"title": "Synthesis", "description": "Real-world application and exam questions.", "badge": "Step 3"}
+                        ] if chosen_layout == "cards_grid" else None,
+                        has_image=False,
+                        image_url=None,
+                        image_caption=None,
                         speaker_notes=f"Walk students through {theme_info[0]}. Focus on concept clarity and student engagement."
                     )
                     content_slides.append(new_slide)
@@ -575,9 +703,9 @@ Generate ALL {req.num_slides} slides completely!"""
                             "**Discussion Prompt**: What questions or real-world connections stand out to you?",
                             "**Next Steps**: Review notes, chapter exercises, and open discussion."
                         ],
-                        image_keyword=req.topic,
-                        image_url=_get_image_for_keyword("thank you presentation"),
-                        image_caption="Classroom Q&A and wrap-up",
+                        has_image=False,
+                        image_url=None,
+                        image_caption=None,
                         speaker_notes=f"Thank students for their active participation in today's {req.topic} session."
                     )
                     content_slides.append(thank_you_slide)
@@ -611,7 +739,7 @@ Generate ALL {req.num_slides} slides completely!"""
             logger.warning(f"AI presentation generation error: {e}. Generating fallback structured presentation.")
             return self._generate_fallback_presentation(req)
 
-    async def resolve_real_image(self, topic: str, slide_title: str, keyword: str) -> str:
+    async def resolve_real_image(self, topic: str, slide_title: str, keyword: str) -> Optional[str]:
         """Finds a real educational image for a topic or slide."""
         return await _resolve_real_topic_image(topic, slide_title, keyword)
 
@@ -636,9 +764,8 @@ Generate ALL {req.num_slides} slides completely!"""
                     f"Target Audience: {req.target_audience}",
                     f"Curriculum Focus: {topic_title}"
                 ],
-                image_keyword=req.topic,
-                image_url=_get_image_for_keyword(req.topic),
-                image_caption=f"Overview of {topic_title}",
+                has_image=False,
+                image_url=None,
                 speaker_notes=f"Welcome students to the session on {topic_title}. Outline the central learning objectives."
             ),
             SlideItem(
@@ -663,9 +790,8 @@ Generate ALL {req.num_slides} slides completely!"""
                         "Common problem-solving methodologies."
                     ]
                 },
-                image_keyword="science research study",
-                image_url=_get_image_for_keyword("science research"),
-                image_caption="Theoretical vs Practical Dimensions",
+                has_image=False,
+                image_url=None,
                 speaker_notes="Walk students through the key distinction between foundational theory and observable applications."
             ),
             SlideItem(
@@ -679,9 +805,8 @@ Generate ALL {req.num_slides} slides completely!"""
                     {"label": "Retention Rate", "value": "85%+", "description": "Achieved via structured conceptual visualization."},
                     {"label": "Exam Weightage", "value": "High", "description": "Frequently featured in standard examination blueprints."}
                 ],
-                image_keyword="analytics data chart",
-                image_url=_get_image_for_keyword("data chart"),
-                image_caption="Analytical Framework",
+                has_image=False,
+                image_url=None,
                 speaker_notes="Emphasize why this topic carries significant importance in academic evaluation."
             )
         ]
@@ -701,9 +826,9 @@ Generate ALL {req.num_slides} slides completely!"""
                         f"**Practical Example**: Step-by-step examination of common problem patterns.",
                         f"**Misconception Alert**: Addressing common learner pitfalls."
                     ],
-                    image_keyword=req.topic,
-                    image_url=_get_image_for_keyword(req.topic),
-                    image_caption=f"Deep-dive analysis of {topic_title}",
+                    has_image=False,
+                    image_url=None,
+                    image_caption=None,
                     speaker_notes=f"Deep dive into Module {num}. Encourage students to take concise notes."
                 )
             )
@@ -782,9 +907,11 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                 right_column=parsed.get("right_column") or req.slide.right_column,
                 metrics=parsed.get("metrics") or req.slide.metrics,
                 timeline_steps=parsed.get("timeline_steps") or req.slide.timeline_steps,
-                quote=parsed.get("quote") or req.slide.quote,
+                cards=parsed.get("cards") or req.slide.cards,
+                has_image=bool(parsed.get("has_image") if "has_image" in parsed else req.slide.has_image),
+                image_search_query=parsed.get("image_search_query") or req.slide.image_search_query,
                 image_keyword=kw,
-                image_url=parsed.get("image_url") or req.slide.image_url or _get_image_for_keyword(kw),
+                image_url=parsed.get("image_url") or req.slide.image_url,
                 image_caption=parsed.get("image_caption") or req.slide.image_caption,
                 speaker_notes=str(parsed.get("speaker_notes") or req.slide.speaker_notes)
             )
@@ -1118,34 +1245,70 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                     p_step_desc.font.color.rgb = RGBColor(71, 85, 105)
                     p_step_desc.space_before = Pt(8)
 
+            elif s.layout == "cards_grid" and s.cards:
+                num_cards = min(len(s.cards), 4)
+                card_w = Inches(11.733 / num_cards - 0.2)
+                for i, cd in enumerate(s.cards[:num_cards]):
+                    left_pos = Inches(0.8 + i * (11.733 / num_cards))
+                    c_item_shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_pos, content_top, card_w, content_height)
+                    c_item_shape.fill.solid()
+                    c_item_shape.fill.fore_color.rgb = c_card
+                    c_item_shape.line.color.rgb = c_accent
+
+                    tf_cd = c_item_shape.text_frame
+                    tf_cd.word_wrap = True
+                    tf_cd.margin_left = Inches(0.25)
+                    tf_cd.margin_right = Inches(0.25)
+                    tf_cd.margin_top = Inches(0.35)
+
+                    p_badge = tf_cd.paragraphs[0]
+                    p_badge.text = str(cd.get("badge") or f"PILLAR {i+1}").upper()
+                    p_badge.font.size = Pt(10)
+                    p_badge.font.bold = True
+                    p_badge.font.color.rgb = c_accent
+
+                    p_ctitle = tf_cd.add_paragraph()
+                    p_ctitle.text = str(cd.get("title") or f"Key Point {i+1}")
+                    p_ctitle.font.size = Pt(14)
+                    p_ctitle.font.bold = True
+                    p_ctitle.font.color.rgb = c_primary
+                    p_ctitle.space_before = Pt(6)
+
+                    p_cdesc = tf_cd.add_paragraph()
+                    p_cdesc.text = str(cd.get("description") or "")
+                    p_cdesc.font.size = Pt(11)
+                    p_cdesc.font.color.rgb = RGBColor(71, 85, 105)
+                    p_cdesc.space_before = Pt(8)
+
             else:
-                card_bullets = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), content_top, Inches(7.5), content_height)
-                card_bullets.fill.solid()
-                card_bullets.fill.fore_color.rgb = c_card
-                card_bullets.line.color.rgb = RGBColor(226, 232, 240)
-
-                tf_b = card_bullets.text_frame
-                tf_b.word_wrap = True
-                tf_b.margin_left = Inches(0.4)
-                tf_b.margin_right = Inches(0.4)
-                tf_b.margin_top = Inches(0.4)
-
-                first_p = True
-                for b in s.bullets:
-                    clean_b = b.replace("**", "").replace("*", "")
-                    if first_p:
-                        p_line = tf_b.paragraphs[0]
-                        first_p = False
-                    else:
-                        p_line = tf_b.add_paragraph()
-                    p_line.text = f"• {clean_b}"
-                    p_line.font.size = Pt(13)
-                    p_line.font.color.rgb = RGBColor(30, 41, 59)
-                    p_line.space_after = Pt(10)
-
                 img_data = _download_image_bytes(s.image_url) if s.image_url else None
                 pic_inserted = False
+
                 if img_data:
+                    card_bullets = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), content_top, Inches(7.5), content_height)
+                    card_bullets.fill.solid()
+                    card_bullets.fill.fore_color.rgb = c_card
+                    card_bullets.line.color.rgb = RGBColor(226, 232, 240)
+
+                    tf_b = card_bullets.text_frame
+                    tf_b.word_wrap = True
+                    tf_b.margin_left = Inches(0.4)
+                    tf_b.margin_right = Inches(0.4)
+                    tf_b.margin_top = Inches(0.4)
+
+                    first_p = True
+                    for b in s.bullets:
+                        clean_b = b.replace("**", "").replace("*", "")
+                        if first_p:
+                            p_line = tf_b.paragraphs[0]
+                            first_p = False
+                        else:
+                            p_line = tf_b.add_paragraph()
+                        p_line.text = f"• {clean_b}"
+                        p_line.font.size = Pt(13)
+                        p_line.font.color.rgb = RGBColor(30, 41, 59)
+                        p_line.space_after = Pt(10)
+
                     try:
                         slide.shapes.add_picture(
                             io.BytesIO(img_data),
@@ -1174,33 +1337,30 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                         pic_inserted = False
 
                 if not pic_inserted:
-                    card_img = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.7), content_top, Inches(3.8), content_height)
-                    card_img.fill.solid()
-                    card_img.fill.fore_color.rgb = c_primary
-                    card_img.line.fill.background()
+                    # Clean full-width card layout without forced image placeholder
+                    card_bullets = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), content_top, Inches(11.733), content_height)
+                    card_bullets.fill.solid()
+                    card_bullets.fill.fore_color.rgb = c_card
+                    card_bullets.line.color.rgb = RGBColor(226, 232, 240)
 
-                    tf_img = card_img.text_frame
-                    tf_img.word_wrap = True
-                    tf_img.margin_left = Inches(0.3)
-                    tf_img.margin_right = Inches(0.3)
-                    tf_img.vertical_anchor = MSO_ANCHOR.MIDDLE
+                    tf_b = card_bullets.text_frame
+                    tf_b.word_wrap = True
+                    tf_b.margin_left = Inches(0.5)
+                    tf_b.margin_right = Inches(0.5)
+                    tf_b.margin_top = Inches(0.4)
 
-                    p_ik = tf_img.paragraphs[0]
-                    p_ik.text = f"VISUAL FOCUS"
-                    p_ik.font.size = Pt(11)
-                    p_ik.font.bold = True
-                    p_ik.font.color.rgb = c_accent
-
-                    p_cap = tf_img.add_paragraph()
-                    p_cap.text = s.image_caption or s.image_keyword
-                    p_cap.font.size = Pt(14)
-                    p_cap.font.bold = True
-                    p_cap.font.color.rgb = RGBColor(255, 255, 255)
-
-                    p_link = tf_img.add_paragraph()
-                    p_link.text = f"Topic: {pres_data.topic}\nAudience: {pres_data.target_audience}"
-                    p_link.font.size = Pt(10)
-                    p_link.font.color.rgb = RGBColor(203, 213, 225)
+                    first_p = True
+                    for b in s.bullets:
+                        clean_b = b.replace("**", "").replace("*", "")
+                        if first_p:
+                            p_line = tf_b.paragraphs[0]
+                            first_p = False
+                        else:
+                            p_line = tf_b.add_paragraph()
+                        p_line.text = f"• {clean_b}"
+                        p_line.font.size = Pt(14)
+                        p_line.font.color.rgb = RGBColor(30, 41, 59)
+                        p_line.space_after = Pt(12)
 
             # Speaker Notes in PPTX
             if s.speaker_notes:
@@ -1501,12 +1661,36 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                 ]))
                 slide_elements.append(card_table)
 
+            elif (s.layout == "cards_grid" or s.cards) and s.cards:
+                num_cards = min(len(s.cards), 3)
+                col_w = 760 // num_cards
+                col_widths = [col_w] * num_cards
+                col_widths[-1] = 760 - (col_w * (num_cards - 1))
+                card_cells = []
+                for i, cd in enumerate(s.cards[:num_cards]):
+                    cd_badge = clean_md_to_reportlab(strip_emojis_for_pdf(str(cd.get("badge") or f"PILLAR {i+1}").upper()))
+                    cd_title = clean_md_to_reportlab(strip_emojis_for_pdf(str(cd.get("title") or f"Key Point {i+1}")))
+                    cd_desc = clean_md_to_reportlab(strip_emojis_for_pdf(str(cd.get("description") or "")))
+                    card_cells.append(Paragraph(
+                        f"<font size=10 color='{theme['accent']}'><b>{cd_badge}</b></font><br/><br/><b>{cd_title}</b><br/><br/>{cd_desc}",
+                        bullet_style
+                    ))
+                card_table = Table([card_cells], colWidths=col_widths)
+                card_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,-1), colors.HexColor(theme["card_bg"])),
+                    ('BOX', (0,0), (-1,-1), 1, colors.HexColor(theme["accent"])),
+                    ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
+                    ('PADDING', (0,0), (-1,-1), 14),
+                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ]))
+                slide_elements.append(card_table)
+
             else:
-                # Main Bullet Card + Visual Callout
+                # Main Bullet Card + Visual Callout (or Full-Width if no image)
                 bullets_p = []
                 for b in s.bullets:
                     bullets_p.append(Paragraph(f"• {clean_md_to_reportlab(strip_emojis_for_pdf(b))}", bullet_style))
-                    bullets_p.append(Spacer(1, 4))
+                    bullets_p.append(Spacer(1, 6))
 
                 img_data = _download_image_bytes(s.image_url) if s.image_url else None
                 pic_inserted = False
@@ -1523,25 +1707,27 @@ RETURN UPDATED SLIDE JSON ONLY with the same keys (slide_number, layout, categor
                         logger.warning(f"PDF slide image rendering failed: {img_err}")
                         pic_inserted = False
 
-                if not pic_inserted:
-                    callout_p = [
-                        Paragraph(f"<b>VISUAL CONCEPT FOCUS:</b>", cat_badge_style),
-                        Spacer(1, 4),
-                        Paragraph(clean_md_to_reportlab(strip_emojis_for_pdf(s.image_caption or s.image_keyword)), bullet_style),
-                        Spacer(1, 8),
-                        Paragraph(f"<i>Keywords: {strip_emojis_for_pdf(s.image_keyword)}</i>", notes_style)
-                    ]
-
-                card_table = Table([[bullets_p, callout_p]], colWidths=[510, 250])
-                card_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0,0), (0,0), colors.HexColor(theme["card_bg"])),
-                    ('BACKGROUND', (1,0), (1,0), colors.HexColor("#F8FAFC")),
-                    ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E1")),
-                    ('INNERGRID', (0,0), (-1,-1), 1, colors.HexColor("#E2E8F0")),
-                    ('PADDING', (0,0), (-1,-1), 10),
-                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ]))
-                slide_elements.append(card_table)
+                if pic_inserted:
+                    card_table = Table([[bullets_p, callout_p]], colWidths=[510, 250])
+                    card_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0,0), (0,0), colors.HexColor(theme["card_bg"])),
+                        ('BACKGROUND', (1,0), (1,0), colors.HexColor("#F8FAFC")),
+                        ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E1")),
+                        ('INNERGRID', (0,0), (-1,-1), 1, colors.HexColor("#E2E8F0")),
+                        ('PADDING', (0,0), (-1,-1), 10),
+                        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                    ]))
+                    slide_elements.append(card_table)
+                else:
+                    # Clean full-width 760pt card layout without forced image placeholder
+                    card_table = Table([[bullets_p]], colWidths=[760])
+                    card_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor(theme["card_bg"])),
+                        ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E1")),
+                        ('PADDING', (0,0), (-1,-1), 14),
+                        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                    ]))
+                    slide_elements.append(card_table)
 
             # Teacher Speaker Notes Box at bottom
             if s.speaker_notes:

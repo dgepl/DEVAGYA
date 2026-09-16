@@ -14,6 +14,7 @@ export default function LoginClient() {
   const [role, setRole] = useState<"teacher" | "student" | "parent" | "school">("teacher");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const { user, setUser, logout } = useAppStore();
   const router = useRouter();
@@ -39,56 +40,105 @@ export default function LoginClient() {
 
     setLoading(true);
     setError(null);
+    setStatusMessage(null);
 
-    try {
-      const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password, role })
-      });
-      
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch {
-        if (!res.ok) {
-          if (res.status === 502 || res.status === 503 || res.status === 504) {
-            throw new Error("Backend server is currently offline or unreachable. Please ensure the backend server is running on port 8000.");
-          }
-          throw new Error("Unable to connect to authentication service. Please ensure the backend is running.");
-        }
-      }
-
-      if (!res.ok) {
-        throw new Error(data.detail || data.message || "Authentication failed. Invalid email or password.");
-      }
-
-      if (!data.user) {
-        throw new Error("Invalid response from server. Login failed.");
-      }
-
-      setUser(data.user);
-
-      if (role === "student") router.push("/dashboard/student");
-      else if (role === "parent") router.push("/dashboard/parent");
-      else if (role === "school") router.push("/dashboard/school");
-      else {
-        if (!data.user.schoolName || !data.user.subject || data.user.isProfileComplete === false) {
-          router.push("/dashboard/profile?onboarding=true");
-        } else {
-          router.push("/dashboard");
-        }
-      }
-    } catch (err: any) {
-      if (err?.message === "Failed to fetch") {
-        setError("Unable to connect to the authentication server. Please ensure the backend service is running on port 8000.");
-      } else {
-        setError(err.message || "Failed to log in.");
-      }
-    } finally {
-      setLoading(false);
+    const cleanEmail = email.trim().toLowerCase();
+    const primaryBase = getApiBase();
+    const envBase = process.env.NEXT_PUBLIC_API_URL;
+    
+    // Candidate endpoints to try
+    const baseCandidates = [primaryBase];
+    if (envBase && !baseCandidates.includes(envBase)) {
+      baseCandidates.push(envBase);
     }
+    if (!baseCandidates.includes("/api/v1")) {
+      baseCandidates.push("/api/v1");
+    }
+
+    let lastError = "Unable to connect to authentication service.";
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      for (const base of baseCandidates) {
+        try {
+          if (attempt > 1) {
+            setStatusMessage(`Waking up authentication service (Attempt ${attempt}/${maxAttempts})...`);
+          }
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+          const res = await fetch(`${base}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: cleanEmail, password, role }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          let data: any = {};
+          try {
+            data = await res.json();
+          } catch {
+            if (!res.ok) {
+              if ([502, 503, 504].includes(res.status)) {
+                lastError = "Backend server is waking up or reloading. Retrying...";
+                continue;
+              }
+              lastError = "Authentication service returned an invalid response.";
+              continue;
+            }
+          }
+
+          if (!res.ok) {
+            // Business logic errors (e.g. invalid credentials) shouldn't retry
+            setError(data.detail || data.message || "Authentication failed. Invalid email or password.");
+            setLoading(false);
+            setStatusMessage(null);
+            return;
+          }
+
+          if (!data.user) {
+            lastError = "Invalid response from server. Login failed.";
+            continue;
+          }
+
+          // Successful authentication
+          setUser(data.user);
+          setStatusMessage(null);
+
+          if (role === "student") router.push("/dashboard/student");
+          else if (role === "parent") router.push("/dashboard/parent");
+          else if (role === "school") router.push("/dashboard/school");
+          else {
+            if (!data.user.schoolName || !data.user.subject || data.user.isProfileComplete === false) {
+              router.push("/dashboard/profile?onboarding=true");
+            } else {
+              router.push("/dashboard");
+            }
+          }
+          return;
+        } catch (fetchErr: any) {
+          lastError = fetchErr?.name === "AbortError" 
+            ? "Authentication service took too long to respond." 
+            : (fetchErr?.message || "Failed to fetch");
+        }
+      }
+
+      // If attempts remain, wait before retrying (exponential backoff)
+      if (attempt < maxAttempts) {
+        setStatusMessage(`Server is waking up. Retrying connection in ${attempt * 1.5}s (Attempt ${attempt}/${maxAttempts})...`);
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+      }
+    }
+
+    setStatusMessage(null);
+    setLoading(false);
+    setError(
+      lastError.includes("Failed to fetch") || lastError.includes("timeout") || lastError.includes("AbortError")
+        ? "Unable to connect to the authentication server. The backend engine is restarting or initializing. Please retry in a few moments."
+        : lastError
+    );
   };
 
   return (
@@ -109,6 +159,13 @@ export default function LoginClient() {
           <h1 className="text-xl font-black text-slate-900 tracking-tight">Sign In to DEVGYA</h1>
           <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">CBSE & NCERT AI Education Portal</p>
         </div>
+
+        {statusMessage && (
+          <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-2xl text-indigo-700 text-xs font-bold flex items-center gap-2.5 shadow-sm animate-pulse">
+            <RefreshCw className="w-4 h-4 shrink-0 text-indigo-600 animate-spin" />
+            <span>{statusMessage}</span>
+          </div>
+        )}
 
         {error && (
           <div className="p-3.5 bg-red-50/80 border border-red-200 rounded-2xl text-red-700 text-xs font-bold flex items-center gap-2.5 shadow-sm">

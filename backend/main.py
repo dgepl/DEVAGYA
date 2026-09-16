@@ -147,8 +147,9 @@ async def root():
     }
 
 @app.get("/health")
+@app.get(f"{settings.API_V1_STR}/health")
 async def health_check():
-    return {"status": "healthy", "provider_url": settings.API_V1_STR}
+    return {"status": "healthy", "service": settings.APP_NAME, "provider_url": settings.API_V1_STR}
 
 if __name__ == "__main__":
     import uvicorn

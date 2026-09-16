@@ -44,6 +44,8 @@ services:
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://devgya-backend.onrender.com/api/v1
+      - key: BACKEND_URL
+        value: https://devgya-backend.onrender.com
       - key: NEXT_PUBLIC_SUPABASE_URL
         value: https://amlvyskjrencrolnppgs.supabase.co
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY

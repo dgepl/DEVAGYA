@@ -24,6 +24,7 @@ export default function RegisterClient() {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isOTPModalOpen, setIsOTPModalOpen] = useState(false);
 
   const { user, setUser } = useAppStore();
@@ -55,7 +56,7 @@ export default function RegisterClient() {
     const cleanEmail = val.replace(/\s+/g, "");
     setEmail(cleanEmail);
     if (val.includes(" ")) {
-      setError("Spaces are blocked in email addresses.");
+      setError("Spaces are automatically blocked in email addresses.");
     } else {
       setError(null);
     }
@@ -76,95 +77,188 @@ export default function RegisterClient() {
 
     setLoading(true);
     setError(null);
+    setStatusMessage(null);
 
-    try {
-      // Step 1: Send OTP to user's email via Resend API
-      const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/auth/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), name: role === "school" ? (schoolName || name) : name, role })
-      });
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch {
-        if (!res.ok) {
-          throw new Error("Unable to connect to authentication service. Please ensure the backend is running on port 8000.");
+    const cleanEmail = email.trim().toLowerCase();
+    const primaryBase = getApiBase();
+    const envBase = process.env.NEXT_PUBLIC_API_URL;
+    const baseCandidates = [primaryBase];
+    if (envBase && !baseCandidates.includes(envBase)) baseCandidates.push(envBase);
+    if (!baseCandidates.includes("/api/v1")) baseCandidates.push("/api/v1");
+
+    let lastError = "Unable to connect to authentication service.";
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      for (const base of baseCandidates) {
+        try {
+          if (attempt > 1) {
+            setStatusMessage(`Waking up authentication service (Attempt ${attempt}/${maxAttempts})...`);
+          }
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+          const res = await fetch(`${base}/auth/send-otp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: cleanEmail, name: role === "school" ? (schoolName || name) : name, role }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          let data: any = {};
+          try {
+            data = await res.json();
+          } catch {
+            if (!res.ok) {
+              if ([502, 503, 504].includes(res.status)) {
+                lastError = "Backend server is waking up or reloading. Retrying...";
+                continue;
+              }
+              lastError = "Authentication service returned an invalid response.";
+              continue;
+            }
+          }
+
+          if (!res.ok) {
+            setError(data.detail || "Failed to send verification email.");
+            setLoading(false);
+            setStatusMessage(null);
+            return;
+          }
+
+          // Open 6-digit OTP verification modal
+          setStatusMessage(null);
+          setIsOTPModalOpen(true);
+          setLoading(false);
+          return;
+        } catch (fetchErr: any) {
+          lastError = fetchErr?.name === "AbortError" 
+            ? "Authentication service took too long to respond." 
+            : (fetchErr?.message || "Failed to fetch");
         }
       }
-      if (!res.ok) throw new Error(data.detail || "Failed to send verification email.");
 
-      // Open 6-digit OTP verification modal
-      setIsOTPModalOpen(true);
-    } catch (err: any) {
-      if (err?.message === "Failed to fetch" || err?.message?.includes("fetch")) {
-        setError("Unable to connect to the authentication server. Please ensure the backend service is running on port 8000.");
-      } else {
-        setError(err.message || "Failed to send OTP code.");
+      if (attempt < maxAttempts) {
+        setStatusMessage(`Server is waking up. Retrying in ${attempt * 1.5}s (Attempt ${attempt}/${maxAttempts})...`);
+        await new Promise((r) => setTimeout(r, attempt * 1500));
       }
-    } finally {
-      setLoading(false);
     }
+
+    setStatusMessage(null);
+    setLoading(false);
+    setError(
+      lastError.includes("Failed to fetch") || lastError.includes("timeout") || lastError.includes("AbortError")
+        ? "Unable to connect to the authentication server. The backend engine is restarting or initializing. Please retry in a moment."
+        : lastError
+    );
   };
 
   const handleOTPVerified = async (otpCode: string) => {
     setIsOTPModalOpen(false);
     setLoading(true);
+    setError(null);
+    setStatusMessage(null);
 
-    try {
-      const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          name: role === "school" ? (name || "Principal/Administrator") : name,
-          role,
-          otp_code: otpCode,
-          school_name: role === "school" ? schoolName.trim() : "",
-          affiliation_board: affiliationBoard,
-          city: city.trim(),
-          state: stateName.trim(),
-          contact_person: name.trim(),
-          phone: phone.trim()
-        })
-      });
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch {
-        if (!res.ok) {
-          throw new Error("Unable to connect to authentication service. Please ensure the backend is running on port 8000.");
+    const cleanEmail = email.trim().toLowerCase();
+    const primaryBase = getApiBase();
+    const envBase = process.env.NEXT_PUBLIC_API_URL;
+    const baseCandidates = [primaryBase];
+    if (envBase && !baseCandidates.includes(envBase)) baseCandidates.push(envBase);
+    if (!baseCandidates.includes("/api/v1")) baseCandidates.push("/api/v1");
+
+    let lastError = "Registration failed.";
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      for (const base of baseCandidates) {
+        try {
+          if (attempt > 1) {
+            setStatusMessage(`Finalizing registration (Attempt ${attempt}/${maxAttempts})...`);
+          }
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+          const res = await fetch(`${base}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: cleanEmail,
+              password,
+              name: role === "school" ? (name || "Principal/Administrator") : name,
+              role,
+              otp_code: otpCode,
+              school_name: role === "school" ? schoolName.trim() : "",
+              affiliation_board: affiliationBoard,
+              city: city.trim(),
+              state: stateName.trim(),
+              contact_person: name.trim(),
+              phone: phone.trim()
+            }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          let data: any = {};
+          try {
+            data = await res.json();
+          } catch {
+            if (!res.ok) {
+              if ([502, 503, 504].includes(res.status)) {
+                lastError = "Backend server is waking up. Retrying...";
+                continue;
+              }
+              lastError = "Unable to connect to authentication service.";
+              continue;
+            }
+          }
+
+          if (!res.ok) {
+            setError(data.detail || "Registration failed.");
+            setLoading(false);
+            setStatusMessage(null);
+            return;
+          }
+
+          const registeredUser = {
+            ...data.user,
+            role: role,
+            isProfileComplete: false
+          };
+          setUser(registeredUser);
+          setStatusMessage(null);
+
+          // Redirect to appropriate dashboard
+          if (role === "teacher") {
+            router.push("/onboarding");
+          } else if (role === "student") {
+            router.push("/dashboard/student");
+          } else if (role === "parent") {
+            router.push("/dashboard/parent");
+          } else if (role === "school") {
+            router.replace("/dashboard/school");
+          } else {
+            router.push("/dashboard");
+          }
+          return;
+        } catch (fetchErr: any) {
+          lastError = fetchErr?.name === "AbortError" 
+            ? "Authentication service took too long to respond." 
+            : (fetchErr?.message || "Failed to fetch");
         }
       }
-      if (!res.ok) throw new Error(data.detail || "Registration failed.");
 
-      const registeredUser = {
-        ...data.user,
-        role: role,
-        isProfileComplete: false
-      };
-      setUser(registeredUser);
-
-      // Redirect to appropriate dashboard
-      if (role === "teacher") {
-        router.push("/onboarding");
-      } else if (role === "student") {
-        router.push("/dashboard/student");
-      } else if (role === "parent") {
-        router.push("/dashboard/parent");
-      } else if (role === "school") {
-        router.replace("/dashboard/school");
-      } else {
-        router.push("/dashboard");
+      if (attempt < maxAttempts) {
+        setStatusMessage(`Server is waking up. Retrying in ${attempt * 1.5}s...`);
+        await new Promise((r) => setTimeout(r, attempt * 1500));
       }
-    } catch (err: any) {
-      setError(err.message || "Registration failed.");
-    } finally {
-      setLoading(false);
     }
+
+    setStatusMessage(null);
+    setLoading(false);
+    setError(lastError);
   };
 
   return (
@@ -189,6 +283,13 @@ export default function RegisterClient() {
             {role === "school" ? "School Recruitment & AI Portal" : "Join DEVGYA AI Learning Platform"}
           </p>
         </div>
+
+        {statusMessage && (
+          <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-2xl text-indigo-700 text-xs font-bold flex items-center gap-2.5 shadow-sm animate-pulse">
+            <RefreshCw className="w-4 h-4 shrink-0 text-indigo-600 animate-spin" />
+            <span>{statusMessage}</span>
+          </div>
+        )}
 
         {error && (
           <div className="p-3.5 bg-red-50/80 border border-red-200 rounded-2xl text-red-700 text-xs font-bold flex items-center gap-2.5 shadow-sm">

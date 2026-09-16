@@ -933,9 +933,12 @@ export default function PPTGeneratorPage() {
                           className="bg-slate-100 border border-slate-300 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1 cursor-pointer"
                         >
                           <option value="title_bullets">Layout: Title & Bullets</option>
+                          <option value="cards_grid">Layout: Cards Grid (3-4 Pillars)</option>
                           <option value="two_column">Layout: Two Columns Comparison</option>
                           <option value="stat_highlight">Layout: Key Metrics / Stats</option>
+                          <option value="process_timeline">Layout: Process Timeline</option>
                           <option value="quote_insight">Layout: Insight / Quote</option>
+                          <option value="split_image_text">Layout: Visual & Key Points</option>
                         </select>
                       </div>
 
@@ -1182,13 +1185,23 @@ export default function PPTGeneratorPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {activeSlide.image_url && (
+                            <button
+                              type="button"
+                              onClick={() => updateActiveSlide({ image_url: null, has_image: false })}
+                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                              title="Remove visual and use full-width layout"
+                            >
+                              Remove Visual
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
                           >
                             <Camera className="w-3.5 h-3.5" />
-                            <span>Upload from Device</span>
+                            <span>Upload</span>
                           </button>
 
                           <button
@@ -1201,7 +1214,7 @@ export default function PPTGeneratorPage() {
                             className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl text-xs font-extrabold text-slate-800 transition cursor-pointer shadow-xs flex items-center gap-1.5"
                           >
                             <Search className="w-3.5 h-3.5 text-slate-500" />
-                            <span>Search Real Media</span>
+                            <span>Search Visual</span>
                           </button>
                         </div>
                       </div>
@@ -1457,14 +1470,37 @@ export default function PPTGeneratorPage() {
                                   — {activeSlide.quote.author}
                                 </cite>
                               </div>
+                            ) : (activeSlide.layout === "cards_grid" || activeSlide.cards) && activeSlide.cards ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                                {activeSlide.cards.slice(0, 4).map((cd, i) => (
+                                  <div
+                                    key={i}
+                                    className="p-5 bg-slate-50/90 rounded-2xl border space-y-2.5 transition hover:shadow-xs shadow-2xs"
+                                    style={{ borderColor: currentTheme.accent + "50" }}
+                                  >
+                                    <span
+                                      className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider inline-block"
+                                      style={{ backgroundColor: currentTheme.accent + "18", color: currentTheme.accent }}
+                                    >
+                                      {cd.badge || `PILLAR ${i + 1}`}
+                                    </span>
+                                    <h4 className="text-sm font-black text-slate-900 leading-snug">
+                                      {cd.title || `Core Aspect ${i + 1}`}
+                                    </h4>
+                                    <p className="text-xs font-medium text-slate-600 leading-relaxed">
+                                      {cd.description || ""}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
                             ) : (
-                              /* Standard Bullets + Visual Card */
-                              <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
-                                <div className="sm:col-span-8 space-y-3">
+                              /* Standard Bullets (Full Width when no image, Split when image present) */
+                              <div className={`grid grid-cols-1 ${activeSlide.image_url ? "sm:grid-cols-12 gap-6 items-center" : "gap-4"}`}>
+                                <div className={`${activeSlide.image_url ? "sm:col-span-7 md:col-span-8" : "w-full"} space-y-3`}>
                                   {activeSlide.bullets.map((b, i) => (
-                                    <div key={i} className="flex items-start gap-3 text-xs sm:text-sm font-medium text-slate-800 leading-relaxed">
-                                      <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: currentTheme.accent }}></span>
-                                      <div>
+                                    <div key={i} className="flex items-start gap-3 text-xs sm:text-sm font-medium text-slate-800 leading-relaxed p-2.5 rounded-xl bg-slate-50/50 border border-slate-100/80">
+                                      <span className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: currentTheme.accent }}></span>
+                                      <div className="flex-1">
                                         <Markdown content={b} />
                                       </div>
                                     </div>
@@ -1472,14 +1508,16 @@ export default function PPTGeneratorPage() {
                                 </div>
 
                                 {activeSlide.image_url && (
-                                  <div className="sm:col-span-4">
-                                    <img
-                                      src={activeSlide.image_url}
-                                      alt={activeSlide.image_caption || activeSlide.title}
-                                      className="w-full h-44 object-cover rounded-2xl shadow-md border border-slate-200"
-                                    />
+                                  <div className="sm:col-span-5 md:col-span-4">
+                                    <div className="relative group overflow-hidden rounded-2xl border border-slate-200 shadow-md">
+                                      <img
+                                        src={activeSlide.image_url}
+                                        alt={activeSlide.image_caption || activeSlide.title}
+                                        className="w-full h-48 object-cover group-hover:scale-105 transition duration-300"
+                                      />
+                                    </div>
                                     {activeSlide.image_caption && (
-                                      <p className="text-[10px] text-slate-500 font-medium text-center mt-1.5 italic">
+                                      <p className="text-[10px] text-slate-500 font-medium text-center mt-2 italic px-2">
                                         {activeSlide.image_caption}
                                       </p>
                                     )}
@@ -1932,47 +1970,53 @@ export default function PPTGeneratorPage() {
                     )}
                   </div>
 
-                  {/* Real Image Preview with Direct Device Upload Button */}
-                  <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 relative group">
-                    {activeSlide.image_url ? (
+                  {/* Real Image Preview (Only when image exists) */}
+                  {activeSlide.image_url ? (
+                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 relative group">
                       <img
                         src={activeSlide.image_url}
                         alt={activeSlide.image_caption || activeSlide.image_keyword}
                         className="w-full h-44 object-cover"
                         loading="lazy"
                       />
-                    ) : (
-                      <div className="w-full h-36 bg-slate-200 flex items-center justify-center text-slate-400">
-                        <ImageIcon className="w-8 h-8" />
-                      </div>
-                    )}
-                    
-                    {/* Device Upload Pill directly on photo */}
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex-1 py-1.5 px-2.5 bg-slate-900/85 hover:bg-slate-950 backdrop-blur-md text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-                      >
-                        <Camera className="w-3 h-3 text-amber-300" />
-                        <span>Upload Photo from Device</span>
-                      </button>
                       
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomImageUrl(activeSlide.image_url || "");
-                          setCustomImageKeyword(activeSlide.image_keyword || "");
-                          setImageSourceMode("search");
-                          setShowImageModal(true);
-                        }}
-                        className="p-1.5 bg-white/90 backdrop-blur-md text-slate-800 rounded-xl shadow-md active:scale-95 transition"
-                        title="Search real photo"
-                      >
-                        <Search className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Device Upload / Change / Remove Pill */}
+                      <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex-1 py-1.5 px-2.5 bg-slate-900/85 hover:bg-slate-950 backdrop-blur-md text-white rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+                        >
+                          <Camera className="w-3 h-3 text-amber-300" />
+                          <span>Change Photo</span>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => updateActiveSlide({ image_url: null, has_image: false })}
+                          className="py-1.5 px-2.5 bg-rose-600/90 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black shadow-md active:scale-95 transition"
+                          title="Remove photo"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
+
+                  {/* Cards Grid Layout on Mobile */}
+                  {(activeSlide.layout === "cards_grid" || activeSlide.cards) && activeSlide.cards && (
+                    <div className="space-y-2.5">
+                      {activeSlide.cards.map((cd, i) => (
+                        <div key={i} className="p-3 bg-white/90 rounded-xl border border-slate-200/80 shadow-2xs space-y-1">
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded text-white inline-block" style={{ backgroundColor: currentTheme.accent }}>
+                            {cd.badge || `Pillar ${i + 1}`}
+                          </span>
+                          <h4 className="text-xs font-black text-slate-900">{cd.title}</h4>
+                          <p className="text-[11px] font-medium text-slate-600 leading-relaxed">{cd.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Slide Bullets */}
                   {activeSlide.bullets && activeSlide.bullets.length > 0 && (

@@ -20,9 +20,18 @@ const nextConfig = {
     ]
   },
   async rewrites() {
-    // In unified single-service hosting (Render node start.js / devgya.in), the Python FastAPI backend
-    // runs on internal port 8000. Do NOT rewrite to devgya.in or NEXT_PUBLIC_API_URL if it points to self.
-    const rawBackend = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+    let rawBackend = process.env.BACKEND_URL;
+    if (!rawBackend && process.env.NEXT_PUBLIC_API_URL) {
+      try {
+        const u = new URL(process.env.NEXT_PUBLIC_API_URL);
+        if (!u.hostname.includes('devgya.in') && !u.hostname.includes('devgya.com') && !u.hostname.includes('localhost') && !u.hostname.includes('127.0.0.1')) {
+          rawBackend = `${u.protocol}//${u.host}`;
+        }
+      } catch (e) {}
+    }
+    if (!rawBackend) {
+      rawBackend = 'http://127.0.0.1:8000';
+    }
     return [
       {
         source: '/api/:path*',
