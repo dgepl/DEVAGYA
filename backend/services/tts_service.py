@@ -138,7 +138,29 @@ class TTSService:
             return
 
         selected_voice = voice if voice in self.voices else DEFAULT_VOICE
-        cache_key = f"{selected_voice}_{rate}_{clean}"
+
+        # Smart Accent & Language Auto-Routing:
+        # If the text contains Hindi (Devanagari script), automatically route to native Hindi Neural voice
+        # so American/English voices never mangle Hindi pronunciation.
+        has_devanagari = bool(re.search(r'[\u0900-\u097F]', clean))
+        if has_devanagari and not selected_voice.startswith("hi-"):
+            # Preserve gender if male voice was requested
+            if any(m in selected_voice.lower() for m in ["guy", "prabhat", "madhur", "male"]):
+                selected_voice = "hi-IN-MadhurNeural"
+            else:
+                selected_voice = "hi-IN-SwaraNeural"
+
+        # Optimize speech rate for realistic, human-like cadence
+        effective_rate = rate
+        if has_devanagari or selected_voice.startswith("hi-"):
+            # For Hindi, an overly fast rate causes clipping; +0% to +5% gives authentic Indian cadence
+            if rate == "+15%" or rate == "+20%":
+                effective_rate = "+5%"
+        elif rate == "+15%":
+            # For English, +5% to +10% is far more natural and realistic than rushed +15%
+            effective_rate = "+8%"
+
+        cache_key = f"{selected_voice}_{effective_rate}_{clean}"
 
         # If already cached in memory, yield cached bytes
         if cache_key in self._cache:
@@ -147,7 +169,7 @@ class TTSService:
 
         chunks: List[bytes] = []
         try:
-            communicate = edge_tts.Communicate(clean, selected_voice, rate=rate)
+            communicate = edge_tts.Communicate(clean, selected_voice, rate=effective_rate)
             async for chunk in communicate.stream():
                 if chunk.get("type") == "audio" and chunk.get("data"):
                     data = chunk["data"]

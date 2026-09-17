@@ -89,10 +89,32 @@ def _build_agent_ai_messages(
     agent_system_prompt: str,
     language: str = "english",
     conv: Optional[dict] = None,
+    agent_code: Optional[str] = None,
 ) -> list:
     """Build full OpenAI-compatible message context from stored agent conversation history."""
     # Build system prompt with language instruction
-    lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, "")
+    if agent_code == "english_coach":
+        if language == "hindi":
+            lang_instruction = (
+                "CRITICAL INSTRUCTION FOR HINDI COACHING:\n"
+                "1. You MUST speak, praise, converse, and explain ONLY in pure, authentic Hindi written in clean Devanagari script (हिंदी देवनागरी लिपि, e.g. 'बहुत बढ़िया! आपका बोलना बहुत प्रभावशाली है।').\n"
+                "2. NEVER write Hindi words using English/Latin alphabets (STRICTLY NO Romanized Hindi/Hinglish like 'aap kaise hain'). Every Hindi word MUST be in Devanagari script.\n"
+                "3. When providing the polished English expression for the teacher to practice:\n"
+                "   - Keep the '✨ Better: [Clean English sentence]' in clear spoken English so the learner can speak it.\n"
+                "   - Keep the '💡 Tip: [Helpful tip]' and all praise/questions in natural, warm Devanagari Hindi.\n"
+                "4. Keep your reply conversational, encouraging, and natural (1-2 spoken sentences) with authentic Hindi colleague cadence for instant voice synthesis."
+            )
+        elif language == "hinglish":
+            lang_instruction = (
+                "CRITICAL INSTRUCTION: Reply in natural conversational Hinglish. Keep the tone warm and collegial, and provide the '✨ Better:' line in clean polished English."
+            )
+        else:
+            lang_instruction = (
+                "CRITICAL INSTRUCTION: Reply in fluent, expressive, natural conversational English with authentic human warmth, realistic prosody, and supportive encouragement."
+            )
+    else:
+        lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, "")
+
     full_system = agent_system_prompt
     if lang_instruction:
         full_system = f"{agent_system_prompt}\n\n{lang_instruction}"
@@ -293,7 +315,7 @@ async def agent_chat_message(
         chat_history_service.update_title(conv["id"], _derive_title(title_source))
 
     # Build AI messages from full conversation context (reusing conv to save Supabase fetch latency)
-    ai_messages = _build_agent_ai_messages(conv["id"], user_id, agent["system_prompt"], language, conv=conv)
+    ai_messages = _build_agent_ai_messages(conv["id"], user_id, agent["system_prompt"], language, conv=conv, agent_code=agent_code)
 
     if stream:
         async def event_generator():

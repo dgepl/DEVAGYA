@@ -41,11 +41,76 @@ interface VoiceOption {
   lang: string;
   accent: string;
   avatar: string;
+  category: "hindi" | "indian-english" | "global-english";
 }
 
 const COACH_VOICES: VoiceOption[] = [
-  { code: "en-US-JennyNeural", name: "Female Voice (Girl)", gender: "Female", lang: "en-US", accent: "Natural Fluent Accent", avatar: "👩" },
-  { code: "en-US-GuyNeural", name: "Male Voice (Boy)", gender: "Male", lang: "en-US", accent: "Natural Fluent Accent", avatar: "👨" },
+  // 1. Authentic Hindi Voices (Native Indian Hindi Accent)
+  {
+    code: "hi-IN-SwaraNeural",
+    name: "Swara (स्वर - हिंदी)",
+    gender: "Female",
+    lang: "hi-IN",
+    accent: "Authentic Hindi Accent 🇮🇳",
+    avatar: "👩",
+    category: "hindi"
+  },
+  {
+    code: "hi-IN-MadhurNeural",
+    name: "Madhur (मधुर - हिंदी)",
+    gender: "Male",
+    lang: "hi-IN",
+    accent: "Natural Hindi Accent 🇮🇳",
+    avatar: "👨",
+    category: "hindi"
+  },
+  // 2. Realistic Indian English Voices (Educator Accent)
+  {
+    code: "en-IN-NeerjaNeural",
+    name: "Neerja (Indian English)",
+    gender: "Female",
+    lang: "en-IN",
+    accent: "Warm Indian Educator 🇮🇳",
+    avatar: "👩",
+    category: "indian-english"
+  },
+  {
+    code: "en-IN-PrabhatNeural",
+    name: "Prabhat (Indian English)",
+    gender: "Male",
+    lang: "en-IN",
+    accent: "Crisp Indian Educator 🇮🇳",
+    avatar: "👨",
+    category: "indian-english"
+  },
+  // 3. Realistic Global Fluent English Voices
+  {
+    code: "en-US-JennyNeural",
+    name: "Jenny (US English)",
+    gender: "Female",
+    lang: "en-US",
+    accent: "Natural Fluent Accent 🇺🇸",
+    avatar: "👩",
+    category: "global-english"
+  },
+  {
+    code: "en-US-GuyNeural",
+    name: "Guy (US English)",
+    gender: "Male",
+    lang: "en-US",
+    accent: "Conversational Fluent 🇺🇸",
+    avatar: "👨",
+    category: "global-english"
+  },
+  {
+    code: "en-GB-SoniaNeural",
+    name: "Sonia (British English)",
+    gender: "Female",
+    lang: "en-GB",
+    accent: "Articulate Academic 🇬🇧",
+    avatar: "👩",
+    category: "global-english"
+  }
 ];
 
 interface ScenarioTopic {
@@ -175,9 +240,45 @@ export function EnglishSpeakingCoach() {
   const { user } = useAppStore();
 
   // Settings
-  const [selectedVoice, setSelectedVoice] = useState<string>("en-US-JennyNeural");
-  const [immersionMode, setImmersionMode] = useState<"immersion" | "bilingual">("immersion");
+  const [selectedVoice, setSelectedVoice] = useState<string>("en-IN-NeerjaNeural");
+  const [languageMode, setLanguageMode] = useState<"english" | "hindi" | "hinglish">("english");
   const [activeScenario, setActiveScenario] = useState<ScenarioTopic>(PRACTICE_SCENARIOS[0]);
+
+  // Switch language mode and automatically adapt voice + greeting
+  const handleLanguageChange = (newMode: "english" | "hindi" | "hinglish") => {
+    setLanguageMode(newMode);
+
+    if (newMode === "hindi") {
+      // Auto-assign authentic Hindi neural voice
+      setSelectedVoice(prev => {
+        if (prev.startsWith("hi-")) return prev;
+        const isMale = prev.includes("Guy") || prev.includes("Prabhat") || prev.includes("Madhur");
+        return isMale ? "hi-IN-MadhurNeural" : "hi-IN-SwaraNeural";
+      });
+
+      // Update greeting if user hasn't started talking yet
+      if (conversationHistory.length === 0) {
+        setLiveAiSpeech(`नमस्ते! मैं आपका देवज्ञ इंग्लिश स्पीकिंग कोच हूँ। आज हम ${activeScenario.title} का अभ्यास करेंगे। जब भी आप तैयार हों, बोलना शुरू करें!`);
+      }
+    } else if (newMode === "hinglish") {
+      setSelectedVoice(prev => {
+        if (prev.startsWith("en-IN-")) return prev;
+        return "en-IN-NeerjaNeural";
+      });
+      if (conversationHistory.length === 0) {
+        setLiveAiSpeech(`Hello! Main aapka Devgya English Coach hoon. Aaj hum ${activeScenario.title} practice karenge. Jab aap ready hon, boliye!`);
+      }
+    } else {
+      // Pure English
+      setSelectedVoice(prev => {
+        if (!prev.startsWith("hi-")) return prev;
+        return "en-IN-NeerjaNeural";
+      });
+      if (conversationHistory.length === 0) {
+        setLiveAiSpeech(`Hello! I am your Devgya English Coach. We are practicing ${activeScenario.title}. Speak whenever you are ready!`);
+      }
+    }
+  };
 
   // Conversational Session State (Like Gemini Live)
   const [isLiveActive, setIsLiveActive] = useState<boolean>(false);
@@ -255,9 +356,9 @@ export function EnglishSpeakingCoach() {
       const w = words[i];
       const prev1 = dedupedWords[dedupedWords.length - 1];
       const prev2 = dedupedWords[dedupedWords.length - 2];
-      const cleanW = w.toLowerCase().replace(/[^a-z0-9]/gi, "");
-      const clean1 = prev1 ? prev1.toLowerCase().replace(/[^a-z0-9]/gi, "") : "";
-      const clean2 = prev2 ? prev2.toLowerCase().replace(/[^a-z0-9]/gi, "") : "";
+      const cleanW = w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+      const clean1 = prev1 ? prev1.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") : "";
+      const clean2 = prev2 ? prev2.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") : "";
 
       const isValidDouble = ["had", "that", "it"].includes(cleanW);
       if (cleanW && cleanW === clean1) {
@@ -537,7 +638,18 @@ export function EnglishSpeakingCoach() {
     };
 
     try {
-      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&text=${encodeURIComponent(cleanText)}&rate=%2B10%25`;
+      const isDevanagari = /[\u0900-\u097F]/.test(cleanText);
+      const isHindiTarget = languageMode === "hindi" || isDevanagari;
+
+      // Smart Accent Routing: ensure native Hindi Neural voice is always used for Hindi/Devanagari
+      let voiceToUse = selectedVoice;
+      if (isHindiTarget && !voiceToUse.startsWith("hi-")) {
+        const isMale = voiceToUse.includes("Guy") || voiceToUse.includes("Prabhat") || voiceToUse.includes("Madhur");
+        voiceToUse = isMale ? "hi-IN-MadhurNeural" : "hi-IN-SwaraNeural";
+      }
+
+      const rateParam = isHindiTarget ? "%2B5%25" : "%2B8%25";
+      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(voiceToUse)}&text=${encodeURIComponent(cleanText)}&rate=${rateParam}`;
       const audio = new Audio(streamUrl);
       currentAudioRef.current = audio;
 
@@ -564,22 +676,35 @@ export function EnglishSpeakingCoach() {
     } catch {
       fallbackSpeechSynthesis(cleanText, handleFinished);
     }
-  }, [selectedVoice]);
+  }, [selectedVoice, languageMode]);
 
   const fallbackSpeechSynthesis = (text: string, onFinish?: () => void) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
+      const isDevanagari = /[\u0900-\u097F]/.test(text);
+      const isHindi = languageMode === "hindi" || isDevanagari;
+
       const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = selectedVoice.startsWith("hi") ? "hi-IN" : selectedVoice.startsWith("en-GB") ? "en-GB" : "en-IN";
-      utt.rate = 1.15;
-      utt.pitch = 1.0;
+      utt.lang = isHindi ? "hi-IN" : selectedVoice.startsWith("en-GB") ? "en-GB" : selectedVoice.startsWith("en-US") ? "en-US" : "en-IN";
+      utt.rate = isHindi ? 0.95 : 1.0;
+      utt.pitch = isHindi ? 1.02 : 1.0;
 
       const voices = window.speechSynthesis.getVoices();
-      const naturalVoice = voices.find(v => 
-        (v.lang.startsWith("en") || v.lang.startsWith("hi")) && 
-        (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Karen") || v.name.includes("Zira"))
-      );
-      if (naturalVoice) utt.voice = naturalVoice;
+      if (isHindi) {
+        // High quality authentic Indian Hindi voices
+        const hindiVoice = voices.find(v => 
+          (v.lang.startsWith("hi") || v.lang === "hi_IN" || v.lang === "hi-IN") && 
+          (v.name.includes("Swara") || v.name.includes("Madhur") || v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Kalpana"))
+        ) || voices.find(v => v.lang.startsWith("hi"));
+        if (hindiVoice) utt.voice = hindiVoice;
+      } else {
+        // High quality realistic English voices
+        const englishVoice = voices.find(v => 
+          (v.lang.startsWith("en") || v.lang.includes("IN") || v.lang.includes("US") || v.lang.includes("GB")) && 
+          (v.name.includes("Neerja") || v.name.includes("Prabhat") || v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Jenny") || v.name.includes("Guy") || v.name.includes("Online"))
+        ) || voices.find(v => v.lang.startsWith("en"));
+        if (englishVoice) utt.voice = englishVoice;
+      }
 
       let called = false;
       const done = () => {
@@ -685,9 +810,14 @@ export function EnglishSpeakingCoach() {
     setConversationHistory(prev => [...prev, userMsgItem]);
 
     try {
-      const modeInstruction = immersionMode === "immersion"
-        ? "Respond in conversational, natural, supportive English."
-        : "The educator is in bilingual mode. Provide conversational English coaching with simple Hindi hints where helpful.";
+      let modeInstruction = "";
+      if (languageMode === "hindi") {
+        modeInstruction = "The educator is practicing with Hindi guidance. You MUST speak, praise, and explain in authentic Hindi written strictly in pure Devanagari script (हिंदी देवनागरी लिपि). NEVER write Hindi in English/Latin letters. Keep the '✨ Better:' phrase in clean English for practice, and all praise, tips, and conversation in pure Devanagari Hindi.";
+      } else if (languageMode === "hinglish") {
+        modeInstruction = "The educator is in bilingual mode. Provide conversational English coaching in natural, friendly Hinglish.";
+      } else {
+        modeInstruction = "Respond in fluent, articulate, natural, supportive English with realistic warmth.";
+      }
 
       const visualDirective = cameraActive
         ? `[LIVE CAMERA ON - Teacher's Live Face Expression: ${liveFaceRef.current.label} (${liveFaceRef.current.emoji}) - Naturally acknowledge their expression and presence in 3-5 words]`
@@ -695,16 +825,17 @@ export function EnglishSpeakingCoach() {
 
       const promptDirective = `[GEMINI LIVE SPOKEN CONVERSATION]
 Scenario: ${activeScenario.title}
-Mode: ${immersionMode} (${modeInstruction})
+Language Mode: ${languageMode} (${modeInstruction})
 ${visualDirective}
 Teacher said: "${input}"
 
 Instructions:
 - Reply in 1-2 ultra-crisp spoken sentences (max 25-30 words total).
+${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, praise, and tips ONLY in pure Devanagari Hindi (हिंदी देवनागरी लिपि). Do NOT write Hindi using English/Latin alphabet." : ""}
 - Acknowledge what they said and their facial expression warmly like an enthusiastic colleague.
 - If there is an obvious grammar or pronunciation slip, append strictly at the end:
-✨ Better: [Polished Line]
-💡 Tip: [1 short tip]
+✨ Better: [Polished Line in English]
+💡 Tip: [1 short tip${languageMode === "hindi" ? " in Devanagari Hindi" : ""}]
 - End with a snappy question to keep the conversation flowing smoothly!`;
 
       const fd = new FormData();
@@ -714,7 +845,7 @@ Instructions:
         fd.append("conversation_id", conversationId.trim());
       }
       fd.append("user_id", user?.id || user?.email || "teacher-guest");
-      fd.append("language", immersionMode === "immersion" ? "english" : "hinglish");
+      fd.append("language", languageMode);
 
       // Attach live camera snapshot frame if camera is on
       if (cameraActive) {
@@ -804,7 +935,7 @@ Instructions:
       setLiveAiSpeech(fallbackMsg);
       playCoachAudio(fallbackMsg);
     }
-  }, [immersionMode, activeScenario, conversationId, user?.id, cameraActive, playCoachAudio]);
+  }, [languageMode, activeScenario, conversationId, user?.id, cameraActive, playCoachAudio]);
 
   // Explicit Manual Send
   const triggerManualSend = () => {
@@ -832,7 +963,7 @@ Instructions:
 
     try {
       const recognition = new SpeechRecognition();
-      recognition.lang = immersionMode === "immersion" ? "en-IN" : "hi-IN";
+      recognition.lang = languageMode === "hindi" ? "hi-IN" : languageMode === "hinglish" ? "hi-IN" : "en-IN";
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
@@ -914,7 +1045,7 @@ Instructions:
       setIsListening(false);
       isListeningRef.current = false;
     }
-  }, [immersionMode, handleSendMessage]);
+  }, [languageMode, handleSendMessage]);
 
   const stopListening = useCallback(() => {
     clearTimeout(silenceTimerRef.current);
@@ -934,7 +1065,9 @@ Instructions:
     setIsLiveActive(true);
     isLiveActiveRef.current = true;
     startCamera();
-    const greeting = `Hello! I am Devgya English Coach. Let us practice ${scenario.title}. Speak whenever you are ready!`;
+    const greeting = languageMode === "hindi"
+      ? `नमस्ते! मैं आपका देवज्ञ इंग्लिश स्पीकिंग कोच हूँ। आइए ${scenario.title} का अभ्यास करते हैं। जब भी आप तैयार हों, बोलना शुरू करें!`
+      : `Hello! I am Devgya English Coach. Let us practice ${scenario.title}. Speak whenever you are ready!`;
     setLiveAiSpeech(greeting);
     playCoachAudio(greeting, () => {
       setIsAiSpeaking(false);
@@ -978,7 +1111,9 @@ Instructions:
     setLatestFeedback(null);
     setCurrentSpeechText("");
     accumulatedSpeechRef.current = "";
-    const resetGreeting = `Hello! I am Devgya English Coach. We are practicing ${activeScenario.title}. Speak whenever you are ready!`;
+    const resetGreeting = languageMode === "hindi"
+      ? `नमस्ते! मैं आपका देवज्ञ इंग्लिश स्पीकिंग कोच हूँ। हम ${activeScenario.title} का अभ्यास कर रहे हैं। जब भी तैयार हों, बोलिए!`
+      : `Hello! I am Devgya English Coach. We are practicing ${activeScenario.title}. Speak whenever you are ready!`;
     setLiveAiSpeech(resetGreeting);
     if (isLiveActive) {
       playCoachAudio(resetGreeting, () => {
@@ -1078,39 +1213,78 @@ Instructions:
               </button>
             )}
 
-            {/* Girl / Boy Natural Voice Selector */}
+            {/* Language Mode Selector (English / हिंदी / Hinglish) */}
+            <div className="flex items-center p-0.5 bg-slate-100 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("english")}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                  languageMode === "english"
+                    ? "bg-white text-indigo-600 shadow-xs font-black"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Practice in Pure English (Natural UK/US/Indian Accent)"
+              >
+                🇬🇧 English
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("hindi")}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                  languageMode === "hindi"
+                    ? "bg-white text-rose-600 shadow-xs font-black"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="हिंदी में अभ्यास करें (Authentic Hindi Accent & Devanagari Script)"
+              >
+                🇮🇳 हिंदी
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLanguageChange("hinglish")}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                  languageMode === "hinglish"
+                    ? "bg-white text-amber-700 shadow-xs font-black"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Bilingual Hinglish Mode"
+              >
+                Hinglish
+              </button>
+            </div>
+
+            {/* Categorized Human & Indian Accent Voice Selector */}
             <div className="relative">
               <select
                 value={selectedVoice}
                 onChange={(e) => setSelectedVoice(e.target.value)}
-                className="appearance-none pl-7 pr-7 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="appearance-none pl-7 pr-7 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/20 max-w-[170px] sm:max-w-[210px] truncate"
               >
-                {COACH_VOICES.map((v) => (
-                  <option key={v.code} value={v.code}>
-                    {v.avatar} {v.name}
-                  </option>
-                ))}
+                <optgroup label="🇮🇳 Authentic Hindi Voices (हिंदी उच्चारण)">
+                  {COACH_VOICES.filter(v => v.category === "hindi").map(v => (
+                    <option key={v.code} value={v.code}>
+                      {v.avatar} {v.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="🇮🇳 Realistic Indian English (Educator Accent)">
+                  {COACH_VOICES.filter(v => v.category === "indian-english").map(v => (
+                    <option key={v.code} value={v.code}>
+                      {v.avatar} {v.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="🌍 Global Fluent English Accents">
+                  {COACH_VOICES.filter(v => v.category === "global-english").map(v => (
+                    <option key={v.code} value={v.code}>
+                      {v.avatar} {v.name}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
               <Sparkles className="w-3 h-3 text-indigo-600 absolute left-2.5 top-2.5 pointer-events-none" />
               <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
             </div>
-
-            {/* Immersion Mode Toggle */}
-            <button
-              onClick={() => {
-                setImmersionMode(prev => prev === "immersion" ? "bilingual" : "immersion");
-              }}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
-                immersionMode === "immersion"
-                  ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                  : "bg-amber-50 text-amber-800 border-amber-200"
-              }`}
-              title="Toggle English Immersion vs Bilingual Hinglish Mode"
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{immersionMode === "immersion" ? "Pure English" : "Hinglish"}</span>
-              <span className="sm:hidden">{immersionMode === "immersion" ? "EN" : "HI"}</span>
-            </button>
 
             {/* History Drawer Toggle */}
             <button
