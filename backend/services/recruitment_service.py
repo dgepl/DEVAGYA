@@ -409,12 +409,17 @@ class RecruitmentService:
             item["applicant_count"] = app_count
             
             # Enrich with school details
-            sch = self.schools.get(vac.get("school_id"))
+            sch = self.schools.get(vac.get("school_id")) or self.get_school_by_id(vac.get("school_id", ""))
             if sch:
                 item["school_name"] = item.get("school_name") or sch.get("school_name", "")
                 item["school_city"] = sch.get("city", "")
                 item["school_state"] = sch.get("state", "")
                 item["school_logo"] = sch.get("logo_url", "")
+                item["school_email"] = sch.get("email", "")
+                item["school_phone"] = sch.get("phone", "")
+                item["contact_person"] = sch.get("contact_person", "")
+                item["school_address"] = sch.get("address", "")
+                item["affiliation_board"] = sch.get("affiliation_board", "")
             
             results.append(item)
 
@@ -429,12 +434,17 @@ class RecruitmentService:
         if vac:
             item = vac.copy()
             item["applicant_count"] = sum(1 for a in self.applications.values() if a.get("vacancy_id") == vacancy_id)
-            sch = self.schools.get(vac.get("school_id"))
+            sch = self.schools.get(vac.get("school_id")) or self.get_school_by_id(vac.get("school_id", ""))
             if sch:
                 item["school_name"] = item.get("school_name") or sch.get("school_name", "")
                 item["school_city"] = sch.get("city", "")
                 item["school_state"] = sch.get("state", "")
                 item["school_logo"] = sch.get("logo_url", "")
+                item["school_email"] = sch.get("email", "")
+                item["school_phone"] = sch.get("phone", "")
+                item["contact_person"] = sch.get("contact_person", "")
+                item["school_address"] = sch.get("address", "")
+                item["affiliation_board"] = sch.get("affiliation_board", "")
             return item
         return None
 
@@ -549,12 +559,16 @@ class RecruitmentService:
 
         app_id = f"app-{uuid.uuid4().hex[:10]}"
         now_iso = datetime.utcnow().isoformat()
+        sch = self.schools.get(vac.get("school_id")) or self.get_school_by_id(vac.get("school_id", ""))
 
         record = {
             "id": app_id,
             "vacancy_id": vacancy_id,
             "school_id": vac.get("school_id"),
             "school_name": vac.get("school_name"),
+            "school_email": (sch.get("email") if sch else "") or vac.get("school_email", ""),
+            "school_phone": (sch.get("phone") if sch else "") or vac.get("school_phone", ""),
+            "contact_person": (sch.get("contact_person") if sch else "") or vac.get("contact_person", ""),
             "job_title": vac.get("title"),
             "job_subject": vac.get("subject"),
             "job_level": vac.get("level"),
@@ -587,7 +601,21 @@ class RecruitmentService:
     def get_applications_for_teacher(self, teacher_email: str, force_sync: bool = False) -> List[Dict[str, Any]]:
         self._sync_from_supabase_cloud(force=force_sync)
         email_clean = teacher_email.strip().lower()
-        results = [a for a in self.applications.values() if a.get("teacher_email", "").lower() == email_clean]
+        results = []
+        for a in self.applications.values():
+            if a.get("teacher_email", "").lower() == email_clean:
+                item = a.copy()
+                sch = self.schools.get(item.get("school_id")) or self.get_school_by_id(item.get("school_id", ""))
+                if sch:
+                    item["school_name"] = item.get("school_name") or sch.get("school_name", "")
+                    item["school_email"] = sch.get("email", "")
+                    item["school_phone"] = sch.get("phone", "")
+                    item["contact_person"] = sch.get("contact_person", "")
+                    item["school_city"] = sch.get("city", "")
+                    item["school_state"] = sch.get("state", "")
+                    item["school_address"] = sch.get("address", "")
+                    item["school_logo"] = sch.get("logo_url", "")
+                results.append(item)
         return sorted(results, key=lambda x: x.get("created_at", ""), reverse=True)
 
     def get_school_overview(self, email: str, force_sync: bool = False) -> Optional[Dict[str, Any]]:

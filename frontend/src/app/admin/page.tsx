@@ -48,7 +48,8 @@ import {
   Table as TableIcon,
   Tag,
   MessageSquare,
-  MapPin
+  MapPin,
+  LogOut
 } from "lucide-react";
 import { useToolConfigStore, ToolItem } from "@/store/useToolConfigStore";
 import { ComingSoonView } from "@/components/common/ComingSoonView";
@@ -60,6 +61,7 @@ export default function SuperAdminPage() {
   const [adminPass, setAdminPass] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loadingLogin, setLoadingLogin] = useState(false);
+  const [sessionRevokedNotice, setSessionRevokedNotice] = useState<string | null>(null);
 
   const getLocalISOString = (offsetMs = 0) => {
     const d = new Date(Date.now() + offsetMs);
@@ -197,9 +199,90 @@ export default function SuperAdminPage() {
   const [qCorrect, setQCorrect] = useState(0);
   const [qExplanation, setQExplanation] = useState("");
 
+  const handleRevokedSession = (msg?: string) => {
+    localStorage.removeItem("devgya_admin_token");
+    setIsAuthenticated(false);
+    setSessionRevokedNotice(
+      msg || "Another administrator logged in from another device. For security, your session has been ended automatically."
+    );
+  };
+
+  const verifySession = async (tokenToCheck?: string) => {
+    const token = tokenToCheck || (typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null);
+    if (!token) {
+      setIsAuthenticated(false);
+      return false;
+    }
+    try {
+      const baseUrl = getApiBase();
+      const res = await fetch(`${baseUrl}/admin/session-verify`, {
+        headers: { "x-admin-token": token }
+      });
+      if (res.ok) {
+        return true;
+      }
+      if (res.status === 401) {
+        const err = await res.json().catch(() => ({}));
+        if (err.detail === "SESSION_REVOKED") {
+          handleRevokedSession("Another administrator logged in from another device. You have been logged out automatically.");
+        } else {
+          handleRevokedSession("Admin session has expired. Please log in again.");
+        }
+        return false;
+      }
+      return false;
+    } catch (e) {
+      console.warn("Session check momentary network notice:", e);
+      return true;
+    }
+  };
+
+  // Restore session from localStorage on initial mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("devgya_admin_token");
+    if (token) {
+      verifySession(token).then((isValid) => {
+        if (isValid) {
+          setIsAuthenticated(true);
+          fetchAdminData(token);
+        }
+      });
+    }
+  }, []);
+
+  // Heartbeat monitor: actively checks session every 5s while authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      verifySession();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  const handleAdminLogout = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null;
+      const baseUrl = getApiBase();
+      await fetch(`${baseUrl}/admin/logout`, {
+        method: "POST",
+        headers: token ? { "x-admin-token": token } : {}
+      });
+    } catch {
+      // ignore
+    } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("devgya_admin_token");
+      }
+      setIsAuthenticated(false);
+      setSessionRevokedNotice(null);
+    }
+  };
+
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
+    setSessionRevokedNotice(null);
     setLoadingLogin(true);
 
     try {
@@ -217,8 +300,11 @@ export default function SuperAdminPage() {
       }
       if (!res.ok) throw new Error(data.detail || `Server error (${res.status}). Please check backend status.`);
 
+      if (data.token) {
+        localStorage.setItem("devgya_admin_token", data.token);
+      }
       setIsAuthenticated(true);
-      fetchAdminData();
+      fetchAdminData(data.token);
     } catch (err: any) {
       setLoginError(err.message || "Invalid Admin Credentials.");
     } finally {
@@ -226,11 +312,18 @@ export default function SuperAdminPage() {
     }
   };
 
-  const fetchAdminData = async () => {
+  const fetchAdminData = async (tokenOverride?: string) => {
     setLoadingData(true);
+    const token = tokenOverride || (typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null);
     try {
       const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/admin/stats`);
+      const res = await fetch(`${baseUrl}/admin/stats`, {
+        headers: token ? { "x-admin-token": token } : {}
+      });
+      if (res.status === 401) {
+        handleRevokedSession("Session has been terminated because another device logged in.");
+        return;
+      }
       const data = await res.json();
       setStats(data.metrics);
       if (data.profiles) setUsersList(data.profiles);
@@ -908,6 +1001,16 @@ export default function SuperAdminPage() {
             <p className="text-xs text-slate-400 font-semibold">Master Administrative Management Portal</p>
           </div>
 
+          {sessionRevokedNotice && (
+            <div className="p-4 bg-amber-500/20 border border-amber-500/40 rounded-2xl text-amber-200 text-xs font-bold flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2 duration-300">
+              <AlertCircle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-extrabold uppercase tracking-wider block text-amber-300">Logged Out From Another Device</span>
+                <span className="leading-relaxed block">{sessionRevokedNotice}</span>
+              </div>
+            </div>
+          )}
+
           {loginError && (
             <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-300 text-xs font-bold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
@@ -979,14 +1082,25 @@ export default function SuperAdminPage() {
           <p className="text-xs text-slate-400 font-medium">Manage Paper Studio (AI Prompt Paper Maker & Manual Builder), Olympiad Evaluation, and Platform Users</p>
         </div>
 
-        <button
-          onClick={() => fetchAdminData()}
-          disabled={loadingData}
-          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-2xl shadow-md flex items-center gap-2 transition-all shrink-0 cursor-pointer"
-        >
-          <RefreshCw className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`} />
-          <span>Refresh Database</span>
-        </button>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            onClick={() => fetchAdminData()}
+            disabled={loadingData}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-2xl shadow-md flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`} />
+            <span>Refresh Database</span>
+          </button>
+
+          <button
+            onClick={handleAdminLogout}
+            className="px-4 py-2.5 bg-rose-500/20 hover:bg-rose-600 border border-rose-500/40 hover:border-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-2xl shadow-md flex items-center gap-2 transition-all cursor-pointer"
+            title="Sign out of Admin Control Center"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sign Out</span>
+          </button>
+        </div>
       </div>
 
       {actionMsg && (

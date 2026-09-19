@@ -1,9 +1,84 @@
-from fastapi import APIRouter, HTTPException, Depends, Query, Body
+import os
+import json
+import time
+import uuid
+import logging
+from datetime import datetime
+from pathlib import Path
+from fastapi import APIRouter, HTTPException, Depends, Query, Body, Header, Request
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from services.supabase_service import supabase_service
 from services.olympiad_service import olympiad_service
 from services.paper_service import paper_service
+
+logger = logging.getLogger("admin_api")
+
+ADMIN_DATA_DIR = Path(__file__).parent.parent.parent / "data"
+ADMIN_DATA_DIR.mkdir(parents=True, exist_ok=True)
+ADMIN_SESSION_FILE = ADMIN_DATA_DIR / "admin_session.json"
+
+class AdminSessionManager:
+    """Manages single-device session enforcement. When an admin logs in, all previous sessions on any device are revoked."""
+    def __init__(self):
+        self.current_token: Optional[str] = None
+        self.username: str = "admin"
+        self.logged_in_at: Optional[str] = None
+        self.device_info: Optional[str] = None
+        self._load()
+
+    def _load(self):
+        if ADMIN_SESSION_FILE.exists():
+            try:
+                with open(ADMIN_SESSION_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.current_token = data.get("current_token")
+                    self.username = data.get("username", "admin")
+                    self.logged_in_at = data.get("logged_in_at")
+                    self.device_info = data.get("device_info", "")
+            except Exception as e:
+                logger.warning(f"Error loading admin session: {e}")
+
+    def _save(self):
+        try:
+            with open(ADMIN_SESSION_FILE, "w", encoding="utf-8") as f:
+                json.dump({
+                    "current_token": self.current_token,
+                    "username": self.username,
+                    "logged_in_at": self.logged_in_at,
+                    "device_info": self.device_info
+                }, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to persist admin session: {e}")
+
+    def create_session(self, username: str = "admin", device_info: str = "") -> str:
+        new_token = f"devgya_adm_{int(time.time())}_{uuid.uuid4().hex}"
+        self.current_token = new_token
+        self.username = username
+        self.logged_in_at = datetime.utcnow().isoformat()
+        self.device_info = device_info
+        self._save()
+        logger.info(f"Created active admin session: {new_token[:16]}... Previous sessions revoked.")
+        return new_token
+
+    def verify_session(self, token: Optional[str]) -> bool:
+        if not token or not self.current_token:
+            return False
+        return token.strip() == self.current_token.strip()
+
+    def invalidate_session(self):
+        self.current_token = None
+        self._save()
+        logger.info("Admin session invalidated.")
+
+    def get_session_info(self) -> Dict[str, Any]:
+        return {
+            "active": bool(self.current_token),
+            "logged_in_at": self.logged_in_at,
+            "device_info": self.device_info
+        }
+
+admin_session_manager = AdminSessionManager()
 
 router = APIRouter(prefix="/admin", tags=["Super Admin"])
 
@@ -80,15 +155,55 @@ class UpdateSchedulePayload(BaseModel):
     published: bool = True
 
 @router.post("/login")
-async def admin_login(payload: AdminLoginPayload):
-    """Authenticate Admin user with credentials admin / admin123."""
+async def admin_login(payload: AdminLoginPayload, request: Request):
+    """Authenticate Admin user with credentials admin / admin123. Invalidates any other admin sessions on other devices."""
     if payload.username.strip() == "admin" and payload.password.strip() == "admin123":
+        ua = request.headers.get("user-agent", "")
+        session_token = admin_session_manager.create_session(username="admin", device_info=ua)
         return {
             "status": "success",
-            "message": "Super Admin access granted",
-            "token": "devgya-super-admin-auth-token-9999"
+            "message": "Super Admin access granted. Any previous active session on another device has been logged out.",
+            "token": session_token,
+            "session_id": session_token
         }
     raise HTTPException(status_code=401, detail="Invalid Super Admin credentials. Use username: admin, password: admin123")
+
+@router.get("/session-verify")
+async def verify_admin_session(
+    x_admin_token: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None)
+):
+    """Checks whether the admin session token is still active and valid. Returns 401 SESSION_REVOKED if another device logged in."""
+    token = x_admin_token
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="MISSING_TOKEN",
+            headers={"X-Admin-Session": "missing"}
+        )
+
+    if not admin_session_manager.verify_session(token):
+        raise HTTPException(
+            status_code=401,
+            detail="SESSION_REVOKED",
+            headers={"X-Admin-Session": "revoked"}
+        )
+
+    return {
+        "status": "active",
+        "valid": True,
+        "message": "Admin session active",
+        "session_info": admin_session_manager.get_session_info()
+    }
+
+@router.post("/logout")
+async def admin_logout():
+    """Explicitly terminates the current admin session."""
+    admin_session_manager.invalidate_session()
+    return {"status": "success", "message": "Admin session logged out successfully."}
 
 @router.get("/stats")
 async def get_admin_dashboard_stats():

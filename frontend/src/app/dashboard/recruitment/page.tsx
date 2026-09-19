@@ -23,7 +23,10 @@ import {
   Layers,
   Send,
   User,
-  GraduationCap
+  GraduationCap,
+  Mail,
+  Phone,
+  UserCheck
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { getApiBase } from "@/lib/api";
@@ -35,6 +38,11 @@ interface Vacancy {
   school_city: string;
   school_state: string;
   school_logo?: string;
+  school_email?: string;
+  school_phone?: string;
+  contact_person?: string;
+  school_address?: string;
+  affiliation_board?: string;
   title: string;
   subject: string;
   level: string;
@@ -51,6 +59,11 @@ interface Application {
   id: string;
   vacancy_id: string;
   school_name: string;
+  school_email?: string;
+  school_phone?: string;
+  school_city?: string;
+  school_state?: string;
+  contact_person?: string;
   job_title: string;
   job_subject: string;
   job_level: string;
@@ -403,6 +416,40 @@ export default function TeacherRecruitmentPage() {
                         )}
                       </div>
 
+                      {/* School Contact Details (Email & Phone Number) */}
+                      {(vac.school_email || vac.school_phone || vac.contact_person) && (
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          {vac.school_email && (
+                            <a
+                              href={`mailto:${vac.school_email}?subject=${encodeURIComponent(`DEVGYA Job Application: ${vac.title} (${vac.subject})`)}`}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-900 border border-indigo-200/80 px-2.5 py-1 rounded-lg transition-colors group shadow-2xs"
+                              title={`Send Email to ${vac.school_name}`}
+                            >
+                              <Mail className="w-3.5 h-3.5 text-indigo-600 group-hover:scale-110 transition-transform shrink-0" />
+                              <span className="truncate max-w-[200px]">{vac.school_email}</span>
+                            </a>
+                          )}
+
+                          {vac.school_phone && (
+                            <a
+                              href={`tel:${vac.school_phone}`}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-900 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors group shadow-2xs"
+                              title={`Call ${vac.school_name}`}
+                            >
+                              <Phone className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
+                              <span>{vac.school_phone}</span>
+                            </a>
+                          )}
+
+                          {vac.contact_person && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 border border-slate-200/70 px-2 py-1 rounded-lg">
+                              <UserCheck className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span className="truncate max-w-[140px]">HR: {vac.contact_person}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-3 rounded-xl border border-slate-100">
                         <div>
                           <span className="text-slate-400 font-semibold block">Experience:</span>
@@ -494,6 +541,38 @@ export default function TeacherRecruitmentPage() {
                         <Building2 className="w-3.5 h-3.5 text-indigo-600" />
                         {app.school_name}
                       </p>
+
+                      {/* School Contact Details for this application */}
+                      {(app.school_email || app.school_phone || app.contact_person) && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 pt-1">
+                          {app.school_email && (
+                            <a
+                              href={`mailto:${app.school_email}?subject=${encodeURIComponent(`DEVGYA Application Inquiry: ${app.job_title}`)}`}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100 hover:text-indigo-900 border border-indigo-200/80 px-2.5 py-1 rounded-lg transition-colors group"
+                            >
+                              <Mail className="w-3.5 h-3.5 text-indigo-600 group-hover:scale-110 transition-transform shrink-0" />
+                              <span>{app.school_email}</span>
+                            </a>
+                          )}
+
+                          {app.school_phone && (
+                            <a
+                              href={`tel:${app.school_phone}`}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50/90 hover:bg-emerald-100 hover:text-emerald-900 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors group"
+                            >
+                              <Phone className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
+                              <span>{app.school_phone}</span>
+                            </a>
+                          )}
+
+                          {app.contact_person && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 border border-slate-200/70 px-2 py-1 rounded-lg">
+                              <UserCheck className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span>HR: {app.contact_person}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
