@@ -659,6 +659,8 @@ export default function TeacherOlympiadPage() {
           time_taken_seconds: timeTaken,
           tab_switch_count: tabSwitches,
           proctor_incidents: tabSwitches,
+          cheating_warnings: tabSwitches,
+          warning_count: tabSwitches,
           proctor_logs: finalLogs
         })
       });

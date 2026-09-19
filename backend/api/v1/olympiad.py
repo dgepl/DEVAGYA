@@ -27,7 +27,11 @@ class Submit100Payload(BaseModel):
     paper_id: Optional[str] = "tso-national-2026"
     answers: Dict[str, int] = {}
     time_taken_seconds: int = 3600
-    proctor_incidents: int = 0
+    proctor_incidents: Optional[int] = 0
+    tab_switch_count: Optional[int] = 0
+    cheating_warnings: Optional[int] = 0
+    warning_count: Optional[int] = 0
+    proctor_logs: Optional[List[str]] = []
 
 class PracticeEvaluatePayload(BaseModel):
     question_id: str

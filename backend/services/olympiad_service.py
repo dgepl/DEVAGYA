@@ -1668,7 +1668,15 @@ class OlympiadService:
             subject = submission_data.get("subject", "Science")
             user_answers = submission_data.get("answers", {})
             paper_id = submission_data.get("paper_id", f"tso-national-2026-{subject.lower()}")
-            proctor_count = int(submission_data.get("proctor_incidents") or submission_data.get("tab_switch_count") or 0)
+            proctor_count = int(
+                submission_data.get("cheating_warnings") or 
+                submission_data.get("warning_count") or 
+                submission_data.get("warnings") or 
+                submission_data.get("proctor_incidents") or 
+                submission_data.get("tab_switch_count") or 
+                0
+            )
+            proctor_logs = submission_data.get("proctor_logs") or []
 
             # Auto-calculate score and question evaluations
             eval_res = self.evaluate_answers_for_paper(subject, paper_id, user_answers)
@@ -1702,6 +1710,9 @@ class OlympiadService:
                 "badges_awarded": [],
                 "proctor_incidents": proctor_count,
                 "tab_switch_count": proctor_count,
+                "cheating_warnings": proctor_count,
+                "warning_count": proctor_count,
+                "proctor_logs": proctor_logs,
                 "time_taken_seconds": submission_data.get("time_taken_seconds", 3600),
                 "question_evaluations": eval_res["question_evaluations"]
             }
@@ -1753,6 +1764,18 @@ class OlympiadService:
 
             if sub.get("tab_switch_count") is None:
                 sub["tab_switch_count"] = sub.get("proctor_incidents", 0)
+                dirty = True
+
+            if sub.get("cheating_warnings") is None:
+                sub["cheating_warnings"] = sub.get("proctor_incidents", sub.get("tab_switch_count", 0))
+                dirty = True
+
+            if sub.get("warning_count") is None:
+                sub["warning_count"] = sub.get("cheating_warnings", 0)
+                dirty = True
+
+            if sub.get("proctor_logs") is None:
+                sub["proctor_logs"] = []
                 dirty = True
 
         if dirty:

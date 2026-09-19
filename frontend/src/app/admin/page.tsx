@@ -2491,6 +2491,7 @@ export default function SuperAdminPage() {
                     <th className="p-3.5">Paper / Subject</th>
                     <th className="p-3.5">Submitted At</th>
                     <th className="p-3.5">Score</th>
+                    <th className="p-3.5">Cheating / Warnings</th>
                     <th className="p-3.5">Review Status</th>
                     <th className="p-3.5 text-right">Action</th>
                   </tr>
@@ -2504,7 +2505,7 @@ export default function SuperAdminPage() {
                     if (currentSubs.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-slate-400 font-semibold">
+                          <td colSpan={7} className="p-8 text-center text-slate-400 font-semibold">
                             No teacher Olympiad submissions found for the selected paper.
                           </td>
                         </tr>
@@ -2515,6 +2516,7 @@ export default function SuperAdminPage() {
                       const matchedPaper = papersList.find(p => p.id === (sub.paper_id || "paper-101"));
 
                       const displayScore = sub.score_percentage != null ? `${sub.score_percentage}%` : (sub.official_score != null ? `${sub.official_score}%` : "Pending");
+                      const warnings = sub.cheating_warnings ?? sub.warning_count ?? sub.proctor_incidents ?? sub.tab_switch_count ?? 0;
 
                       return (
                         <tr key={sub.id} className="hover:bg-slate-50/80 transition-colors">
@@ -2529,6 +2531,29 @@ export default function SuperAdminPage() {
                           <td className="p-3.5 text-slate-600 font-mono text-[11px]">{sub.submitted_at}</td>
                           <td className="p-3.5 font-black text-slate-900 text-sm">
                             {displayScore}
+                          </td>
+                          <td className="p-3.5">
+                            {warnings === 0 ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>0 Warnings (Clean)</span>
+                              </span>
+                            ) : warnings < 3 ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-50 text-amber-800 border border-amber-300">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                <span>{warnings} Warning(s)</span>
+                              </span>
+                            ) : warnings < 5 ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-orange-100 text-orange-900 border border-orange-300">
+                                <AlertCircle className="w-3.5 h-3.5 text-orange-600" />
+                                <span>{warnings} Warnings (High Risk)</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                                <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                                <span>{warnings} Warnings (Disqualified)</span>
+                              </span>
+                            )}
                           </td>
                           <td className="p-3.5">
                             <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
@@ -2599,6 +2624,54 @@ export default function SuperAdminPage() {
               <div className="font-extrabold text-slate-900">{selectedSub.teacher_name} ({selectedSub.teacher_email})</div>
               <div className="text-slate-500">Auto Computed Score: <span className="font-bold text-indigo-600">{selectedSub.score_percentage}% ({selectedSub.correct_count}/{selectedSub.total_questions} correct)</span></div>
             </div>
+
+            {/* Anti-Cheating & Proctoring Report */}
+            {(() => {
+              const warnings = selectedSub.cheating_warnings ?? selectedSub.warning_count ?? selectedSub.proctor_incidents ?? selectedSub.tab_switch_count ?? 0;
+              return (
+                <div className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
+                  warnings === 0
+                    ? "bg-emerald-50/70 border-emerald-200 text-emerald-950"
+                    : warnings >= 5
+                    ? "bg-rose-50 border-rose-300 text-rose-950"
+                    : "bg-amber-50 border-amber-300 text-amber-950"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="font-black uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldAlert className="w-4 h-4 text-amber-600" />
+                      <span>Cheating & Proctoring Warnings:</span>
+                    </div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
+                      warnings === 0
+                        ? "bg-emerald-100 text-emerald-800"
+                        : warnings >= 5
+                        ? "bg-rose-100 text-rose-800"
+                        : "bg-amber-100 text-amber-800"
+                    }`}>
+                      {warnings} Warning(s)
+                    </span>
+                  </div>
+                  <div>
+                    {warnings === 0 ? (
+                      <p className="font-semibold text-emerald-700">✓ Clean Assessment: 0 security warnings triggered. Candidate kept full focus without switching tabs or exiting fullscreen.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <p className="font-bold text-rose-700">
+                          ⚠️ Candidate received {warnings} warning(s) during this assessment (tab navigation, window blur, or camera gaze violations).
+                        </p>
+                        {selectedSub.proctor_logs && selectedSub.proctor_logs.length > 0 && (
+                          <div className="p-2 bg-white/90 rounded-xl border border-slate-200 text-[11px] font-mono text-slate-700 max-h-24 overflow-y-auto space-y-0.5">
+                            {selectedSub.proctor_logs.map((log: string, lIdx: number) => (
+                              <div key={lIdx}>• {log}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="space-y-4">
               <div>
@@ -2688,6 +2761,47 @@ export default function SuperAdminPage() {
                 </button>
               </div>
             </div>
+
+            {/* Anti-Cheating & Proctoring Warnings Banner */}
+            {(() => {
+              const warnings = reviewingSubScript.cheating_warnings ?? reviewingSubScript.warning_count ?? reviewingSubScript.proctor_incidents ?? reviewingSubScript.tab_switch_count ?? 0;
+              return (
+                <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 ${
+                  warnings === 0
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+                    : warnings >= 5
+                    ? "bg-rose-50 border-rose-300 text-rose-950"
+                    : "bg-amber-50 border-amber-300 text-amber-950"
+                }`}>
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="w-5 h-5 shrink-0 text-amber-600" />
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-wider">
+                        Anti-Cheating & Proctoring Audit: {warnings} Warning(s)
+                      </div>
+                      <p className="text-xs font-medium mt-0.5">
+                        {warnings === 0
+                          ? "Clean assessment attempt: Candidate completed the 100-question exam with 0 security warnings."
+                          : `Candidate triggered ${warnings} warning(s) during this assessment (anti-cheating triggers).`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {reviewingSubScript.proctor_logs && reviewingSubScript.proctor_logs.length > 0 && (
+                    <details className="text-xs cursor-pointer">
+                      <summary className="font-extrabold underline text-slate-800">
+                        View Incident Logs ({reviewingSubScript.proctor_logs.length})
+                      </summary>
+                      <div className="mt-2 p-2 bg-white/95 rounded-xl border border-slate-200 text-[11px] font-mono text-slate-700 max-h-24 overflow-y-auto space-y-0.5">
+                        {reviewingSubScript.proctor_logs.map((log: string, lIdx: number) => (
+                          <div key={lIdx}>• {log}</div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* SCROLLABLE QUESTION LIST */}
             <div className="overflow-y-auto space-y-4 pr-2 flex-1">
