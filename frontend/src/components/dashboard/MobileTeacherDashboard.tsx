@@ -12,7 +12,6 @@ import {
   Download, 
   Plus, 
   GraduationCap,
-  TrendingUp,
   Bot,
   Trophy,
   BookOpen,
@@ -45,7 +44,6 @@ export function MobileTeacherDashboard() {
     { name: "Skill Enhance Program", sub: "Official Certification", href: "/dashboard/teacher-olympiad", icon: Trophy, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100", type: "Certification" },
     { name: "English Speaking Coach", sub: "Live Spoken Fluency & Practice", href: "/dashboard/english-coach", icon: Headphones, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "Speaking Coach" },
     { name: "School Recruitment", sub: "Apply with PDF Resume", href: "/dashboard/recruitment", icon: Briefcase, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Recruitment" },
-    { name: "Analytics AI", sub: "Class Score Radar", href: "/dashboard/agents?agent=analytics_assistant", icon: TrendingUp, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Analytics" },
   ];
 
   // Only allowed tools according to admin permissions
