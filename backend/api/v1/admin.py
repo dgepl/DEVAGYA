@@ -255,12 +255,16 @@ async def get_all_users():
             p["is_active_today"] = True
             p["last_active_today"] = act.get("last_active")
             p["features_used_today"] = act.get("features_used", [])
+            p["features_summary"] = act.get("features_summary", [])
             p["actions_today_count"] = act.get("actions_count", 0)
+            p["total_feature_uses"] = act.get("total_feature_uses", 0)
         else:
             p["is_active_today"] = False
             p["last_active_today"] = None
             p["features_used_today"] = []
+            p["features_summary"] = []
             p["actions_today_count"] = 0
+            p["total_feature_uses"] = 0
 
     return {
         "status": "success",
@@ -271,13 +275,24 @@ async def get_all_users():
 
 @router.get("/users/{email}/activity")
 async def get_user_activity(email: str, limit: int = Query(50)):
-    """Fetch detailed chronological event activity timeline for a specific user."""
-    timeline = activity_service.get_user_timeline(email, limit=limit)
+    """Fetch detailed chronological event activity timeline and numerical feature usage counts for a specific user."""
+    res = activity_service.get_user_timeline(email, limit=limit)
+    if isinstance(res, dict):
+        timeline = res.get("timeline", [])
+        features_summary = res.get("features_summary", [])
+        total_feature_uses = res.get("total_feature_uses", len(timeline))
+    else:
+        timeline = res
+        features_summary = []
+        total_feature_uses = len(timeline)
+
     return {
         "status": "success",
         "email": email,
         "count": len(timeline),
-        "timeline": timeline
+        "timeline": timeline,
+        "features_summary": features_summary,
+        "total_feature_uses": total_feature_uses
     }
 
 @router.get("/analytics/detailed")

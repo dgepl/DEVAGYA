@@ -66,6 +66,30 @@ import { useToolConfigStore, ToolItem } from "@/store/useToolConfigStore";
 import { getApiBase } from "@/lib/api";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
 
+// Filter out page visits, navigations, and login/logout events from activity telemetries
+const isFeatureEvent = (item: any) => {
+  if (!item) return false;
+  const action = (item.action || "").toLowerCase().trim();
+  const featName = (item.feature_name || "").toLowerCase().trim();
+  const featId = (item.feature_id || "").toLowerCase().trim();
+  const path = (item.path || "").toLowerCase().trim();
+
+  const authWords = ["login", "logout", "otp", "auth", "register", "sign_in", "sign_out", "password", "signin", "signout"];
+  if (authWords.some(w => action.includes(w) || featName.includes(w) || featId.includes(w))) return false;
+  if (["/login", "/register", "/auth", "/forgot-password"].includes(path)) return false;
+
+  const navActions = ["navigate", "visit", "view_page", "page_visit", "view_dashboard", "page_view", "school_view", "view_profile", "route_change"];
+  if (navActions.includes(action)) return false;
+
+  const dashNames = ["teacher dashboard", "student dashboard", "parent dashboard", "dashboard visit", "dashboard", "school campus profile", "student home", "overview"];
+  if (dashNames.includes(featName) && ["view", "visit", "navigate", ""].includes(action)) return false;
+  if (["dashboard", "student-dashboard", "parent-dashboard", "school-profile"].includes(featId)) return false;
+
+  if ((action === "view" || !action) && ["/dashboard", "/dashboard/student", "/dashboard/parent", "/dashboard/school", "/dashboard/school/profile", "/"].includes(path)) return false;
+
+  return true;
+};
+
 export default function SuperAdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminUser, setAdminUser] = useState("");
@@ -148,6 +172,8 @@ export default function SuperAdminPage() {
   // User Activity Timeline Modal
   const [activityModalUser, setActivityModalUser] = useState<any | null>(null);
   const [userTimeline, setUserTimeline] = useState<any[]>([]);
+  const [userFeaturesSummary, setUserFeaturesSummary] = useState<any[]>([]);
+  const [userTotalFeatureUses, setUserTotalFeatureUses] = useState<number>(0);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
 
   // Olympiad Evaluation Modal State
@@ -413,6 +439,8 @@ export default function SuperAdminPage() {
     setActivityModalUser(u);
     setLoadingTimeline(true);
     setUserTimeline([]);
+    setUserFeaturesSummary(u.features_summary || []);
+    setUserTotalFeatureUses(u.total_feature_uses || (u.features_summary ? u.features_summary.reduce((acc: number, f: any) => acc + (f.count || 1), 0) : 0));
     try {
       const baseUrl = getApiBase();
       const token = typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null;
@@ -422,6 +450,12 @@ export default function SuperAdminPage() {
       if (res.ok) {
         const data = await res.json();
         setUserTimeline(data.timeline || []);
+        if (data.features_summary && data.features_summary.length > 0) {
+          setUserFeaturesSummary(data.features_summary);
+        }
+        if (data.total_feature_uses !== undefined) {
+          setUserTotalFeatureUses(data.total_feature_uses);
+        }
       }
     } catch (e) {
       console.error("Failed to load user activity:", e);
@@ -1533,13 +1567,13 @@ export default function SuperAdminPage() {
                   <div className="flex items-center justify-between text-indigo-600">
                     <Zap className="w-5 h-5" />
                     <span className="text-[10px] uppercase font-black bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
-                      Interactions
+                      Feature Uses
                     </span>
                   </div>
                   <p className="text-3xl font-black text-slate-900">
                     {detailedAnalytics?.actions_today || 0}
                   </p>
-                  <p className="text-xs text-slate-500 font-medium">Actions Executed Today</p>
+                  <p className="text-xs text-slate-500 font-medium">Features Used Today (Invocations)</p>
                 </div>
 
                 <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
@@ -1582,14 +1616,14 @@ export default function SuperAdminPage() {
                         <span>Platform Feature Usage Rankings (Today)</span>
                       </h3>
                       <p className="text-xs text-slate-500 font-medium">
-                        Real-time telemetry measuring user engagement per feature
+                        Real-time telemetry measuring feature tool invocations and usage frequency
                       </p>
                     </div>
                   </div>
 
                   {(!detailedAnalytics?.features_ranking || detailedAnalytics.features_ranking.length === 0) ? (
                     <div className="text-center py-8 text-slate-400 font-medium text-xs">
-                      No feature interactions logged yet today. Telemetry updates automatically as users browse.
+                      No feature interactions logged yet today. Telemetry updates automatically as tools are used.
                     </div>
                   ) : (
                     <div className="space-y-3.5">
@@ -1606,8 +1640,10 @@ export default function SuperAdminPage() {
                                 <span>{feat.name}</span>
                               </div>
                               <div className="flex items-center gap-2 text-[11px] font-extrabold text-indigo-600">
-                                <span>{feat.count} visits</span>
-                                <span className="text-slate-400">({percentage}%)</span>
+                                <span className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-md font-extrabold">
+                                  Used {feat.count} {feat.count === 1 ? "time" : "times"}
+                                </span>
+                                <span className="text-slate-400 font-mono">({percentage}%)</span>
                               </div>
                             </div>
                             <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
@@ -1665,22 +1701,22 @@ export default function SuperAdminPage() {
                   <div>
                     <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                       <TrendingUp className="w-5 h-5 text-emerald-600" />
-                      <span>Live Site-Wide User Event Feed</span>
+                      <span>Live Site-Wide Feature Activity Feed</span>
                     </h3>
-                    <p className="text-xs text-slate-500 font-medium">Chronological stream of real-time actions across the platform</p>
+                    <p className="text-xs text-slate-500 font-medium">Chronological stream of real-time feature tool invocations (page visits and auth excluded)</p>
                   </div>
                   <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase">
                     Auto-Recording
                   </span>
                 </div>
 
-                {(!detailedAnalytics?.recent_events || detailedAnalytics.recent_events.length === 0) ? (
+                {(!detailedAnalytics?.recent_events || detailedAnalytics.recent_events.filter(isFeatureEvent).length === 0) ? (
                   <div className="text-center py-8 text-slate-400 font-medium text-xs">
-                    No events recorded today yet.
+                    No feature events recorded today yet.
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                    {detailedAnalytics.recent_events.slice(0, 15).map((ev: any, idx: number) => {
+                    {detailedAnalytics.recent_events.filter(isFeatureEvent).slice(0, 15).map((ev: any, idx: number) => {
                       const timeStr = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recently";
                       return (
                         <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-slate-100/70 border border-slate-100 transition-colors text-xs">
@@ -1690,13 +1726,14 @@ export default function SuperAdminPage() {
                             </div>
                             <div>
                               <div className="font-bold text-slate-900">
-                                {ev.user_name || ev.user_email}
+                                {ev.user_name || ev.user_email || ev.name || ev.email}
                                 <span className="ml-2 text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 uppercase">
-                                  {ev.user_role || "User"}
+                                  {ev.user_role || ev.role || "User"}
                                 </span>
                               </div>
                               <div className="text-[11px] text-slate-500 font-medium">
                                 Used feature: <span className="font-extrabold text-indigo-600">{ev.feature_name || ev.path}</span>
+                                {ev.action && <span className="text-[10px] font-mono text-slate-400 ml-1.5">• {ev.action}</span>}
                               </div>
                             </div>
                           </div>
@@ -1874,15 +1911,26 @@ export default function SuperAdminPage() {
                             {/* FEATURES USED TODAY */}
                             <td className="p-3.5">
                               {featuresUsed.length > 0 ? (
-                                <div className="flex flex-wrap gap-1 max-w-xs">
-                                  {featuresUsed.map((feat: string, fIdx: number) => (
-                                    <span 
-                                      key={fIdx} 
-                                      className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold"
-                                    >
-                                      {feat}
-                                    </span>
-                                  ))}
+                                <div className="flex flex-wrap gap-1.5 max-w-sm">
+                                  {featuresUsed.map((feat: string, fIdx: number) => {
+                                    const match = feat.match(/^(.*)\s\(([0-9]+)x\)$/);
+                                    const name = match ? match[1] : feat;
+                                    const count = match ? match[2] : null;
+
+                                    return (
+                                      <span 
+                                        key={fIdx} 
+                                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200/80 text-indigo-800 text-[10.5px] font-bold"
+                                      >
+                                        <span>{name}</span>
+                                        {count && (
+                                          <span className="px-1.5 py-0.2 bg-indigo-600 text-white rounded text-[9px] font-black">
+                                            {count}x
+                                          </span>
+                                        )}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               ) : (
                                 <span className="text-slate-400 text-[11px] font-medium">—</span>
@@ -3052,51 +3100,130 @@ export default function SuperAdminPage() {
             </div>
 
             {/* Quick summary cards */}
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-black uppercase text-slate-400 block">Today's Status</span>
-                <span className="font-extrabold text-slate-900">
-                  {activityModalUser.is_active_today ? "Active Online Today" : "Not Active Today"}
-                </span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-black uppercase text-slate-400 block">Features Visited Today</span>
-                <span className="font-extrabold text-indigo-600">
-                  {activityModalUser.features_used_today?.length || 0} features
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const effectiveSummary = userFeaturesSummary.length > 0 
+                ? userFeaturesSummary 
+                : (() => {
+                    const counts: Record<string, { name: string; count: number; last_used?: string }> = {};
+                    for (const item of userTimeline.filter(isFeatureEvent)) {
+                      const name = item.feature_name || "Specialized Tool";
+                      if (!counts[name]) {
+                        counts[name] = { name, count: 1, last_used: item.timestamp };
+                      } else {
+                        counts[name].count += 1;
+                      }
+                    }
+                    return Object.values(counts).sort((a, b) => b.count - a.count);
+                  })();
 
-            {/* Timeline Stream */}
-            <div className="space-y-2 flex-1 overflow-y-auto pr-1">
-              <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Chronological Event Log</p>
-              
-              {loadingTimeline ? (
-                <div className="py-8 text-center text-slate-400 font-bold text-xs flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Loading user activity events...</span>
-                </div>
-              ) : userTimeline.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 font-semibold text-xs">
-                  No recorded events found for this account.
-                </div>
-              ) : (
-                userTimeline.map((item, idx) => {
-                  const evDate = item.timestamp ? new Date(item.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "Recently";
-                  return (
-                    <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-indigo-700">{item.feature_name || item.path}</span>
-                        <span className="text-[10px] font-mono text-slate-400">{evDate}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono truncate">
-                        Path: {item.path} • Action: {item.action || "view"}
-                      </div>
+              const totalUses = userTotalFeatureUses || effectiveSummary.reduce((acc: number, f: any) => acc + (f.count || 1), 0);
+              const filteredEvents = userTimeline.filter(isFeatureEvent);
+
+              return (
+                <>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                      <span className="text-[10px] font-black uppercase text-slate-400 block">Today's Status</span>
+                      <span className="font-extrabold text-slate-900">
+                        {activityModalUser.is_active_today ? "Active Online Today" : "Not Active Today"}
+                      </span>
                     </div>
-                  );
-                })
-              )}
-            </div>
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                      <span className="text-[10px] font-black uppercase text-slate-400 block">Features Used Today</span>
+                      <span className="font-extrabold text-indigo-600">
+                        {effectiveSummary.length > 0
+                          ? `${effectiveSummary.length} feature${effectiveSummary.length > 1 ? "s" : ""} • ${totalUses} ${totalUses === 1 ? "use" : "uses"}`
+                          : "0 features used"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Features Used Today With Frequency Counts in Numbers */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] uppercase font-black tracking-wider text-slate-500">
+                        Features Used Today (Usage Count in Numbers)
+                      </p>
+                      {effectiveSummary.length > 0 && (
+                        <span className="text-[10px] font-black bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">
+                          {totalUses} Total Invocations
+                        </span>
+                      )}
+                    </div>
+
+                    {loadingTimeline ? (
+                      <div className="py-4 text-center text-slate-400 text-xs font-medium flex items-center justify-center gap-2">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Aggregating feature usage counts...</span>
+                      </div>
+                    ) : effectiveSummary.length === 0 ? (
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center text-slate-400 text-xs font-medium">
+                        No educational feature tools were used by this user today.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                        {effectiveSummary.map((f: any, idx: number) => {
+                          const lastTime = f.last_used 
+                            ? new Date(f.last_used).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) 
+                            : null;
+                          return (
+                            <div key={idx} className="p-2.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-xs">
+                              <div className="min-w-0 pr-2">
+                                <p className="font-extrabold text-indigo-950 truncate">{f.name}</p>
+                                {lastTime && (
+                                  <p className="text-[10px] text-slate-500 font-mono">Last used: {lastTime}</p>
+                                )}
+                              </div>
+                              <span className="shrink-0 px-2.5 py-1 rounded-xl bg-indigo-600 text-white font-black text-xs shadow-xs">
+                                Used {f.count} {f.count === 1 ? "time" : "times"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Chronological Feature Event Log (Navigations and Logins Excluded) */}
+                  <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] uppercase font-black tracking-wider text-slate-500">
+                        Chronological Feature Invocations
+                      </p>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {filteredEvents.length} events logged
+                      </span>
+                    </div>
+                    
+                    {loadingTimeline ? (
+                      <div className="py-8 text-center text-slate-400 font-bold text-xs flex items-center justify-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Loading user activity events...</span>
+                      </div>
+                    ) : filteredEvents.length === 0 ? (
+                      <div className="py-8 text-center text-slate-400 font-semibold text-xs">
+                        No feature invocations recorded for this user.
+                      </div>
+                    ) : (
+                      filteredEvents.map((item, idx) => {
+                        const evDate = item.timestamp ? new Date(item.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "Recently";
+                        return (
+                          <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-extrabold text-indigo-700">{item.feature_name || item.path}</span>
+                              <span className="text-[10px] font-mono text-slate-400">{evDate}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-mono truncate">
+                              Path: {item.path} • Action: <span className="font-bold text-slate-700">{item.action || "feature_use"}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              );
+            })()}
 
             <div className="pt-3 border-t border-slate-100 flex justify-end">
               <button
