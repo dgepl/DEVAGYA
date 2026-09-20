@@ -185,7 +185,7 @@ export function MobileTopHeader() {
     navItems = [
       { label: "Parent Dashboard", href: "/dashboard/parent", icon: LayoutDashboard },
       { label: "Parenting Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake },
-      { label: "English Coach", href: "/dashboard/agents?agent=english_coach", icon: MessageSquare },
+      { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
       { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
     ];
   }

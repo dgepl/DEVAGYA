@@ -14,7 +14,8 @@ import {
   Brain,
   Smartphone,
   Smile,
-  Target
+  Target,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { MobileParentDashboard } from "@/components/dashboard/MobileParentDashboard";
@@ -95,22 +96,22 @@ export function ParentDashboard() {
           </div>
         </Link>
 
-        {/* ENGLISH & COMMUNICATION COACH */}
+        {/* ENGLISH SPEAKING COACH */}
         <Link 
-          href="/dashboard/agents?agent=english_coach" 
+          href="/dashboard/english-coach" 
           className="p-6 bg-white border border-slate-200 rounded-3xl shadow-sm hover:border-indigo-300 transition-all flex flex-col justify-between group h-48"
         >
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center">
-              <MessageSquare className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center">
+              <Headphones className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-extrabold text-slate-900">English Coach</h3>
+            <h3 className="text-base font-extrabold text-slate-900">English Speaking Coach</h3>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              Improve conversational fluency, vocabulary & public speaking tips.
+              Improve conversational fluency, vocabulary & public speaking tips with live speech coaching.
             </p>
           </div>
-          <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 group-hover:translate-x-1 transition-transform">
-            <span>Practice English</span>
+          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 group-hover:translate-x-1 transition-transform">
+            <span>Practice Speaking</span>
             <ArrowRight className="w-4 h-4" />
           </div>
         </Link>

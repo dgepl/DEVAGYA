@@ -46,7 +46,6 @@ export function MobileTeacherDashboard() {
     { name: "English Speaking Coach", sub: "Live Spoken Fluency & Practice", href: "/dashboard/english-coach", icon: Headphones, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "Speaking Coach" },
     { name: "School Recruitment", sub: "Apply with PDF Resume", href: "/dashboard/recruitment", icon: Briefcase, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Recruitment" },
     { name: "Analytics AI", sub: "Class Score Radar", href: "/dashboard/agents?agent=analytics_assistant", icon: TrendingUp, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Analytics" },
-    { name: "English Coach", sub: "Academic Polish", href: "/dashboard/agents?agent=english_coach", icon: Bot, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100", type: "AI Coach" },
   ];
 
   // Only allowed tools according to admin permissions

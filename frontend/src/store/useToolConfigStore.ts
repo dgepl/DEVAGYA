@@ -218,7 +218,7 @@ export const INITIAL_TOOLS: ToolItem[] = [
   },
   {
     id: "parent_english_coach",
-    name: "English Coach",
+    name: "English Speaking Coach",
     role: "parent",
     category: "Spoken Fluency",
     path: "/dashboard/english-coach",

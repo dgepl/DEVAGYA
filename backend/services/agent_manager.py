@@ -71,7 +71,7 @@ DEFAULT_AGENTS: List[Dict[str, Any]] = [
         "agent_code": "english_coach",
         "name": "English Speaking & Communication Coach",
         "avatar": "MessageSquare",
-        "role_scope": "general",
+        "role_scope": "internal",
         "description": "Live spoken English coach for educators: classroom English, parent PTM meetings, pronunciation, grammar polish, and daily fluency.",
         "capabilities": ["Spoken Fluency", "Classroom English", "PTM Dialogues", "Pronunciation Polish", "Live Phrasing Tips"],
         "system_prompt": (
@@ -198,7 +198,7 @@ DEFAULT_AGENTS: List[Dict[str, Any]] = [
 
 class AgentManagerService:
     def get_all_agents(self) -> List[Dict[str, Any]]:
-        return DEFAULT_AGENTS
+        return [a for a in DEFAULT_AGENTS if a.get("role_scope") != "internal"]
 
     def get_agent_by_code(self, agent_code: str) -> Optional[Dict[str, Any]]:
         agent = next((a for a in DEFAULT_AGENTS if a["agent_code"] == agent_code), None)

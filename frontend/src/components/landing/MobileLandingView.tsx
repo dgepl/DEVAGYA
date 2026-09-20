@@ -539,7 +539,7 @@ export function MobileLandingView() {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 font-medium mt-1 leading-relaxed">
-                  Teacher Mentor, Socratic Student Tutor, Parenting Coach, Career Counselor, and English Coach.
+                  Teacher Mentor, Socratic Student Tutor, Parenting Coach, Career Counselor, and English Speaking Coach.
                 </p>
               </div>
             </Link>

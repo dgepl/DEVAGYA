@@ -166,15 +166,6 @@ const AGENT_CUSTOM_WELCOME: Record<string, AgentConfig> = {
       { label: "Photosynthesis Steps", icon: "🌿", prompt: "Guide me step-by-step through the light and dark reactions of photosynthesis." },
     ]
   },
-  english_coach: {
-    welcomeText: "Welcome! 🗣️ I'm your **English & Communication Coach**. I help you refine spoken English fluency, master grammar rules, polish vocabulary, and grade essays.\n\nHow can we elevate your English skills today?",
-    chips: [
-      { label: "Grade Essay Intro", icon: "📝", prompt: "Grade and polish this essay intro: 'Technology has changed our world in many good ways.'" },
-      { label: "Spoken English Practice", icon: "🎙️", prompt: "Let's practice a conversational dialogue for a job interview or school debate." },
-      { label: "Vocabulary Booster", icon: "✨", prompt: "Give me 5 advanced vocabulary words to replace common words like 'good', 'bad', and 'big'." },
-      { label: "Grammar Rules Explained", icon: "📚", prompt: "Explain the difference between Present Perfect and Past Simple tenses with examples." },
-    ]
-  },
   research_assistant: {
     welcomeText: "Hello Scholar! 🔬 I'm your **Academic Research Assistant**. I analyze research papers, extract citations, summarize complex scientific literature, and structure academic essays.\n\nWhat research topic or document shall we investigate?",
     chips: [
