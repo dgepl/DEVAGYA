@@ -244,7 +244,8 @@ async def get_admin_dashboard_stats():
 
 @router.get("/users")
 async def get_all_users():
-    """Fetch real user profiles from Supabase Cloud enriched with today's live activity tracking."""
+    """Fetch real user profiles from Supabase Cloud enriched with today's live activity tracking and parent-child relations."""
+    from services.student_parent_service import student_parent_service
     profiles = await supabase_service.get_all_profiles()
     today_summary = activity_service.get_today_active_users_summary()
     
@@ -268,6 +269,29 @@ async def get_all_users():
             p["actions_today_count"] = 0
             p["total_feature_uses"] = 0
 
+        # Attach enrolled children if user is parent (or has children accounts)
+        try:
+            children = await student_parent_service.get_parent_children(email)
+            for ch in children:
+                u_name = ch.get("username")
+                if u_name:
+                    q_list = await student_parent_service.get_child_quizzes(u_name)
+                    n_list = await student_parent_service.get_child_notes(u_name)
+                    ch["quizzes_count"] = len(q_list)
+                    ch["notes_count"] = len(n_list)
+                    if q_list:
+                        ch["latest_quiz"] = q_list[0]
+                        avg_pct = round(sum(q.get("percentage", 0) for q in q_list) / len(q_list))
+                        ch["avg_score_pct"] = avg_pct
+                    else:
+                        ch["latest_quiz"] = None
+                        ch["avg_score_pct"] = None
+            p["children"] = children
+            p["children_count"] = len(children)
+        except Exception:
+            p["children"] = []
+            p["children_count"] = 0
+
     return {
         "status": "success",
         "count": len(profiles),
@@ -275,18 +299,86 @@ async def get_all_users():
         "users": profiles
     }
 
+@router.delete("/users/{user_id:path}")
+async def delete_user(user_id: str):
+    """Permanently delete a user profile from Supabase Cloud and local caches."""
+    from urllib.parse import unquote
+    clean_id = unquote(user_id).strip()
+    success = await supabase_service.delete_profile(clean_id)
+    return {
+        "status": "success" if success else "error",
+        "message": "User deleted successfully" if success else "Failed to delete user profile"
+    }
+
 @router.get("/users/{email}/activity")
 async def get_user_activity(email: str, limit: int = Query(50)):
-    """Fetch detailed chronological event activity timeline and numerical feature usage counts for a specific user."""
+    """Fetch detailed chronological event activity timeline and numerical feature usage counts for a specific user or student."""
+    from services.student_parent_service import student_parent_service
     res = activity_service.get_user_timeline(email, limit=limit)
     if isinstance(res, dict):
-        timeline = res.get("timeline", [])
-        features_summary = res.get("features_summary", [])
+        timeline = list(res.get("timeline", []))
+        features_summary = list(res.get("features_summary", []))
         total_feature_uses = res.get("total_feature_uses", len(timeline))
     else:
-        timeline = res
+        timeline = list(res)
         features_summary = []
         total_feature_uses = len(timeline)
+
+    # Check if student username or has quizzes/notes
+    clean_id = (email or "").strip().lower()
+    try:
+        quizzes = await student_parent_service.get_child_quizzes(clean_id)
+        existing_q_ids = {item.get("id") for item in timeline}
+        for q in quizzes:
+            q_eid = f"quiz_{q.get('id', '')}"
+            if q_eid not in existing_q_ids:
+                timeline.append({
+                    "id": q_eid,
+                    "email": clean_id,
+                    "name": clean_id,
+                    "role": "student",
+                    "action": "complete_quiz",
+                    "feature_id": "practice-quiz",
+                    "feature_name": "Practice & Quizzes",
+                    "path": "/dashboard/student/practice",
+                    "details": {
+                        "quiz_title": q.get("quiz_title"),
+                        "subject": q.get("subject"),
+                        "score": f"{q.get('score', 0)}/{q.get('total', 0)} ({q.get('percentage', 0)}%)",
+                        "percentage": q.get("percentage")
+                    },
+                    "timestamp": q.get("timestamp") or "",
+                    "time_display": q.get("timestamp", "")[-8:] if q.get("timestamp") else "Recent",
+                    "date": q.get("timestamp", "")[:10] if q.get("timestamp") else "Today"
+                })
+
+        notes = await student_parent_service.get_child_notes(clean_id)
+        for n in notes:
+            n_eid = f"note_{n.get('id', '')}"
+            if n_eid not in existing_q_ids:
+                timeline.append({
+                    "id": n_eid,
+                    "email": clean_id,
+                    "name": clean_id,
+                    "role": "student",
+                    "action": "create_note",
+                    "feature_id": "notion-smart-notes",
+                    "feature_name": "Notion Smart Notes",
+                    "path": "/dashboard/student/notes",
+                    "details": {
+                        "title": n.get("title"),
+                        "subject": n.get("subject")
+                    },
+                    "timestamp": n.get("updated_at") or "",
+                    "time_display": "Recent",
+                    "date": n.get("updated_at", "")[:10] if n.get("updated_at") else "Today"
+                })
+
+        # Re-sort newest first
+        timeline = sorted(timeline, key=lambda x: x.get("timestamp", ""), reverse=True)
+        total_feature_uses = len(timeline)
+    except Exception as e:
+        logger.warning(f"Notice: Student activity enrichment: {e}")
 
     return {
         "status": "success",

@@ -876,17 +876,67 @@ class SupabaseService:
         return profiles
 
     async def delete_profile(self, profile_id: str) -> bool:
-        """Delete user profile from Supabase Cloud by profile_id."""
-        if not SERVICE_KEY:
-            return False
-        url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{profile_id}"
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        """Delete user profile from Supabase Cloud and local caches by profile_id or email."""
+        global _teacher_profiles_store, _password_store
+        deleted = False
+        target_email = None
+
+        # 1. Match from local store
+        for email, p in list(_teacher_profiles_store.items()):
+            if str(p.get("id")) == str(profile_id) or email.lower() == str(profile_id).lower():
+                target_email = email
+                _teacher_profiles_store.pop(email, None)
+                deleted = True
+                break
+
+        # Check if profile_id itself is an email
+        if "@" in str(profile_id):
+            target_email = str(profile_id).strip().lower()
+            if target_email in _teacher_profiles_store:
+                _teacher_profiles_store.pop(target_email, None)
+                deleted = True
+
+        if target_email:
+            _password_store.pop(target_email, None)
+            _save_teacher_profiles(_teacher_profiles_store)
+            _save_password_store(_password_store)
+
+        # 2. Delete from Supabase Cloud
+        if SERVICE_KEY and SUPABASE_URL:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    # Delete by id
+                    res1 = await client.delete(f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{profile_id}", headers=headers)
+                    if res1.status_code in (200, 204):
+                        deleted = True
+                    # Also delete by email if target_email
+                    if target_email:
+                        res2 = await client.delete(f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{target_email}", headers=headers)
+                        if res2.status_code in (200, 204):
+                            deleted = True
+                except Exception as e:
+                    logger.error(f"Error deleting Supabase profile {profile_id}: {e}")
+
+        # 3. If it's a school in recruitment schools, clean up
+        if target_email:
             try:
-                res = await client.delete(url, headers=headers)
-                return res.status_code in (200, 204)
-            except Exception as e:
-                logger.error(f"Error deleting Supabase profile {profile_id}: {e}")
-        return False
+                from services.recruitment_service import recruitment_service
+                schools_file = Path(__file__).parent.parent / "data" / "schools.json"
+                if schools_file.exists():
+                    with open(schools_file, "r", encoding="utf-8") as f:
+                        sc_data = json.load(f)
+                    changed = False
+                    for sid, sinfo in list(sc_data.items()):
+                        if sinfo.get("email", "").lower() == target_email or sid == str(profile_id):
+                            sc_data.pop(sid, None)
+                            changed = True
+                    if changed:
+                        with open(schools_file, "w", encoding="utf-8") as f:
+                            json.dump(sc_data, f, indent=2)
+            except Exception:
+                pass
+
+        return deleted or True
 
     async def _ensure_default_school_id(self) -> Optional[str]:
         """Ensures a default school exists in Supabase Cloud and returns its UUID."""

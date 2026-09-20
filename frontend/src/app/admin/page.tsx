@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import Link from "next/link";
 import { 
   ShieldCheck, 
@@ -54,13 +54,15 @@ import {
   BarChart3,
   Check,
   ChevronRight,
+  ChevronDown,
   Headphones,
   Laptop,
   CheckCircle,
   XCircle,
   Flame,
   ArrowUpRight,
-  Copy
+  Copy,
+  GraduationCap
 } from "lucide-react";
 import { useToolConfigStore, ToolItem } from "@/store/useToolConfigStore";
 import { getApiBase } from "@/lib/api";
@@ -168,6 +170,11 @@ export default function SuperAdminPage() {
   const [loadingData, setLoadingData] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [selectedUserDetail, setSelectedUserDetail] = useState<any | null>(null);
+  const [expandedParentIds, setExpandedParentIds] = useState<Record<string, boolean>>({});
+
+  const toggleParentExpand = (userId: string) => {
+    setExpandedParentIds((prev) => ({ ...prev, [userId]: !prev[userId] }));
+  };
 
   // User Activity Timeline Modal
   const [activityModalUser, setActivityModalUser] = useState<any | null>(null);
@@ -955,17 +962,28 @@ export default function SuperAdminPage() {
   };
 
   const handleDeleteUser = async (userId: string, userEmail: string) => {
-    if (!confirm(`Are you sure you want to delete user ${userEmail}?`)) return;
+    if (!confirm(`Are you sure you want to permanently delete user account: ${userEmail}? This cannot be undone.`)) return;
     try {
       const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/admin/users/${userId}`, { method: "DELETE" });
-      if (res.ok) {
+      const token = typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null;
+      const targetIdentifier = userId || userEmail;
+      const res = await fetch(`${baseUrl}/admin/users/${encodeURIComponent(targetIdentifier)}`, {
+        method: "DELETE",
+        headers: token ? { "x-admin-token": token } : {}
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.status !== "error") {
         setActionMsg(`User ${userEmail} deleted successfully.`);
-        setUsersList(usersList.filter(u => u.id !== userId));
+        setUsersList((prev) => prev.filter((u) => u.id !== userId && u.email !== userEmail));
+        if (selectedUserDetail && (selectedUserDetail.id === userId || selectedUserDetail.email === userEmail)) {
+          setSelectedUserDetail(null);
+        }
         setTimeout(() => setActionMsg(null), 4000);
+      } else {
+        alert(data.message || data.detail || "Failed to delete user profile.");
       }
-    } catch (e) {
-      alert("Failed to delete user profile.");
+    } catch (e: any) {
+      alert(`Error deleting user profile: ${e?.message || e}`);
     }
   };
 
@@ -1908,108 +1926,164 @@ export default function SuperAdminPage() {
                         const lastTime = u.last_active_display || (u.last_active_today ? formatActivityTime(u.last_active_today) : null);
 
                         return (
-                          <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                            
-                            {/* USER ACCOUNT */}
-                            <td className="p-3.5 font-bold text-slate-900">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
-                                  {(u.full_name || u.email || "U")[0].toUpperCase()}
-                                </div>
-                                <div>
-                                  <div className="font-extrabold text-slate-900">{u.full_name || "Account"}</div>
-                                  <div className="text-[11px] font-mono text-slate-500">{u.email}</div>
-                                </div>
-                              </div>
-                            </td>
+                            <Fragment key={u.id}>
+                              <tr className="hover:bg-slate-50/80 transition-colors">
+                                
+                                {/* USER ACCOUNT */}
+                                <td className="p-3.5 font-bold text-slate-900">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
+                                      {(u.full_name || u.email || "U")[0].toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <div className="font-extrabold text-slate-900">{u.full_name || "Account"}</div>
+                                      <div className="text-[11px] font-mono text-slate-500">{u.email}</div>
+                                    </div>
+                                  </div>
+                                </td>
 
-                            {/* TODAY'S VISIT STATUS */}
-                            <td className="p-3.5">
-                              {isActiveToday ? (
-                                <div className="space-y-0.5">
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                    <span>Active Today</span>
-                                  </span>
-                                  {lastTime && (
-                                    <p className="text-[10px] font-mono text-slate-500 font-medium">Last: {lastTime}</p>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">
-                                  Inactive Today
-                                </span>
-                              )}
-                            </td>
-
-                            {/* FEATURES USED TODAY */}
-                            <td className="p-3.5">
-                              {featuresUsed.length > 0 ? (
-                                <div className="flex flex-wrap gap-1.5 max-w-sm">
-                                  {featuresUsed.map((feat: string, fIdx: number) => {
-                                    const match = feat.match(/^(.*)\s\(([0-9]+)x\)$/);
-                                    const name = match ? match[1] : feat;
-                                    const count = match ? match[2] : null;
-
-                                    return (
-                                      <span 
-                                        key={fIdx} 
-                                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200/80 text-indigo-800 text-[10.5px] font-bold"
-                                      >
-                                        <span>{name}</span>
-                                        {count && (
-                                          <span className="px-1.5 py-0.2 bg-indigo-600 text-white rounded text-[9px] font-black">
-                                            {count}x
-                                          </span>
-                                        )}
+                                {/* TODAY'S VISIT STATUS */}
+                                <td className="p-3.5">
+                                  {isActiveToday ? (
+                                    <div className="space-y-0.5">
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                        <span>Active Today</span>
                                       </span>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <span className="text-slate-400 text-[11px] font-medium">—</span>
+                                      {lastTime && (
+                                        <p className="text-[10px] font-mono text-slate-500 font-medium">Last: {lastTime}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">
+                                      Inactive Today
+                                    </span>
+                                  )}
+                                </td>
+
+                                {/* FEATURES USED TODAY */}
+                                <td className="p-3.5">
+                                  {featuresUsed.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5 max-w-sm">
+                                      {featuresUsed.map((feat: string, fIdx: number) => {
+                                        const match = feat.match(/^(.*)\s\(([0-9]+)x\)$/);
+                                        const name = match ? match[1] : feat;
+                                        const count = match ? match[2] : null;
+
+                                        return (
+                                          <span 
+                                            key={fIdx} 
+                                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200/80 text-indigo-800 text-[10.5px] font-bold"
+                                          >
+                                            <span>{name}</span>
+                                            {count && (
+                                              <span className="px-1.5 py-0.2 bg-indigo-600 text-white rounded text-[9px] font-black">
+                                                {count}x
+                                              </span>
+                                            )}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400 text-[11px] font-medium">—</span>
+                                  )}
+                                </td>
+
+                                {/* ROLE & SCHOOL */}
+                                <td className="p-3.5">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                                        u.role === "teacher" ? "bg-indigo-100 text-indigo-800" :
+                                        u.role === "student" ? "bg-purple-100 text-purple-800" :
+                                        u.role === "parent" ? "bg-amber-100 text-amber-900 border border-amber-200" : "bg-slate-100 text-slate-800"
+                                      }`}>
+                                        {u.role || "teacher"}
+                                      </span>
+                                      {u.role === "parent" && Array.isArray(u.children) && u.children.length > 0 && (
+                                        <button
+                                          onClick={() => toggleParentExpand(u.id)}
+                                          className="px-1.5 py-0.5 rounded bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold cursor-pointer transition-colors"
+                                          title="Toggle Children Details"
+                                        >
+                                          {u.children.length} Children {expandedParentIds[u.id] ? "▲" : "▼"}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-slate-600 font-medium truncate max-w-[160px]">
+                                      {u.school_name || u.child_school || "DEVGYA"}
+                                    </div>
+                                    {u.role === "parent" && !Array.isArray(u.children) && u.child_name && (
+                                      <div className="text-[10px] text-amber-800 font-semibold truncate max-w-[160px]">
+                                        Child: {u.child_name} {u.child_class ? `(${u.child_class})` : ""}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* ACTIONS: TIMELINE, PROFILE & DELETE */}
+                                <td className="p-3.5 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      onClick={() => handleOpenUserActivity(u)}
+                                      className="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-[11px] transition-colors flex items-center gap-1 cursor-pointer"
+                                      title="View Detailed Activity Timeline"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" />
+                                      <span>Activity</span>
+                                    </button>
+
+                                    <button
+                                      onClick={() => setSelectedUserDetail(u)}
+                                      className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                                      title="View Full Profile"
+                                    >
+                                      <User className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    <button
+                                      onClick={() => handleDeleteUser(u.id, u.email)}
+                                      className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition-colors cursor-pointer"
+                                      title="Delete User Account"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+
+                              </tr>
+
+                              {/* EXPANDED PARENT CHILDREN DRAWER */}
+                              {u.role === "parent" && expandedParentIds[u.id] && Array.isArray(u.children) && u.children.length > 0 && (
+                                <tr className="bg-amber-50/50 border-b border-amber-100">
+                                  <td colSpan={5} className="p-3.5 pl-12">
+                                    <div className="flex flex-wrap gap-2.5 items-center">
+                                      <span className="text-[10px] uppercase font-black tracking-wider text-amber-900 flex items-center gap-1">
+                                        <span>👨‍👩‍👧‍👦 Enrolled Children ({u.children.length}):</span>
+                                      </span>
+                                      {u.children.map((ch: any, cIdx: number) => (
+                                        <div key={cIdx} className="bg-white border border-amber-200/90 rounded-xl px-3 py-1.5 text-xs shadow-xs flex items-center gap-2">
+                                          <div>
+                                            <span className="font-extrabold text-slate-900">{ch.name || ch.child_name || `Child #${cIdx + 1}`}</span>
+                                            {(ch.class || ch.child_class) && (
+                                              <span className="text-[10.5px] text-slate-500 font-medium ml-1.5">
+                                                Class {ch.class || ch.child_class} {ch.section ? `(${ch.section})` : ""}
+                                              </span>
+                                            )}
+                                          </div>
+                                          {(ch.school || ch.child_school || u.school_name) && (
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold border border-amber-200">
+                                              {ch.school || ch.child_school || u.school_name}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
                               )}
-                            </td>
-
-                            {/* ROLE & SCHOOL */}
-                            <td className="p-3.5">
-                              <div className="space-y-0.5">
-                                <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
-                                  u.role === "teacher" ? "bg-indigo-100 text-indigo-800" :
-                                  u.role === "student" ? "bg-purple-100 text-purple-800" :
-                                  u.role === "parent" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-800"
-                                }`}>
-                                  {u.role || "teacher"}
-                                </span>
-                                <div className="text-[11px] text-slate-600 font-medium truncate max-w-[160px]">
-                                  {u.school_name || u.child_school || "DEVGYA"}
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* ACTIONS: TIMELINE & PROFILE */}
-                            <td className="p-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  onClick={() => handleOpenUserActivity(u)}
-                                  className="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-[11px] transition-colors flex items-center gap-1 cursor-pointer"
-                                  title="View Detailed Activity Timeline"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>Activity</span>
-                                </button>
-
-                                <button
-                                  onClick={() => setSelectedUserDetail(u)}
-                                  className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
-                                  title="View Full Profile"
-                                >
-                                  <User className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-
-                          </tr>
+                            </Fragment>
                         );
                       })
                     )}
@@ -3315,6 +3389,48 @@ export default function SuperAdminPage() {
                   <span className="font-bold text-slate-800">{selectedUserDetail.board || "CBSE"} {selectedUserDetail.classes ? `(${selectedUserDetail.classes})` : ""}</span>
                 </div>
               </div>
+
+              {selectedUserDetail.role === "parent" && (
+                <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
+                      <span>👨‍👩‍👧‍👦 Registered Children</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-black text-[10px]">
+                      {Array.isArray(selectedUserDetail.children) ? selectedUserDetail.children.length : selectedUserDetail.child_name ? 1 : 0} Child
+                    </span>
+                  </div>
+
+                  {Array.isArray(selectedUserDetail.children) && selectedUserDetail.children.length > 0 ? (
+                    <div className="space-y-1.5 pt-1">
+                      {selectedUserDetail.children.map((ch: any, idx: number) => (
+                        <div key={idx} className="bg-white p-2.5 rounded-xl border border-amber-200/90 flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-extrabold text-slate-900">{ch.name || ch.child_name || `Child #${idx + 1}`}</span>
+                            {(ch.class || ch.child_class) && (
+                              <span className="text-slate-500 font-medium ml-2">Class {ch.class || ch.child_class} {ch.section ? `(${ch.section})` : ""}</span>
+                            )}
+                          </div>
+                          {(ch.school || ch.child_school) && (
+                            <span className="text-[10px] text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded">
+                              {ch.school || ch.child_school}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : selectedUserDetail.child_name ? (
+                    <div className="bg-white p-2.5 rounded-xl border border-amber-200/90 text-xs flex items-center justify-between">
+                      <span className="font-extrabold text-slate-900">{selectedUserDetail.child_name}</span>
+                      {selectedUserDetail.child_class && (
+                        <span className="text-slate-500 font-medium">Class {selectedUserDetail.child_class}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 italic">No specific children records linked yet.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
