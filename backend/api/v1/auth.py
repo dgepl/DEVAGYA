@@ -148,6 +148,12 @@ async def verify_otp(payload: VerifyOTPPayload):
 @router.post("/register")
 async def register_user(payload: RegisterPayload):
     """Register teacher, student, or parent in Supabase Cloud."""
+    if (payload.role or "").strip().lower() == "student":
+        raise HTTPException(
+            status_code=400,
+            detail="Direct student registration is disabled. Students are enrolled directly by their parent in the Parent Portal."
+        )
+
     raw_email = payload.email or ""
     if " " in raw_email.strip():
         raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
@@ -245,10 +251,46 @@ async def register_user(payload: RegisterPayload):
 @router.post("/login", dependencies=[Depends(check_rate_limit(max_requests=10, window_seconds=60, key_prefix="login"))])
 async def login_user(payload: LoginPayload):
     """Authenticate user login from Supabase Cloud."""
-    raw_email = payload.email or ""
-    if " " in raw_email.strip():
-        raise HTTPException(status_code=400, detail="Email address cannot contain spaces.")
-    email_clean = raw_email.strip().lower()
+    raw_identifier = (payload.email or "").strip()
+    if " " in raw_identifier:
+        raise HTTPException(status_code=400, detail="Username or email cannot contain spaces.")
+    clean_identifier = raw_identifier.lower()
+
+    # 1. STUDENT USERNAME AUTHENTICATION (NO EMAIL REQUIRED)
+    if (payload.role or "").strip().lower() == "student" or "@" not in clean_identifier:
+        from services.student_parent_service import student_parent_service
+        student_acc = await student_parent_service.authenticate_student(clean_identifier, payload.password or "")
+        if student_acc:
+            user_id = student_acc.get("id", f"std_{clean_identifier}")
+            signed_token = jwt_auth.create_access_token(
+                user_id=user_id,
+                email=f"{clean_identifier}@student.devgya.in",
+                role="student"
+            )
+            return {
+                "status": "success",
+                "message": "Student authenticated successfully!",
+                "user": {
+                    "id": user_id,
+                    "email": f"{clean_identifier}@student.devgya.in",
+                    "username": clean_identifier,
+                    "name": student_acc.get("name") or student_acc.get("full_name") or clean_identifier.capitalize(),
+                    "role": "student",
+                    "classes": student_acc.get("class_name") or student_acc.get("classes") or "Class 10",
+                    "schoolName": student_acc.get("school_name", ""),
+                    "board": student_acc.get("board", "CBSE"),
+                    "parentEmail": student_acc.get("parent_email", ""),
+                    "isProfileComplete": True,
+                    "token": signed_token
+                }
+            }
+        elif (payload.role or "").strip().lower() == "student":
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid student username or password. Please ask your parent to verify your login credentials."
+            )
+
+    email_clean = clean_identifier
     
     # Query real profile from Supabase Cloud
     profile = await supabase_service.get_profile_by_email(email_clean)

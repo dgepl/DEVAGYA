@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { MobileParentDashboard } from "@/components/dashboard/MobileParentDashboard";
+import { ChildManagerSection } from "@/components/parent/ChildManagerSection";
 
 export function ParentDashboard() {
   const { user } = useAppStore();
@@ -52,6 +53,9 @@ export function ParentDashboard() {
           <span>Ask AI Parenting Coach</span>
         </Link>
       </div>
+
+      {/* MULTI-CHILD MANAGEMENT & ACTIVITY TRACKER */}
+      <ChildManagerSection />
 
       {/* PARENT AI TOOLS & CONSULTATION TILES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

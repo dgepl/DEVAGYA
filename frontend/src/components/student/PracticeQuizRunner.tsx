@@ -22,7 +22,8 @@ import {
   Check,
   Zap
 } from "lucide-react";
-import { generatePracticeQuizFromFile } from "@/lib/api";
+import { generatePracticeQuizFromFile, getApiBase } from "@/lib/api";
+import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
 import { CBSE_NCERT_CURRICULUM } from "@/lib/cbseNcertCurriculum";
 
@@ -45,6 +46,7 @@ interface QuizQuestion {
 }
 
 export function PracticeQuizRunner() {
+  const { user } = useAppStore();
   // Cascading Setup state
   const [selectedClass, setSelectedClass] = useState("Class 10");
 
@@ -230,15 +232,41 @@ export function PracticeQuizRunner() {
     });
     const total = quiz.questions.length;
     const percentage = Math.round((score / total) * 100);
+    const feedbackText = percentage >= 80 ? "Excellent! You've mastered this topic! 🎉" : percentage >= 50 ? "Good effort! Review the mistakes and try again. 💪" : "Keep practicing! Focus on the concepts explained below. 📖";
+    
     setResult({
       score,
       total,
       percentage,
-      feedback: percentage >= 80 ? "Excellent! You've mastered this topic! 🎉" : percentage >= 50 ? "Good effort! Review the mistakes and try again. 💪" : "Keep practicing! Focus on the concepts explained below. 📖",
+      feedback: feedbackText,
       xp_earned: score * 10,
       breakdown,
     });
     setSubmitting(false);
+
+    // Persist to Supabase Cloud for parent observability & student history
+    try {
+      const studentUsername = (user as any)?.username || user?.name?.toLowerCase().replace(/\s+/g, "_") || "student";
+      const apiBase = getApiBase();
+      fetch(`${apiBase}/student/quiz-result`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          student_username: studentUsername,
+          quiz_title: quiz.title || `${subject} Practice Quiz`,
+          subject: subject || "General",
+          chapter: isCustomTopic ? customTopic : selectedTopic,
+          score,
+          total,
+          percentage,
+          xp_earned: score * 10,
+          feedback: feedbackText,
+          breakdown
+        })
+      }).catch((err) => console.warn("Notice: Quiz cloud save deferred:", err));
+    } catch (e) {
+      console.warn("Notice: Quiz sync deferred:", e);
+    }
   };
 
   const resetQuiz = () => {

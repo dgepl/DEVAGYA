@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
+import { ChildManagerSection } from "@/components/parent/ChildManagerSection";
 
 export function MobileParentDashboard() {
   const { user } = useAppStore();
@@ -180,6 +181,11 @@ export function MobileParentDashboard() {
         </div>
       ) : (
         <>
+          {/* MULTI-CHILD MANAGEMENT & ACTIVITY TRACKER */}
+          <div className="pt-1">
+            <ChildManagerSection />
+          </div>
+
           {/* 4. PARENT CORE TOOLS GRID (MATCHING TEACHER DASHBOARD EXACT CARDS) */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">

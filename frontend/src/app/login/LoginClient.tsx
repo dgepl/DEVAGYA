@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Lock, Mail, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowRight, Lock, Mail, User, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { getApiBase } from "@/lib/api";
 
@@ -203,21 +203,37 @@ export default function LoginClient() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              {role === "school" ? "Official School Email" : "Email Address"}
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                {role === "student" ? "Student Username" : role === "school" ? "Official School Email" : "Email Address"}
+              </label>
+              {role === "student" && (
+                <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">
+                  No Email Needed
+                </span>
+              )}
+            </div>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              {role === "student" ? (
+                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              ) : (
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              )}
               <input
-                type="email"
+                type={role === "student" ? "text" : "email"}
                 value={email}
                 onChange={(e) => handleEmailChange(e.target.value)}
                 onKeyDown={(e) => { if (e.key === " ") e.preventDefault(); }}
-                placeholder="you@domain.com (Spaces blocked)"
+                placeholder={role === "student" ? "Enter your student username (e.g. aryan_sharma)" : "you@domain.com (Spaces blocked)"}
                 required
                 className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-semibold transition-all shadow-inner"
               />
             </div>
+            {role === "student" && (
+              <p className="text-[11px] text-slate-500 mt-1.5 pl-1">
+                Tip: Enter your unique username created by your parent in the Parent Portal.
+              </p>
+            )}
           </div>
 
           <div>

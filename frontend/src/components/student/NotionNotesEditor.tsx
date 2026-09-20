@@ -14,7 +14,8 @@ import {
   Eye,
   Edit3
 } from "lucide-react";
-import { handleNoteAIAction } from "@/lib/api";
+import { handleNoteAIAction, getApiBase } from "@/lib/api";
+import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
 
 interface SmartNote {
@@ -34,6 +35,9 @@ function cleanAiOutput(text: string): string {
 const STORAGE_KEY = "devgya_smart_notes_v2";
 
 export function NotionNotesEditor() {
+  const { user } = useAppStore();
+  const studentUsername = (user as any)?.username || user?.name?.toLowerCase().replace(/\s+/g, "_") || "student";
+
   const [notes, setNotes] = useState<SmartNote[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,13 +47,15 @@ export function NotionNotesEditor() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
 
-  // Load from localStorage on mount
+  // 1. Load from localStorage and then sync with Supabase Cloud on mount
   useEffect(() => {
+    let localNotes: SmartNote[] = [];
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
+          localNotes = parsed;
           setNotes(parsed);
           if (parsed.length > 0) {
             setActiveNoteId(parsed[0].id);
@@ -61,9 +67,37 @@ export function NotionNotesEditor() {
     } finally {
       setIsLoaded(true);
     }
-  }, []);
 
-  // Save to localStorage on change
+    // Fetch from Supabase Cloud
+    const apiBase = getApiBase();
+    fetch(`${apiBase}/student/notes?username=${encodeURIComponent(studentUsername)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.status === "success" && Array.isArray(data.notes) && data.notes.length > 0) {
+          const cloudNotes: SmartNote[] = data.notes.map((cn: any) => ({
+            id: cn.id || `note_${Date.now()}`,
+            title: cn.title || "Untitled Note",
+            subject: cn.subject || "General",
+            tags: Array.isArray(cn.tags) ? cn.tags : [],
+            content: cn.content || "",
+            updated_at: cn.updated_at ? new Date(cn.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Recently"
+          }));
+
+          // Merge cloud notes taking precedence over local
+          const map = new Map<string, SmartNote>();
+          localNotes.forEach(n => map.set(n.id, n));
+          cloudNotes.forEach(n => map.set(n.id, n)); // Cloud overrides local
+          const merged = Array.from(map.values());
+          setNotes(merged);
+          if (merged.length > 0) {
+            setActiveNoteId(merged[0].id);
+          }
+        }
+      })
+      .catch(err => console.warn("Notice: Cloud notes fetch deferred:", err));
+  }, [studentUsername]);
+
+  // 2. Save to localStorage and debounce sync to Supabase Cloud on change
   useEffect(() => {
     if (isLoaded) {
       try {
@@ -71,8 +105,29 @@ export function NotionNotesEditor() {
       } catch (e) {
         console.error("Failed to save notes to localStorage", e);
       }
+
+      // Sync active note to Supabase Cloud
+      const curr = notes.find(n => n.id === activeNoteId);
+      if (curr && curr.title) {
+        const timeoutId = setTimeout(() => {
+          const apiBase = getApiBase();
+          fetch(`${apiBase}/student/notes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              student_username: studentUsername,
+              id: curr.id,
+              title: curr.title,
+              subject: curr.subject || "General",
+              tags: curr.tags || [],
+              content: curr.content || ""
+            })
+          }).catch(err => console.warn("Notice: Note cloud sync deferred:", err));
+        }, 1200);
+        return () => clearTimeout(timeoutId);
+      }
     }
-  }, [notes, isLoaded]);
+  }, [notes, isLoaded, activeNoteId, studentUsername]);
 
   const activeNote = useMemo(() => {
     return notes.find(n => n.id === activeNoteId) || null;
@@ -102,6 +157,21 @@ export function NotionNotesEditor() {
     setNotes(prev => [newNote, ...prev]);
     setActiveNoteId(newId);
     setAiResult(null);
+
+    // Immediate cloud creation
+    const apiBase = getApiBase();
+    fetch(`${apiBase}/student/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        student_username: studentUsername,
+        id: newId,
+        title: "Untitled Note",
+        subject: "General",
+        tags: [],
+        content: ""
+      })
+    }).catch(err => console.warn("Notice: Cloud note create deferred:", err));
   };
 
   const handleDeleteNote = (id: string, e: React.MouseEvent) => {
@@ -112,6 +182,12 @@ export function NotionNotesEditor() {
       setActiveNoteId(remaining.length > 0 ? remaining[0].id : null);
       setAiResult(null);
     }
+
+    // Delete from Supabase Cloud
+    const apiBase = getApiBase();
+    fetch(`${apiBase}/student/notes/${encodeURIComponent(id)}?username=${encodeURIComponent(studentUsername)}`, {
+      method: "DELETE"
+    }).catch(err => console.warn("Notice: Cloud note delete deferred:", err));
   };
 
   const handleUpdateContent = (newContent: string) => {

@@ -13,7 +13,7 @@ export default function RegisterClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<"teacher" | "student" | "parent" | "school">("teacher");
+  const [role, setRole] = useState<"teacher" | "parent" | "school">("teacher");
 
   // School Specific Fields
   const [schoolName, setSchoolName] = useState("");
@@ -233,8 +233,6 @@ export default function RegisterClient() {
           // Redirect to appropriate dashboard
           if (role === "teacher") {
             router.push("/onboarding");
-          } else if (role === "student") {
-            router.push("/dashboard/student");
           } else if (role === "parent") {
             router.push("/dashboard/parent");
           } else if (role === "school") {
@@ -300,14 +298,14 @@ export default function RegisterClient() {
 
         <form onSubmit={handleStartRegister} className="space-y-4">
           
-          {/* ROLE SELECTOR PILLS (4 TABS) */}
+          {/* ROLE SELECTOR PILLS (3 TABS: TEACHER, PARENT, SCHOOL) */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Your Role</label>
-            <div className="grid grid-cols-4 gap-1 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Your Account Type</label>
+            <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200">
               <button
                 type="button"
                 onClick={() => setRole("teacher")}
-                className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
+                className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
                   role === "teacher" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
               >
@@ -315,17 +313,8 @@ export default function RegisterClient() {
               </button>
               <button
                 type="button"
-                onClick={() => setRole("student")}
-                className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
-                  role === "student" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                }`}
-              >
-                Student
-              </button>
-              <button
-                type="button"
                 onClick={() => setRole("parent")}
-                className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
+                className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
                   role === "parent" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
               >
@@ -334,12 +323,20 @@ export default function RegisterClient() {
               <button
                 type="button"
                 onClick={() => setRole("school")}
-                className={`py-2 text-[11px] font-extrabold rounded-xl transition-all ${
+                className={`py-2 text-xs font-extrabold rounded-xl transition-all ${
                   role === "school" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
               >
                 School
               </button>
+            </div>
+
+            {/* INFORMATIVE NOTICE FOR STUDENTS */}
+            <div className="mt-2.5 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-start gap-2 text-left">
+              <span className="text-sm">🎒</span>
+              <p className="text-[11px] text-indigo-900 font-medium leading-relaxed">
+                <strong className="font-extrabold text-indigo-950">Student Registration:</strong> Direct student self-registration is closed. Parents create and manage student accounts with username &amp; password directly inside the <strong className="font-extrabold text-indigo-950">Parent Portal</strong>.
+              </p>
             </div>
           </div>
 
