@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { MobileParentDashboard } from "@/components/dashboard/MobileParentDashboard";
-import { ChildManagerSection } from "@/components/parent/ChildManagerSection";
+import { ParentChildOverviewCard } from "@/components/parent/ParentChildOverviewCard";
 
 export function ParentDashboard() {
   const { user } = useAppStore();
@@ -54,8 +54,8 @@ export function ParentDashboard() {
         </Link>
       </div>
 
-      {/* MULTI-CHILD MANAGEMENT & ACTIVITY TRACKER */}
-      <ChildManagerSection />
+      {/* ENROLLED CHILDREN OVERVIEW */}
+      <ParentChildOverviewCard />
 
       {/* PARENT AI TOOLS & CONSULTATION TILES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
