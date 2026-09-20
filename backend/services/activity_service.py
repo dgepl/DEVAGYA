@@ -3,7 +3,7 @@ import json
 import time
 import uuid
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from services.supabase_service import supabase_service
@@ -26,7 +26,14 @@ class ActivityService:
         if ACTIVITY_FILE.exists():
             try:
                 with open(ACTIVITY_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    # Normalize any legacy timestamps missing timezone indicator 'Z'
+                    for item in data:
+                        ts = item.get("timestamp")
+                        if ts and isinstance(ts, str):
+                            if not (ts.endswith("Z") or "+" in ts or "-" in ts[10:]):
+                                item["timestamp"] = f"{ts}Z"
+                    return data
             except Exception as e:
                 logger.error(f"Error reading activity file: {e}")
                 return []
@@ -43,7 +50,7 @@ class ActivityService:
             logger.error(f"Failed to persist user activity: {e}")
 
     def _get_valid_today_dates(self):
-        now_utc = datetime.utcnow()
+        now_utc = datetime.now(timezone.utc)
         today_utc = now_utc.strftime("%Y-%m-%d")
         ist_dt = now_utc + timedelta(hours=5, minutes=30)
         today_ist = ist_dt.strftime("%Y-%m-%d")
@@ -55,35 +62,37 @@ class ActivityService:
         name: Optional[str] = "",
         role: Optional[str] = "teacher",
         action: Optional[str] = "view",
-        feature_id: Optional[str] = "",
-        feature_name: Optional[str] = "",
+        feature_id: Optional[str] = "dashboard",
+        feature_name: Optional[str] = "Dashboard",
         path: Optional[str] = "",
         details: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Record an activity event for a user."""
+        """Record an activity event for a user with accurate UTC+Z timestamp and Indian Standard Time (IST)."""
         if not email or not email.strip():
             return {}
 
         email_clean = email.strip().lower()
-        now_dt = datetime.utcnow()
-        ist_dt = now_dt + timedelta(hours=5, minutes=30)
-        now_iso = now_dt.isoformat()
+        now_utc = datetime.now(timezone.utc)
+        ist_dt = now_utc + timedelta(hours=5, minutes=30)
+        now_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         date_str = ist_dt.strftime("%Y-%m-%d")
-        hour_str = ist_dt.strftime("%H:00")
+        time_display = ist_dt.strftime("%I:%M %p")
+        hour_str = ist_dt.strftime("%I:00 %p")
 
         event = {
             "id": f"act_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}",
             "email": email_clean,
             "name": (name or "").strip() or email_clean.split("@")[0].capitalize(),
             "role": role or "teacher",
-            "action": action or "view",
-            "feature_id": feature_id or "dashboard",
-            "feature_name": feature_name or "Dashboard Visit",
+            "action": action or "feature_use",
+            "feature_id": feature_id or "feature",
+            "feature_name": feature_name or "Educational Tool",
             "path": path or "/dashboard",
             "details": details or {},
             "timestamp": now_iso,
+            "time_display": time_display,
             "date": date_str,
-            "date_utc": now_dt.strftime("%Y-%m-%d"),
+            "date_utc": now_utc.strftime("%Y-%m-%d"),
             "hour": hour_str
         }
 
@@ -154,30 +163,55 @@ class ActivityService:
         feat_id = (act.get("feature_id") or "").lower().strip()
         path = (act.get("path") or "").lower().strip()
 
-        # Normalize known feature names
-        if "generator" in feat_id or "generator" in path or action == "generate_paper":
-            if "agent" not in feat_id and "agent" not in path:
-                return "Question Paper Generator"
-        if "olympiad" in feat_id or "olympiad" in path or action == "participate_olympiad":
-            return "Teacher Skills Olympiad"
+        # Specific feature overrides FIRST before generic substrings!
+        if "ppt" in feat_id or "ppt" in path or action in ["generate_ppt", "save_ppt", "refine_slide"]:
+            return "AI PPT Generator"
+        if "assignment" in feat_id or "assignment" in path or action in ["create_assignment", "generate_assignment"]:
+            return "AI Assignment Maker"
+        if "olympiad/practice" in path or feat_id == "olympiad-practice" or action == "practice_attempt":
+            return "Skill Enhance Practice"
+        if "olympiad" in feat_id or "olympiad" in path or action in ["participate_olympiad", "submit_100"]:
+            return "Skill Enhance Program"
+        if "english-coach" in path or "english" in feat_id or action in ["speech_practice", "live_speech"]:
+            return "English Speaking Coach"
+        if "vacanc" in feat_id or "recruitment" in path or action in ["manage_vacancies", "post_vacancy", "view_vacancies", "apply_vacancy"]:
+            return "Faculty Recruitment"
         if "exam-prep" in path or "exam_prep" in feat_id or action == "exam_prep":
             return "AI Exam Prep Studio"
-        if "tutor" in path or "socratic" in feat_id or action == "socratic_query":
-            return "Socratic AI Tutor"
-        if "english-coach" in path or "english" in feat_id:
-            return "English Speaking Coach"
-        if "practice" in path or "practice" in feat_id or action in ["quiz_submission", "practice_attempt"]:
+        if "student/practice" in path or action in ["quiz_submission", "practice_quiz"]:
             return "Practice Quiz Runner"
         if "flashcard" in path or "flashcard" in feat_id:
             return "Flashcard Deck"
+        if "notes" in path or "notes" in feat_id or action == "create_note":
+            return "Notion Smart Notes"
         if "classroom" in path or "lesson" in feat_id or action == "lesson_plan":
             return "AI Lesson Planner"
         if "content" in path or "content" in feat_id or action == "create_content":
             return "AI Content Studio"
         if "video" in path or "consultation" in feat_id:
             return "Live Video AI Consultation"
-        if "vacanc" in feat_id or "recruitment" in path or action in ["manage_vacancies", "post_vacancy", "view_vacancies"]:
-            return "Faculty Recruitment"
+        if "timer" in path or "planner" in path:
+            return "Study Planner & Pomodoro"
+
+        # Agent chat names
+        if feat_id == "teacher_mentor" or "teacher_mentor" in path:
+            return "Teacher Mentor AI"
+        if feat_id == "student_tutor" or "student_tutor" in path or action == "socratic_query":
+            return "Socratic AI Tutor"
+        if feat_id == "parent_coach" or "parent_coach" in path:
+            return "Parent AI Coach"
+        if feat_id == "research_assistant" or "research_assistant" in path:
+            return "Academic Research Assistant"
+        if feat_id == "analytics_assistant" or "analytics_assistant" in path:
+            return "AI Progress Analytics"
+        if feat_id == "document_assistant" or "document_assistant" in path:
+            return "Document AI Assistant"
+
+        # Question Paper Generator ONLY for actual paper generator!
+        if action == "generate_paper" or path in ["/dashboard/generator", "/generator"] or feat_id in ["generator", "question-generator", "paper-generator"]:
+            return "Question Paper Generator"
+        if "generator" in feat_id and "ppt" not in feat_id and "content" not in feat_id:
+            return "Question Paper Generator"
 
         if name:
             if name.startswith("AI Agent: "):
@@ -222,6 +256,7 @@ class ActivityService:
             if email not in user_summary:
                 user_summary[email] = {
                     "last_active": act.get("timestamp"),
+                    "last_active_display": act.get("time_display"),
                     "first_active": act.get("timestamp"),
                     "name": act.get("name", email.split("@")[0].capitalize()),
                     "role": act.get("role", "teacher"),
@@ -271,6 +306,7 @@ class ActivityService:
                         "name": canonical_name,
                         "count": 1,
                         "last_used": a.get("timestamp"),
+                        "last_used_display": a.get("time_display"),
                         "last_action": a.get("action", "use")
                     }
                 else:

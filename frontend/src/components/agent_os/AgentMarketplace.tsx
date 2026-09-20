@@ -662,6 +662,7 @@ export function AgentMarketplace() {
     fd.append("message", text);
     fd.append("agent_code", selectedAgentCode);
     fd.append("user_id", user?.id || "usr-guest");
+    if (user?.email) fd.append("user_email", user.email);
     fd.append("language", language);
     fd.append("stream", "true");
     if (activeConvId) fd.append("conversation_id", activeConvId);

@@ -58,6 +58,20 @@ async def _save_assignment_for_user(email: Optional[str], assignment_data: dict)
     # Sync to Supabase Cloud
     await supabase_service.save_assignment_to_cloud(email_clean, assignment_data)
 
+    try:
+        from services.activity_service import activity_service
+        activity_service.record_activity(
+            email=email_clean,
+            role="teacher",
+            action="create_assignment",
+            feature_id="assignments",
+            feature_name="AI Assignment Maker",
+            path="/dashboard/assignments",
+            details={"title": asg_title, "class": asg_class}
+        )
+    except Exception:
+        pass
+
 class GenerateAssignmentRequest(BaseModel):
     class_name: str = Field(..., example="Class 10")
     subject: str = Field(..., example="Mathematics")

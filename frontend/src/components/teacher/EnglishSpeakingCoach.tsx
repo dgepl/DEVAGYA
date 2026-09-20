@@ -845,6 +845,7 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
         fd.append("conversation_id", conversationId.trim());
       }
       fd.append("user_id", user?.id || user?.email || "teacher-guest");
+      if (user?.email) fd.append("user_email", user.email);
       fd.append("language", languageMode);
 
       // Attach live camera snapshot frame if camera is on

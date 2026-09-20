@@ -210,6 +210,7 @@ async def agent_chat_message(
     agent_code: str = Form("teacher_mentor"),
     conversation_id: Optional[str] = Form(None),
     user_id: Optional[str] = Form("usr-guest"),
+    user_email: Optional[str] = Form(None),
     language: str = Form("english"),
     stream: bool = Form(True),
     images: List[UploadFile] = File([]),
@@ -240,7 +241,24 @@ async def agent_chat_message(
 
     try:
         from services.activity_service import activity_service
-        email_cand = user_id if "@" in user_id else f"{user_id}@devgya.in"
+        from services.supabase_service import supabase_service
+        
+        email_cand = (user_email or "").strip().lower()
+        if not email_cand or "@" not in email_cand:
+            if user_id and "@" in user_id:
+                email_cand = user_id.strip().lower()
+            elif user_id and user_id != "usr-guest":
+                try:
+                    prof = await supabase_service.get_profile(user_id)
+                    if prof and prof.get("email"):
+                        email_cand = prof["email"].strip().lower()
+                    else:
+                        email_cand = f"{user_id}@devgya.in"
+                except Exception:
+                    email_cand = f"{user_id}@devgya.in"
+            else:
+                email_cand = "guest@devgya.in"
+
         agent_name = agent.get("name") if isinstance(agent, dict) else agent_code.replace("_", " ").title()
         activity_service.record_activity(
             email=email_cand,

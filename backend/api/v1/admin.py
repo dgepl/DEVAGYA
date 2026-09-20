@@ -254,6 +254,7 @@ async def get_all_users():
         if act:
             p["is_active_today"] = True
             p["last_active_today"] = act.get("last_active")
+            p["last_active_display"] = act.get("last_active_display")
             p["features_used_today"] = act.get("features_used", [])
             p["features_summary"] = act.get("features_summary", [])
             p["actions_today_count"] = act.get("actions_count", 0)
@@ -261,6 +262,7 @@ async def get_all_users():
         else:
             p["is_active_today"] = False
             p["last_active_today"] = None
+            p["last_active_display"] = None
             p["features_used_today"] = []
             p["features_summary"] = []
             p["actions_today_count"] = 0

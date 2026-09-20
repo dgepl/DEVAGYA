@@ -464,6 +464,42 @@ export default function SuperAdminPage() {
     }
   };
 
+  const formatActivityTime = (ts?: string, fallbackDisplay?: string) => {
+    if (fallbackDisplay) return fallbackDisplay;
+    if (!ts) return "Recently";
+    try {
+      const cleanTs = ts.endsWith("Z") || ts.includes("+") || (ts.includes("-") && ts.indexOf("-") > 8 && ts.length > 18)
+        ? ts 
+        : `${ts}Z`;
+      const d = new Date(cleanTs);
+      if (isNaN(d.getTime())) return ts;
+      return d.toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      });
+    } catch {
+      return ts;
+    }
+  };
+
+  const formatActivityDateTime = (ts?: string, fallbackDisplay?: string) => {
+    if (!ts) return fallbackDisplay || "Recently";
+    try {
+      const cleanTs = ts.endsWith("Z") || ts.includes("+") || (ts.includes("-") && ts.indexOf("-") > 8 && ts.length > 18)
+        ? ts 
+        : `${ts}Z`;
+      const d = new Date(cleanTs);
+      if (isNaN(d.getTime())) return ts;
+      const datePart = d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short", day: "numeric", year: "numeric" });
+      const timePart = fallbackDisplay || d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true });
+      return `${datePart} at ${timePart}`;
+    } catch {
+      return ts;
+    }
+  };
+
   const handleVerifySchool = async (schoolId: string) => {
     setVerifyingSchoolId(schoolId);
     try {
@@ -1717,7 +1753,7 @@ export default function SuperAdminPage() {
                 ) : (
                   <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                     {detailedAnalytics.recent_events.filter(isFeatureEvent).slice(0, 15).map((ev: any, idx: number) => {
-                      const timeStr = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recently";
+                      const timeStr = formatActivityTime(ev.timestamp, ev.time_display);
                       return (
                         <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-slate-100/70 border border-slate-100 transition-colors text-xs">
                           <div className="flex items-center gap-3">
@@ -1869,9 +1905,7 @@ export default function SuperAdminPage() {
                       filteredUsers.map((u) => {
                         const isActiveToday = Boolean(u.is_active_today);
                         const featuresUsed = u.features_used_today || [];
-                        const lastTime = u.last_active_today 
-                          ? new Date(u.last_active_today).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                          : null;
+                        const lastTime = u.last_active_display || (u.last_active_today ? formatActivityTime(u.last_active_today) : null);
 
                         return (
                           <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
@@ -3163,9 +3197,7 @@ export default function SuperAdminPage() {
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
                         {effectiveSummary.map((f: any, idx: number) => {
-                          const lastTime = f.last_used 
-                            ? new Date(f.last_used).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) 
-                            : null;
+                          const lastTime = f.last_used_display || (f.last_used ? formatActivityTime(f.last_used) : null);
                           return (
                             <div key={idx} className="p-2.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-xs">
                               <div className="min-w-0 pr-2">
@@ -3206,7 +3238,9 @@ export default function SuperAdminPage() {
                       </div>
                     ) : (
                       filteredEvents.map((item, idx) => {
-                        const evDate = item.timestamp ? new Date(item.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "Recently";
+                        const evDate = item.time_display && item.date
+                          ? `${item.date} at ${item.time_display}`
+                          : formatActivityDateTime(item.timestamp, item.time_display);
                         return (
                           <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1">
                             <div className="flex items-center justify-between">

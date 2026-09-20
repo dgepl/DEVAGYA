@@ -18,11 +18,30 @@ class SavePPTRequest(BaseModel):
 async def generate_presentation_endpoint(request: GeneratePPTRequest, background_tasks: BackgroundTasks):
     """Generate an AI-powered presentation on any study-related topic with teacher guidance."""
     deck = await ppt_service.generate_presentation(request)
-    user_identifier = request.user_id or request.user_email
+    user_identifier = request.user_email or request.user_id
     if user_identifier:
         try:
             deck_dict = deck.model_dump() if hasattr(deck, "model_dump") else deck.dict()
             background_tasks.add_task(ppt_history_service.save_deck, user_identifier, deck_dict)
+
+            # Record feature activity
+            from services.activity_service import activity_service
+            email_target = user_identifier if "@" in user_identifier else None
+            if not email_target:
+                from services.supabase_service import supabase_service
+                prof = await supabase_service.get_profile(user_identifier)
+                if prof and prof.get("email"):
+                    email_target = prof["email"]
+            if email_target:
+                activity_service.record_activity(
+                    email=email_target,
+                    role="teacher",
+                    action="generate_ppt",
+                    feature_id="ppt-generator",
+                    feature_name="AI PPT Generator",
+                    path="/dashboard/ppt-generator",
+                    details={"topic": request.topic}
+                )
         except Exception as e:
             pass
     return deck
