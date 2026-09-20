@@ -482,10 +482,43 @@ async def delete_paper(paper_id: str):
 # --- PLATFORM & AI TOOLS CONFIGURATION MANAGEMENT ---
 import os
 import json
+import threading
+import httpx
 
 TOOLS_STORE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "platform_tools_config.json")
+INQUIRIES_STORE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "inquiries.json")
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://amlvyskjrencrolnppgs.supabase.co").strip().rstrip("/")
+SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+
+supabase_headers = {
+    "apikey": SERVICE_KEY,
+    "Authorization": f"Bearer {SERVICE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}
 
 def _load_tools_store() -> List[Dict[str, Any]]:
+    # 1. Try Supabase Cloud first
+    if SERVICE_KEY and SUPABASE_URL:
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                res = client.get(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=eq.DEVGYA_PLATFORM_CONFIG&select=chat_history&limit=1",
+                    headers=supabase_headers
+                )
+                if res.status_code == 200 and res.json():
+                    ch = res.json()[0].get("chat_history")
+                    if isinstance(ch, dict) and isinstance(ch.get("tools"), list):
+                        tools_data = ch["tools"]
+                        os.makedirs(os.path.dirname(TOOLS_STORE_PATH), exist_ok=True)
+                        with open(TOOLS_STORE_PATH, "w", encoding="utf-8") as f:
+                            json.dump(tools_data, f, indent=2, ensure_ascii=False)
+                        return tools_data
+        except Exception:
+            pass
+
+    # 2. Fallback to local cache
     if not os.path.exists(TOOLS_STORE_PATH):
         return []
     try:
@@ -494,10 +527,27 @@ def _load_tools_store() -> List[Dict[str, Any]]:
     except Exception:
         return []
 
+def _sync_tools_to_cloud(tools_data: List[Dict[str, Any]]):
+    if not SERVICE_KEY or not SUPABASE_URL:
+        return
+    try:
+        with httpx.Client(timeout=8.0) as client:
+            client.post(
+                f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                headers=supabase_headers,
+                json={
+                    "session_title": "DEVGYA_PLATFORM_CONFIG",
+                    "chat_history": {"tools": tools_data}
+                }
+            )
+    except Exception as e:
+        logger.warning(f"Cloud tools sync notice: {e}")
+
 def _save_tools_store(tools_data: List[Dict[str, Any]]):
     os.makedirs(os.path.dirname(TOOLS_STORE_PATH), exist_ok=True)
     with open(TOOLS_STORE_PATH, "w", encoding="utf-8") as f:
         json.dump(tools_data, f, indent=2, ensure_ascii=False)
+    threading.Thread(target=_sync_tools_to_cloud, args=(tools_data,), daemon=True).start()
 
 class ToolsUpdatePayload(BaseModel):
     tools: List[Dict[str, Any]]
@@ -542,21 +592,70 @@ async def update_all_platform_tools(payload: ToolsUpdatePayload):
         raise HTTPException(status_code=500, detail=f"Failed to persist tool configurations: {str(e)}")
 
 # --- CONTACT US INQUIRY PIPELINE ---
-INQUIRIES_STORE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "inquiries.json")
-
 def _load_inquiries() -> List[Dict[str, Any]]:
-    if not os.path.exists(INQUIRIES_STORE_PATH):
-        return []
-    try:
-        with open(INQUIRIES_STORE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    # 1. Fetch from Supabase Cloud
+    cloud_inquiries = []
+    if SERVICE_KEY and SUPABASE_URL:
+        try:
+            with httpx.Client(timeout=6.0) as client:
+                res = client.get(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=like.DEVGYA_INQUIRY:*&select=chat_history&order=created_at.desc&limit=500",
+                    headers=supabase_headers
+                )
+                if res.status_code == 200:
+                    rows = res.json()
+                    for r in rows:
+                        inq = r.get("chat_history")
+                        if isinstance(inq, dict) and inq.get("id"):
+                            cloud_inquiries.append(inq)
+        except Exception:
+            pass
+
+    # 2. Local store
+    local_inquiries = []
+    if os.path.exists(INQUIRIES_STORE_PATH):
+        try:
+            with open(INQUIRIES_STORE_PATH, "r", encoding="utf-8") as f:
+                local_inquiries = json.load(f)
+        except Exception:
+            local_inquiries = []
+
+    seen_ids = set()
+    merged = []
+    for item in cloud_inquiries + local_inquiries:
+        inq_id = item.get("id")
+        if inq_id and inq_id not in seen_ids:
+            seen_ids.add(inq_id)
+            merged.append(item)
+
+    if merged and not local_inquiries:
+        os.makedirs(os.path.dirname(INQUIRIES_STORE_PATH), exist_ok=True)
+        with open(INQUIRIES_STORE_PATH, "w", encoding="utf-8") as f:
+            json.dump(merged, f, indent=2, ensure_ascii=False)
+
+    return merged
 
 def _save_inquiries(inquiries_data: List[Dict[str, Any]]):
     os.makedirs(os.path.dirname(INQUIRIES_STORE_PATH), exist_ok=True)
     with open(INQUIRIES_STORE_PATH, "w", encoding="utf-8") as f:
         json.dump(inquiries_data, f, indent=2, ensure_ascii=False)
+
+def _sync_inquiry_to_cloud(inquiry: Dict[str, Any]):
+    if not SERVICE_KEY or not SUPABASE_URL:
+        return
+    try:
+        inq_id = inquiry.get("id") or f"inq_{int(time.time())}"
+        with httpx.Client(timeout=8.0) as client:
+            client.post(
+                f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                headers=supabase_headers,
+                json={
+                    "session_title": f"DEVGYA_INQUIRY:{inq_id}",
+                    "chat_history": inquiry
+                }
+            )
+    except Exception as e:
+        logger.warning(f"Cloud inquiry sync notice: {e}")
 
 class ContactInquiryPayload(BaseModel):
     name: str
@@ -586,6 +685,7 @@ async def submit_contact_inquiry(payload: ContactInquiryPayload):
     }
     inquiries.insert(0, new_inquiry)
     _save_inquiries(inquiries)
+    threading.Thread(target=_sync_inquiry_to_cloud, args=(new_inquiry,), daemon=True).start()
 
     # Track activity for analytics
     try:

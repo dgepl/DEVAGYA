@@ -1,7 +1,8 @@
 import os
 import httpx
 import logging
-from typing import Optional, Dict, Any
+import uuid
+from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -73,6 +74,68 @@ def _save_teacher_profiles(profiles: Dict[str, Dict[str, Any]]):
 
 _teacher_profiles_store: Dict[str, Dict[str, Any]] = _load_teacher_profiles()
 
+def _hydrate_from_supabase_cloud():
+    """Hydrates all user profiles and password hashes from Supabase Cloud on boot."""
+    global _password_store, _teacher_profiles_store
+    if not SERVICE_KEY or not SUPABASE_URL:
+        return
+    try:
+        with httpx.Client(timeout=8.0) as client:
+            res = client.get(f"{SUPABASE_URL}/rest/v1/profiles?select=*", headers=headers)
+            if res.status_code == 200:
+                rows = res.json()
+                passwords_updated = False
+                profiles_updated = False
+                for row in rows:
+                    email = (row.get("email") or "").strip().lower()
+                    if not email:
+                        continue
+                    raw_av = row.get("avatar_url") or ""
+                    meta = {}
+                    if raw_av and isinstance(raw_av, str) and raw_av.startswith("{") and raw_av.endswith("}"):
+                        try:
+                            meta = json.loads(raw_av)
+                        except Exception:
+                            meta = {}
+                    pwd_hash = meta.get("pwd_hash")
+                    if pwd_hash and email not in _password_store:
+                        _password_store[email] = pwd_hash
+                        passwords_updated = True
+
+                    profile_entry = {
+                        "id": row.get("id"),
+                        "email": email,
+                        "name": row.get("full_name") or meta.get("name") or email.split("@")[0].capitalize(),
+                        "full_name": row.get("full_name") or meta.get("name") or email.split("@")[0].capitalize(),
+                        "role": row.get("role") or meta.get("role") or "teacher",
+                        "school_name": meta.get("school_name", ""),
+                        "school_logo": meta.get("school_logo", ""),
+                        "subject": meta.get("subject", ""),
+                        "classes": meta.get("classes", ""),
+                        "board": meta.get("board", "CBSE"),
+                        "phone": meta.get("phone", ""),
+                        "is_profile_complete": bool(meta.get("is_profile_complete", True))
+                    }
+                    for k, v in meta.items():
+                        if k not in profile_entry and k != "pwd_hash":
+                            profile_entry[k] = v
+
+                    if email not in _teacher_profiles_store or len(_teacher_profiles_store[email]) < len(profile_entry):
+                        _teacher_profiles_store[email] = profile_entry
+                        profiles_updated = True
+
+                if passwords_updated:
+                    _save_password_store(_password_store)
+                if profiles_updated:
+                    _save_teacher_profiles(_teacher_profiles_store)
+    except Exception as e:
+        logger.warning(f"Supabase Cloud profile hydration notice: {e}")
+
+try:
+    _hydrate_from_supabase_cloud()
+except Exception:
+    pass
+
 class SupabaseService:
     def hash_password(self, password: str) -> str:
         salt = secrets.token_hex(16)
@@ -85,6 +148,10 @@ class SupabaseService:
         salt, pwd_hash = stored_hash.split(":", 1)
         check_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000).hex()
         return secrets.compare_digest(check_hash, pwd_hash)
+
+    def get_all_teacher_profiles(self) -> Dict[str, Dict[str, Any]]:
+        """Return all hydrated user profiles from Supabase Cloud cache."""
+        return dict(_teacher_profiles_store)
 
     def set_user_password(self, email: str, password: str):
         email_clean = email.strip().lower()
@@ -477,38 +544,83 @@ class SupabaseService:
             return False
 
     async def save_assignment_to_cloud(self, email: str, assignment_data: dict) -> bool:
-        """Persist an assignment/worksheet directly into Supabase Cloud question_papers table."""
+        """Persist an assignment/worksheet directly into Supabase Cloud with strict user email isolation."""
         if not assignment_data or not SERVICE_KEY:
             return False
         try:
             email_clean = (email or "guest@devgya.com").strip().lower()
-            profile = await self.get_profile_by_email(email_clean)
-            teacher_id = profile.get("id") if profile else None
-
-            raw_diff = str(assignment_data.get("difficulty") or "medium").lower()
-            valid_diffs = {"easy", "medium", "hard", "mixed"}
-            diff = raw_diff if raw_diff in valid_diffs else "medium"
-
-            row = {
-                "title": str(assignment_data.get("title") or "Assignment Worksheet"),
-                "class_name": str(assignment_data.get("class_name") or "Class 10"),
-                "subject_name": str(assignment_data.get("subject") or "General"),
-                "chapter_title": str(assignment_data.get("chapter_topic") or assignment_data.get("chapter") or "General Syllabus"),
-                "difficulty": diff,
-                "total_marks": int(assignment_data.get("total_marks") or 25),
-                "time_allowed_mins": int(assignment_data.get("time_allowed_mins") or 45),
-                "questions": assignment_data.get("questions") or [],
-                "answer_key": {"instructions": assignment_data.get("instructions") or []}
-            }
-            if teacher_id and "-" in str(teacher_id):
-                row["teacher_id"] = teacher_id
+            asg_id = str(assignment_data.get("id") or uuid.uuid4().hex[:12])
+            assignment_data["id"] = asg_id
 
             async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.post(f"{SUPABASE_URL}/rest/v1/question_papers", headers=headers, json=row)
-                return res.status_code in (200, 201)
+                # 1. Store high-fidelity assignment in ai_conversations telemetry/data store
+                await client.post(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                    headers=headers,
+                    json={
+                        "session_title": f"DEVGYA_ASSIGNMENT:{email_clean}:{asg_id}",
+                        "chat_history": assignment_data
+                    }
+                )
+                return True
         except Exception as e:
-            logger.warn(f"Cloud assignment save notice: {e}")
+            logger.warning(f"Cloud assignment save notice: {e}")
             return False
+
+    async def get_assignments_from_cloud(self, email: str) -> List[Dict[str, Any]]:
+        """Retrieve assignments strictly scoped to this specific user's email."""
+        if not SERVICE_KEY:
+            return []
+        try:
+            email_clean = (email or "guest@devgya.com").strip().lower()
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=like.DEVGYA_ASSIGNMENT:{email_clean}:*&select=chat_history&order=created_at.desc&limit=100",
+                    headers=headers
+                )
+                if res.status_code == 200:
+                    rows = res.json()
+                    assignments = []
+                    seen_ids = set()
+                    for r in rows:
+                        asg = r.get("chat_history")
+                        if isinstance(asg, dict) and asg.get("id") and asg["id"] not in seen_ids:
+                            seen_ids.add(asg["id"])
+                            assignments.append(asg)
+                    return assignments
+        except Exception as e:
+            logger.warning(f"Cloud assignment fetch notice: {e}")
+        return []
+
+    async def delete_assignment_from_cloud(self, email: str, title: Optional[str] = None, class_name: Optional[str] = None, asg_id: Optional[str] = None) -> bool:
+        """Delete an assignment from Supabase Cloud strictly verifying ownership by email."""
+        if not SERVICE_KEY:
+            return False
+        try:
+            email_clean = (email or "guest@devgya.com").strip().lower()
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                if asg_id:
+                    clean_id = str(asg_id).strip()
+                    res = await client.delete(
+                        f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=eq.DEVGYA_ASSIGNMENT:{email_clean}:{clean_id}",
+                        headers=headers
+                    )
+                    return res.status_code in (200, 204)
+                elif title:
+                    res = await client.get(
+                        f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=like.DEVGYA_ASSIGNMENT:{email_clean}:*&select=id,chat_history",
+                        headers=headers
+                    )
+                    if res.status_code == 200:
+                        for row in res.json():
+                            ch = row.get("chat_history") or {}
+                            if ch.get("title") == title and (not class_name or ch.get("class_name") == class_name):
+                                row_id = row.get("id")
+                                await client.delete(f"{SUPABASE_URL}/rest/v1/ai_conversations?id=eq.{row_id}", headers=headers)
+                        return True
+        except Exception as e:
+            logger.warning(f"Cloud assignment delete notice: {e}")
+        return False
 
     async def create_master_profile(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create or update a master profile record across Supabase Cloud and local store."""
@@ -996,56 +1108,6 @@ class SupabaseService:
                         return True
         except Exception as e:
             logger.error(f"Error deleting question paper from Supabase Cloud: {e}")
-        return False
-
-    async def save_assignment_to_cloud(self, email: str, assignment_data: dict) -> bool:
-        """Persists an assignment into cloud profile metadata / store."""
-        if not assignment_data:
-            return False
-        email_clean = (email or "guest@devgya.com").strip().lower()
-        try:
-            profile = await self.get_profile_by_email(email_clean)
-            if profile:
-                asg_list = profile.get("assignments") or []
-                if not isinstance(asg_list, list):
-                    asg_list = []
-                asg_id = assignment_data.get("id")
-                asg_title = assignment_data.get("title")
-                filtered = [a for a in asg_list if not ((asg_id and a.get("id") == asg_id) or (a.get("title") == asg_title))]
-                updated = [assignment_data] + filtered
-                self.save_teacher_profile_details(email_clean, assignments=updated[:50])
-                return True
-        except Exception as e:
-            logger.error(f"Error saving assignment to cloud: {e}")
-        return False
-
-    async def get_assignments_from_cloud(self, email: str) -> list:
-        """Retrieves user's assignments from cloud profile metadata."""
-        email_clean = (email or "").strip().lower()
-        if not email_clean or "guest" in email_clean:
-            return []
-        try:
-            profile = await self.get_profile_by_email(email_clean)
-            if profile and isinstance(profile.get("assignments"), list):
-                return profile["assignments"]
-        except Exception as e:
-            logger.error(f"Error fetching assignments from cloud: {e}")
-        return []
-
-    async def delete_assignment_from_cloud(self, email: str, title: Optional[str] = None, class_name: Optional[str] = None, asg_id: Optional[str] = None) -> bool:
-        """Deletes an assignment from cloud metadata store."""
-        email_clean = (email or "").strip().lower()
-        try:
-            profile = await self.get_profile_by_email(email_clean)
-            if profile and isinstance(profile.get("assignments"), list):
-                filtered = [
-                    a for a in profile["assignments"]
-                    if not ((asg_id and a.get("id") == asg_id) or (title and a.get("title") == title and (not class_name or a.get("class_name") == class_name)))
-                ]
-                self.save_teacher_profile_details(email_clean, assignments=filtered)
-                return True
-        except Exception as e:
-            logger.error(f"Error deleting assignment from cloud: {e}")
         return False
 
 supabase_service = SupabaseService()

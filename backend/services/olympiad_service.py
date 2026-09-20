@@ -2,8 +2,10 @@ import json
 import logging
 import os
 import time
+import threading
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+import httpx
 from dotenv import load_dotenv
 from services.paper_service import paper_service
 
@@ -17,6 +19,16 @@ QUESTIONS_FILE = DATA_DIR / "olympiad_questions.json"
 SUBMISSIONS_FILE = DATA_DIR / "olympiad_submissions.json"
 PRACTICE_FILE = DATA_DIR / "olympiad_practice.json"
 TSO_REGISTRATIONS_FILE = DATA_DIR / "tso_registrations.json"
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://amlvyskjrencrolnppgs.supabase.co").strip().rstrip("/")
+SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+
+supabase_headers = {
+    "apikey": SERVICE_KEY,
+    "Authorization": f"Bearer {SERVICE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}
 
 # ============================================================================
 # 100 AUTHENTIC DISTINCT PRACTICE MOCK QUESTIONS (60/40 MASTER BLUEPRINT)
@@ -1527,6 +1539,23 @@ class OlympiadService:
             "explanation": target.get("explanation", "Conceptual answer explanation.")
         }
 
+    def _sync_registration_to_cloud(self, reg: Dict[str, Any]):
+        if not SERVICE_KEY or not SUPABASE_URL or not reg:
+            return
+        try:
+            email_clean = reg.get("email", "user").strip().lower()
+            with httpx.Client(timeout=8.0) as client:
+                client.post(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                    headers=supabase_headers,
+                    json={
+                        "session_title": f"DEVGYA_TSO_REGISTRATION:{email_clean}",
+                        "chat_history": reg
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Cloud registration sync notice: {e}")
+
     def register_tso_candidate(self, email: str, details: Dict[str, Any]) -> Dict[str, Any]:
         email_clean = email.strip().lower()
         regs = {}
@@ -1556,7 +1585,36 @@ class OlympiadService:
         with open(TSO_REGISTRATIONS_FILE, "w", encoding="utf-8") as f:
             json.dump(regs, f, indent=2)
 
+        threading.Thread(target=self._sync_registration_to_cloud, args=(record,), daemon=True).start()
+
         return {"status": "success", "registration": record}
+
+    def get_tso_registration(self, email: str) -> Optional[Dict[str, Any]]:
+        """Fetch candidate registration strictly isolated for this specific email."""
+        email_clean = email.strip().lower()
+        if TSO_REGISTRATIONS_FILE.exists():
+            try:
+                with open(TSO_REGISTRATIONS_FILE, "r", encoding="utf-8") as f:
+                    regs = json.load(f)
+                    if email_clean in regs:
+                        return regs[email_clean]
+            except Exception:
+                pass
+
+        if SERVICE_KEY and SUPABASE_URL:
+            try:
+                with httpx.Client(timeout=5.0) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=eq.DEVGYA_TSO_REGISTRATION:{email_clean}&select=chat_history&limit=1",
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200 and res.json():
+                        ch = res.json()[0].get("chat_history")
+                        if isinstance(ch, dict) and ch.get("email"):
+                            return ch
+            except Exception:
+                pass
+        return None
 
     def evaluate_answers_for_paper(self, subject: str, paper_id: str, user_answers: Dict[str, Any]) -> Dict[str, Any]:
         """Grade a candidate's 100 answers against the question paper and build question-by-question review analysis."""
@@ -1722,6 +1780,8 @@ class OlympiadService:
             with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
                 json.dump(submissions, f, indent=2)
 
+            threading.Thread(target=self._sync_submission_to_cloud, args=(submission_record,), daemon=True).start()
+
             return {
                 "status": "success",
                 "message": "Your 100-MCQ assessment has been submitted successfully and archived securely. Official merit rankings and scorecards will be declared by the administration committee.",
@@ -1733,6 +1793,37 @@ class OlympiadService:
             logger.error(f"Error saving 100 exam submission: {e}")
             return {"status": "error", "message": str(e)}
 
+    def _sync_submission_to_cloud(self, submission: Dict[str, Any]):
+        """Persists candidate's exam submission to Supabase Cloud."""
+        if not SERVICE_KEY or not SUPABASE_URL or not submission:
+            return
+        try:
+            sub_id = submission.get("id") or f"sub_{int(time.time()*1000)}"
+            with httpx.Client(timeout=8.0) as client:
+                client.post(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                    headers=supabase_headers,
+                    json={
+                        "session_title": f"DEVGYA_OLYMPIAD_SUBMISSION:{sub_id}",
+                        "chat_history": submission
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Cloud submission sync notice: {e}")
+
+    def _delete_submission_from_cloud(self, sub_id: str):
+        """Deletes candidate's exam submission from Supabase Cloud."""
+        if not SERVICE_KEY or not SUPABASE_URL:
+            return
+        try:
+            with httpx.Client(timeout=8.0) as client:
+                client.delete(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=eq.DEVGYA_OLYMPIAD_SUBMISSION:{sub_id}",
+                    headers=supabase_headers
+                )
+        except Exception as e:
+            logger.warning(f"Cloud submission delete notice: {e}")
+
     def get_all_submissions(self) -> List[Dict[str, Any]]:
         submissions = []
         if SUBMISSIONS_FILE.exists():
@@ -1742,6 +1833,30 @@ class OlympiadService:
             except Exception as e:
                 logger.error(f"Error reading submissions: {e}")
                 submissions = []
+
+        # Hydrate from Supabase Cloud if local is empty or to pick up submissions across deploys
+        if SERVICE_KEY and SUPABASE_URL:
+            try:
+                with httpx.Client(timeout=6.0) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=like.DEVGYA_OLYMPIAD_SUBMISSION:*&select=chat_history&order=created_at.desc&limit=500",
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200:
+                        rows = res.json()
+                        seen_ids = {s.get("id") for s in submissions if s.get("id")}
+                        added = False
+                        for r in rows:
+                            sub = r.get("chat_history")
+                            if isinstance(sub, dict) and sub.get("id") and sub["id"] not in seen_ids:
+                                submissions.append(sub)
+                                seen_ids.add(sub["id"])
+                                added = True
+                        if added:
+                            with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
+                                json.dump(submissions, f, indent=2)
+            except Exception as e:
+                logger.warning(f"Notice during Supabase submissions hydration: {e}")
 
         # Auto-migrate/repair any legacy submissions with missing scores or evaluations
         dirty = False
@@ -1842,6 +1957,8 @@ class OlympiadService:
         try:
             with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
                 json.dump(submissions, f, indent=2)
+            if target_sub:
+                threading.Thread(target=self._sync_submission_to_cloud, args=(target_sub,), daemon=True).start()
             return {"status": "success", "message": f"Submission #{submission_id} updated and result declared.", "submission": target_sub}
         except Exception as e:
             logger.error(f"Error saving submission updates: {e}")
@@ -1856,7 +1973,6 @@ class OlympiadService:
         sorted_subs = sorted(submissions, key=lambda s: s.get("score_percentage") or s.get("official_score") or 0, reverse=True)
 
         for idx, sub in enumerate(sorted_subs):
-            # Check match for paper_id, wildcards, or empty
             clean_paper_id = (paper_id or "").strip()
             match = not clean_paper_id or clean_paper_id == "all" or str(sub.get("paper_id")) == clean_paper_id
             
@@ -1878,6 +1994,7 @@ class OlympiadService:
 
                 sub["declared_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
                 published_count += 1
+                threading.Thread(target=self._sync_submission_to_cloud, args=(sub,), daemon=True).start()
 
         try:
             with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
@@ -1899,6 +2016,7 @@ class OlympiadService:
         try:
             with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
                 json.dump(submissions, f, indent=2)
+            threading.Thread(target=self._delete_submission_from_cloud, args=(submission_id,), daemon=True).start()
             return {"status": "success", "message": f"Submission #{submission_id} deleted."}
         except Exception as e:
             logger.error(f"Error deleting submission: {e}")
@@ -1909,14 +2027,19 @@ class OlympiadService:
         submissions = self.get_all_submissions()
         clean_paper_id = (paper_id or "").strip()
         if not clean_paper_id or clean_paper_id == "all":
+            to_delete = list(submissions)
             remaining = []
         else:
+            to_delete = [s for s in submissions if str(s.get("paper_id")) == clean_paper_id]
             remaining = [s for s in submissions if str(s.get("paper_id")) != clean_paper_id]
 
         deleted_count = len(submissions) - len(remaining)
         try:
             with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
                 json.dump(remaining, f, indent=2)
+            for d in to_delete:
+                if d.get("id"):
+                    threading.Thread(target=self._delete_submission_from_cloud, args=(d["id"],), daemon=True).start()
             return {"status": "success", "deleted_count": deleted_count, "message": f"Deleted {deleted_count} submission(s)."}
         except Exception as e:
             logger.error(f"Error bulk deleting submissions: {e}")

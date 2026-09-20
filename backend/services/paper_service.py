@@ -4,10 +4,15 @@ import time
 import os
 import re
 import asyncio
+import threading
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import httpx
+from dotenv import load_dotenv
 from services.ai_provider import ai_provider
+
+load_dotenv()
 
 logger = logging.getLogger("paper_service")
 
@@ -16,14 +21,85 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 PAPERS_FILE = DATA_DIR / "admin_papers.json"
 
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://amlvyskjrencrolnppgs.supabase.co").strip().rstrip("/")
+SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+
+supabase_headers = {
+    "apikey": SERVICE_KEY,
+    "Authorization": f"Bearer {SERVICE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}
+
 class PaperService:
     def __init__(self):
         self._ensure_seed_data()
+        self._sync_from_supabase_cloud(force=True)
 
     def _ensure_seed_data(self):
         if not PAPERS_FILE.exists():
             with open(PAPERS_FILE, "w", encoding="utf-8") as f:
                 json.dump([], f, indent=2)
+
+    def _sync_from_supabase_cloud(self, force: bool = False):
+        """Hydrates admin and published assessment papers from Supabase Cloud on boot."""
+        if not SERVICE_KEY or not SUPABASE_URL:
+            return
+        try:
+            with httpx.Client(timeout=8.0) as client:
+                res = client.get(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=like.DEVGYA_ADMIN_PAPER:*&select=chat_history&order=created_at.desc&limit=100",
+                    headers=supabase_headers
+                )
+                if res.status_code == 200:
+                    rows = res.json()
+                    if rows:
+                        current_papers = self.get_all_papers()
+                        seen_ids = {p.get("id") for p in current_papers if p.get("id")}
+                        added = 0
+                        for r in rows:
+                            paper = r.get("chat_history")
+                            if isinstance(paper, dict) and paper.get("id") and paper["id"] not in seen_ids:
+                                current_papers.append(paper)
+                                seen_ids.add(paper["id"])
+                                added += 1
+                        if added > 0:
+                            with open(PAPERS_FILE, "w", encoding="utf-8") as f:
+                                json.dump(current_papers, f, indent=2)
+                            logger.info(f"Hydrated {added} papers from Supabase Cloud.")
+        except Exception as e:
+            logger.warning(f"Notice during Supabase papers sync: {e}")
+
+    def _sync_paper_to_cloud(self, paper: Dict[str, Any]):
+        """Persists an admin question paper to Supabase Cloud asynchronously."""
+        if not SERVICE_KEY or not SUPABASE_URL or not paper:
+            return
+        try:
+            paper_id = paper.get("id") or f"paper-{int(time.time()*1000)}"
+            with httpx.Client(timeout=8.0) as client:
+                client.post(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                    headers=supabase_headers,
+                    json={
+                        "session_title": f"DEVGYA_ADMIN_PAPER:{paper_id}",
+                        "chat_history": paper
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Notice: Supabase Cloud paper sync deferred: {e}")
+
+    def _delete_paper_from_cloud(self, paper_id: str):
+        """Deletes an admin paper from Supabase Cloud."""
+        if not SERVICE_KEY or not SUPABASE_URL:
+            return
+        try:
+            with httpx.Client(timeout=8.0) as client:
+                client.delete(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=eq.DEVGYA_ADMIN_PAPER:{paper_id}",
+                    headers=supabase_headers
+                )
+        except Exception as e:
+            logger.warning(f"Notice: Supabase Cloud paper delete notice: {e}")
 
     def get_all_papers(self) -> List[Dict[str, Any]]:
         try:
@@ -102,6 +178,8 @@ class PaperService:
             papers.insert(0, created_paper)
             with open(PAPERS_FILE, "w", encoding="utf-8") as f:
                 json.dump(papers, f, indent=2)
+
+            threading.Thread(target=self._sync_paper_to_cloud, args=(created_paper,), daemon=True).start()
 
             return {"status": "success", "paper": created_paper}
         except Exception as e:
@@ -327,6 +405,8 @@ STRICT REQUIREMENTS:
             with open(PAPERS_FILE, "w", encoding="utf-8") as f:
                 json.dump(papers, f, indent=2)
 
+            threading.Thread(target=self._sync_paper_to_cloud, args=(target_paper,), daemon=True).start()
+
             return {"status": "success", "paper": target_paper}
         except Exception as e:
             return {"status": "error", "message": str(e)}
@@ -337,6 +417,9 @@ STRICT REQUIREMENTS:
             filtered = [p for p in papers if p["id"] != paper_id]
             with open(PAPERS_FILE, "w", encoding="utf-8") as f:
                 json.dump(filtered, f, indent=2)
+
+            threading.Thread(target=self._delete_paper_from_cloud, args=(paper_id,), daemon=True).start()
+
             return {"status": "success", "message": f"Paper {paper_id} deleted"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
