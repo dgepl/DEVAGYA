@@ -14,17 +14,23 @@ import {
   TrendingUp
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useToolConfigStore } from "@/store/useToolConfigStore";
 
 export function MobileParentDashboard() {
   const { user } = useAppStore();
+  const { isFeatureAllowed } = useToolConfigStore();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const parentTools = [
+  const rawParentTools = [
     { name: "Parenting Coach", sub: "Behavior & Home Routine", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "AI Coach" },
     { name: "Marks Radar", sub: "Progress & Weak Spots", href: "/dashboard/agents?agent=analytics_assistant", icon: BarChart3, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Analytics" },
     { name: "Career Counselor", sub: "Stream & College Guidance", href: "/dashboard/agents?agent=career_counselor", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "Career" },
     { name: "Safety Standards", sub: "Screen-Time & Ad-Free", href: "/safety-standards", icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Protection" },
   ];
+
+  const parentTools = useMemo(() => {
+    return rawParentTools.filter(t => isFeatureAllowed(t.href));
+  }, [isFeatureAllowed]);
 
   // Dynamic search matching
   const matchingTools = useMemo(() => {
@@ -86,22 +92,26 @@ export function MobileParentDashboard() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 pt-1 relative z-10">
-          <Link
-            href="/dashboard/agents?agent=parent_coach"
-            className="flex-1 py-2.5 bg-white text-rose-950 font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-rose-600 fill-rose-500" />
-            <span>Ask Parenting Coach</span>
-          </Link>
+          {isFeatureAllowed("/dashboard/agents?agent=parent_coach") && (
+            <Link
+              href="/dashboard/agents?agent=parent_coach"
+              className="flex-1 py-2.5 bg-white text-rose-950 font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-rose-600 fill-rose-500" />
+              <span>Ask Parenting Coach</span>
+            </Link>
+          )}
           
-          <Link
-            href="/dashboard/agents?agent=career_counselor"
-            className="p-2.5 px-3 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer text-xs font-bold gap-1.5"
-            title="Career Counselor"
-          >
-            <GraduationCap className="w-4 h-4 text-pink-200" />
-            <span>Career</span>
-          </Link>
+          {isFeatureAllowed("/dashboard/agents?agent=career_counselor") && (
+            <Link
+              href="/dashboard/agents?agent=career_counselor"
+              className="p-2.5 px-3 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer text-xs font-bold gap-1.5"
+              title="Career Counselor"
+            >
+              <GraduationCap className="w-4 h-4 text-pink-200" />
+              <span>Career</span>
+            </Link>
+          )}
         </div>
       </div>
 

@@ -59,7 +59,8 @@ import {
   CheckCircle,
   XCircle,
   Flame,
-  ArrowUpRight
+  ArrowUpRight,
+  Copy
 } from "lucide-react";
 import { useToolConfigStore, ToolItem } from "@/store/useToolConfigStore";
 import { getApiBase } from "@/lib/api";
@@ -80,8 +81,16 @@ export default function SuperAdminPage() {
   };
 
   // Main Left Slidebar Tabs
-  const [adminTab, setAdminTab] = useState<"analytics" | "users" | "permissions" | "paper_studio" | "olympiad" | "schools" | "security">("analytics");
+  const [adminTab, setAdminTab] = useState<"analytics" | "users" | "permissions" | "paper_studio" | "olympiad" | "schools" | "security" | "inquiries">("analytics");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Contact Inquiries State
+  const [inquiriesList, setInquiriesList] = useState<any[]>([]);
+  const [inquirySearch, setInquirySearch] = useState("");
+  const [inquiryRoleFilter, setInquiryRoleFilter] = useState("all");
+  const [selectedInquiryModal, setSelectedInquiryModal] = useState<any | null>(null);
+  const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
+  const [copiedEmailId, setCopiedEmailId] = useState<string | null>(null);
 
   // Platform Feature Permission Store
   const { tools, toggleFeatureAllowed, setAllFeaturesAllowed, resetToDefaults, fetchFromServer, saveToServer } = useToolConfigStore();
@@ -345,10 +354,39 @@ export default function SuperAdminPage() {
 
       // 3. Fetch Detailed Real-Time Platform Analytics
       fetchDetailedAnalytics(token || undefined);
+
+      // 4. Fetch Contact Form Inquiries
+      try {
+        const inqRes = await fetch(`${baseUrl}/admin/inquiries`);
+        if (inqRes.ok) {
+          const inqData = await inqRes.json();
+          if (inqData.inquiries) setInquiriesList(inqData.inquiries);
+        }
+      } catch (inqErr) {
+        console.warn("Failed to fetch contact inquiries:", inqErr);
+      }
     } catch (e) {
       console.error("Error fetching admin data", e);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const handleDeleteInquiry = async (inqId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this contact inquiry?")) return;
+    try {
+      const baseUrl = getApiBase();
+      const res = await fetch(`${baseUrl}/admin/inquiries/${inqId}`, { method: "DELETE" });
+      if (res.ok) {
+        setInquiriesList(prev => prev.filter(i => i.id !== inqId));
+        if (selectedInquiryModal?.id === inqId) setSelectedInquiryModal(null);
+        setActionMsg("Contact inquiry deleted successfully.");
+        setTimeout(() => setActionMsg(null), 3000);
+      } else {
+        alert("Failed to delete inquiry.");
+      }
+    } catch {
+      alert("Error deleting inquiry.");
     }
   };
 
@@ -1059,6 +1097,26 @@ export default function SuperAdminPage() {
     });
   }, [tools, permissionRoleFilter, permissionStatusFilter, permissionSearch]);
 
+  // Filtered Contact Inquiries
+  const filteredInquiries = useMemo(() => {
+    return inquiriesList.filter((inq) => {
+      if (inquiryRoleFilter !== "all" && inq.role !== inquiryRoleFilter) {
+        return false;
+      }
+      if (inquirySearch.trim()) {
+        const q = inquirySearch.toLowerCase().trim();
+        const matches = 
+          (inq.name || "").toLowerCase().includes(q) ||
+          (inq.email || "").toLowerCase().includes(q) ||
+          (inq.phone || "").toLowerCase().includes(q) ||
+          (inq.subject || "").toLowerCase().includes(q) ||
+          (inq.message || "").toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [inquiriesList, inquiryRoleFilter, inquirySearch]);
+
   // Cheating Badge Helper for Olympiad
   const renderCheatingBadge = (sub: any) => {
     const audit = sub.proctoring_audit || {};
@@ -1209,6 +1267,13 @@ export default function SuperAdminPage() {
       icon: Building2,
       badge: `${schoolsList.filter(s => s.verification_status === "pending_verification").length} Pending`,
       badgeColor: schoolsList.filter(s => s.verification_status === "pending_verification").length > 0 ? "bg-rose-500 text-white" : "bg-slate-700 text-slate-300"
+    },
+    {
+      id: "inquiries",
+      label: "Contact Inquiries",
+      icon: MessageSquare,
+      badge: `${inquiriesList.length} Messages`,
+      badgeColor: inquiriesList.length > 0 ? "bg-rose-500 text-white font-bold" : "bg-slate-700 text-slate-300"
     },
     {
       id: "security",
@@ -2711,6 +2776,250 @@ export default function SuperAdminPage() {
             </div>
           )}
 
+          {/* ========================================================================= */}
+          {/* TAB 8: CONTACT FORM & INSTITUTIONAL INQUIRIES                            */}
+          {/* ========================================================================= */}
+          {adminTab === "inquiries" && (
+            <div className="space-y-6 font-sans animate-in fade-in duration-200">
+              
+              {/* HEADER BANNER */}
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+                    <MessageSquare className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Inquiry Pipeline</span>
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900">
+                    Contact Us &amp; Institutional Inquiries
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Real-time inquiries received from website visitors, school leaders, educators, students, and parents.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => fetchAdminData()}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Refresh Inquiries</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* STATS OVERVIEW CARDS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-5 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                  <span className="text-[10px] font-black uppercase text-slate-400">Total Inquiries</span>
+                  <div className="text-2xl font-black text-slate-900">{inquiriesList.length}</div>
+                  <p className="text-[11px] text-slate-500 font-medium">All recorded form inquiries</p>
+                </div>
+
+                <div className="p-5 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                  <span className="text-[10px] font-black uppercase text-emerald-600">Verified Mobile Contacts</span>
+                  <div className="text-2xl font-black text-emerald-700">
+                    {inquiriesList.filter(i => i.phone?.trim()).length}
+                  </div>
+                  <p className="text-[11px] text-emerald-600 font-medium">Direct phone/WhatsApp leads</p>
+                </div>
+
+                <div className="p-5 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                  <span className="text-[10px] font-black uppercase text-indigo-600">School Principals</span>
+                  <div className="text-2xl font-black text-indigo-700">
+                    {inquiriesList.filter(i => (i.role || "").toLowerCase().includes("school") || (i.role || "").toLowerCase().includes("principal")).length}
+                  </div>
+                  <p className="text-[11px] text-indigo-600 font-medium">Institutional partnerships</p>
+                </div>
+
+                <div className="p-5 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                  <span className="text-[10px] font-black uppercase text-purple-600">Educators &amp; Teachers</span>
+                  <div className="text-2xl font-black text-purple-700">
+                    {inquiriesList.filter(i => (i.role || "").toLowerCase().includes("teacher")).length}
+                  </div>
+                  <p className="text-[11px] text-purple-600 font-medium">Pedagogy &amp; Olympiad queries</p>
+                </div>
+              </div>
+
+              {/* SEARCH & FILTERS BAR */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={inquirySearch}
+                    onChange={(e) => setInquirySearch(e.target.value)}
+                    placeholder="Search by Name, Email, Mobile Phone, Subject, or Message..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                  />
+                  {inquirySearch && (
+                    <button
+                      onClick={() => setInquirySearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={inquiryRoleFilter}
+                    onChange={(e) => setInquiryRoleFilter(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="all">All Stakeholders ({inquiriesList.length})</option>
+                    <option value="School Principal / Management">School Principal / Management</option>
+                    <option value="CBSE / ICSE Teacher">CBSE / ICSE Teacher</option>
+                    <option value="Student / Aspirant">Student / Aspirant</option>
+                    <option value="Parent">Parent</option>
+                    <option value="Academic Partner / Distributor">Academic Partner</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* INQUIRIES DATA TABLE */}
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                {filteredInquiries.length === 0 ? (
+                  <div className="p-12 text-center space-y-3">
+                    <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-full mx-auto flex items-center justify-center">
+                      <MessageSquare className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-sm font-black text-slate-800">No contact inquiries found</h4>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      {inquirySearch ? "No inquiries match your current search terms." : "Inquiries submitted via the Contact Us form will appear here in real-time."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 uppercase text-[10px] font-black tracking-wider">
+                        <tr>
+                          <th className="py-3.5 px-4 sm:px-6">Name &amp; Role</th>
+                          <th className="py-3.5 px-4">Mobile Phone Number</th>
+                          <th className="py-3.5 px-4">Email Address</th>
+                          <th className="py-3.5 px-4">Subject &amp; Message</th>
+                          <th className="py-3.5 px-4">Date &amp; Time</th>
+                          <th className="py-3.5 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredInquiries.map((inq, idx) => {
+                          const formattedDate = inq.created_at
+                            ? new Date(inq.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+                            : "Recently";
+
+                          return (
+                            <tr key={inq.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                              {/* Name & Role */}
+                              <td className="py-4 px-4 sm:px-6">
+                                <div className="space-y-1">
+                                  <div className="font-extrabold text-slate-900 text-sm">{inq.name}</div>
+                                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                    {inq.role || "Educator"}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* Mobile Number */}
+                              <td className="py-4 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs">
+                                    {inq.phone}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(inq.phone);
+                                      setCopiedPhoneId(inq.id);
+                                      setTimeout(() => setCopiedPhoneId(null), 2500);
+                                    }}
+                                    className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                    title="Copy mobile number"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                  {copiedPhoneId === inq.id && (
+                                    <span className="text-[10px] text-emerald-600 font-bold animate-in fade-in">
+                                      Copied!
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Email Address */}
+                              <td className="py-4 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <a
+                                    href={`mailto:${inq.email}`}
+                                    className="text-indigo-600 hover:text-indigo-800 font-semibold hover:underline"
+                                  >
+                                    {inq.email}
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(inq.email);
+                                      setCopiedEmailId(inq.id);
+                                      setTimeout(() => setCopiedEmailId(null), 2500);
+                                    }}
+                                    className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                    title="Copy email address"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+
+                              {/* Subject & Message */}
+                              <td className="py-4 px-4 max-w-xs">
+                                <div className="space-y-0.5">
+                                  <div className="font-bold text-slate-900 truncate">
+                                    {inq.subject || "General Inquiry"}
+                                  </div>
+                                  <p className="text-slate-500 line-clamp-1 font-medium">
+                                    {inq.message}
+                                  </p>
+                                </div>
+                              </td>
+
+                              {/* Date & Time */}
+                              <td className="py-4 px-4 whitespace-nowrap text-slate-500 font-medium">
+                                {formattedDate}
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-4 px-4 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedInquiryModal(inq)}
+                                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition cursor-pointer"
+                                  >
+                                    View Full
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteInquiry(inq.id)}
+                                    className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition cursor-pointer"
+                                    title="Delete inquiry"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+
         </div>
       </main>
 
@@ -3260,6 +3569,114 @@ export default function SuperAdminPage() {
                 className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
               >
                 {savingQuestionEdit ? "Saving..." : "Save Question"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 8: INQUIRY DETAIL MODAL                                             */}
+      {/* ========================================================================= */}
+      {selectedInquiryModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-black text-slate-900">{selectedInquiryModal.name}</h3>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    {selectedInquiryModal.role}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-medium">
+                  Received on {new Date(selectedInquiryModal.created_at || Date.now()).toLocaleString([], { dateStyle: "full", timeStyle: "short" })}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedInquiryModal(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Direct Contact Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1">
+                <span className="text-[10px] font-black uppercase text-emerald-700">Mobile Phone Number</span>
+                <div className="font-mono text-sm font-black text-emerald-950">{selectedInquiryModal.phone}</div>
+                <div className="pt-1 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedInquiryModal.phone);
+                      alert("Mobile phone number copied to clipboard!");
+                    }}
+                    className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                  >
+                    Copy Phone
+                  </button>
+                  <a
+                    href={`tel:${selectedInquiryModal.phone}`}
+                    className="text-[11px] font-bold text-emerald-800 hover:underline"
+                  >
+                    Call
+                  </a>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-indigo-50 rounded-2xl border border-indigo-200 space-y-1">
+                <span className="text-[10px] font-black uppercase text-indigo-700">Email Address</span>
+                <div className="text-sm font-bold text-indigo-950 truncate">{selectedInquiryModal.email}</div>
+                <div className="pt-1 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedInquiryModal.email);
+                      alert("Email copied to clipboard!");
+                    }}
+                    className="text-[11px] font-bold text-indigo-700 hover:underline cursor-pointer"
+                  >
+                    Copy Email
+                  </button>
+                  <a
+                    href={`mailto:${selectedInquiryModal.email}`}
+                    className="text-[11px] font-bold text-indigo-800 hover:underline"
+                  >
+                    Send Email
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Subject & Full Message */}
+            <div className="space-y-2">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Inquiry Subject</span>
+                <h4 className="text-sm font-black text-slate-900">{selectedInquiryModal.subject || "General Inquiry"}</h4>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-wrap max-h-60 overflow-y-auto">
+                {selectedInquiryModal.message}
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              <button
+                onClick={() => handleDeleteInquiry(selectedInquiryModal.id)}
+                className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Inquiry</span>
+              </button>
+
+              <button
+                onClick={() => setSelectedInquiryModal(null)}
+                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

@@ -28,17 +28,19 @@ import {
   Building2
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useToolConfigStore } from "@/store/useToolConfigStore";
 import { downloadPDF } from "@/lib/api";
 
 export function MobileTeacherDashboard() {
   const { user, savedPapers, setActivePaper, setMobileDrawerOpen } = useAppStore();
+  const { isFeatureAllowed } = useToolConfigStore();
   const [searchQuery, setSearchQuery] = useState("");
 
   const allTools = [
-    { name: "AI Assignment Maker", sub: "Homework & Ruled Lines PDF", href: "/dashboard/assignments", icon: FileText, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", type: "Studio" },
-    { name: "AI PPT Generator", sub: "Interactive Presentation Decks", href: "/dashboard/ppt-generator", icon: Sliders, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Generator" },
     { name: "Teacher Mentor AI", sub: "Pedagogy & Lesson AI", href: "/dashboard/agents?agent=teacher_mentor", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "AI Tool" },
     { name: "Question Generator", sub: "NCERT Exam Papers", href: "/dashboard/generator", icon: Sparkles, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Generator" },
+    { name: "AI PPT Generator", sub: "Interactive Presentation Decks", href: "/dashboard/ppt-generator", icon: Sliders, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Generator" },
+    { name: "AI Assignment Maker", sub: "Homework & Ruled Lines PDF", href: "/dashboard/assignments", icon: FileText, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", type: "Studio" },
     { name: "Skill Enhance Practice", sub: "Practice Mock Tests", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Practice" },
     { name: "Skill Enhance Program", sub: "Official Certification", href: "/dashboard/teacher-olympiad", icon: Trophy, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100", type: "Certification" },
     { name: "English Speaking Coach", sub: "Live Spoken Fluency & Practice", href: "/dashboard/english-coach", icon: Headphones, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "Speaking Coach" },
@@ -47,16 +49,21 @@ export function MobileTeacherDashboard() {
     { name: "English Coach", sub: "Academic Polish", href: "/dashboard/agents?agent=english_coach", icon: Bot, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100", type: "AI Coach" },
   ];
 
+  // Only allowed tools according to admin permissions
+  const allowedTools = useMemo(() => {
+    return allTools.filter(t => isFeatureAllowed(t.href));
+  }, [allTools, isFeatureAllowed]);
+
   // Dynamic search matching
   const matchingTools = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase().trim();
-    return allTools.filter(t => 
+    return allowedTools.filter(t => 
       t.name.toLowerCase().includes(q) || 
       t.sub.toLowerCase().includes(q) || 
       t.type.toLowerCase().includes(q)
     );
-  }, [searchQuery]);
+  }, [searchQuery, allowedTools]);
 
   const matchingPapers = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -120,21 +127,25 @@ export function MobileTeacherDashboard() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 pt-1 relative z-10">
-          <Link
-            href="/dashboard/generator"
-            className="px-4 py-2.5 bg-white text-indigo-900 font-extrabold text-xs rounded-2xl shadow-lg flex items-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-purple-600 fill-purple-500" />
-            <span>Generate Paper</span>
-          </Link>
+          {isFeatureAllowed("/dashboard/generator") && (
+            <Link
+              href="/dashboard/generator"
+              className="px-4 py-2.5 bg-white text-indigo-900 font-extrabold text-xs rounded-2xl shadow-lg flex items-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-purple-600 fill-purple-500" />
+              <span>Generate Paper</span>
+            </Link>
+          )}
           
-          <Link
-            href="/dashboard/agents?agent=teacher_mentor"
-            className="p-2.5 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer"
-            title="Teacher Mentor AI"
-          >
-            <GraduationCap className="w-5 h-5 text-indigo-200" />
-          </Link>
+          {isFeatureAllowed("/dashboard/agents?agent=teacher_mentor") && (
+            <Link
+              href="/dashboard/agents?agent=teacher_mentor"
+              className="p-2.5 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer"
+              title="Teacher Mentor AI"
+            >
+              <GraduationCap className="w-5 h-5 text-indigo-200" />
+            </Link>
+          )}
         </div>
       </div>
 
@@ -281,119 +292,29 @@ export function MobileTeacherDashboard() {
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              {/* Card 1: Teacher Mentor AI */}
-              <Link
-                href="/dashboard/agents?agent=teacher_mentor"
-                className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-purple-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
-                  <GraduationCap className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Teacher Mentor AI</h3>
-                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Pedagogy & Lesson AI</p>
-                </div>
-                <div className="flex justify-end pt-1">
-                  <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                </div>
-              </Link>
-
-              {/* Card 2: Question Generator */}
-              <Link
-                href="/dashboard/generator"
-                className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-amber-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
-                  <Sparkles className="w-5 h-5 text-amber-500 fill-amber-400" />
-                </div>
-                <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Question Generator</h3>
-                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">NCERT Exam Papers</p>
-                </div>
-                <div className="flex justify-end pt-1">
-                  <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                </div>
-              </Link>
-
-              {/* Card 3: AI PPT Generator */}
-              <Link
-                href="/dashboard/ppt-generator"
-                className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-indigo-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                  <Sliders className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">AI PPT Generator</h3>
-                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Slides & Presentations</p>
-                </div>
-                <div className="flex justify-end pt-1">
-                  <div className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                </div>
-              </Link>
-
-              {/* Card 4: Skill Enhance Practice */}
-              <Link
-                href="/dashboard/teacher-olympiad/practice"
-                className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-emerald-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Skill Enhance Practice</h3>
-                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Practice Mock Tests</p>
-                </div>
-                <div className="flex justify-end pt-1">
-                  <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                </div>
-              </Link>
-
-              {/* Card 5: Skill Enhance Program */}
-              <Link
-                href="/dashboard/teacher-olympiad"
-                className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-orange-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600">
-                  <Trophy className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">Skill Enhance Program</h3>
-                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Official Certification</p>
-                </div>
-                <div className="flex justify-end pt-1">
-                  <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                </div>
-              </Link>
-
-              {/* Card 6: English Speaking Coach */}
-              <Link
-                href="/dashboard/english-coach"
-                className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-rose-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
-                  <Headphones className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">English Speaking Coach</h3>
-                  <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight">Live Spoken Fluency & Practice</p>
-                </div>
-                <div className="flex justify-end pt-1">
-                  <div className="w-5 h-5 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                </div>
-              </Link>
+              {allowedTools.map((tool, idx) => {
+                const IconComp = tool.icon;
+                return (
+                  <Link
+                    key={idx}
+                    href={tool.href}
+                    className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-indigo-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
+                  >
+                    <div className={`w-9 h-9 rounded-xl ${tool.bg} ${tool.border} border flex items-center justify-center ${tool.color}`}>
+                      <IconComp className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight line-clamp-2">{tool.name}</h3>
+                      <p className="text-[9px] text-slate-400 font-bold mt-0.5 leading-tight line-clamp-1">{tool.sub}</p>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <div className="w-5 h-5 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center">
+                        <ArrowRight className="w-3 h-3" />
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
 

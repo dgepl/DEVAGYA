@@ -32,6 +32,7 @@ import {
   Building2
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useToolConfigStore } from "@/store/useToolConfigStore";
 import { downloadPDF, GeneratedPaperResponse } from "@/lib/api";
 import { MobileTeacherDashboard } from "@/components/dashboard/MobileTeacherDashboard";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
@@ -46,6 +47,7 @@ interface ChatConvSummary {
 export default function TeacherDashboardOverviewPage() {
   const router = useRouter();
   const { user, savedPapers, setActivePaper, deleteSavedPaper } = useAppStore();
+  const { isFeatureAllowed } = useToolConfigStore();
   const [paperToDelete, setPaperToDelete] = useState<{ idx: number; title: string } | null>(null);
   const [conversations, setConversations] = useState<ChatConvSummary[]>([]);
   const [loadingConvs, setLoadingConvs] = useState<boolean>(true);
@@ -185,6 +187,7 @@ export default function TeacherDashboardOverviewPage() {
   });
 
   const filteredTools = teacherTools.filter(t => {
+    if (!isFeatureAllowed(t.href)) return false;
     if (desktopFilter === "generator" && t.code !== "generator") return false;
     if (desktopFilter === "olympiad" && !t.code.includes("olympiad")) return false;
     if (desktopFilter === "ai" && !["teacher_mentor", "video-consultation", "english-coach"].includes(t.code)) return false;

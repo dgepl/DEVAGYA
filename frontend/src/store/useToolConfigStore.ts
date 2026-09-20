@@ -297,6 +297,8 @@ export const useToolConfigStore = create<ToolConfigState>()(
       },
 
       isFeatureAllowed: (path: string, agentCode?: string) => {
+        if (!path) return true;
+
         // Base dashboard and profile pages are always allowed
         if (
           path === "/dashboard" ||
@@ -311,19 +313,30 @@ export const useToolConfigStore = create<ToolConfigState>()(
 
         const { tools } = get();
 
-        // 1. Check by agentCode if present
-        if (agentCode) {
+        // 1. Resolve agentCode directly or from query parameters
+        let resolvedAgent = agentCode;
+        if (!resolvedAgent && path.includes("?")) {
+          const parts = path.split("?");
+          if (parts[1]) {
+            try {
+              const params = new URLSearchParams(parts[1]);
+              resolvedAgent = params.get("agent") || undefined;
+            } catch {}
+          }
+        }
+
+        if (resolvedAgent) {
           const match = tools.find(
-            (t) => t.id === agentCode || t.path.includes(`agent=${agentCode}`)
+            (t) => t.id === resolvedAgent || t.path.includes(`agent=${resolvedAgent}`)
           );
           if (match) return match.is_enabled !== false;
         }
 
-        // 2. Check by exact path or base path
+        // 2. Check by exact path or clean path
         const cleanPath = path.split("?")[0];
         const match = tools.find((t) => {
           const tClean = t.path.split("?")[0];
-          return t.path === path || tClean === cleanPath || cleanPath.startsWith(tClean);
+          return t.path === path || tClean === cleanPath || (tClean.length > 11 && cleanPath.startsWith(tClean));
         });
 
         if (match) return match.is_enabled !== false;

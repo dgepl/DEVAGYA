@@ -9,6 +9,7 @@ import {
   Bot, Mic, Layers
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useToolConfigStore } from "@/store/useToolConfigStore";
 import { MobileStudentDashboard } from "@/components/dashboard/MobileStudentDashboard";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
@@ -18,6 +19,7 @@ interface LeaderEntry { user_id: string; user_name: string; total_xp: number; le
 
 export function StudentDashboard() {
   const { user } = useAppStore();
+  const { isFeatureAllowed } = useToolConfigStore();
   const [xp, setXp] = useState<XPData>({ total_xp: 0, level: 1, streak: 0 });
   const [leaders, setLeaders] = useState<LeaderEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,13 +44,15 @@ export function StudentDashboard() {
   const xpToNext = 500 - (xp.total_xp % 500);
   const myRank = leaders.findIndex((e) => e.user_id === user.id) + 1;
 
-  const QUICK_TOOLS = [
+  const rawQuickTools = [
     { label: "AI Socratic Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain, color: "from-indigo-500 to-violet-600", desc: "Step-by-step guidance" },
     { label: "AI Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy, color: "from-rose-500 to-pink-600", desc: "CBSE Roadmaps & Qs" },
     { label: "Practice Quizzes", href: "/dashboard/student/practice", icon: Target, color: "from-emerald-500 to-teal-600", desc: "Untimed Chapter Mocks" },
     { label: "Notion Smart Notes", href: "/dashboard/student/notes", icon: FileText, color: "from-blue-500 to-cyan-600", desc: "AI Class Notebook" },
     { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock, color: "from-amber-500 to-orange-600", desc: "Focus & Retain" },
   ];
+
+  const QUICK_TOOLS = rawQuickTools.filter(t => isFeatureAllowed(t.href));
 
   const RANK_COLORS = ["from-amber-400 to-yellow-500", "from-slate-300 to-slate-400", "from-amber-600 to-orange-700"];
 

@@ -524,3 +524,95 @@ async def update_all_platform_tools(payload: ToolsUpdatePayload):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to persist tool configurations: {str(e)}")
 
+# --- CONTACT US INQUIRY PIPELINE ---
+INQUIRIES_STORE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "inquiries.json")
+
+def _load_inquiries() -> List[Dict[str, Any]]:
+    if not os.path.exists(INQUIRIES_STORE_PATH):
+        return []
+    try:
+        with open(INQUIRIES_STORE_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def _save_inquiries(inquiries_data: List[Dict[str, Any]]):
+    os.makedirs(os.path.dirname(INQUIRIES_STORE_PATH), exist_ok=True)
+    with open(INQUIRIES_STORE_PATH, "w", encoding="utf-8") as f:
+        json.dump(inquiries_data, f, indent=2, ensure_ascii=False)
+
+class ContactInquiryPayload(BaseModel):
+    name: str
+    email: str
+    phone: str
+    role: Optional[str] = "Educator"
+    subject: Optional[str] = "General Inquiry"
+    message: str
+
+@router.post("/contact/inquiry")
+async def submit_contact_inquiry(payload: ContactInquiryPayload):
+    """Public endpoint for submitting an inquiry via the Contact Us form."""
+    if not payload.name.strip() or not payload.email.strip() or not payload.phone.strip():
+        raise HTTPException(status_code=400, detail="Name, Email, and Mobile Number are required.")
+    
+    inquiries = _load_inquiries()
+    new_inquiry = {
+        "id": f"inq_{int(time.time())}_{uuid.uuid4().hex[:6]}",
+        "name": payload.name.strip(),
+        "email": payload.email.strip(),
+        "phone": payload.phone.strip(),
+        "role": payload.role or "Educator",
+        "subject": payload.subject or "General Inquiry",
+        "message": payload.message.strip(),
+        "status": "new",
+        "created_at": datetime.utcnow().isoformat()
+    }
+    inquiries.insert(0, new_inquiry)
+    _save_inquiries(inquiries)
+
+    # Track activity for analytics
+    try:
+        activity_service.record_activity(
+            user_id="anonymous",
+            user_email=payload.email.strip(),
+            user_name=payload.name.strip(),
+            user_role=payload.role or "visitor",
+            action="contact_inquiry_submitted",
+            feature_id="contact-page",
+            feature_name="Contact Us Inquiry Form",
+            path="/contact"
+        )
+    except Exception:
+        pass
+
+    return {
+        "status": "success",
+        "message": "Inquiry submitted successfully! Our team will contact you shortly.",
+        "inquiry": new_inquiry
+    }
+
+@router.get("/inquiries")
+async def get_all_inquiries():
+    """Admin endpoint to fetch all contact form inquiries."""
+    inquiries = _load_inquiries()
+    return {
+        "status": "success",
+        "count": len(inquiries),
+        "inquiries": inquiries
+    }
+
+@router.delete("/inquiries/{inquiry_id}")
+async def delete_inquiry(inquiry_id: str):
+    """Admin endpoint to delete/archive an inquiry."""
+    inquiries = _load_inquiries()
+    initial_count = len(inquiries)
+    updated = [inq for inq in inquiries if inq.get("id") != inquiry_id]
+    if len(updated) == initial_count:
+        raise HTTPException(status_code=404, detail="Inquiry not found.")
+    _save_inquiries(updated)
+    return {
+        "status": "success",
+        "message": "Inquiry deleted successfully",
+        "deleted_id": inquiry_id
+    }
+
