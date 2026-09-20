@@ -6,9 +6,13 @@ from services.activity_service import activity_service
 router = APIRouter(prefix="/analytics", tags=["AI Usage & Platform Analytics"])
 
 class TrackActivityPayload(BaseModel):
-    email: str
+    email: Optional[str] = None
+    user_email: Optional[str] = None
     name: Optional[str] = ""
+    user_name: Optional[str] = ""
     role: Optional[str] = "teacher"
+    user_role: Optional[str] = None
+    action: Optional[str] = "view"
     feature_id: Optional[str] = "dashboard"
     feature_name: Optional[str] = "Dashboard"
     path: Optional[str] = "/dashboard"
@@ -17,13 +21,21 @@ class TrackActivityPayload(BaseModel):
 @router.post("/track")
 async def track_user_activity(payload: TrackActivityPayload):
     """Log an activity event when user visits a feature or triggers an action."""
+    target_email = (payload.email or payload.user_email or "").strip().lower()
+    if not target_email:
+        return {"status": "ignored", "reason": "No user email provided"}
+
+    target_name = (payload.name or payload.user_name or "").strip()
+    target_role = (payload.role or payload.user_role or "teacher").strip()
+
     event = activity_service.record_activity(
-        email=payload.email,
-        name=payload.name,
-        role=payload.role,
-        feature_id=payload.feature_id,
-        feature_name=payload.feature_name,
-        path=payload.path,
+        email=target_email,
+        name=target_name,
+        role=target_role,
+        action=payload.action or "view",
+        feature_id=payload.feature_id or "dashboard",
+        feature_name=payload.feature_name or "Dashboard",
+        path=payload.path or "/dashboard",
         details=payload.details
     )
     return {"status": "success", "event_id": event.get("id")}

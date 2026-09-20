@@ -238,6 +238,22 @@ async def agent_chat_message(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found.")
 
+    try:
+        from services.activity_service import activity_service
+        email_cand = user_id if "@" in user_id else f"{user_id}@devgya.in"
+        agent_name = agent.get("name") if isinstance(agent, dict) else agent_code.replace("_", " ").title()
+        activity_service.record_activity(
+            email=email_cand,
+            name=agent_name,
+            role="teacher" if "teacher" in agent_code else "student",
+            action="ai_chat",
+            feature_id=agent_code,
+            feature_name=f"AI Agent: {agent_name}",
+            path=f"/dashboard/agents?agent={agent_code}"
+        )
+    except Exception as act_err:
+        logger.warning(f"Failed to record agent activity: {act_err}")
+
     # Process uploaded documents / PDFs / Worksheets -> extract text
     doc_sections: List[str] = []
     for d in all_doc_files:

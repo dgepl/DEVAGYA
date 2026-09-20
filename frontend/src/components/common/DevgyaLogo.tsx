@@ -30,7 +30,7 @@ export function DevgyaLogo({
       <img
         src="/logo.png"
         alt="DEVGYA GLOBAL EDUTECH"
-        className={`${heightClass} w-auto object-contain mix-blend-multiply transition-transform ${imageClassName}`}
+        className={`${heightClass} w-auto object-contain transition-transform ${imageClassName}`}
         loading="eager"
       />
     </div>

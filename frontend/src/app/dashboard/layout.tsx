@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
+import { getApiBase } from "@/lib/api";
 import { useEffect, useState, Suspense } from "react";
 import { SmartSearchBar } from "@/components/search/SmartSearchBar";
 import { PageTransition } from "@/components/ui/PageTransition";
@@ -79,24 +80,51 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     if (!user?.email || !pathname) return;
     try {
       const activeFeatureName = 
-        agentParam ? `Agent: ${agentParam}` :
+        agentParam ? `Agent: ${agentParam.replace(/_/g, " ").toUpperCase()}` :
         pathname === "/dashboard" ? "Teacher Dashboard" :
         pathname === "/dashboard/student" ? "Student Dashboard" :
         pathname === "/dashboard/parent" ? "Parent Dashboard" :
-        pathname.replace("/dashboard/", "").replace(/-/g, " ");
+        pathname === "/dashboard/generator" ? "Question Paper Generator" :
+        pathname === "/dashboard/papers" ? "Paper Repository" :
+        pathname === "/dashboard/classroom" ? "Lesson Planner" :
+        pathname === "/dashboard/content" ? "Content Studio" :
+        pathname === "/dashboard/english-coach" ? "English Speaking Coach" :
+        pathname === "/dashboard/student/exam-prep" ? "AI Exam Prep Studio" :
+        pathname === "/dashboard/student/tutor" ? "Socratic AI Tutor" :
+        pathname === "/dashboard/student/practice" ? "Practice Quiz Runner" :
+        pathname === "/dashboard/student/flashcards" ? "Flashcard Deck" :
+        pathname === "/dashboard/student/revision" ? "Revision Studio" :
+        pathname === "/dashboard/video-consultation" ? "Live Video AI Consultation" :
+        pathname === "/dashboard/teacher-olympiad" ? "Teacher Skills Olympiad" :
+        pathname.replace("/dashboard/", "").replace(/[-_/]/g, " ").toUpperCase();
 
-      fetch("/api/v1/analytics/track", {
+      const featureId = agentParam ? `agent-${agentParam}` : pathname.replace("/dashboard/", "").replace(/[/]/g, "-") || "dashboard";
+      const payload = {
+        email: user.email,
+        user_email: user.email,
+        name: user.name || "",
+        user_name: user.name || "",
+        role: user.role || "teacher",
+        user_role: user.role || "teacher",
+        action: "navigate",
+        feature_id: featureId,
+        feature_name: activeFeatureName,
+        path: agentParam ? `${pathname}?agent=${agentParam}` : pathname
+      };
+
+      const baseUrl = getApiBase();
+      fetch(`${baseUrl}/analytics/track`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_email: user.email,
-          user_name: user.name || "",
-          user_role: user.role || "teacher",
-          action: "navigate",
-          path: agentParam ? `${pathname}?agent=${agentParam}` : pathname,
-          feature_name: activeFeatureName
-        })
-      }).catch(() => {});
+        body: JSON.stringify(payload)
+      }).catch(() => {
+        // Fallback relative rewrite
+        fetch("/api/v1/analytics/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      });
     } catch {
       // Non-blocking telemetry
     }

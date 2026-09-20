@@ -3,7 +3,7 @@ import json
 import time
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from services.supabase_service import supabase_service
@@ -42,6 +42,13 @@ class ActivityService:
         except Exception as e:
             logger.error(f"Failed to persist user activity: {e}")
 
+    def _get_valid_today_dates(self):
+        now_utc = datetime.utcnow()
+        today_utc = now_utc.strftime("%Y-%m-%d")
+        ist_dt = now_utc + timedelta(hours=5, minutes=30)
+        today_ist = ist_dt.strftime("%Y-%m-%d")
+        return {today_utc, today_ist}, now_utc
+
     def record_activity(
         self,
         email: str,
@@ -59,9 +66,10 @@ class ActivityService:
 
         email_clean = email.strip().lower()
         now_dt = datetime.utcnow()
+        ist_dt = now_dt + timedelta(hours=5, minutes=30)
         now_iso = now_dt.isoformat()
-        date_str = now_dt.strftime("%Y-%m-%d")
-        hour_str = now_dt.strftime("%H:00")
+        date_str = ist_dt.strftime("%Y-%m-%d")
+        hour_str = ist_dt.strftime("%H:00")
 
         event = {
             "id": f"act_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}",
@@ -75,6 +83,7 @@ class ActivityService:
             "details": details or {},
             "timestamp": now_iso,
             "date": date_str,
+            "date_utc": now_dt.strftime("%Y-%m-%d"),
             "hour": hour_str
         }
 
@@ -94,11 +103,20 @@ class ActivityService:
             first_active: str
         }
         """
-        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        valid_dates, now_utc = self._get_valid_today_dates()
         user_summary: Dict[str, Dict[str, Any]] = {}
 
         for act in self.activities:
-            if act.get("date") != today_str:
+            is_today = (act.get("date") in valid_dates or act.get("date_utc") in valid_dates)
+            if not is_today and act.get("timestamp"):
+                try:
+                    ts = datetime.fromisoformat(act["timestamp"].replace("Z", ""))
+                    if (now_utc - ts).total_seconds() < 86400:
+                        is_today = True
+                except Exception:
+                    pass
+
+            if not is_today:
                 continue
             
             email = (act.get("email") or "").lower()
@@ -143,8 +161,20 @@ class ActivityService:
         - Role breakdown & Board distribution
         - Recent live activity feed
         """
-        today_str = datetime.utcnow().strftime("%Y-%m-%d")
-        today_activities = [a for a in self.activities if a.get("date") == today_str]
+        valid_dates, now_utc = self._get_valid_today_dates()
+
+        today_activities = []
+        for a in self.activities:
+            is_today = (a.get("date") in valid_dates or a.get("date_utc") in valid_dates)
+            if not is_today and a.get("timestamp"):
+                try:
+                    ts = datetime.fromisoformat(a["timestamp"].replace("Z", ""))
+                    if (now_utc - ts).total_seconds() < 86400:
+                        is_today = True
+                except Exception:
+                    pass
+            if is_today:
+                today_activities.append(a)
         
         # 1. Unique users today
         today_active_emails = list(set(a.get("email") for a in today_activities if a.get("email")))
@@ -189,6 +219,8 @@ class ActivityService:
         # 6. Recent live stream (last 30 events)
         recent_stream = self.activities[:30]
 
+        today_str = (now_utc + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+
         return {
             "dau_today": len(today_active_emails),
             "actions_today": len(today_activities),
@@ -212,3 +244,4 @@ class ActivityService:
         }
 
 activity_service = ActivityService()
+

@@ -218,6 +218,21 @@ async def register_user(payload: RegisterPayload):
             "verificationStatus": verification_status,
             "token": signed_token
         }
+
+        try:
+            from services.activity_service import activity_service
+            activity_service.record_activity(
+                email=email_clean,
+                name=payload.name,
+                role=payload.role,
+                action="register",
+                feature_id="auth",
+                feature_name="Account Registration",
+                path="/register"
+            )
+        except Exception as act_err:
+            logger.warning(f"Failed to record registration activity: {act_err}")
+
         return {
             "status": "success",
             "message": "Account created successfully!",
@@ -319,8 +334,21 @@ async def login_user(payload: LoginPayload):
         user_data["affiliationBoard"] = school_rec.get("affiliation_board", "CBSE")
         user_data["schoolCity"] = school_rec.get("city", "")
         user_data["schoolState"] = school_rec.get("state", "")
-        user_data["contactPerson"] = school_rec.get("contact_person", "")
         user_data["schoolName"] = school_rec.get("school_name", "") or profile.get("school_name", "")
+
+    try:
+        from services.activity_service import activity_service
+        activity_service.record_activity(
+            email=email_clean,
+            name=full_name,
+            role=user_role,
+            action="login",
+            feature_id="auth",
+            feature_name="User Login",
+            path="/login"
+        )
+    except Exception as act_err:
+        logger.warning(f"Failed to record login activity: {act_err}")
 
     return {
         "status": "success",
@@ -389,6 +417,20 @@ async def get_profile(email: str):
         user_data["schoolCity"] = school_rec.get("city", "")
         user_data["schoolState"] = school_rec.get("state", "")
         user_data["contactPerson"] = school_rec.get("contact_person", "")
+
+    try:
+        from services.activity_service import activity_service
+        activity_service.record_activity(
+            email=email_clean,
+            name=user_data.get("name") or email_clean.split('@')[0].capitalize(),
+            role=user_role,
+            action="login_otp",
+            feature_id="auth",
+            feature_name="User Login (OTP)",
+            path="/login"
+        )
+    except Exception as act_err:
+        logger.warning(f"Failed to record OTP login activity: {act_err}")
 
     return {
         "status": "success",

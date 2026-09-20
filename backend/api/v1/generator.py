@@ -55,6 +55,23 @@ async def _save_paper_for_user(email: Optional[str], paper_data: dict):
                 logger.warning(f"Background cloud sync warning for {email_clean}: {sync_err}")
 
         asyncio.create_task(_bg_cloud_sync())
+
+        try:
+            from services.activity_service import activity_service
+            subject = paper_data.get("subject", "General")
+            c_name = paper_data.get("class_name", "")
+            title = paper_data.get("title", "Question Paper")
+            activity_service.record_activity(
+                email=email_clean,
+                role="teacher",
+                action="generate_paper",
+                feature_id="generator",
+                feature_name="Question Paper Generator",
+                path="/dashboard/generator",
+                details={"subject": subject, "class": c_name, "title": title}
+            )
+        except Exception as act_err:
+            logger.warning(f"Failed to record paper generation activity: {act_err}")
     except Exception as e:
         logger.error(f"Error persisting paper for user {email}: {e}")
 
