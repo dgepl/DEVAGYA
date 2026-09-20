@@ -3,10 +3,14 @@ import json
 import time
 import uuid
 import logging
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from services.supabase_service import supabase_service
+import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("activity_service")
 
@@ -14,34 +18,142 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 ACTIVITY_FILE = DATA_DIR / "user_activity.json"
 
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://amlvyskjrencrolnppgs.supabase.co").strip().rstrip("/")
+SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+
 class ActivityService:
     """
     Tracks real-time user platform actions, page visits, tool invocations, 
     daily active users (DAU), and compiles comprehensive site analytics.
+    Backed by Supabase Cloud PostgreSQL for permanent persistence across deploys.
     """
     def __init__(self):
         self.activities: List[Dict[str, Any]] = self._load()
 
+    @staticmethod
+    def _is_mock_event(act: Dict[str, Any]) -> bool:
+        """Strictly detect and filter out any artificial seed/mock data."""
+        if not act or not isinstance(act, dict):
+            return True
+        details = act.get("details")
+        if isinstance(details, dict):
+            if details.get("test") is True or details.get("is_mock") is True:
+                return True
+            topic = str(details.get("topic", "")).lower()
+            if any(m in topic for m in ["photosynthesis & plant respiration", "newton laws of motion"]):
+                return True
+        name = (act.get("name") or "").lower()
+        if any(m in name for m in ["mock", "dummy", "sample test", "test dummy"]):
+            return True
+        return False
+
+    def _sync_event_to_cloud(self, event: Dict[str, Any]):
+        """Persists a new activity event asynchronously to Supabase Cloud PostgreSQL."""
+        if not SERVICE_KEY or not SUPABASE_URL:
+            return
+        try:
+            headers = {
+                "apikey": SERVICE_KEY,
+                "Authorization": f"Bearer {SERVICE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            }
+            with httpx.Client(timeout=6.0) as client:
+                # 1. Attempt insert into user_activity table if present
+                res = client.post(
+                    f"{SUPABASE_URL}/rest/v1/user_activity",
+                    headers=headers,
+                    json=event
+                )
+                if res.status_code in (200, 201):
+                    return
+
+                # 2. Seamlessly fallback to ai_conversations table (already available in Supabase schema)
+                email = event.get("email", "user")
+                client.post(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                    headers=headers,
+                    json={
+                        "session_title": f"DEVGYA_ACTIVITY:{email}",
+                        "chat_history": event
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Notice: Supabase Cloud activity sync deferred: {e}")
+
+    def _load_from_cloud(self) -> List[Dict[str, Any]]:
+        """Loads historical activity events from Supabase Cloud PostgreSQL."""
+        if not SERVICE_KEY or not SUPABASE_URL:
+            return []
+        try:
+            headers = {
+                "apikey": SERVICE_KEY,
+                "Authorization": f"Bearer {SERVICE_KEY}",
+                "Content-Type": "application/json"
+            }
+            with httpx.Client(timeout=8.0) as client:
+                # 1. Try dedicated user_activity table
+                res = client.get(
+                    f"{SUPABASE_URL}/rest/v1/user_activity?select=*&order=timestamp.desc&limit=3000",
+                    headers=headers
+                )
+                if res.status_code == 200:
+                    rows = res.json()
+                    if rows:
+                        return rows
+
+                # 2. Fallback to ai_conversations telemetry storage
+                res2 = client.get(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=like.DEVGYA_ACTIVITY*&select=chat_history&order=created_at.desc&limit=3000",
+                    headers=headers
+                )
+                if res2.status_code == 200:
+                    rows = res2.json()
+                    cloud_events = []
+                    for r in rows:
+                        ch = r.get("chat_history")
+                        if isinstance(ch, dict) and ch.get("email"):
+                            cloud_events.append(ch)
+                    return cloud_events
+        except Exception as e:
+            logger.warning(f"Could not load activity events from Supabase Cloud: {e}")
+        return []
+
     def _load(self) -> List[Dict[str, Any]]:
+        local_data = []
         if ACTIVITY_FILE.exists():
             try:
                 with open(ACTIVITY_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    # Normalize any legacy timestamps missing timezone indicator 'Z'
-                    for item in data:
-                        ts = item.get("timestamp")
-                        if ts and isinstance(ts, str):
-                            if not (ts.endswith("Z") or "+" in ts or "-" in ts[10:]):
-                                item["timestamp"] = f"{ts}Z"
-                    return data
+                    local_data = json.load(f)
             except Exception as e:
                 logger.error(f"Error reading activity file: {e}")
-                return []
-        return []
+                local_data = []
+
+        # Filter out any mock/seed events
+        local_data = [item for item in local_data if not self._is_mock_event(item)]
+
+        # Fetch cloud events from Supabase Cloud PostgreSQL
+        cloud_data = self._load_from_cloud()
+        cloud_data = [item for item in cloud_data if not self._is_mock_event(item)]
+
+        # Merge deduplicated by event ID
+        seen_ids = set()
+        merged = []
+        for item in cloud_data + local_data:
+            ev_id = item.get("id")
+            if ev_id and ev_id not in seen_ids:
+                seen_ids.add(ev_id)
+                ts = item.get("timestamp")
+                if ts and isinstance(ts, str) and not (ts.endswith("Z") or "+" in ts or "-" in ts[10:]):
+                    item["timestamp"] = f"{ts}Z"
+                merged.append(item)
+
+        merged.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        return merged
 
     def _save(self):
         try:
-            # Keep the last 15,000 activity events to ensure fast in-memory queries
+            # Keep up to 15,000 activity events in memory/disk cache
             if len(self.activities) > 15000:
                 self.activities = self.activities[:15000]
             with open(ACTIVITY_FILE, "w", encoding="utf-8") as f:
@@ -67,7 +179,7 @@ class ActivityService:
         path: Optional[str] = "",
         details: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Record an activity event for a user with accurate UTC+Z timestamp and Indian Standard Time (IST)."""
+        """Record an activity event for a user with deduplication, UTC+Z timestamp and Indian Standard Time (IST)."""
         if not email or not email.strip():
             return {}
 
@@ -79,6 +191,33 @@ class ActivityService:
         time_display = ist_dt.strftime("%I:%M %p")
         hour_str = ist_dt.strftime("%I:00 %p")
 
+        canonical_feature_name = self.normalize_feature_name({
+            "feature_id": feature_id,
+            "feature_name": feature_name,
+            "path": path,
+            "action": action
+        })
+
+        # STRICT DEDUPLICATION:
+        # If the exact same user invoked this exact feature and action within the last 15 seconds,
+        # return the existing event so 1 feature usage never shows 2 times in the activity log!
+        for recent in self.activities[:15]:
+            if (
+                recent.get("email") == email_clean
+                and self.normalize_feature_name(recent) == canonical_feature_name
+                and recent.get("action") == action
+            ):
+                try:
+                    prev_ts = recent.get("timestamp", "")
+                    if prev_ts:
+                        prev_dt = datetime.fromisoformat(prev_ts.replace("Z", "+00:00"))
+                        diff = abs((now_utc - prev_dt).total_seconds())
+                        if diff < 15:
+                            logger.info(f"Deduplicated duplicate feature invocation for {email_clean} on {canonical_feature_name} (interval {diff:.1f}s)")
+                            return recent
+                except Exception:
+                    pass
+
         event = {
             "id": f"act_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}",
             "email": email_clean,
@@ -86,7 +225,7 @@ class ActivityService:
             "role": role or "teacher",
             "action": action or "feature_use",
             "feature_id": feature_id or "feature",
-            "feature_name": feature_name or "Educational Tool",
+            "feature_name": canonical_feature_name,
             "path": path or "/dashboard",
             "details": details or {},
             "timestamp": now_iso,
@@ -99,6 +238,10 @@ class ActivityService:
         # Insert at the beginning (most recent first)
         self.activities.insert(0, event)
         self._save()
+
+        # Asynchronously sync to Supabase Cloud PostgreSQL database in a detached thread
+        threading.Thread(target=self._sync_event_to_cloud, args=(event,), daemon=True).start()
+
         return event
 
     @staticmethod
