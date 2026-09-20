@@ -74,8 +74,16 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* MOBILE LEFT BALANCING SPACER */}
-          <div className="lg:hidden w-8 sm:w-10 pointer-events-none" aria-hidden="true" />
+          {/* MOBILE LEFT: HAMBURGER MENU BUTTON */}
+          <div className="lg:hidden flex items-center relative z-10">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer active:scale-95"
+              aria-label="Toggle Navigation Menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
 
           {/* DESKTOP NAVIGATION LINKS */}
           <div className="hidden lg:flex items-center gap-1 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200/80 backdrop-blur-md shadow-inner">
@@ -114,8 +122,8 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* MOBILE TOP CONTROLS: QUICK LOG IN PILL + HAMBURGER MENU BUTTON */}
-          <div className="lg:hidden flex items-center gap-1.5 sm:gap-2 relative z-10">
+          {/* MOBILE RIGHT: QUICK LOG IN PILL */}
+          <div className="lg:hidden flex items-center relative z-10">
             <Link
               href="/login"
               className="px-3 sm:px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-extrabold text-[11px] rounded-xl shadow-md flex items-center gap-1 uppercase tracking-wider active:scale-95 font-[family-name:var(--font-outfit)]"
@@ -123,14 +131,6 @@ export function Navbar() {
               <Sparkles className="w-3 h-3 text-amber-300" />
               <span>Log In</span>
             </Link>
-
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 sm:p-2.5 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
-              aria-label="Toggle Navigation Menu"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
           </div>
 
         </div>

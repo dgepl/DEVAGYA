@@ -237,10 +237,12 @@ export function MobileLandingView() {
             href={YOUTUBE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl bg-white border border-slate-200 hover:border-red-300 shadow-2xs hover:shadow-md text-slate-800 hover:text-red-600 font-extrabold text-xs transition-all active:scale-95 group cursor-pointer"
+            className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl bg-white border border-slate-200 hover:border-red-300 shadow-2xs hover:shadow-md text-slate-800 hover:text-red-600 font-extrabold text-xs transition-all active:scale-95 group cursor-pointer overflow-hidden"
             title="Watch DEVGYA on YouTube"
           >
-            <YouTubeLogo className="w-5 h-4.5 group-hover:scale-110 transition-transform shrink-0" />
+            <div className="w-5 h-5 shrink-0 flex items-center justify-center">
+              <YouTubeLogo className="w-5 h-5 group-hover:scale-110 transition-transform shrink-0" />
+            </div>
             <span className="font-[family-name:var(--font-jakarta)]">YouTube</span>
           </a>
 
@@ -248,10 +250,12 @@ export function MobileLandingView() {
             href={INSTAGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl bg-white border border-slate-200 hover:border-pink-300 shadow-2xs hover:shadow-md text-slate-800 hover:text-pink-600 font-extrabold text-xs transition-all active:scale-95 group cursor-pointer"
+            className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl bg-white border border-slate-200 hover:border-pink-300 shadow-2xs hover:shadow-md text-slate-800 hover:text-pink-600 font-extrabold text-xs transition-all active:scale-95 group cursor-pointer overflow-hidden"
             title="Follow DEVGYA on Instagram"
           >
-            <InstagramLogo className="w-4.5 h-4.5 group-hover:scale-110 transition-transform shrink-0" />
+            <div className="w-5 h-5 shrink-0 flex items-center justify-center">
+              <InstagramLogo className="w-5 h-5 group-hover:scale-110 transition-transform shrink-0" />
+            </div>
             <span className="font-[family-name:var(--font-jakarta)]">Instagram</span>
           </a>
         </div>

@@ -67,7 +67,7 @@ export function MobileBottomDock() {
         { label: "Home", href: "/dashboard/parent", icon: Home },
         { label: "Children", href: "/dashboard/parent/children", icon: Users },
         { label: "Coach AI", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake, central: true, agentCode: "parent_coach" },
-        { label: "Career", href: "/dashboard/agents?agent=career_counselor", icon: GraduationCap },
+        { label: "Career", href: "/dashboard/agents?agent=career_counselor", icon: GraduationCap, agentCode: "career_counselor" },
         { label: "Profile", href: "/dashboard/profile", icon: User }
       ];
     }

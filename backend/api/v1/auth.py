@@ -460,19 +460,7 @@ async def get_profile(email: str):
         user_data["schoolState"] = school_rec.get("state", "")
         user_data["contactPerson"] = school_rec.get("contact_person", "")
 
-    try:
-        from services.activity_service import activity_service
-        activity_service.record_activity(
-            email=email_clean,
-            name=user_data.get("name") or email_clean.split('@')[0].capitalize(),
-            role=user_role,
-            action="login_otp",
-            feature_id="auth",
-            feature_name="User Login (OTP)",
-            path="/login"
-        )
-    except Exception as act_err:
-        logger.warning(f"Failed to record OTP login activity: {act_err}")
+
 
     return {
         "status": "success",

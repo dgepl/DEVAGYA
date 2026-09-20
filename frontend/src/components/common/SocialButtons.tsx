@@ -8,10 +8,13 @@ export const INSTAGRAM_URL = "https://www.instagram.com/devgyaglobaledutechpvt.l
 export function YouTubeLogo({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg 
+      width={20}
+      height={20}
       viewBox="0 0 24 24" 
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      style={{ width: "20px", height: "20px", flexShrink: 0 }}
       aria-label="YouTube"
     >
       <path 
@@ -29,10 +32,13 @@ export function YouTubeLogo({ className = "w-5 h-5" }: { className?: string }) {
 export function InstagramLogo({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg 
+      width={20}
+      height={20}
       viewBox="0 0 24 24" 
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      style={{ width: "20px", height: "20px", flexShrink: 0 }}
       aria-label="Instagram"
     >
       <defs>

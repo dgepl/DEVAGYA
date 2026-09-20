@@ -6,8 +6,7 @@ import {
   HeartHandshake, 
   Sparkles, 
   GraduationCap, 
-  BarChart3, 
-  ShieldCheck, 
+  Headphones, 
   Search, 
   X, 
   ArrowRight,
@@ -15,7 +14,6 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
-import { ParentChildOverviewCard } from "@/components/parent/ParentChildOverviewCard";
 
 export function MobileParentDashboard() {
   const { user } = useAppStore();
@@ -24,9 +22,8 @@ export function MobileParentDashboard() {
 
   const rawParentTools = [
     { name: "Parenting Coach", sub: "Behavior & Home Routine", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "AI Coach" },
-    { name: "Marks Radar", sub: "Progress & Weak Spots", href: "/dashboard/agents?agent=analytics_assistant", icon: BarChart3, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Analytics" },
     { name: "Career Counselor", sub: "Stream & College Guidance", href: "/dashboard/agents?agent=career_counselor", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "Career" },
-    { name: "Safety Standards", sub: "Screen-Time & Ad-Free", href: "/safety-standards", icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Protection" },
+    { name: "English Speaking Coach", sub: "Daily Conversation & Fluency", href: "/dashboard/english-coach", icon: Headphones, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Speaking Coach" },
   ];
 
   const parentTools = useMemo(() => {
@@ -124,7 +121,7 @@ export function MobileParentDashboard() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search parenting advice, marks radar, routines..."
+            placeholder="Search parenting advice, career, routines..."
             className="w-full bg-transparent outline-none text-slate-900 placeholder:text-slate-400 text-xs font-semibold"
           />
         </div>
@@ -181,11 +178,6 @@ export function MobileParentDashboard() {
         </div>
       ) : (
         <>
-          {/* ENROLLED CHILDREN QUICK OVERVIEW */}
-          <div className="pt-1">
-            <ParentChildOverviewCard />
-          </div>
-
           {/* 4. PARENT CORE TOOLS GRID (MATCHING TEACHER DASHBOARD EXACT CARDS) */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">

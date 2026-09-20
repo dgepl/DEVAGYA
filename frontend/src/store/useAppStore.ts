@@ -100,7 +100,7 @@ const defaultUser: UserProfile = {
   id: "usr-guest",
   name: "Guest User",
   email: "",
-  role: "student",
+  role: "teacher",
   schoolName: "",
   board: "CBSE",
   subject: "",
@@ -354,7 +354,15 @@ export const useAppStore = create<AppState>((set, get) => {
         get().fetchSavedAssignments(user.email);
       }
     },
-    switchRole: (role) => set((state) => ({ user: { ...state.user, role } })),
+    switchRole: (role) => set((state) => {
+      const updatedUser = { ...state.user, role };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("devgya_user", JSON.stringify(updatedUser));
+        } catch (e) {}
+      }
+      return { user: updatedUser };
+    }),
     setActivePaper: (paper) => set({ activePaper: paper }),
     savePaper: (paper) => set((state) => {
       const filtered = state.savedPapers.filter(p => !(p.title === paper.title && p.class_name === paper.class_name));
