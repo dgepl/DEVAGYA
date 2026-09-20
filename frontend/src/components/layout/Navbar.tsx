@@ -13,7 +13,8 @@ import {
   CheckCircle2, 
   HelpCircle,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Mail
 } from "lucide-react";
 import { PublicMobileDock } from "@/components/layout/PublicMobileDock";
 
@@ -39,6 +40,7 @@ export function Navbar() {
     { label: "About Us", href: "/about", icon: Info },
     { label: "Why Choose Us", href: "/why-choose-us", icon: CheckCircle2 },
     { label: "FAQ", href: "/faq", icon: HelpCircle },
+    { label: "Contact", href: "/contact", icon: Mail },
   ];
 
   return (

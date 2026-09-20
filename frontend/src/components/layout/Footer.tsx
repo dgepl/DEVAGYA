@@ -58,6 +58,7 @@ export function Footer() {
               <li><Link href="/about" className="hover:text-cyan-300 transition-colors">About Us</Link></li>
               <li><Link href="/why-choose-us" className="hover:text-cyan-300 transition-colors">Why Choose Us</Link></li>
               <li><Link href="/faq" className="hover:text-cyan-300 transition-colors">FAQ &amp; Support</Link></li>
+              <li><Link href="/contact" className="hover:text-cyan-300 transition-colors">Contact &amp; Location</Link></li>
               <li className="pt-2 border-t border-white/10">
                 <a 
                   href="mailto:dgepl.info@gmail.com" 
@@ -87,31 +88,58 @@ export function Footer() {
 
         </div>
 
-        {/* BOTTOM COPYRIGHT & DEVELOPER CREDITS BAR */}
-        <div className="border-t border-white/10 pt-6 pb-2 flex flex-col lg:flex-row items-center justify-between gap-4 text-xs">
+        {/* DEDICATED LEGAL & ACCREDITATION STANDARDS BAR */}
+        <div className="border-t border-white/10 pt-6 space-y-4">
           
-          <div className="text-center lg:text-left shrink-0">
-            <p className="text-xs text-slate-400 font-medium">
-              &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.
-            </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-bold text-slate-300">
+            <Link 
+              href="/privacy-policy" 
+              className="hover:text-cyan-300 transition-colors whitespace-nowrap py-1 border-b border-transparent hover:border-cyan-400"
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-white/20 hidden sm:inline font-mono">•</span>
+            <Link 
+              href="/terms-of-service" 
+              className="hover:text-cyan-300 transition-colors whitespace-nowrap py-1 border-b border-transparent hover:border-cyan-400"
+            >
+              Terms of Service
+            </Link>
+            <span className="text-white/20 hidden sm:inline font-mono">•</span>
+            <Link 
+              href="/safety-standards" 
+              className="hover:text-cyan-300 transition-colors whitespace-nowrap py-1 border-b border-transparent hover:border-cyan-400"
+            >
+              Quality &amp; Safety Standards
+            </Link>
+            <span className="text-white/20 hidden sm:inline font-mono">•</span>
+            <Link 
+              href="/contact" 
+              className="hover:text-cyan-300 transition-colors whitespace-nowrap py-1 border-b border-transparent hover:border-cyan-400"
+            >
+              Contact &amp; Location
+            </Link>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs font-bold text-slate-400">
-            <Link href="/privacy-policy" className="hover:text-white transition-colors whitespace-nowrap">Privacy Policy</Link>
-            <Link href="/terms-of-service" className="hover:text-white transition-colors whitespace-nowrap">Terms of Service</Link>
-            <Link href="/safety-standards" className="hover:text-white transition-colors whitespace-nowrap">Quality &amp; Safety Standards</Link>
-          </div>
+          {/* BOTTOM COPYRIGHT & DEVELOPER CREDITS BAR */}
+          <div className="pt-4 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+            <div className="text-center md:text-left">
+              <p className="text-xs text-slate-400 font-medium">
+                &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.
+              </p>
+            </div>
 
-          <div className="text-center lg:text-right shrink-0">
-            <p className="text-[11px] md:text-xs font-semibold text-slate-400 flex items-center justify-center lg:justify-end gap-1.5 whitespace-nowrap">
-              <Code2 className="w-3.5 h-3.5 text-cyan-400 inline shrink-0" />
-              <span>
-                Designed and Developed by{" "}
-                <strong className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 whitespace-nowrap">
-                  Pratikk Yadav and Team (+91 8307224756)
-                </strong>
-              </span>
-            </p>
+            <div className="text-center md:text-right">
+              <p className="text-[11px] md:text-xs font-semibold text-slate-400 flex items-center justify-center md:justify-end gap-1.5 whitespace-nowrap">
+                <Code2 className="w-3.5 h-3.5 text-cyan-400 inline shrink-0" />
+                <span>
+                  Designed and Developed by{" "}
+                  <strong className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 whitespace-nowrap">
+                    Pratikk Yadav and Team (+91 8307224756)
+                  </strong>
+                </span>
+              </p>
+            </div>
           </div>
 
         </div>

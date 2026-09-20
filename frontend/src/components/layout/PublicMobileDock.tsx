@@ -6,8 +6,8 @@ import {
   Home, 
   Info, 
   Sparkles, 
-  CheckCircle2, 
-  HelpCircle 
+  HelpCircle,
+  Mail 
 } from "lucide-react";
 
 export function PublicMobileDock() {
@@ -42,7 +42,7 @@ export function PublicMobileDock() {
           }`}
         >
           <Info className="w-5 h-5" />
-          <span className="text-[9px] tracking-tight mt-0.5 font-bold">About Us</span>
+          <span className="text-[9px] tracking-tight mt-0.5 font-bold">About</span>
           {pathname === "/about" && <span className="w-1 h-1 rounded-full bg-indigo-600 mt-0.5" />}
         </Link>
 
@@ -59,19 +59,7 @@ export function PublicMobileDock() {
           </span>
         </Link>
 
-        {/* Tab 4: Why Choose Us */}
-        <Link 
-          href="/why-choose-us" 
-          className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
-            pathname === "/why-choose-us" ? "text-indigo-600 font-extrabold" : "text-slate-500 font-medium hover:text-slate-900"
-          }`}
-        >
-          <CheckCircle2 className="w-5 h-5" />
-          <span className="text-[9px] tracking-tight mt-0.5 font-bold">Why Us</span>
-          {pathname === "/why-choose-us" && <span className="w-1 h-1 rounded-full bg-indigo-600 mt-0.5" />}
-        </Link>
-
-        {/* Tab 5: FAQ */}
+        {/* Tab 4: FAQ */}
         <Link 
           href="/faq" 
           className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
@@ -81,6 +69,18 @@ export function PublicMobileDock() {
           <HelpCircle className="w-5 h-5" />
           <span className="text-[9px] tracking-tight mt-0.5 font-bold">FAQ</span>
           {pathname === "/faq" && <span className="w-1 h-1 rounded-full bg-indigo-600 mt-0.5" />}
+        </Link>
+
+        {/* Tab 5: Contact */}
+        <Link 
+          href="/contact" 
+          className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
+            pathname === "/contact" ? "text-indigo-600 font-extrabold" : "text-slate-500 font-medium hover:text-slate-900"
+          }`}
+        >
+          <Mail className="w-5 h-5" />
+          <span className="text-[9px] tracking-tight mt-0.5 font-bold">Contact</span>
+          {pathname === "/contact" && <span className="w-1 h-1 rounded-full bg-indigo-600 mt-0.5" />}
         </Link>
 
       </div>
