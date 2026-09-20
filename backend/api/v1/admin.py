@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any, List
 from services.supabase_service import supabase_service
 from services.olympiad_service import olympiad_service
 from services.paper_service import paper_service
+from services.activity_service import activity_service
 
 logger = logging.getLogger("admin_api")
 
@@ -243,12 +244,49 @@ async def get_admin_dashboard_stats():
 
 @router.get("/users")
 async def get_all_users():
-    """Fetch real user profiles from Supabase Cloud."""
+    """Fetch real user profiles from Supabase Cloud enriched with today's live activity tracking."""
     profiles = await supabase_service.get_all_profiles()
+    today_summary = activity_service.get_today_active_users_summary()
+    
+    for p in profiles:
+        email = (p.get("email") or "").strip().lower()
+        act = today_summary.get(email)
+        if act:
+            p["is_active_today"] = True
+            p["last_active_today"] = act.get("last_active")
+            p["features_used_today"] = act.get("features_used", [])
+            p["actions_today_count"] = act.get("actions_count", 0)
+        else:
+            p["is_active_today"] = False
+            p["last_active_today"] = None
+            p["features_used_today"] = []
+            p["actions_today_count"] = 0
+
     return {
         "status": "success",
         "count": len(profiles),
+        "active_today_count": sum(1 for p in profiles if p.get("is_active_today")),
         "users": profiles
+    }
+
+@router.get("/users/{email}/activity")
+async def get_user_activity(email: str, limit: int = Query(50)):
+    """Fetch detailed chronological event activity timeline for a specific user."""
+    timeline = activity_service.get_user_timeline(email, limit=limit)
+    return {
+        "status": "success",
+        "email": email,
+        "count": len(timeline),
+        "timeline": timeline
+    }
+
+@router.get("/analytics/detailed")
+async def get_admin_detailed_analytics():
+    """Fetch detailed real-time platform analytics."""
+    analytics = activity_service.get_detailed_site_analytics()
+    return {
+        "status": "success",
+        "analytics": analytics
     }
 
 # --- SUPER ADMIN SCHOOL VERIFICATION ENDPOINTS ---
@@ -449,23 +487,39 @@ class ToolsUpdatePayload(BaseModel):
 
 @router.get("/tools")
 async def get_all_platform_tools():
-    """Get all platform tool configurations, custom titles, greetings, and coming soon flags."""
+    """Get all platform tool configurations, custom titles, greetings, and permission enabled/disabled flags."""
     tools = _load_tools_store()
+    cleaned = []
+    for t in tools:
+        t_copy = dict(t)
+        if "is_coming_soon" in t_copy:
+            del t_copy["is_coming_soon"]
+        if "is_enabled" not in t_copy:
+            t_copy["is_enabled"] = True
+        cleaned.append(t_copy)
     return {
         "status": "success",
-        "count": len(tools),
-        "tools": tools
+        "count": len(cleaned),
+        "tools": cleaned
     }
 
 @router.put("/tools")
 async def update_all_platform_tools(payload: ToolsUpdatePayload):
-    """Admin update for platform tools configuration with instant persistence."""
+    """Admin update for platform tools permission and configuration with instant persistence."""
     try:
-        _save_tools_store(payload.tools)
+        cleaned = []
+        for t in payload.tools:
+            t_copy = dict(t)
+            if "is_coming_soon" in t_copy:
+                del t_copy["is_coming_soon"]
+            if "is_enabled" not in t_copy:
+                t_copy["is_enabled"] = True
+            cleaned.append(t_copy)
+        _save_tools_store(cleaned)
         return {
             "status": "success",
             "message": "Platform tools configuration updated successfully",
-            "count": len(payload.tools)
+            "count": len(cleaned)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to persist tool configurations: {str(e)}")

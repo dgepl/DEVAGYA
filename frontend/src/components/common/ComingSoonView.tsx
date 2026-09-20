@@ -6,7 +6,7 @@ import { ArrowLeft, Clock, Sparkles } from "lucide-react";
 import { ToolItem } from "@/store/useToolConfigStore";
 
 interface ComingSoonViewProps {
-  tool?: Partial<ToolItem>;
+  tool?: { name?: string };
   customTitle?: string;
   customMessage?: string;
   customEta?: string;
@@ -22,10 +22,10 @@ export function ComingSoonView({
   customBadge,
   backUrl = "/dashboard"
 }: ComingSoonViewProps) {
-  const title = customTitle || tool?.coming_soon_title || `${tool?.name || "Feature"} Coming Soon`;
-  const message = customMessage || tool?.coming_soon_message || "This tool is currently being prepared and will be available shortly.";
-  const eta = customEta || tool?.coming_soon_eta || "Coming Soon";
-  const badge = customBadge || tool?.coming_soon_badge || "In Development";
+  const title = customTitle || `${tool?.name || "Feature"} Access Notice`;
+  const message = customMessage || "This section is currently being updated or managed by the administrator.";
+  const eta = customEta || "";
+  const badge = customBadge || "Notice";
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-4 sm:p-6">

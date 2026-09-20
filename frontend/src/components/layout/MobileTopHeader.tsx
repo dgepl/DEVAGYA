@@ -38,6 +38,7 @@ import {
   Users
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useToolConfigStore } from "@/store/useToolConfigStore";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
 
 export function MobileTopHeader() {
@@ -189,9 +190,19 @@ export function MobileTopHeader() {
     ];
   }
 
+  const { isFeatureAllowed } = useToolConfigStore();
+
   if (role === "super_admin") {
     navItems.push({ label: "Super Admin", href: "/admin", icon: ShieldCheck });
   }
+
+  // Filter out any features disabled by Admin from the mobile drawer
+  navItems = navItems.filter((item) => {
+    if (role === "super_admin") return true;
+    const itemUrl = new URL(item.href, "http://x");
+    const itemAgent = item.href.includes("agent=") ? item.href.split("agent=")[1] : undefined;
+    return isFeatureAllowed(itemUrl.pathname, itemAgent);
+  });
 
   const filteredNotifs = activeFilter === "all" 
     ? notifications 

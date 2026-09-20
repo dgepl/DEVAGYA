@@ -4,23 +4,32 @@ import { persist, createJSONStorage } from "zustand/middleware";
 export interface ToolItem {
   id: string;
   name: string;
-  role: "teacher" | "student" | "parent" | "admin";
+  role: "teacher" | "student" | "parent" | "admin" | "all";
   category: string;
   path: string;
   badge: string;
   description: string;
   greeting?: string;
-  is_coming_soon: boolean;
-  coming_soon_title?: string;
-  coming_soon_message?: string;
-  coming_soon_eta?: string;
-  coming_soon_badge?: string;
+  is_enabled: boolean; // Admin permission: true = allowed, false = hidden from sidebar & mobile and blocked
   icon_name: string;
   color: string;
 }
 
 export const INITIAL_TOOLS: ToolItem[] = [
-  // --- TEACHER TOOLS ---
+  // --- TEACHER TOOLS & SECTIONS ---
+  {
+    id: "ppt_generator",
+    name: "AI PPT Generator",
+    role: "teacher",
+    category: "Lesson & Slides",
+    path: "/dashboard/ppt-generator",
+    badge: "SLIDE CREATOR",
+    description: "Create interactive visual slide presentations with curriculum standards, topic summaries, and diagrams.",
+    greeting: "Ready to create engaging presentation slides for your classroom.",
+    is_enabled: true,
+    icon_name: "Sliders",
+    color: "from-blue-500 to-indigo-600"
+  },
   {
     id: "question_generator",
     name: "Question Generator AI",
@@ -30,11 +39,7 @@ export const INITIAL_TOOLS: ToolItem[] = [
     badge: "CORE STUDIO",
     description: "Generate 100% CBSE/NCERT-aligned exam question papers with Bloom's taxonomy & model answer keys from syllabus or attachments.",
     greeting: "Ready to synthesize official CBSE question papers from syllabus or uploaded photos & documents.",
-    is_coming_soon: false,
-    coming_soon_title: "Next-Gen Question Generator 3.0",
-    coming_soon_message: "We are integrating instant multi-language bilingual rendering, automatic blueprint balancing, and ICSE/State Board schemas.",
-    coming_soon_eta: "Launching Q2 2026",
-    coming_soon_badge: "Under Upgrade",
+    is_enabled: true,
     icon_name: "Sparkles",
     color: "from-amber-500 to-orange-600"
   },
@@ -47,11 +52,7 @@ export const INITIAL_TOOLS: ToolItem[] = [
     badge: "PDF STUDIO",
     description: "Build custom homework assignments, chapter worksheets, and ruled-line submission sheets with QR code verification.",
     greeting: "Create structured chapter assignments with step-by-step rubrics and printable ruled-line sheets.",
-    is_coming_soon: false,
-    coming_soon_title: "Smart Assignment Auto-Grader",
-    coming_soon_message: "Empowering educators with automated AI rubric grading from student photo submissions.",
-    coming_soon_eta: "Releasing Next Month",
-    coming_soon_badge: "In Development",
+    is_enabled: true,
     icon_name: "FileText",
     color: "from-blue-500 to-indigo-600"
   },
@@ -64,11 +65,7 @@ export const INITIAL_TOOLS: ToolItem[] = [
     badge: "5-IN-1 SUPER AGENT",
     description: "Pedagogical advice, student analytics radars, parent communication drafts, and NCERT curriculum guidance.",
     greeting: "Namaste! I am your 5-in-1 Teacher Mentor AI companion. How can I assist your classroom today?",
-    is_coming_soon: false,
-    coming_soon_title: "Teacher Mentor Voice Edition",
-    coming_soon_message: "Real-time hands-free voice coaching during classroom preparation and lesson analysis.",
-    coming_soon_eta: "Coming Soon",
-    coming_soon_badge: "Voice Beta",
+    is_enabled: true,
     icon_name: "GraduationCap",
     color: "from-purple-500 to-indigo-600"
   },
@@ -76,16 +73,12 @@ export const INITIAL_TOOLS: ToolItem[] = [
     id: "teacher_olympiad",
     name: "Skill Enhance Program",
     role: "teacher",
-    category: "National Olympiad & Certification",
+    category: "National Certification",
     path: "/dashboard/teacher-olympiad",
-    badge: "OFFICIAL CERTIFICATE",
+    badge: "CERTIFICATION",
     description: "National Educator Skills Olympiad evaluating pedagogy, leadership, Bloom's taxonomy, and modern NEP 2020 methodologies.",
     greeting: "Welcome to the National Teacher Skills Olympiad 2026. Test your pedagogical mastery and earn gold tier recognition.",
-    is_coming_soon: false,
-    coming_soon_title: "Global Educator Olympiad 2026",
-    coming_soon_message: "Registration for the upcoming Pan-India live round opens soon with national ranking and cash rewards.",
-    coming_soon_eta: "Starting April 2026",
-    coming_soon_badge: "Seasonal Event",
+    is_enabled: true,
     icon_name: "Trophy",
     color: "from-amber-500 to-yellow-600"
   },
@@ -98,11 +91,7 @@ export const INITIAL_TOOLS: ToolItem[] = [
     badge: "PRACTICE LAB",
     description: "Unlimited timed mock papers and pedagogical skill quizzes to prepare for national certification.",
     greeting: "Practice real-time pedagogical assessment simulations to boost your speed and precision.",
-    is_coming_soon: false,
-    coming_soon_title: "Adaptive Practice Simulator",
-    coming_soon_message: "Dynamic difficulty scaling that identifies your specific pedagogical improvement areas.",
-    coming_soon_eta: "Under Final Testing",
-    coming_soon_badge: "Coming Soon",
+    is_enabled: true,
     icon_name: "BookOpen",
     color: "from-emerald-500 to-teal-600"
   },
@@ -113,52 +102,27 @@ export const INITIAL_TOOLS: ToolItem[] = [
     category: "Spoken Fluency",
     path: "/dashboard/english-coach",
     badge: "LIVE SPOKEN AI",
-    description: "Live spoken English fluency, classroom instruction phrasing & PTM conversation practice with authentic Indian accent.",
+    description: "Live spoken English fluency, classroom instruction phrasing & PTM conversation practice with authentic Indian and Hindi accents.",
     greeting: "Start your live spoken English practice session with your AI Speech Coach.",
-    is_coming_soon: false,
-    coming_soon_title: "English Speaking Coach",
-    coming_soon_message: "Interactive live voice training and classroom English practice.",
-    coming_soon_eta: "Live Now",
-    coming_soon_badge: "Live",
+    is_enabled: true,
     icon_name: "Headphones",
     color: "from-rose-500 to-pink-600"
   },
   {
-    id: "teacher_analytics",
-    name: "Class Analytics Assistant",
+    id: "teacher_recruitment",
+    name: "Teacher Recruitment Portal",
     role: "teacher",
-    category: "Performance Radars",
-    path: "/dashboard/agents?agent=analytics_assistant",
-    badge: "ANALYTICS AI",
-    description: "Analyze student marks distribution, identify weak topic clusters, and generate remediation plans.",
-    greeting: "Share your grade book data or score CSVs, and I will generate comprehensive analytics charts and remediation strategies.",
-    is_coming_soon: false,
-    coming_soon_title: "Predictive Score AI",
-    coming_soon_message: "Machine learning early-warning alerts for students needing timely interventions before board exams.",
-    coming_soon_eta: "Beta Testing",
-    coming_soon_badge: "Coming Soon",
-    icon_name: "TrendingUp",
-    color: "from-indigo-500 to-cyan-600"
-  },
-  {
-    id: "teacher_english_coach",
-    name: "English Pedagogy Coach",
-    role: "teacher",
-    category: "Communication & Fluency",
-    path: "/dashboard/agents?agent=english_coach",
-    badge: "FLUENCY AI",
-    description: "Refine spoken English, polish parent communications, and generate interactive grammar exercises.",
-    greeting: "Let's polish your academic communication and classroom presentation skills together.",
-    is_coming_soon: false,
-    coming_soon_title: "Accent & Speech AI Coach",
-    coming_soon_message: "Real-time voice tone analysis and pronunciation coaching for classroom lectures.",
-    coming_soon_eta: "In Lab",
-    coming_soon_badge: "Coming Soon",
-    icon_name: "MessageSquare",
-    color: "from-violet-500 to-purple-600"
+    category: "Jobs & Opportunities",
+    path: "/dashboard/recruitment",
+    badge: "CAREER JOBS",
+    description: "Explore verified school vacancies, apply directly to schools, and view school contact information.",
+    greeting: "Explore teaching vacancies across verified partner schools.",
+    is_enabled: true,
+    icon_name: "Briefcase",
+    color: "from-emerald-600 to-teal-700"
   },
 
-  // --- STUDENT TOOLS ---
+  // --- STUDENT TOOLS & SECTIONS ---
   {
     id: "student_tutor",
     name: "Socratic AI Tutor",
@@ -168,11 +132,7 @@ export const INITIAL_TOOLS: ToolItem[] = [
     badge: "SOCRATIC AI",
     description: "Guided conceptual tutor that asks probing questions and helps you discover answers step-by-step.",
     greeting: "Hello! I am your Socratic AI Tutor. What concept or problem are we exploring today?",
-    is_coming_soon: false,
-    coming_soon_title: "Socratic Interactive Whiteboard",
-    coming_soon_message: "Step-by-step visual mathematical equations and interactive chemistry formula drawings.",
-    coming_soon_eta: "Launching Soon",
-    coming_soon_badge: "Active Development",
+    is_enabled: true,
     icon_name: "Brain",
     color: "from-purple-500 to-pink-600"
   },
@@ -185,11 +145,7 @@ export const INITIAL_TOOLS: ToolItem[] = [
     badge: "BOARD MASTERY",
     description: "Chapter-wise weightage radars, previous year question trends, and high-probability predicted tests.",
     greeting: "Target your highest-weightage topics and master CBSE exam patterns.",
-    is_coming_soon: false,
-    coming_soon_title: "JEE / NEET / Board Simulator 2026",
-    coming_soon_message: "Full 3-hour computer-based mock exam simulator with all-India percentile benchmarking.",
-    coming_soon_eta: "Coming in Summer 2026",
-    coming_soon_badge: "Under Construction",
+    is_enabled: true,
     icon_name: "Trophy",
     color: "from-amber-500 to-red-600"
   },
@@ -202,30 +158,9 @@ export const INITIAL_TOOLS: ToolItem[] = [
     badge: "TIMED QUIZZES",
     description: "Fast-paced timed quizzes with immediate step-by-step explanations and score tracking.",
     greeting: "Choose a subject and topic to test your knowledge with interactive gamified quizzes.",
-    is_coming_soon: false,
-    coming_soon_title: "Multiplayer Quiz Arena",
-    coming_soon_message: "Challenge your classmates and school peers in live real-time academic speed battles!",
-    coming_soon_eta: "Releasing Soon",
-    coming_soon_badge: "Coming Soon",
+    is_enabled: true,
     icon_name: "Target",
     color: "from-emerald-500 to-green-600"
-  },
-  {
-    id: "student_flashcards",
-    name: "Smart Flashcards",
-    role: "student",
-    category: "Spaced Repetition",
-    path: "/dashboard/student/flashcards",
-    badge: "ANKI POWERED",
-    description: "Smart Leitner-spaced repetition flashcards for rapid formula, vocabulary, and definition retention.",
-    greeting: "Review your active decks and build strong long-term memory for exams.",
-    is_coming_soon: false,
-    coming_soon_title: "AI Auto-Deck Generator",
-    coming_soon_message: "Automatically convert any textbook page photo into 20 smart flashcards in under 5 seconds.",
-    coming_soon_eta: "Coming Soon",
-    coming_soon_badge: "Beta",
-    icon_name: "BookOpen",
-    color: "from-cyan-500 to-blue-600"
   },
   {
     id: "student_notes",
@@ -236,221 +171,76 @@ export const INITIAL_TOOLS: ToolItem[] = [
     badge: "RICH NOTES",
     description: "Structured markdown study summaries, bulleted revision sheets, and key formula cheat-sheets.",
     greeting: "Access organized chapter notes with high-yield points highlighted for quick review.",
-    is_coming_soon: false,
-    coming_soon_title: "Interactive Mind-Map Visualizer",
-    coming_soon_message: "Automatically transform written notes into visual concept mind-maps with one click.",
-    coming_soon_eta: "In Design",
-    coming_soon_badge: "Coming Soon",
+    is_enabled: true,
     icon_name: "FileText",
     color: "from-blue-500 to-violet-600"
-  },
-  {
-    id: "student_homework",
-    name: "Homework Assistant AI",
-    role: "student",
-    category: "Assignment Help",
-    path: "/dashboard/agents?agent=homework_assistant",
-    badge: "STEP-BY-STEP",
-    description: "Breaks complex homework questions into simple sub-problems and verifies steps with hints.",
-    greeting: "Upload or type any tricky assignment problem, and I'll walk you through the logic step-by-step!",
-    is_coming_soon: false,
-    coming_soon_title: "Camera Snap & Solve 2.0",
-    coming_soon_message: "Superfast handwritten math and diagram OCR with instant formula breakdowns.",
-    coming_soon_eta: "Launching Soon",
-    coming_soon_badge: "Vision AI",
-    icon_name: "Bot",
-    color: "from-teal-500 to-emerald-600"
-  },
-  {
-    id: "student_career",
-    name: "Career Counselor AI",
-    role: "student",
-    category: "Stream & College Guidance",
-    path: "/dashboard/agents?agent=career_counselor",
-    badge: "ROADMAP AI",
-    description: "Personalized stream selection advice (Science, Commerce, Arts) and top university roadmaps.",
-    greeting: "Let's explore your strengths and design a high-impact academic and career trajectory.",
-    is_coming_soon: false,
-    coming_soon_title: "CUET / College Fit Radar",
-    coming_soon_message: "Direct cut-off analyzer and university course recommendation engine.",
-    coming_soon_eta: "Coming Soon",
-    coming_soon_badge: "Advising Hub",
-    icon_name: "Compass",
-    color: "from-fuchsia-500 to-rose-600"
-  },
-  {
-    id: "student_study_planner",
-    name: "Study Planner AI",
-    role: "student",
-    category: "Routine & Timetable",
-    path: "/dashboard/agents?agent=study_planner",
-    badge: "ROUTINE AI",
-    description: "Creates realistic daily revision timetables balanced with school, sports, and rest.",
-    greeting: "Tell me your exam dates and weak subjects, and I will generate a balanced study schedule.",
-    is_coming_soon: false,
-    coming_soon_title: "Calendar Auto-Sync",
-    coming_soon_message: "Direct Google Calendar and WhatsApp reminder integrations for your daily study blocks.",
-    coming_soon_eta: "Coming Soon",
-    coming_soon_badge: "Integrations",
-    icon_name: "Calendar",
-    color: "from-indigo-500 to-purple-600"
   },
   {
     id: "student_timer",
     name: "Focus Pomodoro Timer",
     role: "student",
-    category: "Productivity",
+    category: "Study Productivity",
     path: "/dashboard/student/timer",
     badge: "FOCUS LAB",
-    description: "25-minute deep focus cycles with lo-fi study ambient soundscapes and session logs.",
-    greeting: "Start your focused study block and stay distraction-free.",
-    is_coming_soon: false,
-    coming_soon_title: "Study Beats AI Radio",
-    coming_soon_message: "AI-generated binaural beats and custom alpha-wave study playlists.",
-    coming_soon_eta: "In Production",
-    coming_soon_badge: "Audio Lab",
+    description: "Customizable 25-minute Pomodoro study cycles with ambient sounds and session tracking.",
+    greeting: "Start your focused study session and eliminate digital distractions.",
+    is_enabled: true,
     icon_name: "Clock",
-    color: "from-slate-700 to-slate-900"
+    color: "from-rose-500 to-amber-600"
+  },
+  {
+    id: "student_leaderboard",
+    name: "Student Leaderboard",
+    role: "student",
+    category: "Gamification & Rank",
+    path: "/dashboard/student/leaderboard",
+    badge: "XP & RANKS",
+    description: "Compare your weekly study streaks, quiz accuracy, and badges against students nationwide.",
+    greeting: "See where you rank on the national student leaderboard.",
+    is_enabled: true,
+    icon_name: "Trophy",
+    color: "from-yellow-500 to-amber-600"
   },
 
-  // --- PARENT TOOLS ---
+  // --- PARENT TOOLS & SECTIONS ---
   {
     id: "parent_coach",
-    name: "Parenting & Habit Coach AI",
+    name: "Parenting Coach AI",
     role: "parent",
-    category: "Home Mentoring",
+    category: "Parenting Guidance",
     path: "/dashboard/agents?agent=parent_coach",
-    badge: "FAMILY COACH",
-    description: "Empathetic guidance on managing screen time, building focus routines, and stress-free exams.",
-    greeting: "Namaste. I am here to help you foster healthy study habits, positive routines, and confident parenting.",
-    is_coming_soon: false,
-    coming_soon_title: "Daily Habit Micro-Tips",
-    coming_soon_message: "Receive personalized 2-minute parenting audio tips tailored to your child's grade level.",
-    coming_soon_eta: "Coming Soon",
-    coming_soon_badge: "Audio Tips",
+    badge: "FAMILY AI",
+    description: "Evidence-based parenting advice for screen-time balance, exam anxiety, and adolescent support.",
+    greeting: "Namaste! I am your Parenting Coach AI. How can I support your child's learning journey today?",
+    is_enabled: true,
     icon_name: "HeartHandshake",
-    color: "from-rose-500 to-pink-600"
+    color: "from-rose-500 to-red-600"
   },
   {
-    id: "parent_radar",
-    name: "Child Progress Radar",
+    id: "parent_english_coach",
+    name: "English Coach",
     role: "parent",
-    category: "Performance Insights",
-    path: "/dashboard/parent",
-    badge: "PROGRESS HUB",
-    description: "Clear visualization of homework completion rates, test performance, and strengths.",
-    greeting: "Review your child's latest learning milestones, completed quizzes, and attendance metrics.",
-    is_coming_soon: false,
-    coming_soon_title: "Weekly WhatsApp Report Card",
-    coming_soon_message: "Automated weekly visual digest delivered directly to your WhatsApp with actionable praise points.",
-    coming_soon_eta: "Releasing Next Month",
-    coming_soon_badge: "Automated Sync",
-    icon_name: "Activity",
+    category: "Spoken Fluency",
+    path: "/dashboard/english-coach",
+    badge: "SPOKEN COACH",
+    description: "Practice spoken English communication and phrasing for school meetings and parent-teacher interactions.",
+    greeting: "Practice your English speaking fluency and confidence.",
+    is_enabled: true,
+    icon_name: "Headphones",
     color: "from-indigo-500 to-purple-600"
   },
   {
-    id: "parent_motivation",
-    name: "Motivation & Mindset Coach",
+    id: "parent_research_assistant",
+    name: "Research Assistant AI",
     role: "parent",
-    category: "Emotional Well-being",
-    path: "/dashboard/agents?agent=motivation_coach",
-    badge: "WELLNESS AI",
-    description: "Positive affirmations, anti-anxiety breathing exercises, and confidence boosters for students.",
-    greeting: "Helping families build resilience, reduce exam anxiety, and cultivate an unstoppable growth mindset.",
-    is_coming_soon: false,
-    coming_soon_title: "Mindfulness Audio Guided Sessions",
-    coming_soon_message: "5-minute pre-exam relaxation audio exercises designed by child psychologists.",
-    coming_soon_eta: "Coming Soon",
-    coming_soon_badge: "Wellness",
-    icon_name: "Zap",
-    color: "from-amber-500 to-orange-600"
-  },
-
-  // --- ADMIN TOOLS ---
-  {
-    id: "admin_tools_hub",
-    name: "Platform & AI Tools Hub",
-    role: "admin",
-    category: "Feature Control",
-    path: "/admin",
-    badge: "CONTROL CENTER",
-    description: "Centralized command center to rename tools, update descriptions, customize greetings, and toggle Coming Soon modes live.",
-    greeting: "Manage and customize all 20+ platform tools across Teacher, Student, Parent, and Admin roles.",
-    is_coming_soon: false,
-    coming_soon_title: "Enterprise Multi-School Feature Toggles",
-    coming_soon_message: "Per-school custom feature flags and white-label permissions management.",
-    coming_soon_eta: "Q3 2026",
-    coming_soon_badge: "Enterprise",
-    icon_name: "Sliders",
-    color: "from-indigo-600 to-blue-700"
-  },
-  {
-    id: "admin_olympiad",
-    name: "Skill Olympiad Hub",
-    role: "admin",
-    category: "Evaluations & Awards",
-    path: "/admin",
-    badge: "TSO ADMIN",
-    description: "Manage national teacher assessments, review submission scripts, publish scores, and generate official certificates.",
-    greeting: "Oversee live teacher submissions, grade answer scripts, and publish official rank lists.",
-    is_coming_soon: false,
-    coming_soon_title: "AI Auto-Evaluation 2.0",
-    coming_soon_message: "Instant AI rubric evaluations and anomaly detection for online test submissions.",
-    coming_soon_eta: "Coming Soon",
-    coming_soon_badge: "Auto Evaluator",
-    icon_name: "Trophy",
-    color: "from-amber-600 to-yellow-600"
-  },
-  {
-    id: "admin_paper_studio",
-    name: "Paper Studio 100-MCQ AI",
-    role: "admin",
-    category: "Curriculum Engine",
-    path: "/admin",
-    badge: "SYNTHESIZER",
-    description: "Generate 100-question master assessment papers across Science, Math, and Pedagogy with live question editor.",
-    greeting: "Create and publish comprehensive 100-question olympiad and term exam repositories.",
-    is_coming_soon: false,
-    coming_soon_title: "Multi-Subject Synthesizer 4.0",
-    coming_soon_message: "Automated LaTeX diagram generation and multi-variant question scrambling.",
-    coming_soon_eta: "In Development",
-    coming_soon_badge: "Synthesizer",
-    icon_name: "Wand2",
-    color: "from-purple-600 to-indigo-700"
-  },
-  {
-    id: "admin_user_directory",
-    name: "User Management & RBAC",
-    role: "admin",
-    category: "Identity & Roles",
-    path: "/admin",
-    badge: "RBAC SECURITY",
-    description: "Manage teachers, students, and parents, reassign roles, reset access passwords, and audit login activity.",
-    greeting: "Search, filter, and audit verified school accounts across all regions.",
-    is_coming_soon: false,
-    coming_soon_title: "Single Sign-On (SSO) & SIS Sync",
-    coming_soon_message: "Direct automatic synchronization with school ERP systems and Google Workspace for Education.",
-    coming_soon_eta: "Coming Soon",
-    coming_soon_badge: "Enterprise SIS",
-    icon_name: "Users",
-    color: "from-teal-600 to-emerald-700"
-  },
-  {
-    id: "admin_analytics",
-    name: "Platform Metrics & Radar",
-    role: "admin",
-    category: "System Telemetry",
-    path: "/admin",
-    badge: "METRICS LAB",
-    description: "Monitor active users, generated question papers, AI token consumption, and server health.",
-    greeting: "Real-time infrastructure health and user engagement analytics.",
-    is_coming_soon: false,
-    coming_soon_title: "Real-time AI Cost & Latency Radar",
-    coming_soon_message: "Detailed LLM token telemetry and automated regional caching optimization.",
-    coming_soon_eta: "Coming Soon",
-    coming_soon_badge: "Telemetry",
-    icon_name: "Activity",
-    color: "from-blue-600 to-indigo-800"
+    category: "Educational Research",
+    path: "/dashboard/agents?agent=research_assistant",
+    badge: "RESEARCH AI",
+    description: "Find facts, verify educational curricula, compare school boards, and find college requirements.",
+    greeting: "Ask any academic or institutional research question.",
+    is_enabled: true,
+    icon_name: "Search",
+    color: "from-cyan-500 to-blue-600"
   }
 ];
 
@@ -460,11 +250,11 @@ interface ToolConfigState {
   
   // Actions
   updateTool: (id: string, updates: Partial<ToolItem>) => void;
-  toggleComingSoon: (id: string) => void;
-  setAllComingSoon: (role: "all" | "teacher" | "student" | "parent", isComingSoon: boolean) => void;
+  toggleFeatureAllowed: (id: string) => void;
+  setAllFeaturesAllowed: (role: "all" | "teacher" | "student" | "parent", isAllowed: boolean) => void;
+  isFeatureAllowed: (path: string, agentCode?: string) => boolean;
   getToolById: (id: string) => ToolItem | undefined;
   getToolByPath: (path: string, agentCode?: string) => ToolItem | undefined;
-  isToolComingSoon: (pathOrId: string, agentCode?: string) => boolean;
   resetToDefaults: () => void;
   fetchFromServer: () => Promise<void>;
   saveToServer: () => Promise<boolean>;
@@ -482,30 +272,63 @@ export const useToolConfigStore = create<ToolConfigState>()(
             tool.id === id ? { ...tool, ...updates } : tool
           )
         }));
-        // Trigger background sync
         get().saveToServer();
       },
 
-      toggleComingSoon: (id: string) => {
+      toggleFeatureAllowed: (id: string) => {
         set((state) => ({
           tools: state.tools.map((tool) =>
-            tool.id === id ? { ...tool, is_coming_soon: !tool.is_coming_soon } : tool
+            tool.id === id ? { ...tool, is_enabled: !tool.is_enabled } : tool
           )
         }));
-        // Trigger background sync
         get().saveToServer();
       },
 
-      setAllComingSoon: (role, isComingSoon) => {
+      setAllFeaturesAllowed: (role, isAllowed) => {
         set((state) => ({
           tools: state.tools.map((tool) => {
             if (role === "all" || tool.role === role) {
-              return { ...tool, is_coming_soon: isComingSoon };
+              return { ...tool, is_enabled: isAllowed };
             }
             return tool;
           })
         }));
         get().saveToServer();
+      },
+
+      isFeatureAllowed: (path: string, agentCode?: string) => {
+        // Base dashboard and profile pages are always allowed
+        if (
+          path === "/dashboard" ||
+          path === "/dashboard/student" ||
+          path === "/dashboard/parent" ||
+          path === "/dashboard/school" ||
+          path === "/dashboard/profile" ||
+          path.startsWith("/admin")
+        ) {
+          return true;
+        }
+
+        const { tools } = get();
+
+        // 1. Check by agentCode if present
+        if (agentCode) {
+          const match = tools.find(
+            (t) => t.id === agentCode || t.path.includes(`agent=${agentCode}`)
+          );
+          if (match) return match.is_enabled !== false;
+        }
+
+        // 2. Check by exact path or base path
+        const cleanPath = path.split("?")[0];
+        const match = tools.find((t) => {
+          const tClean = t.path.split("?")[0];
+          return t.path === path || tClean === cleanPath || cleanPath.startsWith(tClean);
+        });
+
+        if (match) return match.is_enabled !== false;
+
+        return true;
       },
 
       getToolById: (id: string) => {
@@ -520,24 +343,8 @@ export const useToolConfigStore = create<ToolConfigState>()(
           );
           if (match) return match;
         }
-        return tools.find((t) => t.path === path);
-      },
-
-      isToolComingSoon: (pathOrId: string, agentCode?: string) => {
-        const { tools } = get();
-        if (agentCode) {
-          const match = tools.find(
-            (t) => t.id === agentCode || t.path.includes(`agent=${agentCode}`)
-          );
-          if (match) return match.is_coming_soon;
-        }
-        const byId = tools.find((t) => t.id === pathOrId);
-        if (byId) return byId.is_coming_soon;
-
-        const byPath = tools.find((t) => t.path === pathOrId);
-        if (byPath) return byPath.is_coming_soon;
-
-        return false;
+        const cleanPath = path.split("?")[0];
+        return tools.find((t) => t.path === path || t.path.split("?")[0] === cleanPath);
       },
 
       resetToDefaults: () => {
@@ -551,16 +358,22 @@ export const useToolConfigStore = create<ToolConfigState>()(
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data.tools) && data.tools.length > 0) {
-              // Merge with local defaults
-              const serverToolsMap = new Map(data.tools.map((t: ToolItem) => [t.id, t]));
+              const serverToolsMap = new Map(data.tools.map((t: any) => [t.id, t]));
               const merged = INITIAL_TOOLS.map((def) => {
                 const serverItem = serverToolsMap.get(def.id) as Partial<ToolItem> | undefined;
-                return serverItem ? { ...def, ...serverItem } : def;
+                if (serverItem) {
+                  return {
+                    ...def,
+                    ...serverItem,
+                    is_enabled: serverItem.is_enabled !== undefined ? Boolean(serverItem.is_enabled) : def.is_enabled
+                  };
+                }
+                return def;
               });
               set({ tools: merged });
             }
           }
-        } catch (e) {
+        } catch {
           // Graceful fallback to persistent local storage
         }
       },
@@ -574,13 +387,13 @@ export const useToolConfigStore = create<ToolConfigState>()(
             body: JSON.stringify({ tools })
           });
           return res.ok;
-        } catch (e) {
+        } catch {
           return false;
         }
       }
     }),
     {
-      name: "devgya_tool_config_store_v2",
+      name: "devgya_tool_config_store_v4",
       storage: createJSONStorage(() => localStorage)
     }
   )

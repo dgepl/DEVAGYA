@@ -22,6 +22,7 @@ import {
   Users
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useToolConfigStore } from "@/store/useToolConfigStore";
 
 interface TabItem {
   label: string;
@@ -35,6 +36,7 @@ export function MobileBottomDock() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAppStore();
+  const { isFeatureAllowed } = useToolConfigStore();
   const role = user?.role || "teacher";
   const agentParam = searchParams.get("agent");
 
@@ -80,11 +82,15 @@ export function MobileBottomDock() {
     ];
   };
 
-  const tabs = getTabs();
+  const rawTabs = getTabs();
+  const tabs = rawTabs.filter((tab) => {
+    const tabBase = tab.href.split("?")[0];
+    return isFeatureAllowed(tabBase, tab.agentCode);
+  });
 
   return (
     <nav className="fixed bottom-3 left-3 right-3 z-50 bg-white/95 backdrop-blur-2xl border border-slate-200/90 py-1.5 px-1 shadow-[0_12px_36px_rgba(0,0,0,0.14)] rounded-2xl md:hidden">
-      <div className="grid grid-cols-5 items-center w-full max-w-md mx-auto">
+      <div className="flex items-center justify-around w-full max-w-md mx-auto">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           let isActive = false;

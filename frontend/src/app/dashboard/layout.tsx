@@ -46,7 +46,6 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
-import { ComingSoonView } from "@/components/common/ComingSoonView";
 import { useEffect, useState, Suspense } from "react";
 import { SmartSearchBar } from "@/components/search/SmartSearchBar";
 import { PageTransition } from "@/components/ui/PageTransition";
@@ -59,7 +58,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, logout, initSession, syncProfileFromServer } = useAppStore();
-  const { tools, getToolByPath, fetchFromServer } = useToolConfigStore();
+  const { isFeatureAllowed, fetchFromServer } = useToolConfigStore();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -75,22 +74,33 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   const agentParam = searchParams.get("agent");
 
-  // Check if current active page is marked as Coming Soon by Admin
-  const currentComingSoonTool = (() => {
-    if (
-      pathname === "/dashboard" || 
-      pathname === "/dashboard/student" || 
-      pathname === "/dashboard/parent" ||
-      pathname === "/dashboard/profile"
-    ) {
-      return null;
+  // Track user activity & feature usage for Admin Analytics
+  useEffect(() => {
+    if (!user?.email || !pathname) return;
+    try {
+      const activeFeatureName = 
+        agentParam ? `Agent: ${agentParam}` :
+        pathname === "/dashboard" ? "Teacher Dashboard" :
+        pathname === "/dashboard/student" ? "Student Dashboard" :
+        pathname === "/dashboard/parent" ? "Parent Dashboard" :
+        pathname.replace("/dashboard/", "").replace(/-/g, " ");
+
+      fetch("/api/v1/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_email: user.email,
+          user_name: user.name || "",
+          user_role: user.role || "teacher",
+          action: "navigate",
+          path: agentParam ? `${pathname}?agent=${agentParam}` : pathname,
+          feature_name: activeFeatureName
+        })
+      }).catch(() => {});
+    } catch {
+      // Non-blocking telemetry
     }
-    const matched = getToolByPath(pathname, agentParam || undefined);
-    if (matched && matched.is_coming_soon) {
-      return matched;
-    }
-    return null;
-  })();
+  }, [pathname, agentParam, user?.email]);
 
   useEffect(() => {
     setMounted(true);
@@ -129,6 +139,18 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     if (!user || !user.email || user.email.trim() === "" || user.id === "usr-guest") {
       router.replace("/login");
       return;
+    }
+
+    // Admin Feature Permission Route Guard
+    if (user.role !== "super_admin") {
+      const isAllowedByAdmin = isFeatureAllowed(pathname, agentParam || undefined);
+      if (!isAllowedByAdmin) {
+        if (user.role === "student") router.replace("/dashboard/student");
+        else if (user.role === "parent") router.replace("/dashboard/parent");
+        else if (user.role === "school") router.replace("/dashboard/school");
+        else router.replace("/dashboard");
+        return;
+      }
     }
 
     if (user.role === "student") {
@@ -177,7 +199,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         router.replace("/dashboard");
       }
     }
-  }, [user, pathname, router, mounted]);
+  }, [user, pathname, router, mounted, agentParam, isFeatureAllowed]);
 
   if (!mounted || !user || !user.email || user.id === "usr-guest") {
     return (
@@ -232,7 +254,13 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     navItems.push({ label: "Super Admin", href: "/admin", icon: ShieldCheck });
   }
 
-
+  // Filter out any features disabled by the Admin from the Desktop Sidebar
+  const visibleNavItems = navItems.filter((item) => {
+    if (user.role === "super_admin") return true;
+    const itemUrl = new URL(item.href, "http://x");
+    const itemAgent = item.href.includes("agent=") ? item.href.split("agent=")[1] : undefined;
+    return isFeatureAllowed(itemUrl.pathname, itemAgent);
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row">
@@ -244,15 +272,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           <DevgyaLogo size="lg" className="scale-105 origin-left" showText={true} />
         </Link>
         <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const itemUrl = new URL(item.href, "http://x");
             const isActive = item.href.includes("?") 
               ? pathname === itemUrl.pathname && itemUrl.search === `?${searchParams.toString()}`
               : pathname === item.href;
-            
-            const itemAgent = item.href.includes("agent=") ? item.href.split("agent=")[1] : undefined;
-            const matchedNavTool = getToolByPath(itemUrl.pathname, itemAgent);
-            const isItemComingSoon = matchedNavTool?.is_coming_soon;
 
             return (
               <Link
@@ -266,14 +290,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               >
                 <div className="flex items-center gap-3 truncate">
                   <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-500'}`} />
-                  <span className="truncate">{matchedNavTool?.name || item.label}</span>
+                  <span className="truncate">{item.label}</span>
                 </div>
-
-                {isItemComingSoon && (
-                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
-                    SOON
-                  </span>
-                )}
               </Link>
             );
           })}
@@ -352,16 +370,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               ? "p-2 sm:p-3 flex-1 w-full max-w-full overflow-x-hidden" 
               : "p-3 sm:p-6 lg:p-8 flex-1 w-full max-w-full overflow-x-hidden"
         }`}>
-          {currentComingSoonTool ? (
-            <ComingSoonView
-              tool={currentComingSoonTool}
-              backUrl={user?.role === "student" ? "/dashboard/student" : user?.role === "parent" ? "/dashboard/parent" : "/dashboard"}
-            />
-          ) : (
-            <PageTransition className={isAIChatPage ? "h-full flex-1 flex flex-col min-h-0 w-full" : "w-full"}>
-              {children}
-            </PageTransition>
-          )}
+          <PageTransition className={isAIChatPage ? "h-full flex-1 flex flex-col min-h-0 w-full" : "w-full"}>
+            {children}
+          </PageTransition>
         </main>
 
         {!isAIChatPage && (

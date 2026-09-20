@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { 
   ShieldCheck, 
@@ -35,8 +35,6 @@ import {
   CalendarClock,
   Zap,
   Rocket,
-  ToggleLeft,
-  ToggleRight,
   Edit3,
   Filter,
   Brain,
@@ -49,11 +47,23 @@ import {
   Tag,
   MessageSquare,
   MapPin,
-  LogOut
+  LogOut,
+  Menu,
+  X,
+  TrendingUp,
+  BarChart3,
+  Check,
+  ChevronRight,
+  Headphones,
+  Laptop,
+  CheckCircle,
+  XCircle,
+  Flame,
+  ArrowUpRight
 } from "lucide-react";
 import { useToolConfigStore, ToolItem } from "@/store/useToolConfigStore";
-import { ComingSoonView } from "@/components/common/ComingSoonView";
 import { getApiBase } from "@/lib/api";
+import { DevgyaLogo } from "@/components/common/DevgyaLogo";
 
 export default function SuperAdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -69,23 +79,24 @@ export default function SuperAdminPage() {
     return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
   };
 
-  // Main Tab State
-  const [adminTab, setAdminTab] = useState<"tools_hub" | "paper_studio" | "olympiad" | "users" | "schools" | "analytics">("tools_hub");
+  // Main Left Slidebar Tabs
+  const [adminTab, setAdminTab] = useState<"analytics" | "users" | "permissions" | "paper_studio" | "olympiad" | "schools" | "security">("analytics");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // Platform Tools Hub State
-  const { tools, updateTool, toggleComingSoon, setAllComingSoon, resetToDefaults, fetchFromServer, saveToServer } = useToolConfigStore();
-  const [toolRoleFilter, setToolRoleFilter] = useState<"all" | "teacher" | "student" | "parent" | "admin">("all");
-  const [toolStatusFilter, setToolStatusFilter] = useState<"all" | "active" | "coming_soon">("all");
-  const [toolSearch, setToolSearch] = useState("");
-  const [toolViewMode, setToolViewMode] = useState<"grid" | "table">("grid");
-  const [editingTool, setEditingTool] = useState<ToolItem | null>(null);
-  const [previewComingSoonTool, setPreviewComingSoonTool] = useState<ToolItem | null>(null);
-  const [savingToolForm, setSavingToolForm] = useState(false);
+  // Platform Feature Permission Store
+  const { tools, toggleFeatureAllowed, setAllFeaturesAllowed, resetToDefaults, fetchFromServer, saveToServer } = useToolConfigStore();
+  const [permissionRoleFilter, setPermissionRoleFilter] = useState<"all" | "teacher" | "student" | "parent">("all");
+  const [permissionSearch, setPermissionSearch] = useState("");
+  const [permissionStatusFilter, setPermissionStatusFilter] = useState<"all" | "allowed" | "disabled">("all");
 
   // Sync tools on mount
   useEffect(() => {
     fetchFromServer();
   }, []);
+
+  // Detailed Analytics State
+  const [detailedAnalytics, setDetailedAnalytics] = useState<any | null>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
   // School Management & Verification State
   const [schoolsList, setSchoolsList] = useState<any[]>([]);
@@ -113,6 +124,7 @@ export default function SuperAdminPage() {
   // Data States
   const [stats, setStats] = useState<any>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [userActiveTodayFilter, setUserActiveTodayFilter] = useState<"all" | "active_today">("all");
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [papersList, setPapersList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -123,6 +135,11 @@ export default function SuperAdminPage() {
   const [loadingData, setLoadingData] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [selectedUserDetail, setSelectedUserDetail] = useState<any | null>(null);
+
+  // User Activity Timeline Modal
+  const [activityModalUser, setActivityModalUser] = useState<any | null>(null);
+  const [userTimeline, setUserTimeline] = useState<any[]>([]);
+  const [loadingTimeline, setLoadingTimeline] = useState(false);
 
   // Olympiad Evaluation Modal State
   const [selectedSub, setSelectedSub] = useState<any | null>(null);
@@ -140,7 +157,6 @@ export default function SuperAdminPage() {
   const [aiTitle, setAiTitle] = useState("Class 10 CBSE Science Olympiad Assessment");
   const [aiClass, setAiClass] = useState("Class 10");
   const [aiSubject, setAiSubject] = useState("Science");
-
   const [aiBoard, setAiBoard] = useState("CBSE");
   const [aiDifficulty, setAiDifficulty] = useState("medium");
   const [aiTotalMarks, setAiTotalMarks] = useState(20);
@@ -161,7 +177,6 @@ export default function SuperAdminPage() {
   const [manualTime, setManualTime] = useState(30);
   const [manualStartTime, setManualStartTime] = useState(getLocalISOString(0));
   const [manualEndTime, setManualEndTime] = useState(getLocalISOString(7 * 24 * 60 * 60 * 1000));
-  const [bulkAddCount, setBulkAddCount] = useState<number>(1);
   const [manualQuestions, setManualQuestions] = useState<any[]>([
     {
       id: 1,
@@ -187,17 +202,6 @@ export default function SuperAdminPage() {
   const [schedEndTime, setSchedEndTime] = useState(getLocalISOString(30 * 24 * 60 * 60 * 1000));
   const [schedPublished, setSchedPublished] = useState(true);
   const [savingSchedule, setSavingSchedule] = useState(false);
-
-  // Olympiad Question Add Form State
-  const [showQuestionModal, setShowQuestionModal] = useState(false);
-  const [qSubject, setQSubject] = useState("Pedagogy & Methodology");
-  const [qLevel, setQLevel] = useState("Advanced");
-  const [qScenario, setQScenario] = useState("Classroom Scenario");
-  const [qDifficulty, setQDifficulty] = useState(8.5);
-  const [qText, setQText] = useState("");
-  const [qOptions, setQOptions] = useState<string[]>(["", "", "", ""]);
-  const [qCorrect, setQCorrect] = useState(0);
-  const [qExplanation, setQExplanation] = useState("");
 
   const handleRevokedSession = (msg?: string) => {
     localStorage.removeItem("devgya_admin_token");
@@ -232,12 +236,11 @@ export default function SuperAdminPage() {
       }
       return false;
     } catch (e) {
-      console.warn("Session check momentary network notice:", e);
       return true;
     }
   };
 
-  // Restore session from localStorage on initial mount
+  // Restore session from localStorage on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     const token = localStorage.getItem("devgya_admin_token");
@@ -295,18 +298,17 @@ export default function SuperAdminPage() {
       let data: any = {};
       try {
         data = await res.json();
-      } catch {
-        // Fallback for non-JSON response
-      }
-      if (!res.ok) throw new Error(data.detail || `Server error (${res.status}). Please check backend status.`);
+      } catch {}
 
-      if (data.token) {
+      if (res.ok && data.token) {
         localStorage.setItem("devgya_admin_token", data.token);
+        setIsAuthenticated(true);
+        fetchAdminData(data.token);
+      } else {
+        setLoginError(data.detail || "Invalid Super Admin credentials. Use admin / admin123");
       }
-      setIsAuthenticated(true);
-      fetchAdminData(data.token);
-    } catch (err: any) {
-      setLoginError(err.message || "Invalid Admin Credentials.");
+    } catch (err) {
+      setLoginError("Failed to reach server. Ensure FastAPI backend is running on port 8000.");
     } finally {
       setLoadingLogin(false);
     }
@@ -314,9 +316,11 @@ export default function SuperAdminPage() {
 
   const fetchAdminData = async (tokenOverride?: string) => {
     setLoadingData(true);
-    const token = tokenOverride || (typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null);
     try {
+      const token = tokenOverride || (typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null);
       const baseUrl = getApiBase();
+
+      // 1. Fetch Admin Stats & Submissions
       const res = await fetch(`${baseUrl}/admin/stats`, {
         headers: token ? { "x-admin-token": token } : {}
       });
@@ -326,14 +330,65 @@ export default function SuperAdminPage() {
       }
       const data = await res.json();
       setStats(data.metrics);
-      if (data.profiles) setUsersList(data.profiles);
       if (data.submissions) setSubmissions(data.submissions);
       if (data.papers) setPapersList(data.papers);
       if (data.schools) setSchoolsList(data.schools);
+
+      // 2. Fetch User Profiles enriched with today's live activity
+      const usersRes = await fetch(`${baseUrl}/admin/users`, {
+        headers: token ? { "x-admin-token": token } : {}
+      });
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        if (usersData.users) setUsersList(usersData.users);
+      }
+
+      // 3. Fetch Detailed Real-Time Platform Analytics
+      fetchDetailedAnalytics(token || undefined);
     } catch (e) {
       console.error("Error fetching admin data", e);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const fetchDetailedAnalytics = async (tokenOverride?: string) => {
+    setLoadingAnalytics(true);
+    try {
+      const token = tokenOverride || (typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null);
+      const baseUrl = getApiBase();
+      const res = await fetch(`${baseUrl}/admin/analytics/detailed`, {
+        headers: token ? { "x-admin-token": token } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDetailedAnalytics(data.analytics);
+      }
+    } catch (e) {
+      console.error("Error fetching detailed analytics:", e);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
+
+  const handleOpenUserActivity = async (u: any) => {
+    setActivityModalUser(u);
+    setLoadingTimeline(true);
+    setUserTimeline([]);
+    try {
+      const baseUrl = getApiBase();
+      const token = typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null;
+      const res = await fetch(`${baseUrl}/admin/users/${encodeURIComponent(u.email)}/activity?limit=50`, {
+        headers: token ? { "x-admin-token": token } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserTimeline(data.timeline || []);
+      }
+    } catch (e) {
+      console.error("Failed to load user activity:", e);
+    } finally {
+      setLoadingTimeline(false);
     }
   };
 
@@ -388,7 +443,7 @@ export default function SuperAdminPage() {
     }
   };
 
-  // Generate Paper with AI via Prompt (Total Marks = Question Count, returns draft for review)
+  // Generate Paper with AI via Prompt
   const handleGenerateAiPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneratingAiPaper(true);
@@ -416,7 +471,7 @@ export default function SuperAdminPage() {
       const data = await res.json();
       if (res.ok && data.paper) {
         setAiDraftPaper(data.paper);
-        setActionMsg(`AI Paper "${data.paper.title}" generated with ${data.paper.questions?.length || aiTotalMarks} questions! You can now edit questions and click Publish.`);
+        setActionMsg(`AI Paper "${data.paper.title}" generated with ${data.paper.questions?.length || aiTotalMarks} questions! You can now review and click Publish.`);
         setTimeout(() => setActionMsg(null), 5000);
       } else {
         alert(data.detail || "Failed to generate paper with AI.");
@@ -458,10 +513,7 @@ export default function SuperAdminPage() {
       let data: any = {};
       try {
         data = await res.json();
-      } catch (jsonErr) {
-        if (!res.ok) {
-          throw new Error(`Server returned HTTP ${res.status}. Please check your connection and retry.`);
-        }
+      } catch {
         throw new Error("Unable to parse server response.");
       }
 
@@ -475,9 +527,8 @@ export default function SuperAdminPage() {
         alert(data.detail || data.message || "Failed to synthesize 100-MCQ paper with AI.");
       }
     } catch (err: any) {
-      console.error("TSO AI Generator error:", err);
       const isAbort = err?.name === "AbortError";
-      alert(isAbort ? "Paper generation took longer than expected. Please try again." : (err?.message ? `Failed to synthesize TSO paper: ${err.message}` : "Failed to synthesize TSO paper. Please try again."));
+      alert(isAbort ? "Paper generation took longer than expected. Please try again." : (err?.message || "Failed to synthesize TSO paper."));
     } finally {
       setGeneratingTso100(false);
     }
@@ -570,7 +621,7 @@ export default function SuperAdminPage() {
     }
   };
 
-  // Publish AI Draft Paper after Admin Review / Edits
+  // Publish AI Draft Paper after Admin Review
   const handlePublishAiDraftPaper = async () => {
     if (!aiDraftPaper) return;
     setPublishingAiPaper(true);
@@ -619,7 +670,7 @@ export default function SuperAdminPage() {
     }
   };
 
-  // Save Manual Paper (100% MCQ Enforcement + Time Scheduling)
+  // Save Manual Paper
   const handleSaveManualPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualTitle.trim()) {
@@ -629,7 +680,6 @@ export default function SuperAdminPage() {
     setSavingManualPaper(true);
     try {
       const baseUrl = getApiBase();
-
       const formattedQuestions = manualQuestions.map((q, idx) => {
         const corrIdx = typeof q.correct_answer === "number" ? q.correct_answer : 0;
         const corrText = q.options[corrIdx] || q.answer || `Option ${String.fromCharCode(65 + corrIdx)}`;
@@ -701,7 +751,7 @@ export default function SuperAdminPage() {
     return { status: "live", label: "Live & Active", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
   };
 
-  // Open Schedule Editor Modal for a Paper
+  // Open Schedule Editor Modal
   const openScheduleModal = (paper: any) => {
     setScheduleModalPaper(paper);
     setSchedTitle(paper.title || "");
@@ -721,7 +771,7 @@ export default function SuperAdminPage() {
     setSchedPublished(paper.published !== false);
   };
 
-  // Save Paper Schedule Changes (Start Time, End Time, Title, Published)
+  // Save Paper Schedule Changes
   const handleSavePaperSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!scheduleModalPaper) return;
@@ -745,7 +795,7 @@ export default function SuperAdminPage() {
       if (!res.ok || data.status === "error") {
         throw new Error(data.message || data.detail || "Failed to update schedule");
       }
-      setActionMsg(`✅ Schedule updated successfully for "${schedTitle || scheduleModalPaper.title}". Window: ${startFormatted} to ${endFormatted}`);
+      setActionMsg(`✅ Schedule updated successfully for "${schedTitle || scheduleModalPaper.title}".`);
       setScheduleModalPaper(null);
       await fetchAdminData();
       setTimeout(() => setActionMsg(null), 5000);
@@ -796,9 +846,6 @@ export default function SuperAdminPage() {
     });
   };
 
-  // Add Single Question alias
-  const handleAddManualQuestion = () => handleAddManualQuestions(1);
-
   const handleDeleteUser = async (userId: string, userEmail: string) => {
     if (!confirm(`Are you sure you want to delete user ${userEmail}?`)) return;
     try {
@@ -845,7 +892,7 @@ export default function SuperAdminPage() {
     }
   };
 
-  // 1-Click Bulk Publish Olympiad Results for All Participants
+  // 1-Click Bulk Publish Olympiad Results
   const handleBulkPublishSubmissions = async (paperId?: string) => {
     const targetId = paperId || (selectedPaperForSubmissions !== "all" ? selectedPaperForSubmissions : "");
     if (!confirm(`Are you sure you want to publish results for all participants ${targetId ? `for paper (${targetId})` : "across all papers"} to the live public leaderboard?`)) {
@@ -874,17 +921,13 @@ export default function SuperAdminPage() {
     }
   };
 
-  // Delete single Olympiad Result/Submission
+  // Delete single Olympiad Submission
   const handleDeleteSubmission = async (subId: string) => {
-    if (!confirm(`Are you sure you want to permanently delete submission #${subId}? This candidate's test attempt and record will be erased.`)) {
-      return;
-    }
+    if (!confirm(`Are you sure you want to permanently delete submission #${subId}?`)) return;
     setDeletingSubId(subId);
     try {
       const baseUrl = getApiBase();
-      const res = await fetch(`${baseUrl}/admin/olympiad/submissions/${subId}`, {
-        method: "DELETE"
-      });
+      const res = await fetch(`${baseUrl}/admin/olympiad/submissions/${subId}`, { method: "DELETE" });
       const data = await res.json();
       if (res.ok) {
         setActionMsg(`Submission #${subId} successfully deleted.`);
@@ -901,20 +944,16 @@ export default function SuperAdminPage() {
     }
   };
 
-  // Bulk Delete Olympiad Submissions for Paper or All
+  // Bulk Delete Submissions
   const handleBulkDeleteSubmissions = async (paperId?: string) => {
     const targetId = paperId || (selectedPaperForSubmissions !== "all" ? selectedPaperForSubmissions : "all");
     const paperName = targetId === "all" ? "ALL papers" : `paper (${targetId})`;
-    if (!confirm(`⚠️ DANGER: Are you sure you want to PERMANENTLY DELETE ALL results for ${paperName}? This will reset previous candidate submissions.`)) {
-      return;
-    }
+    if (!confirm(`⚠️ DANGER: Are you sure you want to PERMANENTLY DELETE ALL results for ${paperName}?`)) return;
     setBulkDeleting(true);
     try {
       const baseUrl = getApiBase();
       const query = targetId !== "all" ? `?paper_id=${encodeURIComponent(targetId)}` : "?paper_id=all";
-      const res = await fetch(`${baseUrl}/admin/olympiad/submissions${query}`, {
-        method: "DELETE"
-      });
+      const res = await fetch(`${baseUrl}/admin/olympiad/submissions${query}`, { method: "DELETE" });
       const data = await res.json();
       if (res.ok) {
         setActionMsg(`Successfully deleted ${data.deleted_count ?? "all"} submission(s) for ${paperName}.`);
@@ -930,123 +969,183 @@ export default function SuperAdminPage() {
     }
   };
 
-  const filteredUsers = usersList.filter((u) => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch = 
-      !q ||
-      (u.full_name || "").toLowerCase().includes(q) ||
-      (u.email || "").toLowerCase().includes(q) ||
-      (u.school_name || u.child_school || "").toLowerCase().includes(q) ||
-      (u.phone || "").toLowerCase().includes(q) ||
-      (u.district || "").toLowerCase().includes(q) ||
-      (u.state || "").toLowerCase().includes(q);
-
-    const matchesRole = filterRole === "all" || u.role === filterRole;
-
-    const uClasses = (u.classes || u.child_class || u.category_level || "").toLowerCase();
-    let matchesGrade = true;
-    if (filterGrade !== "all") {
-      if (filterGrade === "primary") {
-        matchesGrade = uClasses.includes("primary") || ["class 1", "class 2", "class 3", "class 4", "class 5", "grade 1", "grade 2", "grade 3", "grade 4", "grade 5"].some(k => uClasses.includes(k));
-      } else if (filterGrade === "middle") {
-        matchesGrade = uClasses.includes("middle") || ["class 6", "class 7", "class 8", "grade 6", "grade 7", "grade 8"].some(k => uClasses.includes(k));
-      } else if (filterGrade === "secondary") {
-        matchesGrade = uClasses.includes("secondary") || ["class 9", "class 10", "grade 9", "grade 10"].some(k => uClasses.includes(k));
-      } else if (filterGrade === "senior") {
-        matchesGrade = uClasses.includes("senior") || ["class 11", "class 12", "grade 11", "grade 12"].some(k => uClasses.includes(k));
-      } else {
-        matchesGrade = uClasses.includes(filterGrade.toLowerCase());
+  // Filtered Users computation
+  const filteredUsers = useMemo(() => {
+    return usersList.filter((u) => {
+      // 1. Filter by Active Today if active_today filter is selected
+      if (userActiveTodayFilter === "active_today" && !u.is_active_today) {
+        return false;
       }
-    }
 
-    const uSubj = (u.subject || u.target_exam || u.tso_subject || "").toLowerCase();
-    let matchesSubject = true;
-    if (filterSubject !== "all") {
-      if (filterSubject === "science") {
-        matchesSubject = ["sci", "phys", "chem", "bio"].some(k => uSubj.includes(k));
-      } else if (filterSubject === "mathematics") {
-        matchesSubject = ["math", "algebra", "geom"].some(k => uSubj.includes(k));
-      } else if (filterSubject === "social") {
-        matchesSubject = ["soc", "hist", "geog", "civic", "pol"].some(k => uSubj.includes(k));
-      } else if (filterSubject === "english") {
-        matchesSubject = uSubj.includes("eng");
-      } else if (filterSubject === "hindi") {
-        matchesSubject = uSubj.includes("hin");
-      } else if (filterSubject === "computer") {
-        matchesSubject = ["comp", "ai", "it", "code", "cs"].some(k => uSubj.includes(k));
-      } else {
-        matchesSubject = uSubj.includes(filterSubject.toLowerCase());
+      // 2. Filter by search query
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = 
+        !q ||
+        (u.full_name || "").toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q) ||
+        (u.school_name || u.child_school || "").toLowerCase().includes(q) ||
+        (u.phone || "").toLowerCase().includes(q) ||
+        (u.district || "").toLowerCase().includes(q) ||
+        (u.state || "").toLowerCase().includes(q);
+
+      if (!matchesSearch) return false;
+
+      // 3. Filter by role
+      if (filterRole !== "all" && u.role !== filterRole) return false;
+
+      // 4. Filter by grade
+      const uClasses = (u.classes || u.child_class || u.category_level || "").toLowerCase();
+      if (filterGrade !== "all") {
+        if (filterGrade === "primary") {
+          const isPrimary = uClasses.includes("primary") || ["class 1", "class 2", "class 3", "class 4", "class 5"].some(k => uClasses.includes(k));
+          if (!isPrimary) return false;
+        } else if (filterGrade === "middle") {
+          const isMiddle = uClasses.includes("middle") || ["class 6", "class 7", "class 8"].some(k => uClasses.includes(k));
+          if (!isMiddle) return false;
+        } else if (filterGrade === "secondary") {
+          const isSec = uClasses.includes("secondary") || ["class 9", "class 10"].some(k => uClasses.includes(k));
+          if (!isSec) return false;
+        } else if (filterGrade === "senior") {
+          const isSenior = uClasses.includes("senior") || ["class 11", "class 12"].some(k => uClasses.includes(k));
+          if (!isSenior) return false;
+        } else if (!uClasses.includes(filterGrade)) {
+          return false;
+        }
       }
+
+      // 5. Filter by subject
+      if (filterSubject !== "all") {
+        const uSub = (u.subject || u.target_exam || "").toLowerCase();
+        if (!uSub.includes(filterSubject)) return false;
+      }
+
+      // 6. Filter by board
+      if (filterBoard !== "all") {
+        const uBoard = (u.board || u.child_board || "").toLowerCase();
+        if (!uBoard.includes(filterBoard)) return false;
+      }
+
+      return true;
+    });
+  }, [usersList, userActiveTodayFilter, searchQuery, filterRole, filterGrade, filterSubject, filterBoard]);
+
+  // Active Users Today Count
+  const activeTodayCount = useMemo(() => {
+    return usersList.filter(u => u.is_active_today).length;
+  }, [usersList]);
+
+  // Filtered Tools for Permissions Management
+  const filteredTools = useMemo(() => {
+    return tools.filter((tool) => {
+      if (permissionRoleFilter !== "all" && tool.role !== permissionRoleFilter) {
+        return false;
+      }
+      if (permissionStatusFilter === "allowed" && tool.is_enabled === false) {
+        return false;
+      }
+      if (permissionStatusFilter === "disabled" && tool.is_enabled !== false) {
+        return false;
+      }
+      if (permissionSearch.trim()) {
+        const q = permissionSearch.toLowerCase().trim();
+        const match = 
+          tool.name.toLowerCase().includes(q) ||
+          tool.category.toLowerCase().includes(q) ||
+          tool.path.toLowerCase().includes(q) ||
+          tool.badge.toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [tools, permissionRoleFilter, permissionStatusFilter, permissionSearch]);
+
+  // Cheating Badge Helper for Olympiad
+  const renderCheatingBadge = (sub: any) => {
+    const audit = sub.proctoring_audit || {};
+    const count = Number(audit.warnings_count ?? audit.warning_count ?? 0);
+    const isDisqualified = Boolean(audit.disqualified || count >= 5);
+
+    if (isDisqualified || count >= 5) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-red-100 text-red-800 border border-red-300 shadow-2xs">
+          <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
+          <span>{count} Warnings (Disqualified)</span>
+        </span>
+      );
     }
+    if (count >= 3) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-300 shadow-2xs">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+          <span>{count} Warnings</span>
+        </span>
+      );
+    }
+    if (count > 0) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-yellow-50 text-yellow-800 border border-yellow-200">
+          <span>{count} Warning{count > 1 ? "s" : ""}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+        <span>0 Warnings (Clean)</span>
+      </span>
+    );
+  };
 
-    const uBoard = (u.board || u.child_board || "cbse").toLowerCase();
-    const matchesBoard = filterBoard === "all" || uBoard.includes(filterBoard.toLowerCase());
-
-    return matchesSearch && matchesRole && matchesGrade && matchesSubject && matchesBoard;
-  });
-
-  // Admin Auth Gate
+  // LOGIN SCREEN
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden font-sans">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
-
-        <div className="w-full max-w-md bg-slate-800/90 border border-slate-700 p-8 sm:p-10 rounded-3xl shadow-2xl relative z-10 space-y-6 text-white backdrop-blur-xl">
-          
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mx-auto mb-3 shadow-inner">
-              <ShieldCheck className="w-8 h-8" />
+            <div className="w-14 h-14 bg-gradient-to-tr from-indigo-500 via-purple-500 to-amber-400 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <ShieldCheck className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-black tracking-tight">Super Admin Control Center</h1>
-            <p className="text-xs text-slate-400 font-semibold">Master Administrative Management Portal</p>
+            <h2 className="text-2xl font-black tracking-tight text-white">Super Admin Control</h2>
+            <p className="text-xs text-slate-400 font-medium">DEVGYA GLOBAL EDUTECH PRIVATE LIMITED</p>
           </div>
 
           {sessionRevokedNotice && (
-            <div className="p-4 bg-amber-500/20 border border-amber-500/40 rounded-2xl text-amber-200 text-xs font-bold flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2 duration-300">
-              <AlertCircle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
-              <div className="space-y-1">
-                <span className="font-extrabold uppercase tracking-wider block text-amber-300">Logged Out From Another Device</span>
-                <span className="leading-relaxed block">{sessionRevokedNotice}</span>
-              </div>
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 text-xs font-bold flex items-start gap-2.5">
+              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <span>{sessionRevokedNotice}</span>
             </div>
           )}
 
           {loginError && (
-            <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-300 text-xs font-bold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{loginError}</span>
             </div>
           )}
 
           <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Admin Username</label>
-              <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                <input
-                  type="text"
-                  value={adminUser}
-                  onChange={(e) => setAdminUser(e.target.value)}
-                  placeholder="admin"
-                  required
-                  className="w-full bg-slate-900/80 border border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold transition-all"
-                />
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300">Admin Username</label>
+              <input
+                type="text"
+                required
+                value={adminUser}
+                onChange={(e) => setAdminUser(e.target.value)}
+                placeholder="admin"
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
+              />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Admin Password</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                <input
-                  type="password"
-                  value={adminPass}
-                  onChange={(e) => setAdminPass(e.target.value)}
-                  placeholder="admin123"
-                  required
-                  className="w-full bg-slate-900/80 border border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold transition-all"
-                />
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300">Admin Password</label>
+              <input
+                type="password"
+                required
+                value={adminPass}
+                onChange={(e) => setAdminPass(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
+              />
             </div>
 
             <button
@@ -1059,1222 +1158,710 @@ export default function SuperAdminPage() {
             </button>
           </form>
 
-          <div className="text-center pt-2 border-t border-slate-700/50 text-[11px] text-slate-400 font-mono">
-            Master Credentials: admin / admin123
+          <div className="text-center pt-2 border-t border-slate-800 text-[11px] text-slate-400 font-mono">
+            Default Credentials: admin / admin123
           </div>
-
         </div>
       </div>
     );
   }
 
+  // NAVIGATION ITEMS FOR LEFT SLIDEBAR
+  const navItemsList = [
+    {
+      id: "analytics",
+      label: "Site Analytics",
+      icon: Activity,
+      badge: "LIVE",
+      badgeColor: "bg-emerald-500 text-white"
+    },
+    {
+      id: "users",
+      label: "Users & Activity",
+      icon: Users,
+      badge: `${activeTodayCount} Today`,
+      badgeColor: activeTodayCount > 0 ? "bg-indigo-500 text-white" : "bg-slate-700 text-slate-300"
+    },
+    {
+      id: "permissions",
+      label: "Feature Permissions",
+      icon: Sliders,
+      badge: `${tools.filter(t => t.is_enabled !== false).length} Active`,
+      badgeColor: "bg-amber-500 text-white"
+    },
+    {
+      id: "paper_studio",
+      label: "Paper Studio",
+      icon: Wand2,
+      badge: `${papersList.length}`,
+      badgeColor: "bg-purple-500 text-white"
+    },
+    {
+      id: "olympiad",
+      label: "Olympiad Board",
+      icon: Trophy,
+      badge: `${submissions.length}`,
+      badgeColor: "bg-yellow-500 text-slate-900 font-black"
+    },
+    {
+      id: "schools",
+      label: "School Verification",
+      icon: Building2,
+      badge: `${schoolsList.filter(s => s.verification_status === "pending_verification").length} Pending`,
+      badgeColor: schoolsList.filter(s => s.verification_status === "pending_verification").length > 0 ? "bg-rose-500 text-white" : "bg-slate-700 text-slate-300"
+    },
+    {
+      id: "security",
+      label: "Security & Sessions",
+      icon: Lock,
+      badge: "Single Session",
+      badgeColor: "bg-cyan-500 text-white"
+    }
+  ];
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto p-4 sm:p-6 font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-slate-900 font-sans">
       
-      {/* MASTER TOP HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-black">
-            <ShieldCheck className="w-4 h-4 text-indigo-400" />
-            <span>Super Admin Paper Studio & Control Center</span>
+      {/* ========================================================================= */}
+      {/* DESKTOP FIXED LEFT SLIDEBAR */}
+      {/* ========================================================================= */}
+      <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-slate-900 text-white border-r border-slate-800 p-5 fixed inset-y-0 z-40 justify-between">
+        <div className="space-y-6 overflow-y-auto pr-1">
+          
+          {/* LOGO & BRAND HEADER */}
+          <div className="space-y-2 pb-4 border-b border-slate-800">
+            <Link href="/dashboard" className="flex items-center gap-2">
+              <DevgyaLogo size="md" showText={true} className="brightness-125" />
+            </Link>
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[10px] font-black uppercase tracking-wider">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Super Admin Portal</span>
+            </div>
           </div>
-          <h1 className="text-2xl font-black tracking-tight">DEVGYA Global Platform Master Control</h1>
-          <p className="text-xs text-slate-400 font-medium">Manage Paper Studio (AI Prompt Paper Maker & Manual Builder), Olympiad Evaluation, and Platform Users</p>
+
+          {/* ACTIVE DEVICE CARD */}
+          <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/70 space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                <Laptop className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Device Protected</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            </div>
+            <p className="text-[10px] text-slate-400 font-medium">Single-session lock active</p>
+          </div>
+
+          {/* NAVIGATION SLIDEBAR ITEMS */}
+          <nav className="space-y-1.5">
+            <p className="text-[10px] uppercase font-black text-slate-500 px-3 tracking-wider">Navigation Menu</p>
+            {navItemsList.map((item) => {
+              const Icon = item.icon;
+              const isActive = adminTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setAdminTab(item.id as any)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 border border-indigo-500"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800/70"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${item.badgeColor}`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* BOTTOM ACTION BUTTONS */}
+        <div className="pt-4 border-t border-slate-800 space-y-2">
           <button
             onClick={() => fetchAdminData()}
             disabled={loadingData}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-2xl shadow-md flex items-center gap-2 transition-all cursor-pointer"
+            className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
-            <RefreshCw className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`} />
-            <span>Refresh Database</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`} />
+            <span>Refresh Data</span>
           </button>
 
           <button
             onClick={handleAdminLogout}
-            className="px-4 py-2.5 bg-rose-500/20 hover:bg-rose-600 border border-rose-500/40 hover:border-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-2xl shadow-md flex items-center gap-2 transition-all cursor-pointer"
-            title="Sign out of Admin Control Center"
+            className="w-full py-2 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
-            <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Log Out Admin</span>
           </button>
         </div>
-      </div>
-
-      {actionMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-black flex items-center gap-2 shadow-sm animate-in fade-in duration-300">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{actionMsg}</span>
-        </div>
-      )}
-
-      {/* METRICS ROW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-indigo-600">
-            <FileText className="w-5 h-5" />
-            <span className="text-[10px] uppercase font-black bg-indigo-50 px-2 py-0.5 rounded-full">Paper Studio</span>
-          </div>
-          <p className="text-3xl font-black text-slate-900">{stats?.total_papers || papersList.length}</p>
-          <p className="text-xs text-slate-500 font-medium">Generated Question Papers</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-amber-600">
-            <Trophy className="w-5 h-5" />
-            <span className="text-[10px] uppercase font-black bg-amber-50 px-2 py-0.5 rounded-full">Olympiad Submissions</span>
-          </div>
-          <p className="text-3xl font-black text-slate-900">{stats?.total_submissions || submissions.length}</p>
-          <p className="text-xs text-slate-500 font-medium">Teacher Assessment Scripts</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-emerald-600">
-            <Users className="w-5 h-5" />
-            <span className="text-[10px] uppercase font-black bg-emerald-50 px-2 py-0.5 rounded-full">User Profiles</span>
-          </div>
-          <p className="text-3xl font-black text-slate-900">{stats?.total_users || usersList.length}</p>
-          <p className="text-xs text-slate-500 font-medium">Registered Accounts</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-purple-600">
-            <Building2 className="w-5 h-5" />
-            <span className="text-[10px] uppercase font-black bg-purple-50 px-2 py-0.5 rounded-full">HQ Operations</span>
-          </div>
-          <p className="text-3xl font-black text-slate-900">Jhajjar, HR</p>
-          <p className="text-xs text-slate-500 font-medium">Headquarters</p>
-        </div>
-      </div>
-
-      {/* ADMIN CONTROL MAIN TABS */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        <button
-          onClick={() => setAdminTab("tools_hub")}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-            adminTab === "tools_hub" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-          }`}
-        >
-          <SlidersHorizontal className="w-4 h-4 text-cyan-300" />
-          <span>Platform & AI Tools Hub ({tools.length})</span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab("paper_studio")}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-            adminTab === "paper_studio" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-          }`}
-        >
-          <Wand2 className="w-4 h-4 text-amber-300" />
-          <span>Super Admin Paper Studio ({papersList.length})</span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab("olympiad")}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-            adminTab === "olympiad" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-          }`}
-        >
-          <Trophy className="w-4 h-4 text-amber-400" />
-          <span>Olympiad Evaluation Board ({submissions.length})</span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab("users")}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-            adminTab === "users" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-          }`}
-        >
-          <Users className="w-4 h-4 text-teal-300" />
-          <span>User Profiles & Role Control ({usersList.length})</span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab("schools")}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-            adminTab === "schools" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-          }`}
-        >
-          <Building2 className="w-4 h-4 text-emerald-400" />
-          <span>School Verification ({schoolsList.filter(s => s.verification_status === "pending_verification").length} Pending)</span>
-        </button>
-      </div>
+      </aside>
 
       {/* ========================================================================= */}
-      {/* TAB 0: PLATFORM & AI TOOLS HUB (FEATURE MANAGEMENT & COMING SOON CONTROL) */}
+      {/* MOBILE TOP BAR WITH HAMBURGER DRAWER */}
       {/* ========================================================================= */}
-      {adminTab === "tools_hub" && (
-        <div className="space-y-6">
-          
-          {/* TOP CONTROLS & FILTER BAR */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-5">
-            
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-black uppercase tracking-wider">
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span>Central Feature Registry</span>
+      <header className="md:hidden sticky top-0 z-40 bg-slate-900 text-white px-4 py-3 flex items-center justify-between border-b border-slate-800 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+            aria-label="Open Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="text-sm font-black tracking-tight">Super Admin</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchAdminData()}
+            disabled={loadingData}
+            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+            title="Refresh Database"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`} />
+          </button>
+          <button
+            onClick={handleAdminLogout}
+            className="p-2 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-600 hover:text-white cursor-pointer"
+            title="Log Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* MOBILE SLIDE-OUT DRAWER */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex justify-start md:hidden">
+          <div className="w-4/5 max-w-xs bg-slate-900 text-white h-full p-5 flex flex-col justify-between overflow-y-auto animate-in slide-in-from-left duration-200">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                  <span className="font-black text-sm">DEVGYA Admin</span>
                 </div>
-                <h2 className="text-xl font-black text-slate-900">AI & Platform Tools Management Hub</h2>
-                <p className="text-xs text-slate-500 font-medium">
-                  Organized separately for Teacher, Student, Parent, and Admin roles. Customize titles, greetings, badges, and toggle Coming Soon modes live.
-                </p>
-              </div>
-
-              {/* Action Toolbar */}
-              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm("Set all platform tools to LIVE & ACTIVE?")) {
-                      setAllComingSoon("all", false);
-                      setActionMsg("✅ All platform tools set to LIVE & ACTIVE!");
-                      setTimeout(() => setActionMsg(null), 4000);
-                    }
-                  }}
-                  className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Activate All</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm("Reset all tool titles, badges, and greetings to factory defaults?")) {
-                      resetToDefaults();
-                      setActionMsg("✅ Reset all tool configurations to default!");
-                      setTimeout(() => setActionMsg(null), 4000);
-                    }
-                  }}
-                  className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Reset Defaults</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </div>
 
-            {/* ROLE FILTER PILLS */}
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-              <span className="text-xs font-bold text-slate-400 mr-2 flex items-center gap-1">
-                <Filter className="w-3.5 h-3.5" /> Role Scope:
-              </span>
-
-              {[
-                { key: "all", label: "All Tools", count: tools.length, color: "text-slate-700 bg-slate-100" },
-                { key: "teacher", label: "Teacher Tools", count: tools.filter(t => t.role === "teacher").length, color: "text-indigo-700 bg-indigo-50 border-indigo-200" },
-                { key: "student", label: "Student Tools", count: tools.filter(t => t.role === "student").length, color: "text-purple-700 bg-purple-50 border-purple-200" },
-                { key: "parent", label: "Parent Tools", count: tools.filter(t => t.role === "parent").length, color: "text-rose-700 bg-rose-50 border-rose-200" },
-                { key: "admin", label: "Admin Tools", count: tools.filter(t => t.role === "admin").length, color: "text-teal-700 bg-teal-50 border-teal-200" },
-              ].map((pill) => (
-                <button
-                  key={pill.key}
-                  onClick={() => setToolRoleFilter(pill.key as any)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer border ${
-                    toolRoleFilter === pill.key
-                      ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                      : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
-                  }`}
-                >
-                  <span>{pill.label}</span>
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
-                    toolRoleFilter === pill.key ? "bg-white/20 text-white" : pill.color
-                  }`}>
-                    {pill.count}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* SEARCH & STATUS FILTER ROW */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-              <div className="relative w-full sm:w-96">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  value={toolSearch}
-                  onChange={(e) => setToolSearch(e.target.value)}
-                  placeholder="Search tool by name, category, badge..."
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all font-medium"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200 text-xs">
-                  <button
-                    onClick={() => setToolStatusFilter("all")}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                      toolStatusFilter === "all" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    All ({tools.length})
-                  </button>
-                  <button
-                    onClick={() => setToolStatusFilter("active")}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                      toolStatusFilter === "active" ? "bg-white text-emerald-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    ● Live ({tools.filter(t => !t.is_coming_soon).length})
-                  </button>
-                  <button
-                    onClick={() => setToolStatusFilter("coming_soon")}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                      toolStatusFilter === "coming_soon" ? "bg-white text-amber-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    ⚡ Coming Soon ({tools.filter(t => t.is_coming_soon).length})
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* TOOLS GRID */}
-          {(() => {
-            const filtered = tools.filter((t) => {
-              const matchesRole = toolRoleFilter === "all" || t.role === toolRoleFilter;
-              const matchesStatus = 
-                toolStatusFilter === "all" || 
-                (toolStatusFilter === "active" && !t.is_coming_soon) || 
-                (toolStatusFilter === "coming_soon" && t.is_coming_soon);
-              const q = toolSearch.toLowerCase().trim();
-              const matchesSearch = 
-                !q || 
-                t.name.toLowerCase().includes(q) || 
-                t.description.toLowerCase().includes(q) || 
-                t.category.toLowerCase().includes(q) || 
-                t.badge.toLowerCase().includes(q) ||
-                (t.greeting || "").toLowerCase().includes(q);
-              return matchesRole && matchesStatus && matchesSearch;
-            });
-
-            if (filtered.length === 0) {
-              return (
-                <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
-                  <SlidersHorizontal className="w-10 h-10 text-slate-300 mx-auto" />
-                  <h3 className="text-base font-extrabold text-slate-800">No matching tools found</h3>
-                  <p className="text-xs text-slate-400">Try adjusting your role filter or search keywords.</p>
-                </div>
-              );
-            }
-
-            return (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filtered.map((tool) => {
-                  const roleBadgeColor = 
-                    tool.role === "teacher" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                    tool.role === "student" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                    tool.role === "parent" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                    "bg-teal-50 text-teal-700 border-teal-200";
-
+              <nav className="space-y-1.5">
+                {navItemsList.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = adminTab === item.id;
                   return (
-                    <div 
-                      key={tool.id} 
-                      className={`bg-white rounded-3xl border transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-md ${
-                        tool.is_coming_soon ? "border-amber-300/80 bg-gradient-to-b from-amber-50/20 to-white" : "border-slate-200 hover:border-indigo-200"
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setAdminTab(item.id as any);
+                        setMobileNavOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
+                          : "text-slate-400 hover:text-white hover:bg-slate-800/70"
                       }`}
                     >
-                      {/* CARD TOP BANNER */}
-                      <div className="p-5 pb-3 space-y-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-10 h-10 rounded-2xl bg-gradient-to-tr ${tool.color} text-white flex items-center justify-center shadow-md shrink-0`}>
-                              <Sparkles className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border ${roleBadgeColor}`}>
-                                  {tool.role}
-                                </span>
-                                <span className="text-[9px] font-black uppercase tracking-wider bg-slate-900 text-white px-1.5 py-0.5 rounded-md">
-                                  {tool.badge}
-                                </span>
-                              </div>
-                              <h3 className="text-sm font-extrabold text-slate-900 leading-snug mt-0.5">{tool.name}</h3>
-                            </div>
-                          </div>
-
-                          {/* Coming Soon Switch */}
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                toggleComingSoon(tool.id);
-                                setActionMsg(`Toggled Coming Soon status for "${tool.name}"`);
-                                setTimeout(() => setActionMsg(null), 3000);
-                              }}
-                              className={`px-2.5 py-1 rounded-xl text-[10.5px] font-black flex items-center gap-1.5 transition-all cursor-pointer border ${
-                                tool.is_coming_soon
-                                  ? "bg-amber-500 text-slate-950 border-amber-400 shadow-sm"
-                                  : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                              }`}
-                            >
-                              {tool.is_coming_soon ? (
-                                <>
-                                  <Rocket className="w-3 h-3 text-slate-950 animate-bounce" />
-                                  <span>COMING SOON</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />
-                                  <span>LIVE ACTIVE</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Category & Route */}
-                        <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono pt-1">
-                          <span className="text-slate-600 font-semibold">{tool.category}</span>
-                          <span className="truncate max-w-[140px] text-slate-400">{tool.path}</span>
-                        </div>
-
-                        {/* Description */}
-                        <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                          {tool.description}
-                        </p>
-
-                        {/* Greeting / Instructions Preview */}
-                        {tool.greeting && (
-                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-500 italic line-clamp-2">
-                            "{tool.greeting}"
-                          </div>
-                        )}
-
-                        {/* Coming Soon Status Details if active */}
-                        {tool.is_coming_soon && (
-                          <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1 text-xs">
-                            <div className="flex items-center justify-between font-extrabold text-[11px]">
-                              <span>⚡ Coming Soon Mode Active</span>
-                              <span className="text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded-md font-mono">{tool.coming_soon_eta || "Releasing Soon"}</span>
-                            </div>
-                            <p className="text-[11px] text-amber-800 leading-tight">
-                              {tool.coming_soon_title || "Feature Upgrade in Progress"}
-                            </p>
-                          </div>
-                        )}
+                      <div className="flex items-center gap-3">
+                        <Icon className="w-4 h-4" />
+                        <span>{item.label}</span>
                       </div>
-
-                      {/* CARD BOTTOM ACTION BAR */}
-                      <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditingTool({ ...tool })}
-                          className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                        >
-                          <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Edit Config</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setPreviewComingSoonTool({ ...tool })}
-                          className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Preview Coming Soon</span>
-                        </button>
-                      </div>
-
-                    </div>
+                      {item.badge && (
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${item.badgeColor}`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
                   );
                 })}
-              </div>
-            );
-          })()}
+              </nav>
+            </div>
 
+            <div className="pt-4 border-t border-slate-800">
+              <button
+                onClick={handleAdminLogout}
+                className="w-full py-2.5 px-3 rounded-xl bg-rose-600 text-white text-xs font-bold flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Log Out</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 1: SUPER ADMIN PAPER STUDIO */}
+      {/* MAIN CONTENT AREA */}
       {/* ========================================================================= */}
-      {adminTab === "paper_studio" && (
-        <div className="space-y-6">
-          
-          {/* PAPER STUDIO SUB-TABS */}
-          <div className="bg-slate-100 p-1.5 rounded-2xl inline-flex items-center gap-1 flex-wrap">
-            <button
-              onClick={() => setPaperStudioSubTab("tso_100_ai")}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-                paperStudioSubTab === "tso_100_ai" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Trophy className="w-4 h-4 text-amber-500" />
-              <span>TSO 100-MCQ AI Studio (60/40 Structure)</span>
-            </button>
-
-            <button
-              onClick={() => setPaperStudioSubTab("manual_builder")}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-                paperStudioSubTab === "manual_builder" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Plus className="w-4 h-4 text-indigo-600" />
-              <span>Manual Paper Builder</span>
-            </button>
-
-            <button
-              onClick={() => setPaperStudioSubTab("repository")}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-                paperStudioSubTab === "repository" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <BookOpen className="w-4 h-4 text-indigo-600" />
-              <span>Saved Paper Repository ({papersList.length})</span>
-            </button>
+      <main className="flex-1 md:pl-64 lg:pl-72 flex flex-col min-h-screen">
+        
+        {/* TOP SUB-HEADER BAR */}
+        <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 md:static z-20 shadow-2xs">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-slate-400 font-medium">Control Center</span>
+            <span className="text-slate-300">/</span>
+            <span className="font-extrabold text-slate-800 capitalize">
+              {navItemsList.find(n => n.id === adminTab)?.label || "Dashboard"}
+            </span>
           </div>
 
-          {/* SUB-TAB 0: MASTER TSO 100-MCQ AI SYNTHESIZER & QUESTION EDITOR */}
-          {paperStudioSubTab === "tso_100_ai" && (
-            <div className="space-y-6">
+          <div className="flex items-center gap-2.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Live Database Sync</span>
+            </div>
+            
+            <button
+              onClick={() => fetchAdminData()}
+              disabled={loadingData}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        {/* NOTIFICATION MESSAGE */}
+        {actionMsg && (
+          <div className="m-4 sm:m-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-black flex items-center gap-2 shadow-sm animate-in fade-in duration-300">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{actionMsg}</span>
+          </div>
+        )}
+
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-7xl w-full mx-auto">
+          
+          {/* ========================================================================= */}
+          {/* TAB 1: SITE ANALYTICS (DETAILED FULL-SITE ANALYTICS)                      */}
+          {/* ========================================================================= */}
+          {adminTab === "analytics" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
               
-              {/* SYNTHESIZER GENERATOR FORM */}
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-                <div className="space-y-1 border-b border-slate-100 pb-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                      <Trophy className="w-5 h-5 text-amber-500" />
-                      Synthesize 100-MCQ National Olympiad Paper with AI
-                    </h3>
-                    <span className="text-[10px] font-black uppercase px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                      60/40 HYBRID BLUEPRINT
+              {/* TOP SUMMARY CARDS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between text-emerald-600">
+                    <Activity className="w-5 h-5" />
+                    <span className="text-[10px] uppercase font-black bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
+                      Live Today
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 font-medium">
-                    DEVGYA AI strictly constructs the official 100-MCQ paper across all 6 blueprint modules:
+                  <p className="text-3xl font-black text-slate-900">
+                    {activeTodayCount}
                   </p>
+                  <p className="text-xs text-slate-500 font-medium">Daily Active Users (DAU)</p>
                 </div>
 
-                {/* 60/40 BLUEPRINT MODULES VISUAL OVERVIEW */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* PART-A (60 MCQs) */}
-                  <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-2.5">
-                    <div className="flex items-center justify-between border-b border-purple-200/60 pb-2">
-                      <span className="text-xs font-black text-purple-950 uppercase">Part-A: Universal Pedagogy</span>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-purple-200 text-purple-900">
-                        60% Weightage (60 MCQs)
-                      </span>
-                    </div>
-                    <div className="space-y-1.5 text-xs text-purple-900 font-semibold">
-                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-purple-100">
-                        <span>• Module 1: CBSE CPD Modules & NEP Guidelines</span>
-                        <span className="font-black text-purple-700">20 MCQs</span>
-                      </div>
-                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-purple-100">
-                        <span>• Module 2: Personal Classroom Experience & Scenarios</span>
-                        <span className="font-black text-purple-700">20 MCQs</span>
-                      </div>
-                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-purple-100">
-                        <span>• Module 3: Modern Pedagogy & Critical Thinking</span>
-                        <span className="font-black text-purple-700">20 MCQs</span>
-                      </div>
-                    </div>
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between text-indigo-600">
+                    <Zap className="w-5 h-5" />
+                    <span className="text-[10px] uppercase font-black bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
+                      Interactions
+                    </span>
                   </div>
-
-                  {/* PART-B (40 MCQs) */}
-                  <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-2.5">
-                    <div className="flex items-center justify-between border-b border-indigo-200/60 pb-2">
-                      <span className="text-xs font-black text-indigo-950 uppercase">Part-B: Subject Depth & Pedagogy</span>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-indigo-200 text-indigo-900">
-                        40% Weightage (40 MCQs)
-                      </span>
-                    </div>
-                    <div className="space-y-1.5 text-xs text-indigo-900 font-semibold">
-                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-indigo-100">
-                        <span>• Module 1: Core Subject Knowledge ({tsoSubject})</span>
-                        <span className="font-black text-indigo-700">20 MCQs</span>
-                      </div>
-                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-indigo-100">
-                        <span>• Module 2: Subject Pedagogical Knowledge & TLM</span>
-                        <span className="font-black text-indigo-700">10 MCQs</span>
-                      </div>
-                      <div className="flex items-center justify-between bg-white/80 p-2 rounded-xl border border-indigo-100">
-                        <span>• Module 3: Misconceptions & HOTS Remediation</span>
-                        <span className="font-black text-indigo-700">10 MCQs</span>
-                      </div>
-                    </div>
-                  </div>
+                  <p className="text-3xl font-black text-slate-900">
+                    {detailedAnalytics?.actions_today || 0}
+                  </p>
+                  <p className="text-xs text-slate-500 font-medium">Actions Executed Today</p>
                 </div>
 
-                <form onSubmit={handleGenerateTso100AI} className="space-y-5 pt-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Target Subject for Part-B</label>
-                      <select
-                        value={tsoSubject}
-                        onChange={(e) => {
-                          setTsoSubject(e.target.value);
-                          setTsoTitle(`National Teacher Skills Olympiad 2026 — ${e.target.value.toUpperCase()}`);
-                        }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900"
-                      >
-                        <option value="Science">Science</option>
-                        <option value="Mathematics">Mathematics</option>
-                        <option value="English">English</option>
-                        <option value="Hindi">Hindi</option>
-                        <option value="Social Science">Social Science</option>
-                        <option value="Physics">Physics</option>
-                        <option value="Chemistry">Chemistry</option>
-                        <option value="Biology">Biology</option>
-                        <option value="Computer Science">Computer Science / IT</option>
-                        <option value="General Pedagogy">General Teaching & School Education</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Assessment Difficulty Level</label>
-                      <select
-                        value={tsoDifficulty}
-                        onChange={(e) => setTsoDifficulty(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900"
-                      >
-                        <option value="easy">Easy / Foundational (Core concept recall)</option>
-                        <option value="medium">Medium / Standard (Application & scenarios)</option>
-                        <option value="hard">Hard / Advanced (Complex case-studies & HOTS)</option>
-                        <option value="expert">Expert / National Olympiad (High cognitive load)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Official Olympiad Paper Title</label>
-                      <input
-                        type="text"
-                        required
-                        value={tsoTitle}
-                        onChange={(e) => setTsoTitle(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900"
-                      />
-                    </div>
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between text-purple-600">
+                    <Users className="w-5 h-5" />
+                    <span className="text-[10px] uppercase font-black bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">
+                      Total
+                    </span>
                   </div>
+                  <p className="text-3xl font-black text-slate-900">
+                    {stats?.total_users || usersList.length}
+                  </p>
+                  <p className="text-xs text-slate-500 font-medium">Registered User Profiles</p>
+                </div>
 
-                  {/* START & END DATE/TIME SCHEDULING */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-amber-50/60 border border-amber-200">
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-amber-900 uppercase mb-1 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        Olympiad Test Start Date & Time
-                      </label>
-                      <input
-                        type="datetime-local"
-                        required
-                        value={tsoStartTime}
-                        onChange={(e) => setTsoStartTime(e.target.value)}
-                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-amber-900 uppercase mb-1 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-rose-600" />
-                        Olympiad Test End Date & Time (Closing)
-                      </label>
-                      <input
-                        type="datetime-local"
-                        required
-                        value={tsoEndTime}
-                        onChange={(e) => setTsoEndTime(e.target.value)}
-                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
-                      />
-                    </div>
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between text-amber-600">
+                    <Building2 className="w-5 h-5" />
+                    <span className="text-[10px] uppercase font-black bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
+                      Schools
+                    </span>
                   </div>
+                  <p className="text-3xl font-black text-slate-900">
+                    {stats?.schools_count || schoolsList.length}
+                  </p>
+                  <p className="text-xs text-slate-500 font-medium">Affiliated School Campuses</p>
+                </div>
 
-                  <button
-                    type="submit"
-                    disabled={generatingTso100}
-                    className="w-full py-4 bg-gradient-to-r from-amber-500 via-orange-600 to-indigo-700 hover:from-amber-600 hover:to-indigo-800 text-white font-black text-sm rounded-2xl shadow-xl shadow-orange-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all active:scale-95"
-                  >
-                    {generatingTso100 ? (
-                      <>
-                        <RefreshCw className="w-5 h-5 animate-spin" />
-                        <span>Synthesizing 100 AI Questions ({tsoDifficulty.toUpperCase()}) across all 6 Modules...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-5 h-5 text-amber-200" />
-                        <span>Synthesize 100-MCQ TSO Paper with AI ({tsoDifficulty.toUpperCase()} • 100 Marks • 60 Mins)</span>
-                      </>
-                    )}
-                  </button>
-                </form>
               </div>
 
-              {/* DRAFT 100-MCQ QUESTIONS EXPLORER & QUESTION-BY-QUESTION EDITOR */}
-              {tsoDraftPaper && (
-                <div className="bg-white p-6 sm:p-8 rounded-3xl border-2 border-indigo-200 shadow-xl space-y-6 animate-in zoom-in-95">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              {/* TRAFFIC & FEATURE RANKINGS GRID */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* 2-Column: TOP FEATURES RANKING */}
+                <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div>
-                      <span className="text-[10px] font-black uppercase bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-md">
-                        ACTIVE DRAFT ASSESSMENT
-                      </span>
-                      <h3 className="text-lg font-black text-slate-900 mt-1">
-                        {tsoDraftPaper.title}
+                      <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5 text-indigo-600" />
+                        <span>Platform Feature Usage Rankings (Today)</span>
                       </h3>
-                      <p className="text-xs text-slate-500 font-bold">
-                        {tsoDraftPaper.questions?.length || 100} Questions • 100 Marks • {tsoDraftPaper.subject} • Difficulty: {tsoDraftPaper.difficulty || tsoDifficulty}
+                      <p className="text-xs text-slate-500 font-medium">
+                        Real-time telemetry measuring user engagement per feature
                       </p>
                     </div>
-
-                    <button
-                      type="button"
-                      disabled={activatingTsoPaper}
-                      onClick={handlePublishTsoPaper}
-                      className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center gap-2 cursor-pointer active:scale-95 transition-all"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-200" />
-                      <span>{activatingTsoPaper ? "Activating..." : "Save Schedule & Activate Live for Candidates"}</span>
-                    </button>
                   </div>
 
-                  {/* 100 Questions List with Edit Action */}
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                    {tsoDraftPaper.questions?.map((q: any, idx: number) => {
-                      const corrIdx = typeof q.correct_answer === "number" ? q.correct_answer : 0;
-                      return (
-                        <div
-                          key={idx}
-                          className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 hover:border-indigo-300 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
-                                  Q{idx + 1}
+                  {(!detailedAnalytics?.features_ranking || detailedAnalytics.features_ranking.length === 0) ? (
+                    <div className="text-center py-8 text-slate-400 font-medium text-xs">
+                      No feature interactions logged yet today. Telemetry updates automatically as users browse.
+                    </div>
+                  ) : (
+                    <div className="space-y-3.5">
+                      {detailedAnalytics.features_ranking.map((feat: any, idx: number) => {
+                        const totalActions = detailedAnalytics.actions_today || 1;
+                        const percentage = Math.min(100, Math.round((feat.count / totalActions) * 100));
+                        return (
+                          <div key={feat.name} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2 font-bold text-slate-800">
+                                <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center font-mono text-[10px]">
+                                  #{idx + 1}
                                 </span>
-                                <span className="text-[10px] font-bold text-slate-400">
-                                  {q.section} • {q.module}
-                                </span>
+                                <span>{feat.name}</span>
                               </div>
-                              <p className="text-xs font-bold text-slate-900 pt-1">
-                                {q.question_text}
-                              </p>
+                              <div className="flex items-center gap-2 text-[11px] font-extrabold text-indigo-600">
+                                <span>{feat.count} visits</span>
+                                <span className="text-slate-400">({percentage}%)</span>
+                              </div>
                             </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditQuestion(q)}
-                              className="px-3 py-1.5 bg-white hover:bg-indigo-50 text-indigo-600 font-extrabold text-xs rounded-xl border border-slate-200 shadow-2xs transition-colors cursor-pointer shrink-0"
-                            >
-                              ✏️ Edit Question
-                            </button>
+                            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full transition-all duration-500" 
+                                style={{ width: `${Math.max(6, percentage)}%` }} 
+                              />
+                            </div>
                           </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                            {q.options?.map((opt: string, optIdx: number) => (
-                              <div
-                                key={optIdx}
-                                className={`p-2 rounded-xl text-[11px] font-semibold border ${
-                                  optIdx === corrIdx
-                                    ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-bold"
-                                    : "bg-white text-slate-600 border-slate-200"
-                                }`}
-                              >
-                                {opt} {optIdx === corrIdx && "✅ (Correct Answer)"}
-                              </div>
-                            ))}
+                {/* 1-Column: ROLE DISTRIBUTION */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-5">
+                  <div className="border-b border-slate-100 pb-3">
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <Users className="w-5 h-5 text-purple-600" />
+                      <span>User Role Breakdown</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">Active demographics across accounts</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { role: "Teachers", count: stats?.teachers_count ?? usersList.filter(u => u.role === "teacher").length, color: "bg-indigo-500", text: "text-indigo-600", bg: "bg-indigo-50" },
+                      { role: "Students", count: stats?.students_count ?? usersList.filter(u => u.role === "student").length, color: "bg-purple-500", text: "text-purple-600", bg: "bg-purple-50" },
+                      { role: "Parents", count: stats?.parents_count ?? usersList.filter(u => u.role === "parent").length, color: "bg-rose-500", text: "text-rose-600", bg: "bg-rose-50" },
+                      { role: "Schools", count: stats?.schools_count ?? schoolsList.length, color: "bg-amber-500", text: "text-amber-600", bg: "bg-amber-50" }
+                    ].map((item) => {
+                      const total = usersList.length || 1;
+                      const pct = Math.round((item.count / total) * 100);
+                      return (
+                        <div key={item.role} className={`p-3.5 rounded-2xl ${item.bg} border border-slate-100 space-y-1.5`}>
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span className={item.text}>{item.role}</span>
+                            <span className="font-extrabold text-slate-900">{item.count} users ({pct}%)</span>
                           </div>
-
-                          {q.explanation && (
-                            <p className="text-[11px] text-slate-500 font-medium bg-white p-2.5 rounded-xl border border-slate-100">
-                              💡 <strong>Explanation:</strong> {q.explanation}
-                            </p>
-                          )}
+                          <div className="w-full bg-white h-2 rounded-full overflow-hidden">
+                            <div className={`${item.color} h-full rounded-full`} style={{ width: `${Math.max(5, pct)}%` }} />
+                          </div>
                         </div>
                       );
                     })}
                   </div>
-
                 </div>
-              )}
 
-            </div>
-          )}
-
-          {/* SUB-TAB B: MANUAL PAPER BUILDER */}
-          {paperStudioSubTab === "manual_builder" && (
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-              <div className="space-y-1 border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                  <Plus className="w-5 h-5 text-indigo-600" />
-                  Manual Question Paper Studio
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">Manually construct and format every section, question, marks allocation, and answer key.</p>
               </div>
 
-              <form onSubmit={handleSaveManualPaper} className="space-y-6">
-                
-                {/* PAPER METADATA */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* RECENT ACTIVITY STREAM */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Paper Title</label>
-                    <input
-                      type="text"
-                      required
-                      value={manualTitle}
-                      onChange={(e) => setManualTitle(e.target.value)}
-                      placeholder="e.g. Class 10 Physics Unit Test"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    />
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-emerald-600" />
+                      <span>Live Site-Wide User Event Feed</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">Chronological stream of real-time actions across the platform</p>
                   </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Class / Grade</label>
-                    <select
-                      value={manualClass}
-                      onChange={(e) => setManualClass(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    >
-                      <option value="Class 9">Class 9</option>
-                      <option value="Class 10">Class 10</option>
-                      <option value="Class 11">Class 11</option>
-                      <option value="Class 12">Class 12</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Subject</label>
-                    <input
-                      type="text"
-                      required
-                      value={manualSubject}
-                      onChange={(e) => setManualSubject(e.target.value)}
-                      placeholder="Science / Math"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    />
-                  </div>
+                  <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase">
+                    Auto-Recording
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">School Header</label>
-                    <input
-                      type="text"
-                      value={manualSchool}
-                      onChange={(e) => setManualSchool(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    />
+                {(!detailedAnalytics?.recent_events || detailedAnalytics.recent_events.length === 0) ? (
+                  <div className="text-center py-8 text-slate-400 font-medium text-xs">
+                    No events recorded today yet.
                   </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                      <span>Total Marks</span>
-                      <span className="text-[9px] text-indigo-600 font-black lowercase">{manualQuestions.length} questions = {manualQuestions.length} marks</span>
-                    </label>
-                    <input
-                      type="number"
-                      readOnly
-                      value={manualQuestions.length}
-                      className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 cursor-not-allowed"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">Time Allowed (Mins)</label>
-                    <input
-                      type="number"
-                      value={manualTime}
-                      onChange={(e) => setManualTime(parseInt(e.target.value))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase mb-1 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-indigo-600" />
-                      Paper Access Start Time
-                    </label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={manualStartTime}
-                      onChange={(e) => setManualStartTime(e.target.value)}
-                      className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase mb-1 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-rose-600" />
-                      Paper Access End Time (Closing Time)
-                    </label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={manualEndTime}
-                      onChange={(e) => setManualEndTime(e.target.value)}
-                      className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 shadow-xs"
-                    />
-                  </div>
-                </div>
-
-                {/* QUESTIONS BUILDER LIST */}
-                <div className="space-y-4 pt-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                    <div>
-                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                        Construct Questions ({manualQuestions.length}) • Total Marks: {manualQuestions.length}
-                      </h4>
-                      <p className="text-[10px] text-slate-500 font-medium">1 Mark allocated per MCQ question</p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-xl border border-slate-200">
-                        <span className="text-[10px] font-extrabold text-slate-600 uppercase">Quantity:</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={50}
-                          value={bulkAddCount}
-                          onChange={(e) => setBulkAddCount(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-12 bg-white border border-slate-300 rounded-lg px-2 py-0.5 text-xs font-black text-slate-900 text-center"
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleAddManualQuestions(bulkAddCount)}
-                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add {bulkAddCount > 1 ? `${bulkAddCount} Questions` : "Question"}</span>
-                      </button>
-
-                      <div className="hidden sm:flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleAddManualQuestions(1)}
-                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
-                        >
-                          +1
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleAddManualQuestions(5)}
-                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
-                        >
-                          +5
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleAddManualQuestions(10)}
-                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
-                        >
-                          +10
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {manualQuestions.map((q, qIdx) => (
-                    <div key={qIdx} className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">
-                          Question #{qIdx + 1} (1 Mark)
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updated = manualQuestions.filter((_, idx) => idx !== qIdx);
-                            setManualQuestions(updated);
-                            setManualMarks(updated.length);
-                          }}
-                          className="text-slate-400 hover:text-red-600 text-xs font-bold cursor-pointer"
-                        >
-                          Remove Question
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-extrabold text-slate-600 uppercase">Question Type</label>
-                          <select
-                            value={q.question_type}
-                            onChange={(e) => {
-                              const updated = [...manualQuestions];
-                              updated[qIdx].question_type = e.target.value;
-                              setManualQuestions(updated);
-                            }}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold"
-                          >
-                            <option value="mcq">Multiple Choice Question (MCQ)</option>
-                            <option value="short">Short Answer Question</option>
-                            <option value="long">Long Answer Question</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-extrabold text-slate-600 uppercase">Marks Allocated</label>
-                          <input
-                            type="number"
-                            value={q.marks}
-                            onChange={(e) => {
-                              const updated = [...manualQuestions];
-                              updated[qIdx].marks = parseInt(e.target.value);
-                              setManualQuestions(updated);
-                            }}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-extrabold text-slate-600 uppercase mb-1">Question Prompt Text</label>
-                        <textarea
-                          required
-                          value={q.question_text}
-                          onChange={(e) => {
-                            const updated = [...manualQuestions];
-                            updated[qIdx].question_text = e.target.value;
-                            setManualQuestions(updated);
-                          }}
-                          rows={2}
-                          placeholder="Enter question text..."
-                          className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
-                        />
-                      </div>
-
-                      {q.question_type === "mcq" && (
-                        <div className="space-y-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                            <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wider">
-                              MCQ Options &amp; Correct Answer Selection
-                            </label>
-
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-slate-500 uppercase">Correct Answer:</span>
-                              <select
-                                value={q.correct_answer ?? 0}
-                                onChange={(e) => {
-                                  const updated = [...manualQuestions];
-                                  const selectedIdx = parseInt(e.target.value);
-                                  updated[qIdx].correct_answer = selectedIdx;
-                                  updated[qIdx].answer = updated[qIdx].options[selectedIdx] || `Option ${String.fromCharCode(65 + selectedIdx)}`;
-                                  setManualQuestions(updated);
-                                }}
-                                className="bg-emerald-50 border border-emerald-300 text-emerald-800 font-extrabold text-xs rounded-xl px-3 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                              >
-                                <option value={0}>Option A (1st Option)</option>
-                                <option value={1}>Option B (2nd Option)</option>
-                                <option value={2}>Option C (3rd Option)</option>
-                                <option value={3}>Option D (4th Option)</option>
-                              </select>
+                ) : (
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    {detailedAnalytics.recent_events.slice(0, 15).map((ev: any, idx: number) => {
+                      const timeStr = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recently";
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-slate-100/70 border border-slate-100 transition-colors text-xs">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black shrink-0">
+                              <Zap className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900">
+                                {ev.user_name || ev.user_email}
+                                <span className="ml-2 text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 uppercase">
+                                  {ev.user_role || "User"}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 font-medium">
+                                Used feature: <span className="font-extrabold text-indigo-600">{ev.feature_name || ev.path}</span>
+                              </div>
                             </div>
                           </div>
-
-                          <div className="space-y-2">
-                            {q.options.map((opt: string, optIdx: number) => {
-                              const isCorrect = (q.correct_answer ?? 0) === optIdx;
-                              const optLetter = String.fromCharCode(65 + optIdx);
-
-                              return (
-                                <div
-                                  key={optIdx}
-                                  className={`p-2.5 rounded-xl border transition-all flex items-center gap-3 ${
-                                    isCorrect 
-                                      ? "bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20" 
-                                      : "bg-slate-50 border-slate-200 hover:border-slate-300"
-                                  }`}
-                                >
-                                  <label className="flex items-center gap-2 cursor-pointer shrink-0">
-                                    <input
-                                      type="radio"
-                                      name={`correct_opt_${qIdx}`}
-                                      checked={isCorrect}
-                                      onChange={() => {
-                                        const updated = [...manualQuestions];
-                                        updated[qIdx].correct_answer = optIdx;
-                                        updated[qIdx].answer = opt || `Option ${optLetter}`;
-                                        setManualQuestions(updated);
-                                      }}
-                                      className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                    />
-                                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${
-                                      isCorrect ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
-                                    }`}>
-                                      {optLetter}
-                                    </span>
-                                  </label>
-
-                                  <input
-                                    type="text"
-                                    required
-                                    value={opt}
-                                    placeholder={`Enter option ${optLetter} text...`}
-                                    onChange={(e) => {
-                                      const updated = [...manualQuestions];
-                                      updated[qIdx].options[optIdx] = e.target.value;
-                                      if ((updated[qIdx].correct_answer ?? 0) === optIdx) {
-                                        updated[qIdx].answer = e.target.value;
-                                      }
-                                      setManualQuestions(updated);
-                                    }}
-                                    className="flex-1 bg-transparent border-0 text-xs font-bold text-slate-900 focus:outline-none placeholder:text-slate-400"
-                                  />
-
-                                  {isCorrect && (
-                                    <span className="px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shrink-0">
-                                      ✅ Correct Option
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <span className="text-[10px] font-mono font-bold text-slate-400">
+                            {timeStr}
+                          </span>
                         </div>
-                      )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-                      <div>
-                        <label className="block text-[10px] font-extrabold text-slate-600 uppercase mb-1">
-                          Pedagogical Solution &amp; Explanation (Optional)
-                        </label>
-                        <textarea
-                          value={q.explanation || ""}
-                          onChange={(e) => {
-                            const updated = [...manualQuestions];
-                            updated[qIdx].explanation = e.target.value;
-                            setManualQuestions(updated);
-                          }}
-                          rows={2}
-                          placeholder="Provide pedagogical rationale or step-by-step marking key..."
-                          className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={savingManualPaper}
-                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer transition-all"
-                >
-                  <FileCheck className="w-4 h-4" />
-                  <span>{savingManualPaper ? "Saving Manual Paper..." : "Save & Publish Question Paper"}</span>
-                </button>
-              </form>
             </div>
           )}
 
-          {/* SUB-TAB C: REPOSITORY */}
-          {paperStudioSubTab === "repository" && (
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          {/* ========================================================================= */}
+          {/* TAB 2: USERS & TODAY'S ACTIVITY CONTROL                                   */}
+          {/* ========================================================================= */}
+          {adminTab === "users" && (
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 font-sans animate-in fade-in duration-200">
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-indigo-600" />
-                    Saved Paper Repository ({papersList.length})
+                    <Users className="w-5 h-5 text-indigo-600" />
+                    <span>User Profiles & Today's Activity</span>
                   </h3>
-                  <p className="text-xs text-slate-500 font-medium">All manually constructed and AI-generated examination papers available across the platform</p>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Monitor who visited the platform today, inspect which features each educator or student used, and view timelines
+                  </p>
+                </div>
+
+                {/* QUICK FILTER: ALL USERS VS ACTIVE TODAY */}
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl">
+                  <button
+                    onClick={() => setUserActiveTodayFilter("all")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      userActiveTodayFilter === "all"
+                        ? "bg-white text-slate-900 shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    All Users ({usersList.length})
+                  </button>
+
+                  <button
+                    onClick={() => setUserActiveTodayFilter("active_today")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                      userActiveTodayFilter === "active_today"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-emerald-700 hover:bg-emerald-50"
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Active Today ({activeTodayCount})</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
+              {/* SEARCH & FILTERS ROW */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search name, email, school..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <select
+                  value={filterRole}
+                  onChange={(e) => setFilterRole(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
+                >
+                  <option value="all">All Roles</option>
+                  <option value="teacher">Teachers</option>
+                  <option value="student">Students</option>
+                  <option value="parent">Parents</option>
+                </select>
+
+                <select
+                  value={filterBoard}
+                  onChange={(e) => setFilterBoard(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
+                >
+                  <option value="all">All Boards</option>
+                  <option value="cbse">CBSE</option>
+                  <option value="icse">ICSE</option>
+                  <option value="state">State Board</option>
+                </select>
+
+                {(searchQuery || filterRole !== "all" || filterBoard !== "all" || userActiveTodayFilter !== "all") && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setFilterRole("all");
+                      setFilterBoard("all");
+                      setUserActiveTodayFilter("all");
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+
+              {/* USERS TABLE WITH ACTIVITY COLUMNS */}
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl">
                 <table className="w-full text-left text-xs text-slate-800">
                   <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-200">
                     <tr>
-                      <th className="p-3.5">Paper Title</th>
-                      <th className="p-3.5">Grade & Track</th>
-                      <th className="p-3.5">Board</th>
-                      <th className="p-3.5">Exam Timing Window (Start ⇄ End)</th>
-                      <th className="p-3.5">Marks & Duration</th>
-                      <th className="p-3.5">Source</th>
+                      <th className="p-3.5">User / Account</th>
+                      <th className="p-3.5">Today's Site Visit</th>
+                      <th className="p-3.5">Features Used Today</th>
+                      <th className="p-3.5">Role & School</th>
                       <th className="p-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {papersList.length === 0 ? (
+                    {filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400 font-semibold">
-                          No papers found in repository. Create one using AI or Manual Builder!
+                        <td colSpan={5} className="p-8 text-center text-slate-400 font-semibold">
+                          {userActiveTodayFilter === "active_today"
+                            ? "No users visited the site yet today."
+                            : "No user accounts match query."}
                         </td>
                       </tr>
                     ) : (
-                      papersList.map((p) => {
-                        const sched = getPaperScheduleStatus(p);
+                      filteredUsers.map((u) => {
+                        const isActiveToday = Boolean(u.is_active_today);
+                        const featuresUsed = u.features_used_today || [];
+                        const lastTime = u.last_active_today 
+                          ? new Date(u.last_active_today).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                          : null;
+
                         return (
-                          <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="p-3.5 font-bold text-slate-900 max-w-xs">
-                              <div className="line-clamp-1">{p.title}</div>
-                              <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
-                                <span>{p.id}</span>
-                                <span>•</span>
-                                <span>{p.school_name || "DEVGYA GLOBAL"}</span>
-                              </div>
-                            </td>
-                            <td className="p-3.5 font-semibold text-slate-700">
-                              <div>{p.class_name}</div>
-                              <div className="text-[11px] text-indigo-600 font-bold">{p.subject}</div>
-                            </td>
-                            <td className="p-3.5 font-bold text-indigo-600">{p.board || "CBSE"}</td>
-                            <td className="p-3.5">
-                              <div className="space-y-1.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase border ${sched.color}`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${
-                                    sched.status === "live" ? "bg-emerald-500 animate-pulse" :
-                                    sched.status === "upcoming" ? "bg-amber-500" :
-                                    sched.status === "expired" ? "bg-rose-500" : "bg-slate-400"
-                                  }`} />
-                                  <span>{sched.label}</span>
-                                </span>
-                                <div className="text-[10.5px] font-mono text-slate-600 space-y-0.5">
-                                  <div className="flex items-center gap-1 text-slate-700">
-                                    <span className="font-bold text-slate-400 text-[9px] uppercase">Start:</span>
-                                    <span>{p.start_time ? p.start_time.slice(0, 16) : "Immediate / Live"}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-slate-700">
-                                    <span className="font-bold text-slate-400 text-[9px] uppercase">End:</span>
-                                    <span>{p.end_time ? p.end_time.slice(0, 16) : "Open / No Limit"}</span>
-                                  </div>
+                          <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                            
+                            {/* USER ACCOUNT */}
+                            <td className="p-3.5 font-bold text-slate-900">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
+                                  {(u.full_name || u.email || "U")[0].toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-extrabold text-slate-900">{u.full_name || "Account"}</div>
+                                  <div className="text-[11px] font-mono text-slate-500">{u.email}</div>
                                 </div>
                               </div>
                             </td>
-                            <td className="p-3.5 font-bold text-slate-800">
-                              <div>{p.total_marks} Marks</div>
-                              <div className="text-[11px] text-slate-500 font-medium">{p.time_allowed_mins} Mins</div>
-                            </td>
+
+                            {/* TODAY'S VISIT STATUS */}
                             <td className="p-3.5">
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
-                                p.source === "ai_prompt" ? "bg-purple-50 text-purple-700 border border-purple-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              }`}>
-                                {p.source === "ai_prompt" ? "AI Generated" : "Manual"}
-                              </span>
+                              {isActiveToday ? (
+                                <div className="space-y-0.5">
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                    <span>Active Today</span>
+                                  </span>
+                                  {lastTime && (
+                                    <p className="text-[10px] font-mono text-slate-500 font-medium">Last: {lastTime}</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">
+                                  Inactive Today
+                                </span>
+                              )}
                             </td>
-                            <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
-                              <button
-                                onClick={() => openScheduleModal(p)}
-                                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-[11px] rounded-xl transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs active:scale-95"
-                                title="Change Start Time & End Time Window"
-                              >
-                                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                                <span>Set Timing</span>
-                              </button>
 
-                              <button
-                                onClick={() => setPreviewPaper(p)}
-                                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[11px] rounded-xl transition-all cursor-pointer inline-flex items-center gap-1 active:scale-95"
-                                title="Preview Exam Script"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>Preview</span>
-                              </button>
-
-                              <button
-                                onClick={() => handleDeletePaper(p.id)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer inline-flex"
-                                title="Delete Paper"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                            {/* FEATURES USED TODAY */}
+                            <td className="p-3.5">
+                              {featuresUsed.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                  {featuresUsed.map((feat: string, fIdx: number) => (
+                                    <span 
+                                      key={fIdx} 
+                                      className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold"
+                                    >
+                                      {feat}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-[11px] font-medium">—</span>
+                              )}
                             </td>
+
+                            {/* ROLE & SCHOOL */}
+                            <td className="p-3.5">
+                              <div className="space-y-0.5">
+                                <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                                  u.role === "teacher" ? "bg-indigo-100 text-indigo-800" :
+                                  u.role === "student" ? "bg-purple-100 text-purple-800" :
+                                  u.role === "parent" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-800"
+                                }`}>
+                                  {u.role || "teacher"}
+                                </span>
+                                <div className="text-[11px] text-slate-600 font-medium truncate max-w-[160px]">
+                                  {u.school_name || u.child_school || "DEVGYA"}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* ACTIONS: TIMELINE & PROFILE */}
+                            <td className="p-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => handleOpenUserActivity(u)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-[11px] transition-colors flex items-center gap-1 cursor-pointer"
+                                  title="View Detailed Activity Timeline"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>Activity</span>
+                                </button>
+
+                                <button
+                                  onClick={() => setSelectedUserDetail(u)}
+                                  className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                                  title="View Full Profile"
+                                >
+                                  <User className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+
                           </tr>
                         );
                       })
@@ -2282,1029 +1869,1006 @@ export default function SuperAdminPage() {
                   </tbody>
                 </table>
               </div>
+
             </div>
           )}
 
-        </div>
-      )}
-
-      {/* PAPER PREVIEW MODAL */}
-      {previewPaper && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-3xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 text-slate-900 max-h-[90vh] overflow-y-auto font-sans">
-            
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <span className="text-xs font-black uppercase tracking-wider text-indigo-600">Official Exam Script Preview</span>
-              <button onClick={() => setPreviewPaper(null)} className="text-slate-400 hover:text-slate-700 font-black text-base">✕</button>
-            </div>
-
-            {/* PRINTABLE PAPER HEADER */}
-            <div className="text-center space-y-1 border-b-2 border-slate-900 pb-4">
-              <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">{previewPaper.school_name || "DEVGYA GLOBAL EDUTECH"}</h2>
-              <h3 className="text-base font-extrabold text-indigo-900">{previewPaper.title}</h3>
-              <div className="flex items-center justify-between text-xs font-bold text-slate-700 pt-2 px-2">
-                <span>Class: {previewPaper.class_name} ({previewPaper.subject})</span>
-                <span>Time Allowed: {previewPaper.time_allowed_mins} Mins</span>
-                <span>Maximum Marks: {previewPaper.total_marks}</span>
-              </div>
-            </div>
-
-            {/* INSTRUCTIONS */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
-              <div className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">General Instructions:</div>
-              <ul className="list-disc list-inside text-slate-600 space-y-0.5">
-                {previewPaper.instructions?.map((inst: string, idx: number) => (
-                  <li key={idx}>{inst}</li>
-                ))}
-              </ul>
-            </div>
-
-            {/* QUESTIONS LIST */}
-            <div className="space-y-6 pt-2">
-              {previewPaper.questions?.map((q: any, idx: number) => (
-                <div key={idx} className="space-y-2 border-b border-slate-100 pb-4">
-                  <div className="flex items-start justify-between gap-3 text-xs font-extrabold text-slate-900">
-                    <div>
-                      <span>Q{idx + 1}. </span>
-                      <span>{q.question_text}</span>
-                    </div>
-                    <span className="shrink-0 text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md text-[11px] font-black border border-indigo-100">
-                      [{q.marks} {q.marks === 1 ? "Mark" : "Marks"}]
-                    </span>
+          {/* ========================================================================= */}
+          {/* TAB 3: FEATURE PERMISSION & ACCESS CONTROL (REPLACED COMING SOON)          */}
+          {/* ========================================================================= */}
+          {adminTab === "permissions" && (
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 font-sans animate-in fade-in duration-200">
+              
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-black uppercase">
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Permission Manager</span>
                   </div>
-
-                  {q.options && (
-                    <div className="grid grid-cols-2 gap-2 pl-4 text-xs font-medium text-slate-700">
-                      {q.options.map((opt: string, oIdx: number) => (
-                        <div key={oIdx}>{opt}</div>
-                      ))}
-                    </div>
-                  )}
-
-                  {q.answer && (
-                    <div className="mt-2 p-3 bg-emerald-50/70 rounded-xl border border-emerald-200 text-xs text-slate-700 space-y-1">
-                      <div className="font-bold text-emerald-800 text-[10px] uppercase">Model Answer & Solution:</div>
-                      <p>{q.answer}</p>
-                      {q.explanation && <p className="text-[11px] text-slate-600 font-normal italic">Reason: {q.explanation}</p>}
-                    </div>
-                  )}
+                  <h3 className="text-lg font-black text-slate-900">Feature Access & Section Permissions</h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Toggle which sections are available to users. When disabled by Admin, a feature is immediately hidden from both the desktop slidebar and mobile views, and direct URL routing is blocked.
+                  </p>
                 </div>
-              ))}
-            </div>
 
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <button
-                onClick={() => setPreviewPaper(null)}
-                className="px-6 py-2 bg-slate-900 text-white font-extrabold text-xs rounded-xl shadow-md"
-              >
-                Close Preview
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: OLYMPIAD EVALUATION BOARD */}
-      {adminTab === "olympiad" && (
-        <div className="space-y-6">
-          {/* PAPER-WISE SELECTION STRIP */}
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-indigo-600" />
-                  Select Assessment Paper ({papersList.length})
-                </h4>
-                <p className="text-xs text-slate-500 font-medium">Click on a paper to view its candidate submissions &amp; 1-click publish results</p>
-              </div>
-
-              <button
-                onClick={() => handleBulkPublishSubmissions(selectedPaperForSubmissions)}
-                disabled={bulkPublishing || submissions.length === 0}
-                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
-              >
-                <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>{bulkPublishing ? "Publishing..." : "Publish All Results (1-Click)"}</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {/* ALL PAPERS OPTION */}
-              <div 
-                onClick={() => setSelectedPaperForSubmissions("all")}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                  selectedPaperForSubmissions === "all"
-                    ? "bg-indigo-50/80 border-indigo-500 shadow-md ring-2 ring-indigo-500/20"
-                    : "bg-white border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-slate-900">All Papers Combined</span>
-                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-extrabold">
-                    {submissions.length} Total
-                  </span>
-                </div>
-                <div className="mt-2 text-[11px] text-slate-500 font-medium">
-                  {submissions.filter(s => s.published).length} Published &bull; {submissions.filter(s => !s.published).length} Pending Review
-                </div>
-              </div>
-
-              {/* INDIVIDUAL PAPERS */}
-              {papersList.map((paper) => {
-                const paperSubmissions = submissions.filter(s => (s.paper_id || "paper-101") === paper.id || (paper.id === "paper-101" && !s.paper_id));
-                const publishedCount = paperSubmissions.filter(s => s.published).length;
-                const isSelected = selectedPaperForSubmissions === paper.id;
-
-                return (
-                  <div
-                    key={paper.id}
-                    onClick={() => setSelectedPaperForSubmissions(paper.id)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-indigo-50/80 border-indigo-500 shadow-md ring-2 ring-indigo-500/20"
-                        : "bg-white border-slate-200 hover:border-slate-300"
-                    }`}
+                {/* GLOBAL BULK ACTIONS */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (confirm("Allow all features platform-wide?")) {
+                        setAllFeaturesAllowed("all", true);
+                        setActionMsg("✅ All platform sections have been allowed!");
+                        setTimeout(() => setActionMsg(null), 4000);
+                      }
+                    }}
+                    className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-black text-slate-900 truncate">{paper.title}</span>
-                      <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-extrabold shrink-0">
-                        {paperSubmissions.length} Subs
-                      </span>
-                    </div>
-                    <div className="mt-1 text-[11px] text-slate-500 font-medium">
-                      {paper.class_name} &bull; {paper.subject}
-                    </div>
-                    <div className="mt-2 flex items-center justify-between text-[10px] font-bold">
-                      <span className="text-emerald-700 font-extrabold">{publishedCount} Published</span>
-                      <span className="text-amber-700">{paperSubmissions.length - publishedCount} Pending</span>
-                    </div>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Allow All</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (confirm("Disable all non-essential features? Users will only have access to home dashboards.")) {
+                        setAllFeaturesAllowed("all", false);
+                        setActionMsg("⚠️ All non-essential sections have been disabled.");
+                        setTimeout(() => setActionMsg(null), 4000);
+                      }
+                    }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Disable All</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (confirm("Reset tool permission configurations to platform defaults?")) {
+                        resetToDefaults();
+                        setActionMsg("✅ Tool permissions reset to factory defaults.");
+                        setTimeout(() => setActionMsg(null), 4000);
+                      }
+                    }}
+                    className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    Reset Defaults
+                  </button>
+                </div>
+              </div>
+
+              {/* ROLE TABS & STATUS FILTER */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { key: "all", label: "All Sections", count: tools.length },
+                    { key: "teacher", label: "Teacher Tools", count: tools.filter(t => t.role === "teacher").length },
+                    { key: "student", label: "Student Tools", count: tools.filter(t => t.role === "student").length },
+                    { key: "parent", label: "Parent Tools", count: tools.filter(t => t.role === "parent").length },
+                  ].map((pill) => (
+                    <button
+                      key={pill.key}
+                      onClick={() => setPermissionRoleFilter(pill.key as any)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer border ${
+                        permissionRoleFilter === pill.key
+                          ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                          : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
+                      }`}
+                    >
+                      <span>{pill.label}</span>
+                      <span className="ml-1.5 opacity-60 text-[10px]">({pill.count})</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={permissionStatusFilter}
+                    onChange={(e) => setPermissionStatusFilter(e.target.value as any)}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 cursor-pointer focus:outline-none"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="allowed">Allowed Only</option>
+                    <option value="disabled">Disabled Only</option>
+                  </select>
+
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={permissionSearch}
+                      onChange={(e) => setPermissionSearch(e.target.value)}
+                      placeholder="Search section..."
+                      className="bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-500 w-44 sm:w-56"
+                    />
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-amber-500" />
-                  {selectedPaperForSubmissions === "all" ? "All Candidate Submissions" : `Submissions for: ${papersList.find(p => p.id === selectedPaperForSubmissions)?.title || selectedPaperForSubmissions}`}
-                  {" "}({
-                    (selectedPaperForSubmissions === "all"
-                      ? submissions
-                      : submissions.filter(s => (s.paper_id || "paper-101") === selectedPaperForSubmissions || (selectedPaperForSubmissions === "paper-101" && !s.paper_id))
-                    ).length
-                  })
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">Review proctored test scripts, anti-cheating warning logs, evaluate scores, and publish official results to leaderboard.</p>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2.5 flex-wrap">
+              {/* PERMISSIONS GRID */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredTools.map((tool) => {
+                  const isAllowed = tool.is_enabled !== false;
+                  return (
+                    <div 
+                      key={tool.id} 
+                      className={`p-5 rounded-3xl border transition-all space-y-4 ${
+                        isAllowed 
+                          ? "bg-white border-slate-200 hover:border-indigo-300 shadow-xs" 
+                          : "bg-rose-50/40 border-rose-200"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                            tool.role === "teacher" ? "bg-indigo-100 text-indigo-700" :
+                            tool.role === "student" ? "bg-purple-100 text-purple-700" :
+                            tool.role === "parent" ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-700"
+                          }`}>
+                            {tool.role} • {tool.category}
+                          </span>
+                          <h4 className="text-sm font-black text-slate-900">{tool.name}</h4>
+                          <p className="text-[11px] font-mono text-slate-400 truncate max-w-[200px]">{tool.path}</p>
+                        </div>
+
+                        {/* TOGGLE SWITCH */}
+                        <button
+                          type="button"
+                          onClick={() => toggleFeatureAllowed(tool.id)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            isAllowed ? "bg-emerald-600" : "bg-slate-300"
+                          }`}
+                          aria-label={`Toggle access for ${tool.name}`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                              isAllowed ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed font-medium line-clamp-2">
+                        {tool.description}
+                      </p>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                        <span className="text-[10px] font-bold uppercase text-slate-400">Visibility Status:</span>
+                        {isAllowed ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-700">
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Allowed (Visible)</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-rose-700">
+                            <X className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Disabled (Hidden)</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 4: PAPER STUDIO (TSO 100-MCQ AI + MANUAL BUILDER + REPOSITORY)        */}
+          {/* ========================================================================= */}
+          {adminTab === "paper_studio" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              
+              {/* SUB-TABS */}
+              <div className="bg-white p-3 rounded-2xl border border-slate-200 flex items-center gap-2 overflow-x-auto shadow-2xs">
                 <button
-                  onClick={() => handleBulkDeleteSubmissions(selectedPaperForSubmissions)}
-                  disabled={bulkDeleting || (selectedPaperForSubmissions === "all" ? submissions.length === 0 : submissions.filter(s => (s.paper_id || "paper-101") === selectedPaperForSubmissions || (selectedPaperForSubmissions === "paper-101" && !s.paper_id)).length === 0)}
-                  className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-                  title="Delete all candidate test submissions for this paper"
+                  onClick={() => setPaperStudioSubTab("tso_100_ai")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shrink-0 ${
+                    paperStudioSubTab === "tso_100_ai"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                  <span>{bulkDeleting ? "Deleting..." : "Delete All Results"}</span>
+                  TSO 100-MCQ AI Generator (60/40 Hybrid)
                 </button>
 
                 <button
-                  onClick={() => handleBulkPublishSubmissions(selectedPaperForSubmissions)}
-                  disabled={bulkPublishing}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer uppercase tracking-wider shrink-0"
+                  onClick={() => setPaperStudioSubTab("manual_builder")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shrink-0 ${
+                    paperStudioSubTab === "manual_builder"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
                 >
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>{bulkPublishing ? "Publishing..." : "Publish All For This Paper (1-Click)"}</span>
+                  Manual Paper Builder
+                </button>
+
+                <button
+                  onClick={() => setPaperStudioSubTab("repository")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shrink-0 ${
+                    paperStudioSubTab === "repository"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  Paper Repository ({papersList.length})
                 </button>
               </div>
-            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-800">
-                <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-200">
-                  <tr>
-                    <th className="p-3.5">Candidate Teacher</th>
-                    <th className="p-3.5">Paper / Subject</th>
-                    <th className="p-3.5">Submitted At</th>
-                    <th className="p-3.5">Score</th>
-                    <th className="p-3.5">Cheating / Warnings</th>
-                    <th className="p-3.5">Review Status</th>
-                    <th className="p-3.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {(() => {
-                    const currentSubs = selectedPaperForSubmissions === "all"
-                      ? submissions
-                      : submissions.filter(s => (s.paper_id || "paper-101") === selectedPaperForSubmissions || (selectedPaperForSubmissions === "paper-101" && !s.paper_id));
+              {/* SUB-TAB 1: TSO 100-MCQ AI GENERATOR */}
+              {paperStudioSubTab === "tso_100_ai" && (
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-indigo-600" />
+                      <span>Synthesize 100-MCQ Teacher Skills Olympiad Paper</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Adheres to official 60/40 Hybrid Structure: Part A (60 MCQs: CPD/NEP, Scenarios, Pedagogy) + Part B (40 MCQs: Core Subject, Pedagogy, HOTS)
+                    </p>
+                  </div>
 
-                    if (currentSubs.length === 0) {
-                      return (
-                        <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400 font-semibold">
-                            No teacher Olympiad submissions found for the selected paper.
-                          </td>
-                        </tr>
-                      );
-                    }
+                  <form onSubmit={handleGenerateTso100AI} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700">Subject</label>
+                        <select
+                          value={tsoSubject}
+                          onChange={(e) => {
+                            setTsoSubject(e.target.value);
+                            setTsoTitle(`National Teacher Skills Olympiad 2026 — ${e.target.value.toUpperCase()}`);
+                          }}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
+                        >
+                          <option value="Science">Science (Physics, Chemistry, Biology)</option>
+                          <option value="Mathematics">Mathematics</option>
+                          <option value="Social Science">Social Science (History, Geo, Civics)</option>
+                          <option value="English">English Language & Literature</option>
+                          <option value="Hindi">Hindi Language & Pedagogy</option>
+                        </select>
+                      </div>
 
-                    return currentSubs.map((sub) => {
-                      const matchedPaper = papersList.find(p => p.id === (sub.paper_id || "paper-101"));
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700">Class Level</label>
+                        <select
+                          value={tsoClass}
+                          onChange={(e) => setTsoClass(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
+                        >
+                          <option value="Secondary (Classes 9–10)">Secondary (Classes 9–10)</option>
+                          <option value="Senior Secondary (Classes 11–12)">Senior Secondary (Classes 11–12)</option>
+                          <option value="Middle School (Classes 6–8)">Middle School (Classes 6–8)</option>
+                          <option value="Primary (Classes 1–5)">Primary (Classes 1–5)</option>
+                        </select>
+                      </div>
 
-                      const displayScore = sub.score_percentage != null ? `${sub.score_percentage}%` : (sub.official_score != null ? `${sub.official_score}%` : "Pending");
-                      const warnings = sub.cheating_warnings ?? sub.warning_count ?? sub.proctor_incidents ?? sub.tab_switch_count ?? 0;
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700">Difficulty Scale</label>
+                        <select
+                          value={tsoDifficulty}
+                          onChange={(e) => setTsoDifficulty(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
+                        >
+                          <option value="medium">Standard National Level (Medium)</option>
+                          <option value="hard">Advanced HOTS & Leadership (Hard)</option>
+                          <option value="easy">Foundational NEP Assessment (Easy)</option>
+                        </select>
+                      </div>
+                    </div>
 
-                      return (
-                        <tr key={sub.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="p-3.5 font-bold text-slate-900">
-                            <div className="font-extrabold text-slate-900">{sub.teacher_name}</div>
-                            <div className="text-[11px] text-slate-500 font-mono">{sub.teacher_email}</div>
-                          </td>
-                          <td className="p-3.5">
-                            <span className="font-bold text-slate-800 text-xs">{matchedPaper?.title || sub.paper_id || "Science Olympiad"}</span>
-                            <div className="text-[10px] text-slate-500 font-semibold">{matchedPaper?.class_name || "Class 10"} &bull; {matchedPaper?.subject || "Science"}</div>
-                          </td>
-                          <td className="p-3.5 text-slate-600 font-mono text-[11px]">{sub.submitted_at}</td>
-                          <td className="p-3.5 font-black text-slate-900 text-sm">
-                            {displayScore}
-                          </td>
-                          <td className="p-3.5">
-                            {warnings === 0 ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>0 Warnings (Clean)</span>
-                              </span>
-                            ) : warnings < 3 ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-50 text-amber-800 border border-amber-300">
-                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                <span>{warnings} Warning(s)</span>
-                              </span>
-                            ) : warnings < 5 ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-orange-100 text-orange-900 border border-orange-300">
-                                <AlertCircle className="w-3.5 h-3.5 text-orange-600" />
-                                <span>{warnings} Warnings (High Risk)</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
-                                <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
-                                <span>{warnings} Warnings (Disqualified)</span>
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3.5">
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                              sub.published ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                            }`}>
-                              {sub.published ? "Published" : "Pending Review"}
-                            </span>
-                          </td>
-                          <td className="p-3.5 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {sub.question_evaluations && sub.question_evaluations.length > 0 && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700">Exam Title</label>
+                      <input
+                        type="text"
+                        value={tsoTitle}
+                        onChange={(e) => setTsoTitle(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700">Scheduled Start Time</label>
+                        <input
+                          type="datetime-local"
+                          value={tsoStartTime}
+                          onChange={(e) => setTsoStartTime(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700">Scheduled End Time</label>
+                        <input
+                          type="datetime-local"
+                          value={tsoEndTime}
+                          onChange={(e) => setTsoEndTime(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={generatingTso100}
+                      className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      {generatingTso100 ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      <span>{generatingTso100 ? "Synthesizing 100 Hybrid MCQs..." : "Generate 100-MCQ TSO Paper with AI"}</span>
+                    </button>
+                  </form>
+
+                  {/* DRAFT PREVIEW & QUESTION EDITOR */}
+                  {tsoDraftPaper && (
+                    <div className="p-6 bg-slate-50 rounded-3xl border border-indigo-200 space-y-4 animate-in fade-in">
+                      <div className="flex items-center justify-between border-b border-indigo-100 pb-3">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900">{tsoDraftPaper.title}</h4>
+                          <p className="text-xs text-slate-600 font-semibold">{tsoDraftPaper.questions?.length || 100} Questions • 100 Marks • 120 Mins</p>
+                        </div>
+                        <button
+                          onClick={handlePublishTsoPaper}
+                          disabled={activatingTsoPaper}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
+                        >
+                          {activatingTsoPaper ? "Activating..." : "Activate for Live Exam Hall"}
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                        {(tsoDraftPaper.questions || []).map((q: any, idx: number) => (
+                          <div key={idx} className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-extrabold text-slate-900">Q{idx + 1}. {q.question_text}</span>
+                              <button
+                                onClick={() => handleOpenEditQuestion(q)}
+                                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-600">
+                              {(q.options || []).map((opt: string, oIdx: number) => (
+                                <div key={oIdx} className={oIdx === q.correct_answer ? "font-bold text-emerald-700" : ""}>
+                                  {opt}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SUB-TAB 2: MANUAL PAPER BUILDER */}
+              {paperStudioSubTab === "manual_builder" && (
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-indigo-600" />
+                      <span>Manual Question Paper Builder</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">Add custom questions, options, and model answers</p>
+                  </div>
+
+                  <form onSubmit={handleSaveManualPaper} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700">Paper Title</label>
+                        <input
+                          type="text"
+                          required
+                          value={manualTitle}
+                          onChange={(e) => setManualTitle(e.target.value)}
+                          placeholder="Class 10 Science Midterm Paper"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700">Subject</label>
+                        <input
+                          type="text"
+                          required
+                          value={manualSubject}
+                          onChange={(e) => setManualSubject(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700">Class Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={manualClass}
+                          onChange={(e) => setManualClass(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <h4 className="text-xs font-black uppercase text-slate-700">Questions ({manualQuestions.length})</h4>
+                        <button
+                          type="button"
+                          onClick={() => handleAddManualQuestions(1)}
+                          className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Question</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                        {manualQuestions.map((q, idx) => (
+                          <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-black text-slate-900">Question #{idx + 1}</span>
+                              {manualQuestions.length > 1 && (
                                 <button
-                                  onClick={() => setReviewingSubScript(sub)}
-                                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center gap-1"
-                                  title="Inspect Candidate's 100-Question Answers"
+                                  type="button"
+                                  onClick={() => setManualQuestions(manualQuestions.filter((_, i) => i !== idx))}
+                                  className="text-rose-600 hover:text-rose-800 text-xs font-bold"
                                 >
-                                  <FileText className="w-3.5 h-3.5" />
-                                  <span>Review Script</span>
+                                  Remove
                                 </button>
                               )}
+                            </div>
 
+                            <input
+                              type="text"
+                              required
+                              value={q.question_text}
+                              onChange={(e) => {
+                                const newQs = [...manualQuestions];
+                                newQs[idx].question_text = e.target.value;
+                                setManualQuestions(newQs);
+                              }}
+                              placeholder="Enter question text..."
+                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                            />
+
+                            <div className="grid grid-cols-2 gap-2">
+                              {q.options.map((opt: string, oIdx: number) => (
+                                <div key={oIdx} className="flex items-center gap-2">
+                                  <input
+                                    type="radio"
+                                    name={`correct_${idx}`}
+                                    checked={q.correct_answer === oIdx}
+                                    onChange={() => {
+                                      const newQs = [...manualQuestions];
+                                      newQs[idx].correct_answer = oIdx;
+                                      setManualQuestions(newQs);
+                                    }}
+                                    className="cursor-pointer"
+                                  />
+                                  <input
+                                    type="text"
+                                    required
+                                    value={opt}
+                                    onChange={(e) => {
+                                      const newQs = [...manualQuestions];
+                                      newQs[idx].options[oIdx] = e.target.value;
+                                      setManualQuestions(newQs);
+                                    }}
+                                    placeholder={`Option ${String.fromCharCode(65 + oIdx)}`}
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={savingManualPaper}
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
+                    >
+                      {savingManualPaper ? "Saving Paper..." : "Construct & Save Paper"}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* SUB-TAB 3: PAPER REPOSITORY */}
+              {paperStudioSubTab === "repository" && (
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                      <h3 className="text-base font-black text-slate-900">Question Paper Repository</h3>
+                      <p className="text-xs text-slate-500 font-medium">All generated & uploaded assessment papers</p>
+                    </div>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {papersList.map((paper) => {
+                      const schedStatus = getPaperScheduleStatus(paper);
+                      return (
+                        <div key={paper.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-black text-slate-900">{paper.title}</h4>
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${schedStatus.color}`}>
+                                {schedStatus.label}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium">
+                              {paper.class_name} • {paper.subject} • {paper.board} • {paper.total_marks || 20} Marks
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openScheduleModal(paper)}
+                              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                            >
+                              Schedule
+                            </button>
+
+                            <button
+                              onClick={() => setPreviewPaper(paper)}
+                              className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold cursor-pointer"
+                            >
+                              Preview
+                            </button>
+
+                            <button
+                              onClick={() => handleDeletePaper(paper.id)}
+                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 5: OLYMPIAD BOARD (RESULTS & CHEATING WARNINGS AUDIT)                 */}
+          {/* ========================================================================= */}
+          {adminTab === "olympiad" && (
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 font-sans animate-in fade-in duration-200">
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-amber-500" />
+                    <span>National Educator Skills Olympiad Evaluation Board</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Review teacher answer submissions, cheating warnings audits, declare percentages, and publish live results
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleBulkPublishSubmissions()}
+                    disabled={bulkPublishing}
+                    className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer"
+                  >
+                    <Rocket className="w-4 h-4" />
+                    <span>{bulkPublishing ? "Publishing..." : "1-Click Publish All Results"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* SUBMISSIONS TABLE */}
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                <table className="w-full text-left text-xs text-slate-800">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3.5">Candidate / Educator</th>
+                      <th className="p-3.5">Paper & Subject</th>
+                      <th className="p-3.5">Score Percentage</th>
+                      <th className="p-3.5">Cheating Warnings Audit</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {submissions.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-slate-400 font-semibold">
+                          No assessment submissions received yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      submissions.map((sub) => (
+                        <tr key={sub.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div>
+                              <div className="font-extrabold">{sub.candidate_name || "Educator Candidate"}</div>
+                              <div className="text-[11px] font-mono text-slate-500">{sub.candidate_email}</div>
+                            </div>
+                          </td>
+
+                          <td className="p-3.5">
+                            <div className="font-bold text-slate-800">{sub.paper_title || "National TSO 2026"}</div>
+                            <div className="text-[10px] text-slate-500">{sub.subject || "General"}</div>
+                          </td>
+
+                          <td className="p-3.5 font-black text-indigo-700 text-sm">
+                            {typeof sub.score_percentage === "number" ? `${sub.score_percentage}%` : "Pending"}
+                          </td>
+
+                          {/* CHEATING WARNINGS BADGE */}
+                          <td className="p-3.5">
+                            {renderCheatingBadge(sub)}
+                          </td>
+
+                          <td className="p-3.5">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                              sub.published ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                            }`}>
+                              {sub.published ? "Published" : "Draft"}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => {
                                   setSelectedSub(sub);
-                                  setEditScore(sub.score_percentage ?? sub.official_score ?? 85);
+                                  setEditScore(sub.score_percentage || 0);
                                   setEditFeedback(sub.official_feedback || "");
                                   setPublishing(sub.published || false);
                                 }}
-                                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-black text-[11px] rounded-xl transition-all cursor-pointer"
+                                className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold cursor-pointer"
                               >
-                                Evaluate / Publish
+                                Evaluate
                               </button>
 
                               <button
                                 onClick={() => handleDeleteSubmission(sub.id)}
-                                disabled={deletingSubId === sub.id}
-                                className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 hover:text-rose-700 rounded-xl transition-all cursor-pointer disabled:opacity-50"
-                                title={`Delete submission #${sub.id}`}
+                                className="p-1 rounded-lg hover:bg-rose-50 text-rose-600 cursor-pointer"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
                         </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* EVALUATION MODAL DIALOG */}
-      {selectedSub && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-lg w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 text-slate-900 font-sans">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-500" />
-                Evaluate Submission #{selectedSub.id}
-              </h3>
-              <button onClick={() => setSelectedSub(null)} className="text-slate-400 hover:text-slate-700 font-black text-sm">✕</button>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
-              <div className="font-extrabold text-slate-900">{selectedSub.teacher_name} ({selectedSub.teacher_email})</div>
-              <div className="text-slate-500">Auto Computed Score: <span className="font-bold text-indigo-600">{selectedSub.score_percentage}% ({selectedSub.correct_count}/{selectedSub.total_questions} correct)</span></div>
-            </div>
-
-            {/* Anti-Cheating & Proctoring Report */}
-            {(() => {
-              const warnings = selectedSub.cheating_warnings ?? selectedSub.warning_count ?? selectedSub.proctor_incidents ?? selectedSub.tab_switch_count ?? 0;
-              return (
-                <div className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
-                  warnings === 0
-                    ? "bg-emerald-50/70 border-emerald-200 text-emerald-950"
-                    : warnings >= 5
-                    ? "bg-rose-50 border-rose-300 text-rose-950"
-                    : "bg-amber-50 border-amber-300 text-amber-950"
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className="font-black uppercase tracking-wider flex items-center gap-1.5">
-                      <ShieldAlert className="w-4 h-4 text-amber-600" />
-                      <span>Cheating & Proctoring Warnings:</span>
-                    </div>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
-                      warnings === 0
-                        ? "bg-emerald-100 text-emerald-800"
-                        : warnings >= 5
-                        ? "bg-rose-100 text-rose-800"
-                        : "bg-amber-100 text-amber-800"
-                    }`}>
-                      {warnings} Warning(s)
-                    </span>
-                  </div>
-                  <div>
-                    {warnings === 0 ? (
-                      <p className="font-semibold text-emerald-700">✓ Clean Assessment: 0 security warnings triggered. Candidate kept full focus without switching tabs or exiting fullscreen.</p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        <p className="font-bold text-rose-700">
-                          ⚠️ Candidate received {warnings} warning(s) during this assessment (tab navigation, window blur, or camera gaze violations).
-                        </p>
-                        {selectedSub.proctor_logs && selectedSub.proctor_logs.length > 0 && (
-                          <div className="p-2 bg-white/90 rounded-xl border border-slate-200 text-[11px] font-mono text-slate-700 max-h-24 overflow-y-auto space-y-0.5">
-                            {selectedSub.proctor_logs.map((log: string, lIdx: number) => (
-                              <div key={lIdx}>• {log}</div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      ))
                     )}
-                  </div>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 6: SCHOOL VERIFICATION                                                */}
+          {/* ========================================================================= */}
+          {adminTab === "schools" && (
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 font-sans animate-in fade-in duration-200">
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-emerald-600" />
+                    <span>School Registration & Verification Board</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Review and verify partner schools to unlock their recruitment dashboards
+                  </p>
                 </div>
-              );
-            })()}
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1">Grade Score Percentage (%)</label>
-                <input
-                  type="number"
-                  value={editScore}
-                  onChange={(e) => setEditScore(parseFloat(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1">Evaluation Board Feedback</label>
-                <textarea
-                  value={editFeedback}
-                  onChange={(e) => setEditFeedback(e.target.value)}
-                  rows={3}
-                  placeholder="Enter official remarks, distinction certificates, or feedback..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-600"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="publish_check"
-                  checked={publishing}
-                  onChange={(e) => setPublishing(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 rounded-md border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                />
-                <label htmlFor="publish_check" className="text-xs font-black text-slate-800 cursor-pointer">
-                  Publish Official Result to Leaderboard (Visible to Candidate)
-                </label>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <button
-                onClick={() => handleDeleteSubmission(selectedSub.id)}
-                disabled={deletingSubId === selectedSub.id}
-                className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                <span>Delete Result</span>
-              </button>
-
-              <div className="flex items-center gap-2">
-                <button onClick={() => setSelectedSub(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl">Cancel</button>
-                <button onClick={handleSaveSubmissionEvaluation} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider">Save & Update Result</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CANDIDATE TEST SCRIPT & QUESTION EVALUATION REVIEW MODAL */}
-      {reviewingSubScript && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-4xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-in zoom-in-95 max-h-[90vh] flex flex-col font-sans">
-            
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
-              <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-purple-100 text-purple-800">
-                    CANDIDATE SCRIPT INSPECTOR
-                  </span>
-                  <span className="text-xs font-bold text-slate-500">
-                    Submission #{reviewingSubScript.id}
-                  </span>
-                </div>
-                <h3 className="text-lg font-black text-slate-900">
-                  {reviewingSubScript.teacher_name} &bull; {reviewingSubScript.subject}
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="text-xs font-black text-indigo-600">Score: {reviewingSubScript.score_percentage}%</div>
-                  <div className="text-[10px] text-slate-400 font-semibold">{reviewingSubScript.correct_count ?? 0} Correct &bull; {reviewingSubScript.wrong_count ?? 0} Wrong</div>
-                </div>
-                <button
-                  onClick={() => setReviewingSubScript(null)}
-                  className="text-slate-400 hover:text-slate-700 font-black text-lg p-2 cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {/* Anti-Cheating & Proctoring Warnings Banner */}
-            {(() => {
-              const warnings = reviewingSubScript.cheating_warnings ?? reviewingSubScript.warning_count ?? reviewingSubScript.proctor_incidents ?? reviewingSubScript.tab_switch_count ?? 0;
-              return (
-                <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 ${
-                  warnings === 0
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-950"
-                    : warnings >= 5
-                    ? "bg-rose-50 border-rose-300 text-rose-950"
-                    : "bg-amber-50 border-amber-300 text-amber-950"
-                }`}>
-                  <div className="flex items-center gap-2.5">
-                    <ShieldAlert className="w-5 h-5 shrink-0 text-amber-600" />
-                    <div>
-                      <div className="text-xs font-black uppercase tracking-wider">
-                        Anti-Cheating & Proctoring Audit: {warnings} Warning(s)
-                      </div>
-                      <p className="text-xs font-medium mt-0.5">
-                        {warnings === 0
-                          ? "Clean assessment attempt: Candidate completed the 100-question exam with 0 security warnings."
-                          : `Candidate triggered ${warnings} warning(s) during this assessment (anti-cheating triggers).`}
-                      </p>
-                    </div>
-                  </div>
-
-                  {reviewingSubScript.proctor_logs && reviewingSubScript.proctor_logs.length > 0 && (
-                    <details className="text-xs cursor-pointer">
-                      <summary className="font-extrabold underline text-slate-800">
-                        View Incident Logs ({reviewingSubScript.proctor_logs.length})
-                      </summary>
-                      <div className="mt-2 p-2 bg-white/95 rounded-xl border border-slate-200 text-[11px] font-mono text-slate-700 max-h-24 overflow-y-auto space-y-0.5">
-                        {reviewingSubScript.proctor_logs.map((log: string, lIdx: number) => (
-                          <div key={lIdx}>• {log}</div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* SCROLLABLE QUESTION LIST */}
-            <div className="overflow-y-auto space-y-4 pr-2 flex-1">
-              {(reviewingSubScript.question_evaluations || []).map((q: any, qIdx: number) => {
-                const isCorr = q.is_correct;
-                const isAttempted = q.is_attempted;
-
-                return (
-                  <div
-                    key={qIdx}
-                    className={`p-5 rounded-2xl border-2 space-y-3 ${
-                      !isAttempted
-                        ? "bg-slate-50 border-slate-200"
-                        : isCorr
-                        ? "bg-emerald-50/40 border-emerald-300"
-                        : "bg-rose-50/40 border-rose-300"
-                    }`}
+                  <select
+                    value={schoolFilter}
+                    onChange={(e) => setSchoolFilter(e.target.value as any)}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-lg bg-slate-900 text-white font-black text-xs flex items-center justify-center">
-                          {q.question_number || qIdx + 1}
-                        </span>
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
-                          {q.section} &bull; {q.module}
-                        </span>
-                      </div>
-
-                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                        !isAttempted
-                          ? "bg-slate-200 text-slate-700"
-                          : isCorr
-                          ? "bg-emerald-600 text-white shadow-xs"
-                          : "bg-rose-600 text-white shadow-xs"
-                      }`}>
-                        {!isAttempted ? "⚪ Unattempted" : isCorr ? "✓ Correct (+1 Mark)" : "✗ Incorrect (0 Marks)"}
-                      </span>
-                    </div>
-
-                    <p className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed">
-                      {q.question_text}
-                    </p>
-
-                    {/* Options Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      {(q.options || []).map((opt: string, optIdx: number) => {
-                        const isCorrectAnswer = optIdx === q.correct_answer;
-                        const isSelectedByCandidate = optIdx === q.selected_option;
-
-                        let style = "bg-white border-slate-200 text-slate-700";
-                        if (isCorrectAnswer) {
-                          style = "bg-emerald-100/90 border-emerald-500 text-emerald-950 font-bold ring-1 ring-emerald-500";
-                        } else if (isSelectedByCandidate && !isCorr) {
-                          style = "bg-rose-100/90 border-rose-500 text-rose-950 font-bold ring-1 ring-rose-500";
-                        }
-
-                        return (
-                          <div key={optIdx} className={`p-3 rounded-xl border flex items-center justify-between gap-2 ${style}`}>
-                            <span>{opt}</span>
-                            {isCorrectAnswer && <span className="text-[10px] font-black text-emerald-800 uppercase shrink-0">✓ Correct</span>}
-                            {isSelectedByCandidate && !isCorr && <span className="text-[10px] font-black text-rose-800 uppercase shrink-0">✗ Candidate Pick</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Explanation */}
-                    {q.explanation && (
-                      <div className="p-3 bg-white/80 rounded-xl border border-slate-200/80 text-[11px] text-slate-700 space-y-1">
-                        <span className="font-extrabold text-indigo-700 block">💡 Pedagogical Explanation:</span>
-                        <p>{q.explanation}</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-end pt-3 border-t border-slate-100 shrink-0">
-              <button
-                onClick={() => setReviewingSubScript(null)}
-                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
-              >
-                Close Review
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: USER PROFILES */}
-      {adminTab === "users" && (
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 font-sans">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="text-lg font-black text-slate-900">Registered Supabase User Profiles ({filteredUsers.length} of {usersList.length})</h3>
-              <p className="text-xs text-slate-500 font-medium">Filter educators by grade levels, teaching subjects, affiliated schools, and roles</p>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search name, email, school, city..."
-                  className="bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-900 w-44 sm:w-56 focus:outline-none focus:border-indigo-500"
-                />
+                    <option value="all">All Schools ({schoolsList.length})</option>
+                    <option value="pending_verification">Pending Verification</option>
+                    <option value="verified">Verified Only</option>
+                    <option value="rejected">Rejected Only</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Role Filter */}
-              <select
-                value={filterRole}
-                onChange={(e) => setFilterRole(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
-              >
-                <option value="all">All Roles</option>
-                <option value="teacher">Teachers</option>
-                <option value="student">Students</option>
-                <option value="parent">Parents</option>
-              </select>
-
-              {/* Grade / Level Filter */}
-              <select
-                value={filterGrade}
-                onChange={(e) => setFilterGrade(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
-              >
-                <option value="all">All Grades / Levels</option>
-                <option value="primary">Primary (Classes 1–5)</option>
-                <option value="middle">Middle (Classes 6–8)</option>
-                <option value="secondary">Secondary (Classes 9–10)</option>
-                <option value="senior">Senior Sec (Classes 11–12)</option>
-                <option value="class 6">Class 6</option>
-                <option value="class 7">Class 7</option>
-                <option value="class 8">Class 8</option>
-                <option value="class 9">Class 9</option>
-                <option value="class 10">Class 10</option>
-                <option value="class 11">Class 11</option>
-                <option value="class 12">Class 12</option>
-              </select>
-
-              {/* Subject Filter */}
-              <select
-                value={filterSubject}
-                onChange={(e) => setFilterSubject(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
-              >
-                <option value="all">All Subjects</option>
-                <option value="science">Science (Physics/Chem/Bio)</option>
-                <option value="mathematics">Mathematics</option>
-                <option value="social">Social Science</option>
-                <option value="english">English</option>
-                <option value="hindi">Hindi</option>
-                <option value="computer">Computer Science / AI</option>
-              </select>
-
-              {/* Board Filter */}
-              <select
-                value={filterBoard}
-                onChange={(e) => setFilterBoard(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 cursor-pointer focus:outline-none"
-              >
-                <option value="all">All Boards</option>
-                <option value="cbse">CBSE</option>
-                <option value="icse">ICSE</option>
-                <option value="state">State Board</option>
-              </select>
-
-              {/* Reset Filter Button */}
-              {(searchQuery || filterRole !== "all" || filterGrade !== "all" || filterSubject !== "all" || filterBoard !== "all") && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setFilterRole("all");
-                    setFilterGrade("all");
-                    setFilterSubject("all");
-                    setFilterBoard("all");
-                  }}
-                  className="px-2.5 py-1.5 text-[11px] font-extrabold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl cursor-pointer transition-colors"
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-800">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-200">
-                <tr>
-                  <th className="p-3.5">User / Educator</th>
-                  <th className="p-3.5">School &amp; Logo</th>
-                  <th className="p-3.5">Board &amp; Subject</th>
-                  <th className="p-3.5">Role</th>
-                  <th className="p-3.5">Profile Status</th>
-                  <th className="p-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-400 font-semibold">
-                      No user accounts found matching query.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredUsers.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3.5 font-bold text-slate-900">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-black flex items-center justify-center text-xs shadow-xs shrink-0">
-                            {(u.full_name || u.email || "U")[0].toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-extrabold text-slate-900">{u.full_name || "Registered Account"}</div>
-                            <div className="text-[11px] font-mono text-slate-500">{u.email}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center p-0.5 shrink-0 shadow-2xs">
-                            {u.school_logo ? (
-                              <img src={u.school_logo} alt="Logo" className="w-full h-full object-contain" />
-                            ) : (
-                              <Building2 className="w-4 h-4 text-slate-400" />
-                            )}
-                          </div>
-                          <span className="font-bold text-slate-800 text-[11px] max-w-[180px] truncate block">
-                            {u.school_name || u.child_school || (u.role === "student" ? "Self Study / Online" : "Not Specified")}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="p-3.5">
-                        <div className="space-y-0.5">
-                          <div className="font-extrabold text-slate-800 text-[11px]">
-                            {u.subject || u.target_exam || (u.role === "parent" ? (u.child_name ? `Child: ${u.child_name}` : "Parent Guidance") : "General")} {u.classes ? `• ${u.classes}` : (u.child_class ? `• ${u.child_class}` : "")}
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                            {u.board || u.child_board || "CBSE"} Board
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="p-3.5">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          u.role === "teacher" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" :
-                          u.role === "student" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                          "bg-purple-50 text-purple-700 border border-purple-200"
-                        }`}>
-                          {u.role || "User"}
-                        </span>
-                      </td>
-
-                      <td className="p-3.5">
-                        {u.is_profile_complete || u.school_name || u.subject || u.target_exam || u.child_name ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            Complete
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-extrabold">
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            Incomplete
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="p-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setSelectedUserDetail(u)}
-                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center gap-1"
-                            title="Inspect User Details"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Details</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteUser(u.id, u.email)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                            title="Delete Account"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                <table className="w-full text-left text-xs text-slate-800">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3.5">School Name</th>
+                      <th className="p-3.5">Board & City</th>
+                      <th className="p-3.5">Contact Details</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB: SCHOOL VERIFICATION & RECRUITMENT MANAGEMENT PORTAL                  */}
-      {/* ========================================================================= */}
-      {adminTab === "schools" && (
-        <div className="space-y-6">
-          
-          {/* TOP METRICS STRIP */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Registered Schools</span>
-              <p className="text-2xl font-black text-slate-900">{schoolsList.length}</p>
-              <span className="text-[11px] text-slate-500 font-semibold">Institutions across India</span>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 shadow-xs space-y-1">
-              <span className="text-xs font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                Pending Verification Review
-              </span>
-              <p className="text-2xl font-black text-amber-900">
-                {schoolsList.filter(s => s.verification_status === "pending_verification" || !s.verification_status).length}
-              </p>
-              <span className="text-[11px] text-amber-700 font-semibold">Require Super Admin action</span>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 shadow-xs space-y-1">
-              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Verified Partner Schools</span>
-              <p className="text-2xl font-black text-emerald-900">
-                {schoolsList.filter(s => s.verification_status === "verified").length}
-              </p>
-              <span className="text-[11px] text-emerald-700 font-semibold">Unlocked dashboards & live hiring</span>
-            </div>
-          </div>
-
-          {/* FILTER AND CONTROLS BAR */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-              <span className="text-xs font-bold text-slate-400 mr-1 flex items-center gap-1">
-                <Filter className="w-3.5 h-3.5" /> Filter Status:
-              </span>
-              {[
-                { id: "all", label: "All Schools", count: schoolsList.length },
-                { id: "pending_verification", label: "Pending", count: schoolsList.filter(s => s.verification_status === "pending_verification" || !s.verification_status).length },
-                { id: "verified", label: "Verified & Unlocked", count: schoolsList.filter(s => s.verification_status === "verified").length },
-                { id: "rejected", label: "Rejected", count: schoolsList.filter(s => s.verification_status === "rejected").length },
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setSchoolFilter(f.id as any)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer border ${
-                    schoolFilter === f.id
-                      ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                      : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
-                  }`}
-                >
-                  <span>{f.label}</span>
-                  <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
-                    schoolFilter === f.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
-                  }`}>
-                    {f.count}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => fetchAdminData()}
-              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh Schools</span>
-            </button>
-          </div>
-
-          {/* SCHOOLS TABLE */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider">
-                    <th className="p-4">School / Institution</th>
-                    <th className="p-4">Affiliation & Location</th>
-                    <th className="p-4">Contact Person</th>
-                    <th className="p-4">Verification Status</th>
-                    <th className="p-4 text-right">Admin Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                  {schoolsList
-                    .filter(s => {
-                      if (schoolFilter === "pending_verification") {
-                        return s.verification_status === "pending_verification" || !s.verification_status;
-                      }
-                      if (schoolFilter !== "all") {
-                        return s.verification_status === schoolFilter;
-                      }
-                      return true;
-                    })
-                    .map(s => {
-                      const isPending = s.verification_status === "pending_verification" || !s.verification_status;
-                      const isApproved = s.verification_status === "verified";
-                      return (
-                        <tr key={s.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-black shrink-0">
-                                <Building2 className="w-5 h-5" />
-                              </div>
-                              <div>
-                                <h4 className="font-extrabold text-slate-900 text-xs">{s.school_name}</h4>
-                                <span className="text-[10px] text-slate-400 font-mono">ID: {s.id}</span>
-                              </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {schoolsList
+                      .filter(s => schoolFilter === "all" || s.verification_status === schoolFilter)
+                      .map((school) => (
+                        <tr key={school.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div>
+                              <div className="font-extrabold">{school.school_name}</div>
+                              <div className="text-[11px] font-mono text-slate-500">{school.principal_name || "Principal"}</div>
                             </div>
                           </td>
 
-                          <td className="p-4">
-                            <span className="px-2 py-0.5 rounded bg-slate-100 font-black text-slate-800 text-[10px] uppercase block w-fit">
-                              {s.affiliation_board || "CBSE"} Board
+                          <td className="p-3.5">
+                            <div className="font-bold text-slate-800">{school.affiliation_board || "CBSE"}</div>
+                            <div className="text-[10px] text-slate-500">{school.city}, {school.state}</div>
+                          </td>
+
+                          <td className="p-3.5">
+                            <div className="font-mono text-[11px] text-slate-700">{school.email}</div>
+                            <div className="text-[10px] text-slate-500 font-bold">{school.phone || "N/A"}</div>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              school.verification_status === "verified" ? "bg-emerald-100 text-emerald-800" :
+                              school.verification_status === "rejected" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"
+                            }`}>
+                              {school.verification_status || "Pending"}
                             </span>
-                            <span className="text-slate-500 text-[11px] font-semibold mt-0.5 flex items-center gap-0.5">
-                              <MapPin className="w-3 h-3 text-slate-400" />
-                              {s.city || "N/A"}{s.state ? `, ${s.state}` : ""}
-                            </span>
                           </td>
 
-                          <td className="p-4">
-                            <p className="font-bold text-slate-800">{s.contact_person || "Principal"}</p>
-                            <span className="text-slate-400 text-[11px] block">{s.email}</span>
-                            {s.phone && <span className="text-slate-400 text-[10px] block">{s.phone}</span>}
-                          </td>
-
-                          <td className="p-4">
-                            {isApproved ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                Verified & Unlocked
-                              </span>
-                            ) : isPending ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-black uppercase">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                                Pending Review
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black uppercase">
-                                <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                                Rejected / Suspended
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="p-4 text-right">
+                          <td className="p-3.5 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {isApproved ? (
+                              <button
+                                onClick={() => setSelectedSchoolDetail(school)}
+                                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer"
+                              >
+                                Details
+                              </button>
+
+                              {school.verification_status !== "verified" ? (
                                 <button
-                                  onClick={() => handleRejectSchool(s.id)}
-                                  disabled={verifyingSchoolId === s.id}
-                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer"
+                                  onClick={() => handleVerifySchool(school.id)}
+                                  disabled={verifyingSchoolId === school.id}
+                                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold cursor-pointer"
                                 >
-                                  Suspend
+                                  Approve
                                 </button>
                               ) : (
                                 <button
-                                  onClick={() => handleVerifySchool(s.id)}
-                                  disabled={verifyingSchoolId === s.id}
-                                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[11px] font-black shadow-md shadow-emerald-600/25 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                                  onClick={() => handleRejectSchool(school.id)}
+                                  disabled={verifyingSchoolId === school.id}
+                                  className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold cursor-pointer"
                                 >
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  <span>{verifyingSchoolId === s.id ? "Verifying..." : "Approve & Unlock"}</span>
+                                  Suspend
                                 </button>
                               )}
-
-                              <button
-                                onClick={() => setSelectedSchoolDetail(s)}
-                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-                                title="Inspect School Details"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
                             </div>
                           </td>
                         </tr>
-                      );
-                    })}
-                  {schoolsList.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="p-12 text-center text-slate-400">
-                        <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                        <p className="font-bold text-slate-700">No registered schools yet</p>
-                        <p className="text-[11px]">Schools that register will automatically appear here for verification review.</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 7: SECURITY & SINGLE-DEVICE SESSION MANAGEMENT                        */}
+          {/* ========================================================================= */}
+          {adminTab === "security" && (
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 font-sans animate-in fade-in duration-200">
+              
+              <div className="border-b border-slate-100 pb-4">
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <Lock className="w-5 h-5 text-indigo-600" />
+                  <span>Super Admin Security & Session Enforcement</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Active single-device session lock prevents concurrent logins from unauthorized devices
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <span className="text-[10px] font-black uppercase text-indigo-600">Enforcement Policy</span>
+                  <h4 className="text-sm font-black text-slate-900">Single-Device Active Lock</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                    When an administrator logs in from any new device or browser, all previous active admin sessions on any other device are instantly invalidated.
+                  </p>
+                </div>
+
+                <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2">
+                  <span className="text-[10px] font-black uppercase text-emerald-700">Heartbeat Status</span>
+                  <h4 className="text-sm font-black text-emerald-950 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    <span>Active Verified Session</span>
+                  </h4>
+                  <p className="text-xs text-emerald-800 leading-relaxed font-medium">
+                    Continuous 5-second polling actively verifies session validity with backend memory.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-slate-800">Need to revoke session immediately?</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Clicking logout invalidates the token across all systems.</p>
+                </div>
+                <button
+                  onClick={handleAdminLogout}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
+                >
+                  End Active Session & Sign Out
+                </button>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+      </main>
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: USER ACTIVITY TIMELINE MODAL                                     */}
+      {/* ========================================================================= */}
+      {activityModalUser && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black shrink-0">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    {activityModalUser.full_name || "User"} Activity Timeline
+                  </h3>
+                  <p className="text-xs font-mono text-slate-500">{activityModalUser.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActivityModalUser(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick summary cards */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-black uppercase text-slate-400 block">Today's Status</span>
+                <span className="font-extrabold text-slate-900">
+                  {activityModalUser.is_active_today ? "Active Online Today" : "Not Active Today"}
+                </span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-black uppercase text-slate-400 block">Features Visited Today</span>
+                <span className="font-extrabold text-indigo-600">
+                  {activityModalUser.features_used_today?.length || 0} features
+                </span>
+              </div>
+            </div>
+
+            {/* Timeline Stream */}
+            <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+              <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Chronological Event Log</p>
+              
+              {loadingTimeline ? (
+                <div className="py-8 text-center text-slate-400 font-bold text-xs flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Loading user activity events...</span>
+                </div>
+              ) : userTimeline.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 font-semibold text-xs">
+                  No recorded events found for this account.
+                </div>
+              ) : (
+                userTimeline.map((item, idx) => {
+                  const evDate = item.timestamp ? new Date(item.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "Recently";
+                  return (
+                    <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-indigo-700">{item.feature_name || item.path}</span>
+                        <span className="text-[10px] font-mono text-slate-400">{evDate}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono truncate">
+                        Path: {item.path} • Action: {item.action || "view"}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setActivityModalUser(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+              >
+                Close
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: USER PROFILE DETAIL MODAL                                        */}
+      {/* ========================================================================= */}
+      {selectedUserDetail && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">User Profile Details</h3>
+                  <p className="text-xs text-slate-500 font-mono">{selectedUserDetail.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedUserDetail(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Full Name</span>
+                  <span className="font-black text-slate-900">{selectedUserDetail.full_name || "Registered User"}</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Role</span>
+                  <span className="font-black text-slate-900 uppercase">{selectedUserDetail.role}</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">School</span>
+                  <span className="font-bold text-slate-800 truncate block">{selectedUserDetail.school_name || selectedUserDetail.child_school || "DEVGYA"}</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Board & Class</span>
+                  <span className="font-bold text-slate-800">{selectedUserDetail.board || "CBSE"} {selectedUserDetail.classes ? `(${selectedUserDetail.classes})` : ""}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <button
+                onClick={() => handleDeleteUser(selectedUserDetail.id, selectedUserDetail.email)}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Account</span>
+              </button>
+              <button
+                onClick={() => setSelectedUserDetail(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* SCHOOL DETAIL INSPECTOR MODAL */}
+      {/* ========================================================================= */}
+      {/* MODAL 3: SCHOOL DETAIL MODAL                                              */}
+      {/* ========================================================================= */}
       {selectedSchoolDetail && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
@@ -3315,7 +2879,7 @@ export default function SuperAdminPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">{selectedSchoolDetail.school_name}</h3>
-                  <p className="text-xs text-slate-500 font-medium">ID: {selectedSchoolDetail.id}</p>
+                  <p className="text-xs text-slate-500 font-mono">ID: {selectedSchoolDetail.id}</p>
                 </div>
               </div>
               <button
@@ -3372,7 +2936,7 @@ export default function SuperAdminPage() {
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Approve & Unlock Dashboard
+                  <span>Approve School</span>
                 </button>
               ) : (
                 <button
@@ -3380,7 +2944,7 @@ export default function SuperAdminPage() {
                     handleRejectSchool(selectedSchoolDetail.id);
                     setSelectedSchoolDetail(null);
                   }}
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md"
                 >
                   Suspend School
                 </button>
@@ -3390,632 +2954,315 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-      {/* USER PROFILE DETAIL MODAL */}
-      {selectedUserDetail && (
+      {/* ========================================================================= */}
+      {/* MODAL 4: OLYMPIAD EVALUATION MODAL                                        */}
+      {/* ========================================================================= */}
+      {selectedSub && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
-                  <User className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900">User Profile Details</h3>
-                  <p className="text-xs text-slate-500 font-medium">{selectedUserDetail.email}</p>
-                </div>
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Evaluate Olympiad Submission</h3>
+                <p className="text-xs text-slate-500 font-medium">{selectedSub.candidate_name} ({selectedSub.candidate_email})</p>
               </div>
               <button
-                onClick={() => setSelectedUserDetail(null)}
+                onClick={() => setSelectedSub(null)}
                 className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                <div className="w-16 h-16 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-sm">
-                  {selectedUserDetail.school_logo ? (
-                    <img src={selectedUserDetail.school_logo} alt="School Logo" className="w-full h-full object-contain" />
-                  ) : (
-                    <Building2 className="w-8 h-8 text-slate-300" />
-                  )}
+            {/* Cheating Audit Display */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+              <span className="text-[10px] font-black uppercase text-slate-400 block">Proctoring & Cheating Warnings</span>
+              {renderCheatingBadge(selectedSub)}
+              {selectedSub.proctoring_audit?.events && selectedSub.proctoring_audit.events.length > 0 && (
+                <div className="pt-1 text-[11px] text-slate-600 font-medium max-h-24 overflow-y-auto space-y-0.5">
+                  {selectedSub.proctoring_audit.events.map((ev: any, evIdx: number) => (
+                    <p key={evIdx}>• {ev.reason || "Warning event recorded"} ({ev.time || ""})</p>
+                  ))}
                 </div>
-                <div>
-                  <span className="text-[10px] font-black uppercase text-indigo-600 block">Affiliated Institution</span>
-                  <div className="text-sm font-black text-slate-900">{selectedUserDetail.school_name || selectedUserDetail.child_school || "DEVGYA GLOBAL EDUTECH"}</div>
-                  <div className="text-[11px] text-slate-500 font-semibold">{selectedUserDetail.board || selectedUserDetail.child_board || "CBSE"} Board</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <div className="text-[10px] font-extrabold uppercase text-slate-500">Full Name</div>
-                  <div className="font-bold text-slate-900">{selectedUserDetail.full_name || "Registered Account"}</div>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <div className="text-[10px] font-extrabold uppercase text-slate-500">Role</div>
-                  <div className="font-bold text-slate-900 uppercase">{selectedUserDetail.role}</div>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <div className="text-[10px] font-extrabold uppercase text-slate-500">
-                    {selectedUserDetail.role === "student" ? "Target Exam" : selectedUserDetail.role === "parent" ? "Parenting Focus" : "Teaching Subject"}
-                  </div>
-                  <div className="font-bold text-slate-900">
-                    {selectedUserDetail.subject || selectedUserDetail.target_exam || selectedUserDetail.parenting_focus || "General"}
-                  </div>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <div className="text-[10px] font-extrabold uppercase text-slate-500">
-                    {selectedUserDetail.role === "parent" ? "Child Details" : "Class / Grade"}
-                  </div>
-                  <div className="font-bold text-slate-900">
-                    {selectedUserDetail.classes || (selectedUserDetail.child_name ? `${selectedUserDetail.child_name} (${selectedUserDetail.child_class || "Class 10"})` : "Class 10")}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <button
-                onClick={() => setSelectedUserDetail(null)}
-                className="px-5 py-2.5 bg-slate-900 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer hover:bg-slate-800"
-              >
-                Close Inspector
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* EDIT QUESTION MODAL FOR TSO 100-MCQ PAPER */}
-      {editQuestionModalOpen && editingQuestion && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
-                    EDITING QUESTION #{editingQuestion.id || editingQuestion.question_number}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    {editingQuestion.section} • {editingQuestion.module}
-                  </span>
-                </div>
-                <h3 className="text-base font-black text-slate-900">
-                  Modify Question Text, Options & Explanation
-                </h3>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Score Percentage (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editScore}
+                  onChange={(e) => setEditScore(parseFloat(e.target.value) || 0)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                />
               </div>
 
-              <button
-                type="button"
-                onClick={() => setEditQuestionModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 font-black text-sm p-1.5"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-700">Question Text</label>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Official Evaluation Feedback</label>
                 <textarea
+                  value={editFeedback}
+                  onChange={(e) => setEditFeedback(e.target.value)}
+                  placeholder="Commendable pedagogical approach with strong NEP 2020 alignment..."
                   rows={3}
-                  value={editingQuestion.question_text || ""}
-                  onChange={(e) => setEditingQuestion({ ...editingQuestion, question_text: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-indigo-600 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-800"
                 />
               </div>
 
-              {/* 4 Options */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-700">4 Multiple Choice Options</label>
-                {editingQuestion.options?.map((opt: string, optIdx: number) => (
-                  <div key={optIdx} className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditingQuestion({ ...editingQuestion, correct_answer: optIdx })}
-                      className={`w-8 h-8 rounded-xl text-xs font-black shrink-0 transition-colors flex items-center justify-center ${
-                        editingQuestion.correct_answer === optIdx
-                          ? "bg-emerald-600 text-white shadow-xs"
-                          : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
-                      }`}
-                      title="Set as Correct Answer"
-                    >
-                      {String.fromCharCode(65 + optIdx)}
-                    </button>
-                    <input
-                      type="text"
-                      value={opt}
-                      onChange={(e) => {
-                        const newOpts = [...editingQuestion.options];
-                        newOpts[optIdx] = e.target.value;
-                        setEditingQuestion({ ...editingQuestion, options: newOpts });
-                      }}
-                      className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-indigo-600 outline-none"
-                      placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
-                    />
-                  </div>
-                ))}
-                <p className="text-[10px] text-slate-400 font-medium">
-                  💡 Click the option letter (A, B, C, D) on the left to set it as the correct answer.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-700">Conceptual Explanation</label>
-                <textarea
-                  rows={2}
-                  value={editingQuestion.explanation || ""}
-                  onChange={(e) => setEditingQuestion({ ...editingQuestion, explanation: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-indigo-600 outline-none"
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="pubToggle"
+                  checked={publishing}
+                  onChange={(e) => setPublishing(e.target.checked)}
+                  className="rounded cursor-pointer"
                 />
+                <label htmlFor="pubToggle" className="text-xs font-bold text-slate-800 cursor-pointer">
+                  Publish to Public Leaderboard & Activate Certificate
+                </label>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
-                type="button"
-                onClick={() => setEditQuestionModalOpen(false)}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                onClick={() => setSelectedSub(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
               >
                 Cancel
               </button>
-
               <button
-                type="button"
-                disabled={savingQuestionEdit}
-                onClick={handleSaveEditedQuestion}
-                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
+                onClick={handleSaveSubmissionEvaluation}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
               >
-                {savingQuestionEdit ? "Saving Changes..." : "Save Question Changes"}
+                Save Evaluation
               </button>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* SCHEDULE & TIMING EDIT MODAL */}
+      {/* ========================================================================= */}
+      {/* MODAL 5: SCHEDULE & TIMING EDITOR MODAL                                   */}
+      {/* ========================================================================= */}
       {scheduleModalPaper && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-xl w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 text-slate-900 max-h-[92vh] overflow-y-auto">
-            
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
-                  <CalendarClock className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900">Set Exam Schedule & Timing</h3>
-                  <p className="text-[11px] text-slate-500 font-semibold">{scheduleModalPaper.id} • {scheduleModalPaper.class_name} ({scheduleModalPaper.subject})</p>
-                </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Edit Paper Schedule & Activation</h3>
+                <p className="text-xs text-slate-500 font-medium">Configure examination window for students or teachers</p>
               </div>
               <button
                 onClick={() => setScheduleModalPaper(null)}
-                className="text-slate-400 hover:text-slate-700 font-black text-base cursor-pointer"
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleSavePaperSchedule} className="space-y-4">
-              
-              {/* Paper Title */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-700">Exam Paper Title</label>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Exam Title</label>
                 <input
                   type="text"
-                  required
                   value={schedTitle}
                   onChange={(e) => setSchedTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none"
-                  placeholder="e.g. National Teacher Skills Olympiad 2026 — SCIENCE"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
                 />
               </div>
 
-              {/* Start & End Date Time Pickers */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Exam Start Date & Time</span>
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={schedStartTime}
-                    onChange={(e) => setSchedStartTime(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                  />
-                  <p className="text-[10px] text-slate-400 font-medium">When candidates can first enter the hall.</p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Exam End Date & Time</span>
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={schedEndTime}
-                    onChange={(e) => setSchedEndTime(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none"
-                  />
-                  <p className="text-[10px] text-slate-400 font-medium">When the assessment hall automatically closes.</p>
-                </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Start Time</label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={schedStartTime}
+                  onChange={(e) => setSchedStartTime(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                />
               </div>
 
-              {/* Quick Presets */}
-              <div className="space-y-1.5 pt-1">
-                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Quick Window Presets</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSchedStartTime(getLocalISOString(0));
-                      setSchedEndTime(getLocalISOString(30 * 24 * 60 * 60 * 1000));
-                      setSchedPublished(true);
-                    }}
-                    className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[10.5px] font-bold text-center transition-colors cursor-pointer"
-                  >
-                    ⚡ Live Now (30 Days)
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 1);
-                      d.setHours(9, 0, 0, 0);
-                      const tzOffset = d.getTimezoneOffset() * 60000;
-                      const sIso = new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
-                      
-                      const endD = new Date(d);
-                      endD.setDate(endD.getDate() + 7);
-                      endD.setHours(23, 59, 0, 0);
-                      const eIso = new Date(endD.getTime() - tzOffset).toISOString().slice(0, 16);
-
-                      setSchedStartTime(sIso);
-                      setSchedEndTime(eIso);
-                      setSchedPublished(true);
-                    }}
-                    className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-xl text-[10.5px] font-bold text-center transition-colors cursor-pointer"
-                  >
-                    📅 Tomorrow (7 Days)
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSchedStartTime(getLocalISOString(0));
-                      setSchedEndTime(getLocalISOString(24 * 60 * 60 * 1000));
-                      setSchedPublished(true);
-                    }}
-                    className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[10.5px] font-bold text-center transition-colors cursor-pointer"
-                  >
-                    ⏱️ 24-Hour Blitz
-                  </button>
-                </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">End Time</label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={schedEndTime}
+                  onChange={(e) => setSchedEndTime(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
+                />
               </div>
 
-              {/* Published Toggle */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <div className="text-xs font-bold text-slate-800">Activate in Live Candidate Exam Hall</div>
-                  <div className="text-[10px] text-slate-500">When enabled, candidates on this subject track will take this exact scheduled paper.</div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={schedPublished}
-                    onChange={(e) => setSchedPublished(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="schedPub"
+                  checked={schedPublished}
+                  onChange={(e) => setSchedPublished(e.target.checked)}
+                  className="rounded cursor-pointer"
+                />
+                <label htmlFor="schedPub" className="text-xs font-bold text-slate-800 cursor-pointer">
+                  Published & Active for Students
                 </label>
               </div>
 
-              {/* Live Preview Summary */}
-              {(() => {
-                const now = Date.now();
-                const startMs = new Date(schedStartTime).getTime();
-                const endMs = new Date(schedEndTime).getTime();
-                let statusText = "";
-                let statusBg = "";
-
-                if (!schedPublished) {
-                  statusText = "⏸️ This paper is set as INACTIVE / DRAFT and hidden from students & teachers.";
-                  statusBg = "bg-slate-100 border-slate-200 text-slate-700";
-                } else if (!isNaN(startMs) && now < startMs) {
-                  statusText = `⏳ UPCOMING: Assessment hall will remain LOCKED until ${new Date(startMs).toLocaleString()}. Candidates will see an active countdown.`;
-                  statusBg = "bg-amber-50 border-amber-200 text-amber-800";
-                } else if (!isNaN(endMs) && now > endMs) {
-                  statusText = `🔴 EXPIRED: The assessment window closed on ${new Date(endMs).toLocaleString()}. Candidates cannot take the exam.`;
-                  statusBg = "bg-rose-50 border-rose-200 text-rose-800";
-                } else {
-                  statusText = "🟢 LIVE & ACTIVE: Candidates can immediately enter the assessment hall and take this exam.";
-                  statusBg = "bg-emerald-50 border-emerald-200 text-emerald-800";
-                }
-
-                return (
-                  <div className={`p-3 rounded-2xl border text-xs font-semibold ${statusBg}`}>
-                    {statusText}
-                  </div>
-                );
-              })()}
-
-              {/* Modal Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setScheduleModalPaper(null)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
                 >
                   Cancel
                 </button>
-
                 <button
                   type="submit"
                   disabled={savingSchedule}
-                  className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
                 >
-                  <Calendar className="w-4 h-4" />
-                  <span>{savingSchedule ? "Saving Schedule..." : "Apply & Save Schedule"}</span>
+                  {savingSchedule ? "Saving..." : "Save Schedule"}
                 </button>
               </div>
-
             </form>
-
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: EDIT TOOL CONFIGURATION (TITLE, BADGE, GREETING, COMING SOON)     */}
+      {/* MODAL 6: PAPER PREVIEW MODAL                                              */}
       {/* ========================================================================= */}
-      {editingTool && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200 my-8">
-            
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-black uppercase tracking-wider">
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Configure Tool Metadata</span>
-                </div>
-                <h2 className="text-xl font-black text-slate-900">Edit Tool: {editingTool.name}</h2>
-                <p className="text-xs text-slate-400 font-mono">Tool ID: {editingTool.id} | Route: {editingTool.path}</p>
+      {previewPaper && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">{previewPaper.title}</h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {previewPaper.class_name} • {previewPaper.subject} • {previewPaper.questions?.length || 0} Questions
+                </p>
               </div>
-
               <button
-                type="button"
-                onClick={() => setEditingTool(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                onClick={() => setPreviewPaper(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                updateTool(editingTool.id, editingTool);
-                setActionMsg(`✅ Saved configuration updates for "${editingTool.name}"!`);
-                setEditingTool(null);
-                setTimeout(() => setActionMsg(null), 4000);
-              }}
-              className="space-y-5"
-            >
-              
-              {/* Row 1: Name & Role */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                    Tool Title / Display Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editingTool.name}
-                    onChange={(e) => setEditingTool({ ...editingTool, name: e.target.value })}
-                    required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                    Role Category
-                  </label>
-                  <select
-                    value={editingTool.role}
-                    onChange={(e) => setEditingTool({ ...editingTool, role: e.target.value as any })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                  >
-                    <option value="teacher">Teacher Tool</option>
-                    <option value="student">Student Tool</option>
-                    <option value="parent">Parent Tool</option>
-                    <option value="admin">Admin Tool</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 2: Category & Badge */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                    Category Tag
-                  </label>
-                  <input
-                    type="text"
-                    value={editingTool.category}
-                    onChange={(e) => setEditingTool({ ...editingTool, category: e.target.value })}
-                    placeholder="e.g. Assessment & Exam, Pedagogy, Spaced Repetition"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                    Pill Badge (e.g. PRO, NEW, BETA, CORE)
-                  </label>
-                  <input
-                    type="text"
-                    value={editingTool.badge}
-                    onChange={(e) => setEditingTool({ ...editingTool, badge: e.target.value })}
-                    placeholder="PRO, NEW, HOT, CORE STUDIO"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                  Tool Description & Subtitle
-                </label>
-                <textarea
-                  rows={2}
-                  value={editingTool.description}
-                  onChange={(e) => setEditingTool({ ...editingTool, description: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                />
-              </div>
-
-              {/* Greeting Message */}
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                  AI Welcome Greeting / Instructions Message
-                </label>
-                <textarea
-                  rows={2}
-                  value={editingTool.greeting || ""}
-                  onChange={(e) => setEditingTool({ ...editingTool, greeting: e.target.value })}
-                  placeholder="Greeting shown when users open or interact with this AI agent..."
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                />
-              </div>
-
-              {/* COMING SOON CONFIGURATION BLOCK */}
-              <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
-                      <Rocket className="w-4 h-4 text-amber-600" />
-                      <span>Coming Soon Status Toggle</span>
-                    </div>
-                    <p className="text-[11px] text-amber-800">
-                      When enabled, users opening this tool see a modern, professional Coming Soon teaser page.
+            <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+              {(previewPaper.questions || []).map((q: any, idx: number) => (
+                <div key={idx} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
+                  <div className="font-extrabold text-slate-900">Q{idx + 1}. {q.question_text}</div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-600">
+                    {(q.options || []).map((opt: string, oIdx: number) => (
+                      <div key={oIdx} className={oIdx === q.correct_answer ? "font-black text-emerald-700 bg-emerald-50 p-1 rounded" : "p-1"}>
+                        {opt}
+                      </div>
+                    ))}
+                  </div>
+                  {q.explanation && (
+                    <p className="text-[10px] text-slate-500 font-medium pt-1 border-t border-slate-100">
+                      <strong>Explanation:</strong> {q.explanation}
                     </p>
-                  </div>
-
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editingTool.is_coming_soon}
-                      onChange={(e) => setEditingTool({ ...editingTool, is_coming_soon: e.target.checked })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                  </label>
+                  )}
                 </div>
+              ))}
+            </div>
 
-                {editingTool.is_coming_soon && (
-                  <div className="space-y-3 pt-3 border-t border-amber-200/60 animate-in fade-in">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-amber-900 mb-1">
-                          Coming Soon Teaser Title
-                        </label>
-                        <input
-                          type="text"
-                          value={editingTool.coming_soon_title || ""}
-                          onChange={(e) => setEditingTool({ ...editingTool, coming_soon_title: e.target.value })}
-                          placeholder="e.g. Next-Gen 3.0 Engine Releasing"
-                          className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 font-semibold focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-amber-900 mb-1">
-                          Estimated Timeline / Release ETA
-                        </label>
-                        <input
-                          type="text"
-                          value={editingTool.coming_soon_eta || ""}
-                          onChange={(e) => setEditingTool({ ...editingTool, coming_soon_eta: e.target.value })}
-                          placeholder="e.g. Releasing Next Week, Q2 2026"
-                          className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 font-semibold focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-amber-900 mb-1">
-                        Coming Soon Explanation / Feature Teaser
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={editingTool.coming_soon_message || ""}
-                        onChange={(e) => setEditingTool({ ...editingTool, coming_soon_message: e.target.value })}
-                        placeholder="Describe the exciting upgrades coming to this tool..."
-                        className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingTool(null)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Save Tool Configuration</span>
-                </button>
-              </div>
-
-            </form>
-
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setPreviewPaper(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+              >
+                Close Preview
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: LIVE PREVIEW OF COMING SOON USER EXPERIENCE                       */}
+      {/* MODAL 7: EDIT TSO QUESTION MODAL                                          */}
       {/* ========================================================================= */}
-      {previewComingSoonTool && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl flex items-center justify-between pb-3 text-white">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold">
-              <Eye className="w-4 h-4 text-indigo-400" />
-              <span>Live User Experience Preview ({previewComingSoonTool.name})</span>
+      {editQuestionModalOpen && editingQuestion && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Edit Question #{editingQuestion.id || editingQuestion.question_number}</h3>
+                <p className="text-xs text-slate-500 font-medium">Modify question text, options, and correct answer index</p>
+              </div>
+              <button
+                onClick={() => setEditQuestionModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setPreviewComingSoonTool(null)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer"
-            >
-              ✕ Close Preview
-            </button>
-          </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Question Text</label>
+                <textarea
+                  rows={2}
+                  value={editingQuestion.question_text}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, question_text: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800"
+                />
+              </div>
 
-          <ComingSoonView
-            tool={previewComingSoonTool}
-            backUrl="#"
-          />
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700">Options & Correct Answer</label>
+                {(editingQuestion.options || []).map((opt: string, oIdx: number) => (
+                  <div key={oIdx} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="correct_q_edit"
+                      checked={editingQuestion.correct_answer === oIdx}
+                      onChange={() => setEditingQuestion({ ...editingQuestion, correct_answer: oIdx })}
+                      className="cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const newOpts = [...editingQuestion.options];
+                        newOpts[oIdx] = e.target.value;
+                        setEditingQuestion({ ...editingQuestion, options: newOpts });
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Explanation</label>
+                <textarea
+                  rows={2}
+                  value={editingQuestion.explanation || ""}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, explanation: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-slate-800"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setEditQuestionModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEditedQuestion}
+                disabled={savingQuestionEdit}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
+              >
+                {savingQuestionEdit ? "Saving..." : "Save Question"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
