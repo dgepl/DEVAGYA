@@ -29,6 +29,7 @@ import {
   Info,
   HelpCircle
 } from "lucide-react";
+import { YouTubeLogo, InstagramLogo, YOUTUBE_URL, INSTAGRAM_URL } from "@/components/common/SocialButtons";
 
 export function MobileLandingView() {
   const [currentSlide, setCurrentSlide] = useState(1);
@@ -227,6 +228,33 @@ export function MobileLandingView() {
           <span>CREATE PAPER NOW</span>
           <ArrowRight className="w-4 h-4" />
         </Link>
+      </div>
+
+      {/* OFFICIAL CHANNELS: YOUTUBE & INSTAGRAM BUTTONS */}
+      <div className="px-4 pt-2.5 max-w-md mx-auto">
+        <div className="grid grid-cols-2 gap-2.5">
+          <a
+            href={YOUTUBE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl bg-white border border-slate-200 hover:border-red-300 shadow-2xs hover:shadow-md text-slate-800 hover:text-red-600 font-extrabold text-xs transition-all active:scale-95 group cursor-pointer"
+            title="Watch DEVGYA on YouTube"
+          >
+            <YouTubeLogo className="w-5 h-4.5 group-hover:scale-110 transition-transform shrink-0" />
+            <span className="font-[family-name:var(--font-jakarta)]">YouTube</span>
+          </a>
+
+          <a
+            href={INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl bg-white border border-slate-200 hover:border-pink-300 shadow-2xs hover:shadow-md text-slate-800 hover:text-pink-600 font-extrabold text-xs transition-all active:scale-95 group cursor-pointer"
+            title="Follow DEVGYA on Instagram"
+          >
+            <InstagramLogo className="w-4.5 h-4.5 group-hover:scale-110 transition-transform shrink-0" />
+            <span className="font-[family-name:var(--font-jakarta)]">Instagram</span>
+          </a>
+        </div>
       </div>
 
       {/* 5. SOCIAL PROOF & METRICS STRIP (SIDE-BY-SIDE CARD) */}

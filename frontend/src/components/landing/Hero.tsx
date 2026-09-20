@@ -28,6 +28,7 @@ import {
   HeartHandshake,
   Layers
 } from "lucide-react";
+import { YouTubeLogo, InstagramLogo, YOUTUBE_URL, INSTAGRAM_URL } from "@/components/common/SocialButtons";
 
 export function Hero() {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -208,15 +209,40 @@ export function Hero() {
                 ))}
               </div>
 
-              {/* CTA ACTION BUTTONS */}
-              <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+              {/* CTA ACTION BUTTONS & OFFICIAL SOCIAL CHANNELS */}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <Link
                   href={slide.ctaLink}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 group uppercase tracking-wider active:scale-95"
+                  className="px-7 py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 group uppercase tracking-wider active:scale-95"
                 >
                   <span>{slide.ctaText}</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </Link>
+
+                {/* OFFICIAL YOUTUBE & INSTAGRAM BUTTONS */}
+                <div className="flex items-center gap-2">
+                  <a
+                    href={YOUTUBE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-3 bg-white hover:bg-red-50/70 border border-slate-200 hover:border-red-300 text-slate-800 hover:text-red-600 rounded-xl font-extrabold text-xs shadow-xs hover:shadow-md transition-all active:scale-95 group cursor-pointer"
+                    title="Watch DEVGYA on YouTube"
+                  >
+                    <YouTubeLogo className="w-5 h-5 group-hover:scale-110 transition-transform shrink-0" />
+                    <span className="font-[family-name:var(--font-jakarta)]">YouTube</span>
+                  </a>
+
+                  <a
+                    href={INSTAGRAM_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-3 bg-white hover:bg-pink-50/70 border border-slate-200 hover:border-pink-300 text-slate-800 hover:text-pink-600 rounded-xl font-extrabold text-xs shadow-xs hover:shadow-md transition-all active:scale-95 group cursor-pointer"
+                    title="Follow DEVGYA on Instagram"
+                  >
+                    <InstagramLogo className="w-5 h-5 group-hover:scale-110 transition-transform shrink-0" />
+                    <span className="font-[family-name:var(--font-jakarta)]">Instagram</span>
+                  </a>
+                </div>
               </div>
 
               {/* SOCIAL PROOF & RATING BADGES */}

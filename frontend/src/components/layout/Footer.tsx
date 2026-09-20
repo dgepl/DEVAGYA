@@ -13,6 +13,7 @@ import {
   Code2,
   Mail
 } from "lucide-react";
+import { YouTubeLogo, InstagramLogo, YOUTUBE_URL, INSTAGRAM_URL } from "@/components/common/SocialButtons";
 
 export function Footer() {
   return (
@@ -45,6 +46,30 @@ export function Footer() {
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 <span>Devgya AI Operating System Active</span>
               </div>
+            </div>
+
+            {/* OFFICIAL CHANNELS: YOUTUBE & INSTAGRAM */}
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <a
+                href={YOUTUBE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/40 text-slate-300 hover:text-white text-xs font-bold transition-all group"
+                title="Watch DEVGYA on YouTube"
+              >
+                <YouTubeLogo className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                <span>YouTube</span>
+              </a>
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-pink-500/20 border border-white/10 hover:border-pink-500/40 text-slate-300 hover:text-white text-xs font-bold transition-all group"
+                title="Follow DEVGYA on Instagram"
+              >
+                <InstagramLogo className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                <span>Instagram</span>
+              </a>
             </div>
           </div>
 

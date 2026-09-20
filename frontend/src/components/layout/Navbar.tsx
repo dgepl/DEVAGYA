@@ -46,20 +46,36 @@ export function Navbar() {
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       scrolled 
-        ? "bg-white/95 backdrop-blur-xl border-b border-indigo-100/90 shadow-md py-1.5 sm:py-2" 
-        : "bg-white/85 backdrop-blur-md border-b border-slate-200/80 py-2 sm:py-3"
+        ? "bg-white/95 backdrop-blur-xl border-b border-indigo-100/90 shadow-md py-1 sm:py-1.5" 
+        : "bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-1 sm:py-2"
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-20">
+        <div className="relative flex items-center justify-between h-14 sm:h-20">
           
-          {/* ELEGANT BRAND LOGO */}
-          <Link href="/" className="flex items-center ml-1 sm:ml-4 group">
-            <img 
-              src="/logo.png" 
-              alt="DEVGYA GLOBAL EDUTECH" 
-              className="h-11 sm:h-16 w-auto max-h-16 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300 origin-left" 
-            />
-          </Link>
+          {/* DESKTOP BRAND LOGO (LEFT-ALIGNED ON LG+ SCREENS) */}
+          <div className="hidden lg:flex items-center ml-1 sm:ml-4">
+            <Link href="/" className="flex items-center group">
+              <img 
+                src="/logo.png" 
+                alt="DEVGYA GLOBAL EDUTECH" 
+                className="h-[76px] xl:h-[80px] w-auto max-h-20 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300 origin-left" 
+              />
+            </Link>
+          </div>
+
+          {/* MOBILE BRAND LOGO (CENTERED IN EXACT MIDDLE OF MOBILE SCREEN) */}
+          <div className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-auto">
+            <Link href="/" className="flex items-center group">
+              <img 
+                src="/logo.png" 
+                alt="DEVGYA GLOBAL EDUTECH" 
+                className="h-[52px] sm:h-[68px] w-auto max-h-14 sm:max-h-20 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+              />
+            </Link>
+          </div>
+
+          {/* MOBILE LEFT BALANCING SPACER */}
+          <div className="lg:hidden w-8 sm:w-10 pointer-events-none" aria-hidden="true" />
 
           {/* DESKTOP NAVIGATION LINKS */}
           <div className="hidden lg:flex items-center gap-1 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200/80 backdrop-blur-md shadow-inner">
@@ -99,10 +115,10 @@ export function Navbar() {
           </div>
 
           {/* MOBILE TOP CONTROLS: QUICK LOG IN PILL + HAMBURGER MENU BUTTON */}
-          <div className="lg:hidden flex items-center gap-2">
+          <div className="lg:hidden flex items-center gap-1.5 sm:gap-2 relative z-10">
             <Link
               href="/login"
-              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-extrabold text-[11px] rounded-xl shadow-md flex items-center gap-1 uppercase tracking-wider active:scale-95 font-[family-name:var(--font-outfit)]"
+              className="px-3 sm:px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-extrabold text-[11px] rounded-xl shadow-md flex items-center gap-1 uppercase tracking-wider active:scale-95 font-[family-name:var(--font-outfit)]"
             >
               <Sparkles className="w-3 h-3 text-amber-300" />
               <span>Log In</span>
@@ -110,7 +126,7 @@ export function Navbar() {
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2.5 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors"
+              className="p-2 sm:p-2.5 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
               aria-label="Toggle Navigation Menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
