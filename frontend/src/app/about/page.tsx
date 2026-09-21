@@ -1,4 +1,6 @@
-import type { Metadata } from "next";
+"use client";
+
+import React from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -12,81 +14,37 @@ import {
   Sparkles, 
   CheckCircle2, 
   ArrowRight, 
-  Award, 
-  HeartHandshake, 
-  Lightbulb,
+  Phone,
   Mail,
   Home,
   Info,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  Truck,
+  Layers,
+  Cpu,
+  HeartHandshake,
+  Compass,
+  Palette,
+  ClipboardList,
+  ExternalLink,
+  QrCode
 } from "lucide-react";
-
-export const metadata: Metadata = {
-  title: "About Us | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
-  description: "Learn about DEVGYA GLOBAL EDUTECH PRIVATE LIMITED, India's premier K-12 AI education ecosystem based in Jhajjar, Haryana. Empowering CBSE schools, teachers, students, and parents with cutting-edge AI tools and school infrastructure.",
-  keywords: [
-    "About DEVGYA",
-    "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
-    "Devgya Edutech Haryana",
-    "CBSE AI Education Company India",
-    "AI Question Paper Generator Company",
-    "Smart School Infrastructure Provider"
-  ],
-  alternates: {
-    canonical: "https://devgya.in/about"
-  },
-  openGraph: {
-    title: "About Us | DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",
-    description: "Transforming K-12 education with hybrid AI software, CBSE question generators, teacher training, and accredited school lab solutions.",
-    url: "https://devgya.in/about",
-    siteName: "DEVGYA GLOBAL EDUTECH",
-    images: [{ url: "https://devgya.in/logo-with-name.png", width: 1200, height: 630, alt: "About DEVGYA GLOBAL EDUTECH" }],
-    locale: "en_IN",
-    type: "website"
-  }
-};
+import { YouTubeLogo, InstagramLogo, YOUTUBE_URL, INSTAGRAM_URL } from "@/components/common/SocialButtons";
 
 export default function AboutPage() {
-  const stakeholderSupport = [
-    {
-      title: "For Schools",
-      badge: "Institutional Support",
-      icon: Building2,
-      color: "from-blue-600 to-indigo-600",
-      description: "We facilitate seamless book supply, academic publishing, professional CBSE teacher training workshops, and reliable job placement support."
-    },
-    {
-      title: "For Teachers",
-      badge: "Educator Empowerment",
-      icon: GraduationCap,
-      color: "from-purple-600 to-pink-600",
-      description: "We equip educators with cutting-edge digital tools like OCR worksheet and assignment generators, the Teachers Skill Olympiad, and modern pedagogy books to enhance classroom efficiency."
-    },
-    {
-      title: "For Parents & Students",
-      badge: "Holistic Development",
-      icon: Users,
-      color: "from-emerald-600 to-teal-600",
-      description: "We foster engaging learning through interactive homework and AI-powered query assistance, fun educational quizzes, and specialised parenting guides to ensure holistic child development."
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-[#FAF8F5] text-slate-800 flex flex-col selection:bg-teal-600 selection:text-white">
       <Navbar />
 
-      <PageTransition className="flex-1 pt-20 sm:pt-24">
+      <PageTransition className="flex-1 pt-18 sm:pt-20">
         
-        {/* HERO & BREADCRUMB NAVIGATION BAR (MATCHING CONTACT PAGE EXACT UI/UX) */}
-        <section className="relative overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-[#09071B] text-white py-14 sm:py-20 px-4 sm:px-6 lg:px-8 border-b border-indigo-900/30">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/15 blur-[120px] rounded-full pointer-events-none" />
-          <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-purple-500/15 blur-[100px] rounded-full pointer-events-none" />
-
-          <div className="max-w-7xl mx-auto space-y-8 relative z-10">
-            
-            {/* INTERACTIVE NAVIGATION PILL TABS */}
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs font-bold font-[family-name:var(--font-jakarta)]">
+        {/* ========================================================================= */}
+        {/* TOP NAVIGATION BREADCRUMB / PILL BAR                                    */}
+        {/* ========================================================================= */}
+        <div className="bg-[#0B1528] text-white pt-6 pb-4 px-4 sm:px-6 lg:px-8 border-b border-indigo-950/60">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs font-bold font-[family-name:var(--font-jakarta)]">
+            <div className="flex flex-wrap items-center gap-2">
               <Link 
                 href="/" 
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white transition-all border border-white/10"
@@ -96,7 +54,7 @@ export default function AboutPage() {
               </Link>
               <span className="text-white/30">•</span>
 
-              <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-black shadow-md shadow-indigo-600/40 border border-indigo-400/30">
+              <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-600 text-white font-black shadow-md shadow-teal-600/30 border border-teal-400/40">
                 <Info className="w-3.5 h-3.5 text-amber-300" />
                 <span>About Us</span>
               </span>
@@ -109,162 +67,729 @@ export default function AboutPage() {
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-300" />
                 <span>Why Choose Us</span>
               </Link>
-              <span className="text-white/30">•</span>
+              <span className="text-white/30 hidden sm:inline">•</span>
 
               <Link 
                 href="/faq" 
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white transition-all border border-white/10"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white transition-all border border-white/10"
               >
                 <HelpCircle className="w-3.5 h-3.5 text-amber-300" />
                 <span>FAQ</span>
               </Link>
-              <span className="text-white/30">•</span>
+              <span className="text-white/30 hidden sm:inline">•</span>
 
               <Link 
                 href="/contact" 
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white transition-all border border-white/10"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white transition-all border border-white/10"
               >
                 <Mail className="w-3.5 h-3.5 text-pink-300" />
-                <span>Contact Us</span>
+                <span>Contact</span>
               </Link>
             </div>
 
-            {/* HERO TITLE */}
-            <div className="space-y-4 max-w-4xl">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-black uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  <span>About DEVGYA GLOBAL</span>
-                </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-slate-200 text-xs font-semibold">
-                  <MapPin className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Headquartered in Jhajjar, Haryana</span>
-                </div>
-              </div>
-
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white font-[family-name:var(--font-outfit)] leading-tight">
-                Empowering the Entire <br className="hidden sm:inline" />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300">
-                  Academic Ecosystem
-                </span>
-              </h1>
-
-              <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-3xl">
-                At Devgya Global Edutech Private Limited, we are dedicated to transforming the educational landscape by bridging the gap between schools, teachers, and parents through innovative digital solutions and quality academic resources.
-              </p>
-
-              {/* AUTHENTIC FEATURE PILLS IN DARK GLASSMORPHISM */}
-              <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                {[
-                  { text: "Seamless Book Supply & Publishing", icon: BookOpen },
-                  { text: "CBSE Teacher Training Workshops", icon: GraduationCap },
-                  { text: "Teachers Skill Olympiad", icon: Award },
-                  { text: "AI Homework & Query Assistant", icon: HeartHandshake },
-                ].map((item, idx) => {
-                  const Icon = item.icon;
-                  return (
-                    <div 
-                      key={idx} 
-                      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-md shadow-xs text-xs font-bold text-slate-200 transition"
-                    >
-                      <Icon className="w-3.5 h-3.5 text-cyan-300" />
-                      <span>{item.text}</span>
-                    </div>
-                  );
-                })}
-              </div>
+            {/* QUICK JUMP ANCHORS */}
+            <div className="hidden md:flex items-center gap-2 text-[11px] font-semibold text-slate-300">
+              <span className="text-slate-400">Jump to:</span>
+              <a href="#about-overview" className="hover:text-teal-300 transition-colors">Overview</a>
+              <span>·</span>
+              <a href="#publications" className="hover:text-teal-300 transition-colors">Publications</a>
+              <span>·</span>
+              <a href="#distribution" className="hover:text-teal-300 transition-colors">Distribution</a>
+              <span>·</span>
+              <a href="#ai-portal" className="hover:text-teal-300 transition-colors">AI Portal</a>
+              <span>·</span>
+              <a href="#contact-reach" className="hover:text-teal-300 transition-colors">Contact</a>
             </div>
-
           </div>
-        </section>
+        </div>
 
-        {/* MAIN STAKEHOLDER SUPPORT SECTION */}
-        <section className="py-14 sm:py-18 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12">
-          
-          <div className="text-center max-w-3xl mx-auto space-y-3">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-extrabold uppercase tracking-wider">
-              <Lightbulb className="w-3.5 h-3.5 text-purple-600" />
-              <span>End-to-End Support</span>
-            </div>
-            <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
-              Tailored Support for Every Stakeholder
-            </h2>
-            <p className="text-slate-600 text-sm sm:text-base font-medium">
-              We provide comprehensive, end-to-end support tailored to every stakeholder in education:
-            </p>
-          </div>
+        {/* ========================================================================= */}
+        {/* HERO SECTION: CLIENT SLIDE 1 (DEVGYA GLOBAL EDUTECH PVT. LTD.)           */}
+        {/* ========================================================================= */}
+        <section className="relative overflow-hidden bg-gradient-to-b from-[#0B1528] via-[#0E1E38] to-[#12284C] text-white py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 border-b border-indigo-900/30">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-500/10 blur-[130px] rounded-full pointer-events-none" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/15 blur-[120px] rounded-full pointer-events-none" />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-            {stakeholderSupport.map((item, idx) => {
-              const Icon = item.icon;
-              return (
-                <div 
-                  key={idx} 
-                  className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-sm hover:shadow-xl transition-all space-y-6 flex flex-col justify-between group"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${item.color} text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform`}>
-                        <Icon className="w-7 h-7" />
-                      </div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-full">
-                        {item.badge}
-                      </span>
-                    </div>
-
-                    <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                      {item.title}
-                    </h3>
-
-                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
-                      {item.description}
+          <div className="max-w-7xl mx-auto relative z-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+              
+              {/* LEFT COLUMN: BRANDING & HEADLINE */}
+              <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
+                
+                {/* LOGO & EMBLEM HEADER */}
+                <div className="inline-flex flex-col items-center lg:items-start space-y-2">
+                  <div className="flex items-center gap-3">
+                    <img 
+                      src="/logo.png" 
+                      alt="DEVGYA Logo" 
+                      className="h-16 sm:h-20 w-auto object-contain drop-shadow-[0_4px_16px_rgba(20,184,166,0.3)]" 
+                    />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight font-[family-name:var(--font-outfit)] text-white uppercase">
+                      DEVGYA GLOBAL
+                    </h1>
+                    <p className="text-amber-400 font-extrabold text-xs sm:text-sm tracking-widest uppercase mt-1">
+                      EDUTECH PRIVATE LIMITED
                     </p>
                   </div>
+                </div>
 
-                  <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-bold text-indigo-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Empowering Education</span>
+                {/* SIGNATURE MOTTO */}
+                <div className="pt-2">
+                  <p className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-100 font-[family-name:var(--font-outfit)] leading-snug">
+                    Ideas that move <br className="hidden sm:inline" />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-300 via-cyan-200 to-amber-200">
+                      education forward.
+                    </span>
+                  </p>
+                </div>
+
+                {/* 3 CORE PILLARS BREADCRUMB */}
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 pt-1">
+                  <span className="px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-xs font-semibold text-slate-200 backdrop-blur-md">
+                    Publications
+                  </span>
+                  <span className="text-white/40">/</span>
+                  <span className="px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-xs font-semibold text-slate-200 backdrop-blur-md">
+                    Distribution
+                  </span>
+                  <span className="text-white/40">/</span>
+                  <span className="px-3.5 py-1.5 rounded-full bg-teal-500/20 border border-teal-400/40 text-xs font-bold text-teal-300 backdrop-blur-md">
+                    AI Education Portal
+                  </span>
+                </div>
+
+                {/* CTA BUTTONS */}
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 pt-3">
+                  <a 
+                    href="#about-overview" 
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-sm shadow-lg shadow-teal-600/30 transition-all active:scale-95"
+                  >
+                    <span>Discover What We Do</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </a>
+                  <Link 
+                    href="/contact" 
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white border border-white/20 font-bold text-sm backdrop-blur-md transition-all active:scale-95"
+                  >
+                    <Mail className="w-4 h-4 text-pink-300" />
+                    <span>Get in Touch</span>
+                  </Link>
+                </div>
+
+              </div>
+
+              {/* RIGHT COLUMN: HERO IMAGE SHOWCASE */}
+              <div className="lg:col-span-6 relative">
+                <div className="relative rounded-3xl overflow-hidden border border-white/15 shadow-2xl bg-slate-900/60 group">
+                  <img 
+                    src="/images/about/hero_about.png" 
+                    alt="DEVGYA Educators and Students" 
+                    className="w-full h-auto max-h-[460px] object-cover object-center group-hover:scale-102 transition-transform duration-700" 
+                  />
+                  {/* SUBTLE INNER SHADOW / GRADIENT */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+                  
+                  {/* FLOATING BADGE OVERLAY */}
+                  <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 p-3.5 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-white/15 text-white flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-300 flex items-center justify-center border border-teal-400/30">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-white">Empowering Education Ecosystem</p>
+                        <p className="text-[11px] text-slate-300">Classrooms, Homes &amp; Smart Digital Technology</p>
+                      </div>
+                    </div>
+                    <span className="hidden sm:inline-block px-2.5 py-1 rounded-lg bg-teal-500/20 text-teal-300 text-[10px] font-extrabold uppercase tracking-wider">
+                      CBSE / NCERT
+                    </span>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* SECTION: ABOUT US & OUR SERVICES (CLIENT SLIDE 1 CONTENT)                */}
+        {/* ========================================================================= */}
+        <section id="about-overview" className="py-14 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12">
+          
+          {/* HEADER & NARRATIVE */}
+          <div className="space-y-4 max-w-4xl">
+            <div>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight font-[family-name:var(--font-outfit)]">
+                About Us
+              </h2>
+              <div className="w-16 h-1 bg-teal-600 rounded-full mt-2" />
+            </div>
+            
+            <p className="text-base sm:text-lg text-slate-700 font-medium leading-relaxed pt-2">
+              Devgya Global Edutech Pvt. Ltd. works across educational publishing, books distribution and digital learning support. We develop and present useful content for schools and families, coordinate the supply of books through institutional and channel relationships, and are building an AI-powered education portal for Teachers, Students, Parents and Schools.
+            </p>
+          </div>
+
+          {/* OUR SERVICES TITLE */}
+          <div className="space-y-6">
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-[family-name:var(--font-outfit)]">
+              Our Services
+            </h3>
+
+            {/* 3 SERVICES CARDS (MATCHING CLIENT SLIDE 1) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* SERVICE 1: PUBLICATIONS */}
+              <div className="rounded-2xl bg-white border border-slate-200/90 p-6 shadow-sm hover:shadow-xl transition-all duration-300 flex items-stretch gap-4 group">
+                <div className="w-3 rounded-full bg-teal-600 shrink-0 group-hover:scale-y-105 transition-transform" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-black text-slate-900 group-hover:text-teal-700 transition-colors">
+                      Publications
+                    </h4>
+                    <BookOpen className="w-5 h-5 text-teal-600 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Educational and Parenting Books
+                  </p>
+                </div>
+              </div>
+
+              {/* SERVICE 2: BOOKS DISTRIBUTION */}
+              <div className="rounded-2xl bg-white border border-slate-200/90 p-6 shadow-sm hover:shadow-xl transition-all duration-300 flex items-stretch gap-4 group">
+                <div className="w-3 rounded-full bg-teal-600 shrink-0 group-hover:scale-y-105 transition-transform" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-black text-slate-900 group-hover:text-teal-700 transition-colors">
+                      Books Distribution
+                    </h4>
+                    <Truck className="w-5 h-5 text-teal-600 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Institutional and Channel Supply Support
+                  </p>
+                </div>
+              </div>
+
+              {/* SERVICE 3: AI-POWERED PORTAL */}
+              <div className="rounded-2xl bg-white border border-slate-200/90 p-6 shadow-sm hover:shadow-xl transition-all duration-300 flex items-stretch gap-4 group">
+                <div className="w-3 rounded-full bg-teal-600 shrink-0 group-hover:scale-y-105 transition-transform" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-black text-slate-900 group-hover:text-teal-700 transition-colors">
+                      AI-Powered Portal
+                    </h4>
+                    <Cpu className="w-5 h-5 text-teal-600 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Role-Based Support for the School Community
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            {/* CALLOUT BANNER (CLIENT SLIDE 1 BANNER) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#E6F3F5] border border-teal-200/80 text-center shadow-xs">
+              <p className="text-sm sm:text-base font-extrabold text-teal-950 tracking-tight">
+                Clear communication. Practical content. Coordinated support.
+              </p>
+            </div>
           </div>
 
         </section>
 
-        {/* MISSION STATEMENT CARD (MATCHING CONTACT STYLE GLASS CONTAINER) */}
-        <section className="pb-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
-          <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-white shadow-2xl relative overflow-hidden text-center space-y-5 border border-indigo-900/40">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/15 blur-[100px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-72 h-72 bg-indigo-500/15 blur-[100px] rounded-full pointer-events-none" />
+        {/* ========================================================================= */}
+        {/* VERTICAL 1: PUBLICATIONS AND BOOKS (CLIENT SLIDE 2)                      */}
+        {/* ========================================================================= */}
+        <section id="publications" className="py-14 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-10 border-t border-slate-200/80">
+          
+          {/* SECTION HEADER */}
+          <div className="space-y-2">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight font-[family-name:var(--font-outfit)]">
+              Publications and Books
+            </h2>
+            <div className="w-16 h-1 bg-teal-600 rounded-full" />
+            <p className="text-sm sm:text-base text-slate-600 font-medium pt-1">
+              Educational content developed for practical use in classrooms and homes.
+            </p>
+          </div>
+
+          {/* MAIN PHOTO SHOWCASE */}
+          <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200 bg-white group">
+            <img 
+              src="/images/about/publications_books.jpg" 
+              alt="Publications and Books - Devgya Global Edutech" 
+              className="w-full h-auto max-h-[500px] object-cover object-center group-hover:scale-101 transition-transform duration-700" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 text-white max-w-xl">
+              <span className="px-3 py-1 rounded-full bg-teal-600/90 text-white text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+                KnowSphere &amp; Parenting Titles
+              </span>
+              <p className="text-sm sm:text-base font-semibold mt-2 text-slate-100 drop-shadow-md">
+                Carefully curated educational readers, holistic student workbooks, and modern parental guidance guides.
+              </p>
+            </div>
+          </div>
+
+          {/* WHAT WE DO & PUBLICATION AREAS */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-2">
             
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-cyan-300 text-xs font-extrabold uppercase tracking-wider relative z-10">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Our Commitment</span>
+            {/* WHAT WE DO */}
+            <div className="lg:col-span-5 space-y-3">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-[family-name:var(--font-outfit)]">
+                What We Do
+              </h3>
+              <p className="text-sm sm:text-base text-slate-700 font-medium leading-relaxed">
+                We work on educational and parenting titles with attention to the intended reader, age group, language and purpose. Our role can include concept planning, content development, editing, page design, cover preparation and print-ready production.
+              </p>
             </div>
 
-            <h3 className="text-xl sm:text-3xl font-black leading-tight text-white max-w-3xl mx-auto relative z-10">
-              Shaping a Smarter, Brighter Future for the Next Generation
+            {/* PUBLICATION AREAS CARDS */}
+            <div className="lg:col-span-7 space-y-4">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-[family-name:var(--font-outfit)]">
+                Publication Areas
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* AREA 1 */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex items-center gap-3.5 group">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0 group-hover:scale-125 transition-transform" />
+                  <span className="text-sm sm:text-base font-extrabold text-slate-800">
+                    School Educational Books
+                  </span>
+                </div>
+
+                {/* AREA 2 */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex items-center gap-3.5 group">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0 group-hover:scale-125 transition-transform" />
+                  <span className="text-sm sm:text-base font-extrabold text-slate-800">
+                    Art, Activity and General Knowledge Books
+                  </span>
+                </div>
+
+                {/* AREA 3 */}
+                <div className="sm:col-span-2 p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex items-center gap-3.5 group">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0 group-hover:scale-125 transition-transform" />
+                  <span className="text-sm sm:text-base font-extrabold text-slate-800">
+                    Parenting and Family Guidance Books
+                  </span>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+
+          {/* WHO WE SERVE SECTION */}
+          <div className="space-y-4 pt-4 border-t border-slate-200/70">
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-[family-name:var(--font-outfit)]">
+              Who We Serve
             </h3>
 
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl mx-auto font-medium relative z-10">
-              Driven by innovation and a commitment to excellence, Devgya Global Edutech is your trusted partner in shaping a smarter, brighter future for the next generation.
-            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              {[
+                { name: "Schools", icon: Building2, desc: "Academic curriculum & libraries" },
+                { name: "Teachers", icon: GraduationCap, desc: "Instructional pedagogy" },
+                { name: "Students", icon: Sparkles, desc: "Experiential learning" },
+                { name: "Parents", icon: Users, desc: "Child development guides" }
+              ].map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <div 
+                    key={idx} 
+                    className="p-5 rounded-2xl bg-[#EBF3F5] border border-teal-200/60 text-center space-y-2 hover:bg-[#E0EEF1] hover:scale-102 transition-all duration-200 shadow-xs"
+                  >
+                    <div className="w-10 h-10 mx-auto rounded-xl bg-teal-600/10 text-teal-800 flex items-center justify-center font-bold">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <p className="text-sm sm:text-base font-black text-slate-900">
+                      {item.name}
+                    </p>
+                    <p className="text-[11px] text-slate-600 font-medium">
+                      {item.desc}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-            {/* DIRECT CONTACT & SUPPORT */}
-            <div className="pt-6 border-t border-white/10 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-300 relative z-10">
-              <a href="mailto:dgepl.info@gmail.com" className="inline-flex items-center gap-2 hover:text-cyan-300 font-bold transition-colors">
-                <Mail className="w-4 h-4 text-cyan-400" />
-                <span>Email: dgepl.info@gmail.com</span>
-              </a>
-              <span className="inline-flex items-center gap-2 font-medium text-slate-400">
-                <MapPin className="w-4 h-4 text-rose-400" />
-                <span>Jhajjar, Haryana, India</span>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* VERTICAL 2: BOOKS DISTRIBUTION NETWORK (CLIENT SLIDE 3)                   */}
+        {/* ========================================================================= */}
+        <section id="distribution" className="py-14 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-10 border-t border-slate-200/80">
+          
+          {/* SECTION HEADER */}
+          <div className="space-y-2">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight font-[family-name:var(--font-outfit)]">
+              Books Distribution Network
+            </h2>
+            <div className="w-16 h-1 bg-teal-600 rounded-full" />
+            <p className="text-sm sm:text-base text-slate-600 font-medium pt-1">
+              Practical coordination for selecting, ordering and supplying educational books.
+            </p>
+          </div>
+
+          {/* MAIN PHOTO SHOWCASE */}
+          <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200 bg-white group">
+            <img 
+              src="/images/about/books_distribution.jpg" 
+              alt="Books Distribution Network - Devgya Logistics & Warehousing" 
+              className="w-full h-auto max-h-[500px] object-cover object-center group-hover:scale-101 transition-transform duration-700" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 text-white max-w-xl">
+              <span className="px-3 py-1 rounded-full bg-teal-600/90 text-white text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+                Institutional &amp; Channel Supply
               </span>
-              <Link href="/contact" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition">
-                <span>Contact Desk</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+              <p className="text-sm sm:text-base font-semibold mt-2 text-slate-100 drop-shadow-md">
+                From Classrooms to Brighter Tomorrows — structured warehouse dispatch, timely delivery, and verified quality.
+              </p>
+            </div>
+          </div>
+
+          {/* HOW WE SUPPORT DISTRIBUTION */}
+          <div className="space-y-6">
+            <div className="max-w-4xl space-y-2">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-[family-name:var(--font-outfit)]">
+                How We Support Distribution
+              </h3>
+              <p className="text-sm sm:text-base text-slate-700 font-medium leading-relaxed">
+                We connect suitable titles with schools, institutions and channel partners. Each requirement is handled according to title availability, quantity, delivery location and agreed timelines. Coverage and commercial terms are confirmed for each order.
+              </p>
+            </div>
+
+            {/* 4 NUMBERED STEPS WORKFLOW (MATCHING CLIENT SLIDE 3) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-2">
+              
+              {/* STEP 1 */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-base shrink-0 shadow-md shadow-amber-500/30">
+                  1
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-base sm:text-lg font-black text-slate-900">
+                    Understand the Requirement
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Identify the classes, subjects, titles, quantities, and delivery location.
+                  </p>
+                </div>
+              </div>
+
+              {/* STEP 2 */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-base shrink-0 shadow-md shadow-amber-500/30">
+                  2
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-base sm:text-lg font-black text-slate-900">
+                    Confirm Suitable Titles
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Share suitable options, samples, or catalogue details as required.
+                  </p>
+                </div>
+              </div>
+
+              {/* STEP 3 */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-base shrink-0 shadow-md shadow-amber-500/30">
+                  3
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-base sm:text-lg font-black text-slate-900">
+                    Coordinate the Order
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Confirm quantities, commercial terms, documentation, and the dispatch plan.
+                  </p>
+                </div>
+              </div>
+
+              {/* STEP 4 */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-base shrink-0 shadow-md shadow-amber-500/30">
+                  4
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-base sm:text-lg font-black text-slate-900">
+                    Support Delivery
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Track communication and follow up on delivery with the relevant partner.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            {/* CALLOUT BANNER (CLIENT SLIDE 3 BANNER) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#E6F3F5] border border-teal-200/80 text-center shadow-xs">
+              <p className="text-sm sm:text-base font-extrabold text-teal-950 tracking-tight">
+                Suitable for school requirements, institutional orders and coordinated supply through distribution partners.
+              </p>
+            </div>
+          </div>
+
+        </section>
+
+        {/* ========================================================================= */}
+        {/* VERTICAL 3: AI POWERED EDUCATION PORTAL (CLIENT SLIDE 4)                  */}
+        {/* ========================================================================= */}
+        <section id="ai-portal" className="py-14 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-10 border-t border-slate-200/80">
+          
+          {/* SECTION HEADER */}
+          <div className="space-y-2">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight font-[family-name:var(--font-outfit)]">
+              AI Powered Education Portal
+            </h2>
+            <div className="w-16 h-1 bg-teal-600 rounded-full" />
+            <p className="text-sm sm:text-base text-slate-600 font-medium pt-1">
+              A connected digital environment planned for Teachers, Students, Parents and Schools.
+            </p>
+          </div>
+
+          {/* MAIN PHOTO SHOWCASE */}
+          <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200 bg-white group">
+            <img 
+              src="/images/about/ai_portal_classroom.jpg" 
+              alt="AI Powered Education Portal - Smart Classroom" 
+              className="w-full h-auto max-h-[500px] object-cover object-center group-hover:scale-101 transition-transform duration-700" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 text-white max-w-xl">
+              <span className="px-3 py-1 rounded-full bg-teal-600/90 text-white text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+                Connected Digital Ecosystem
+              </span>
+              <p className="text-sm sm:text-base font-semibold mt-2 text-slate-100 drop-shadow-md">
+                Interactive classroom learning, adaptive assessment generation, and real-time student analytics.
+              </p>
+            </div>
+          </div>
+
+          {/* ONE PORTAL FOR THE SCHOOL COMMUNITY */}
+          <div className="space-y-6">
+            <div className="max-w-4xl space-y-2">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-[family-name:var(--font-outfit)]">
+                One Portal for the School Community
+              </h3>
+              <p className="text-sm sm:text-base text-slate-700 font-medium leading-relaxed">
+                The portal is designed to organise role-based support within one system. Access and resources can be structured around each user group while schools coordinate implementation.
+              </p>
+            </div>
+
+            {/* 4 ROLE-BASED CARDS (MATCHING CLIENT SLIDE 4) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              
+              {/* ROLE 1: TEACHERS */}
+              <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-lg transition-all flex items-start gap-4 group">
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0 mt-1.5 group-hover:scale-125 transition-transform" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-indigo-600" />
+                    <h4 className="text-base sm:text-lg font-black text-slate-900">
+                      Teachers
+                    </h4>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Planning, Resources and Professional Support.
+                  </p>
+                </div>
+              </div>
+
+              {/* ROLE 2: STUDENTS */}
+              <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-lg transition-all flex items-start gap-4 group">
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0 mt-1.5 group-hover:scale-125 transition-transform" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-amber-600" />
+                    <h4 className="text-base sm:text-lg font-black text-slate-900">
+                      Students
+                    </h4>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Learning, Practice and Guided Skill Development.
+                  </p>
+                </div>
+              </div>
+
+              {/* ROLE 3: PARENTS */}
+              <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-lg transition-all flex items-start gap-4 group">
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0 mt-1.5 group-hover:scale-125 transition-transform" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <HeartHandshake className="w-5 h-5 text-teal-600" />
+                    <h4 className="text-base sm:text-lg font-black text-slate-900">
+                      Parents
+                    </h4>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Parenting Guidance and Communication Support.
+                  </p>
+                </div>
+              </div>
+
+              {/* ROLE 4: SCHOOLS */}
+              <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-lg transition-all flex items-start gap-4 group">
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0 mt-1.5 group-hover:scale-125 transition-transform" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-blue-600" />
+                    <h4 className="text-base sm:text-lg font-black text-slate-900">
+                      Schools
+                    </h4>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                    Access Coordination and Institutional Support.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </section>
+
+        {/* ========================================================================= */}
+        {/* CONTACT US & FOLLOW US HUB: CLIENT SLIDE 4 BOTTOM DARK CARD              */}
+        {/* ========================================================================= */}
+        <section id="contact-reach" className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+          <div className="p-6 sm:p-10 lg:p-12 rounded-3xl bg-gradient-to-br from-[#0B1528] via-[#0F1D36] to-[#12284C] text-white shadow-2xl border border-teal-900/40 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-teal-500/10 blur-[120px] rounded-full pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/15 blur-[120px] rounded-full pointer-events-none" />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 relative z-10 items-center">
+              
+              {/* LEFT: CONTACT DETAILS */}
+              <div className="lg:col-span-7 space-y-6">
+                <div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-white font-[family-name:var(--font-outfit)]">
+                    Contact Us
+                  </h3>
+                  <p className="text-slate-300 text-xs sm:text-sm font-medium mt-1">
+                    Connect with our corporate office for publishing queries, book distribution orders, and school partnerships.
+                  </p>
+                </div>
+
+                <div className="space-y-4 text-xs sm:text-sm">
+                  {/* PHONE */}
+                  <a 
+                    href="tel:+919467582441" 
+                    className="flex items-center gap-3.5 text-slate-200 hover:text-teal-300 transition-colors group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 border border-amber-500/30 group-hover:scale-110 transition-transform">
+                      <Phone className="w-5 h-5" />
+                    </div>
+                    <span className="font-extrabold tracking-wide text-sm sm:text-base">
+                      +91 9467582441
+                    </span>
+                  </a>
+
+                  {/* EMAIL */}
+                  <a 
+                    href="mailto:dgepl.info@gmail.com" 
+                    className="flex items-center gap-3.5 text-slate-200 hover:text-teal-300 transition-colors group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-300 flex items-center justify-center shrink-0 border border-teal-500/30 group-hover:scale-110 transition-transform">
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <span className="font-semibold text-xs sm:text-sm">
+                      dgepl.info@gmail.com
+                    </span>
+                  </a>
+
+                  {/* WEBSITE */}
+                  <a 
+                    href="https://www.devgya.in" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-3.5 text-slate-200 hover:text-teal-300 transition-colors group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center shrink-0 border border-cyan-500/30 group-hover:scale-110 transition-transform">
+                      <ExternalLink className="w-5 h-5" />
+                    </div>
+                    <span className="font-semibold text-xs sm:text-sm">
+                      www.devgya.in
+                    </span>
+                  </a>
+
+                  {/* ADDRESS */}
+                  <div className="flex items-start gap-3.5 text-slate-200">
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0 border border-rose-500/30 mt-0.5">
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <div className="font-medium text-xs sm:text-sm leading-relaxed text-slate-300">
+                      <p className="font-bold text-white">Registered Corporate Office:</p>
+                      <p>7759, W-3, Near Chhara Chungi, Jhajjar-124103, Haryana, India</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT: FOLLOW US QR CODES & CHANNELS */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="text-center lg:text-left">
+                  <h4 className="text-lg sm:text-xl font-black text-white font-[family-name:var(--font-outfit)]">
+                    Follow Us
+                  </h4>
+                  <p className="text-slate-400 text-xs">
+                    Scan the QR code or click to visit our official social channels
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  
+                  {/* YOUTUBE QR CARD */}
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/15 text-center space-y-3 backdrop-blur-md hover:bg-white/10 transition-all flex flex-col items-center">
+                    <div className="p-2 bg-white rounded-xl shadow-md">
+                      <img 
+                        src="/images/about/qr_youtube.png" 
+                        alt="Devgya YouTube QR Code" 
+                        className="w-24 h-24 sm:w-28 sm:h-28 object-contain" 
+                      />
+                    </div>
+                    <a
+                      href={YOUTUBE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md transition-all active:scale-95"
+                    >
+                      <YouTubeLogo className="w-4 h-4" />
+                      <span>YouTube</span>
+                    </a>
+                  </div>
+
+                  {/* INSTAGRAM QR CARD */}
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/15 text-center space-y-3 backdrop-blur-md hover:bg-white/10 transition-all flex flex-col items-center">
+                    <div className="p-2 bg-white rounded-xl shadow-md">
+                      <img 
+                        src="/images/about/qr_instagram.png" 
+                        alt="Devgya Instagram QR Code" 
+                        className="w-24 h-24 sm:w-28 sm:h-28 object-contain" 
+                      />
+                    </div>
+                    <a
+                      href={INSTAGRAM_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white text-xs font-bold shadow-md transition-all active:scale-95"
+                    >
+                      <InstagramLogo className="w-4 h-4" />
+                      <span>Instagram</span>
+                    </a>
+                  </div>
+
+                </div>
+              </div>
+
             </div>
           </div>
         </section>
