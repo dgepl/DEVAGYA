@@ -391,7 +391,7 @@ async def agent_chat_message(
         async def event_generator():
             full = ""
             try:
-                fast_model = ("gemini-3.6-flash" if ai_provider.is_google else "llama-3.1-8b-instant") if agent_code == "english_coach" else None
+                fast_model = (os.getenv("AI_MODEL", "gemini-3.5-flash-lite") if ai_provider.is_google else "llama-3.1-8b-instant") if agent_code == "english_coach" else None
                 max_toks = 90 if agent_code == "english_coach" else None
                 stream_temp = 0.4 if agent_code == "english_coach" else 0.6
                 async for chunk in ai_provider.stream_chat_completion(ai_messages, temperature=stream_temp, max_tokens=max_toks, model=fast_model):
