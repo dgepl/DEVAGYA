@@ -14,6 +14,7 @@ import {
   HelpCircle,
   ChevronRight,
   ShieldCheck,
+  Briefcase,
   Mail
 } from "lucide-react";
 import { PublicMobileDock } from "@/components/layout/PublicMobileDock";
@@ -36,11 +37,12 @@ export function Navbar() {
   }, []);
 
   const navLinks = [
-    { label: "Home", href: "/", icon: Home },
-    { label: "About Us", href: "/about", icon: Info },
-    { label: "Why Choose Us", href: "/why-choose-us", icon: CheckCircle2 },
-    { label: "FAQ", href: "/faq", icon: HelpCircle },
-    { label: "Contact", href: "/contact", icon: Mail },
+    { label: "Home", href: "/", icon: Home, isSpecial: false },
+    { label: "About Us", href: "/about", icon: Info, isSpecial: false },
+    { label: "Why Choose Us", href: "/why-choose-us", icon: CheckCircle2, isSpecial: false },
+    { label: "FAQ", href: "/faq", icon: HelpCircle, isSpecial: false },
+    { label: "Contact", href: "/contact", icon: Mail, isSpecial: false },
+    { label: "DEVGYA for Business", href: "/business", icon: Briefcase, isSpecial: true },
   ];
 
   return (
@@ -105,6 +107,28 @@ export function Navbar() {
           <div className="hidden lg:flex items-center gap-1 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200/80 backdrop-blur-md shadow-inner">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
+              const isSpecial = link.isSpecial;
+
+              if (isSpecial) {
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`relative px-3.5 py-1.5 rounded-xl font-black text-xs sm:text-[12.5px] tracking-tight font-[family-name:var(--font-outfit)] transition-all duration-200 flex items-center gap-1.5 shadow-sm group ${
+                      isActive
+                        ? "bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-md shadow-orange-500/25 ring-2 ring-orange-400"
+                        : "bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white hover:from-amber-600 hover:via-orange-600 hover:to-rose-600 shadow-orange-500/20 hover:shadow-md hover:shadow-orange-500/30 hover:scale-[1.03] active:scale-95 border border-amber-300/40"
+                    }`}
+                  >
+                    <Briefcase className="w-3.5 h-3.5 text-amber-200 group-hover:rotate-12 transition-transform shrink-0" />
+                    <span className="uppercase tracking-wider font-extrabold">{link.label}</span>
+                    <span className="px-1.5 py-0.5 text-[8.5px] font-black bg-white/25 text-white rounded-full uppercase tracking-wider">
+                      NEW
+                    </span>
+                  </Link>
+                );
+              }
+
               return (
                 <Link
                   key={link.href}
@@ -167,10 +191,36 @@ export function Navbar() {
           </div>
 
           {/* NAV LINKS WITH ICONS */}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
               const IconComp = link.icon;
+              const isSpecial = link.isSpecial;
+
+              if (isSpecial) {
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-black font-[family-name:var(--font-outfit)] transition-all bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/25 border border-amber-300/40 my-2 active:scale-95 ${
+                      isActive ? "ring-2 ring-white shadow-xl" : ""
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span className="p-1.5 bg-white/20 rounded-xl backdrop-blur-xs">
+                        <IconComp className="w-4 h-4 text-white" />
+                      </span>
+                      <span className="uppercase tracking-wider font-extrabold">{link.label}</span>
+                    </span>
+                    <span className="text-[9px] font-black bg-white text-orange-600 px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                      <span>Special</span>
+                    </span>
+                  </Link>
+                );
+              }
+
               return (
                 <Link
                   key={link.href}

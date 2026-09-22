@@ -85,6 +85,17 @@ export function Footer() {
               <li><Link href="/why-choose-us" className="hover:text-cyan-300 transition-colors">Why Choose Us</Link></li>
               <li><Link href="/faq" className="hover:text-cyan-300 transition-colors">FAQ &amp; Support</Link></li>
               <li><Link href="/contact" className="hover:text-cyan-300 transition-colors">Contact &amp; Location</Link></li>
+              <li>
+                <Link 
+                  href="/business" 
+                  className="inline-flex items-center gap-1.5 text-amber-400 hover:text-amber-300 font-bold transition-colors"
+                >
+                  <span>DEVGYA for Business</span>
+                  <span className="px-1.5 py-0.2 text-[8px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded uppercase">
+                    Institutional
+                  </span>
+                </Link>
+              </li>
               <li className="pt-2.5 border-t border-white/10 space-y-2">
                 <div className="flex items-start gap-2 text-slate-300 text-xs leading-relaxed">
                   <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
