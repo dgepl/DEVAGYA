@@ -24,7 +24,7 @@ export default function BusinessPage() {
   const products = [
     {
       id: "stationary-books",
-      title: "Stationary books",
+      title: "Stationary & books",
       icon: BookOpen,
       content:
         "Welcome to our stationery and books store, your one-stop destination for quality stationery, books, and everyday essentials. We offer a wide range of notebooks, pens, school and office supplies, educational materials, and books for students, professionals, and book lovers. Our goal is to provide quality products at reasonable prices along with friendly and reliable service. Whether you're shopping for school, work, creativity, or simply your next great read, we're here to make your shopping experience easy and convenient."
@@ -115,7 +115,7 @@ export default function BusinessPage() {
               </span>
 
               <h1 className="text-3xl sm:text-5xl font-black font-[family-name:var(--font-outfit)] text-slate-900 tracking-tight">
-                DEVGYA for Business
+                DEVGYA for Business - in Operational Soon
               </h1>
             </div>
 

@@ -9,10 +9,7 @@ import {
   ScanText, 
   ArrowRight, 
   CheckCircle2, 
-  Heart, 
-  MapPin,
-  Mail,
-  Phone
+  Heart
 } from "lucide-react";
 import { YouTubeLogo, InstagramLogo, YOUTUBE_URL, INSTAGRAM_URL } from "@/components/common/SocialButtons";
 
@@ -95,29 +92,6 @@ export function Footer() {
                     Institutional
                   </span>
                 </Link>
-              </li>
-              <li className="pt-2.5 border-t border-white/10 space-y-2">
-                <div className="flex items-start gap-2 text-slate-300 text-xs leading-relaxed">
-                  <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                  <span className="text-[11px] leading-relaxed text-slate-300">
-                    7759, W-3, Near Chhara Chungi, Jhajjar-124103, Haryana, India
-                  </span>
-                </div>
-                <a 
-                  href="tel:+919467582441" 
-                  className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 font-bold text-xs"
-                  title="Call DEVGYA Directly"
-                >
-                  <Phone className="w-3.5 h-3.5 shrink-0" />
-                  <span>Call Directly: +91 9467582441</span>
-                </a>
-                <a 
-                  href="mailto:dgepl.info@gmail.com" 
-                  className="text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-bold"
-                >
-                  <Mail className="w-3.5 h-3.5 shrink-0" />
-                  <span>dgepl.info@gmail.com</span>
-                </a>
               </li>
             </ul>
           </div>
