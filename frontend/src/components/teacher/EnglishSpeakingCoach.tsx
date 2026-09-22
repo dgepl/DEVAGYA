@@ -638,6 +638,12 @@ export function EnglishSpeakingCoach() {
     };
 
     try {
+      // Instant Gemini Live Speech: use native device Web Speech API for immediate (30ms) zero-latency playback
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        fallbackSpeechSynthesis(cleanText, handleFinished);
+        return;
+      }
+
       const isDevanagari = /[\u0900-\u097F]/.test(cleanText);
       const isHindiTarget = languageMode === "hindi" || isDevanagari;
 
@@ -849,14 +855,6 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
       if (user?.email) fd.append("user_email", user.email);
       fd.append("language", languageMode);
 
-      // Attach live camera snapshot frame if camera is on
-      if (cameraActive) {
-        const liveBlob = await captureLiveFrameBlob();
-        if (liveBlob) {
-          fd.append("images", liveBlob, "live_frame.jpg");
-        }
-      }
-
       const res = await fetch(`${getApiBase()}/agents/chat`, {
         method: "POST",
         body: fd
@@ -878,18 +876,43 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let fullAiText = "";
+        let sentenceBuffer = "";
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
           fullAiText += chunk;
+          sentenceBuffer += chunk;
           setLiveAiSpeech(fullAiText);
 
           // As soon as first streaming tokens arrive, immediately turn off thinking spinner
           if (isAiThinkingRef.current) {
             setIsAiThinking(false);
             isAiThinkingRef.current = false;
+          }
+
+          // Progressive sentence streaming: play sentence 1 as soon as it completes!
+          // Matches sentence ending with punctuation or newline
+          const match = sentenceBuffer.match(/^([\s\S]*?[\.\!\?\n])(\s+[\s\S]*|$)/);
+          if (match) {
+            const finishedSentence = match[1].trim();
+            sentenceBuffer = match[2] || "";
+            // Don't vocalize technical Better/Tip labels
+            if (!finishedSentence.includes("✨") && !finishedSentence.includes("💡") && !/^(Better|Tip):/i.test(finishedSentence)) {
+              const cleanPart = cleanForSpeech(finishedSentence);
+              if (cleanPart && cleanPart.length >= 2) {
+                enqueueSentence(cleanPart);
+              }
+            }
+          }
+        }
+
+        // Flush any remaining conversational text in sentenceBuffer
+        if (sentenceBuffer.trim()) {
+          const cleanTrailing = cleanForSpeech(sentenceBuffer.trim());
+          if (cleanTrailing && cleanTrailing.length >= 2) {
+            enqueueSentence(cleanTrailing);
           }
         }
 
@@ -911,15 +934,16 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
         setIsAiThinking(false);
         isAiThinkingRef.current = false;
 
-        // Seamless speech playback: synthesize the clean conversational reply in one fluid stream
-        // This ensures Edge-TTS natural neural punctuation cadence without awkward multi-second gaps between sentences
-        const speechToPlay = cleanForSpeech(fullAiText);
-        if (speechToPlay) {
-          playCoachAudio(speechToPlay);
-        } else {
-          setIsAiSpeaking(false);
-          if (isLiveActiveRef.current) {
-            startListening();
+        // If nothing was enqueued yet, enqueue clean full text
+        if (audioQueueRef.current.length === 0 && !isPlayingQueueRef.current) {
+          const speechToPlay = cleanForSpeech(fullAiText);
+          if (speechToPlay) {
+            enqueueSentence(speechToPlay);
+          } else {
+            setIsAiSpeaking(false);
+            if (isLiveActiveRef.current) {
+              startListening();
+            }
           }
         }
       } else {
@@ -998,11 +1022,11 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
 
           const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for)\s*$/i.test(candidateText);
           const words = candidateText.split(/\s+/).filter(Boolean);
-          let silenceDelay = 550; // Ultra-fast natural pause: 0.55s for instant coach response
+          let silenceDelay = 350; // Ultra-fast natural pause: 0.35s for instant coach response like Gemini Live
           if (isConnectorWord) {
-            silenceDelay = 950; // Brief 0.95s pause when finishing on connector words like "and...", "so..."
+            silenceDelay = 700; // Brief 0.70s pause when finishing on connector words like "and...", "so..."
           } else if (words.length <= 2) {
-            silenceDelay = 750; // 0.75s pause for brief 1-2 word utterances
+            silenceDelay = 500; // 0.50s pause for brief 1-2 word utterances
           }
 
           silenceTimerRef.current = setTimeout(() => {

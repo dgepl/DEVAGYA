@@ -376,8 +376,8 @@ async def agent_chat_message(
         async def event_generator():
             full = ""
             try:
-                fast_model = "gemini-3.5-flash-lite" if agent_code == "english_coach" else None
-                max_toks = 140 if agent_code == "english_coach" else None
+                fast_model = "gemini-flash-lite-latest" if agent_code == "english_coach" else None
+                max_toks = 90 if agent_code == "english_coach" else None
                 async for chunk in ai_provider.stream_chat_completion(ai_messages, max_tokens=max_toks, model=fast_model):
                     full += chunk
                     yield chunk
