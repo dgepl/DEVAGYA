@@ -23,7 +23,8 @@ import {
   Copy,
   MessageSquare,
   ShieldCheck,
-  Globe
+  Globe,
+  Phone
 } from "lucide-react";
 
 export default function ContactPage() {
@@ -167,9 +168,35 @@ export default function ContactPage() {
         <section className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-12">
           
           {/* 3 HIGHLIGHT CONTACT CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             
-            {/* CARD 1: EMAIL */}
+            {/* CARD 1: CALL DIRECTLY */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-amber-200/90 shadow-sm hover:shadow-xl transition-all space-y-4 group">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-black group-hover:scale-110 transition-transform shadow-xs">
+                <Phone className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 block">
+                  Direct Telephone Desk
+                </span>
+                <h3 className="text-base font-black text-slate-900">+91 9467582441</h3>
+                <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                  Call our helpline directly for immediate queries, curriculum consultation, and book distribution.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <a
+                  href="tel:+919467582441"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-sm transition-colors cursor-pointer"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Call Directly</span>
+                </a>
+              </div>
+            </div>
+
+            {/* CARD 2: EMAIL */}
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm hover:shadow-xl transition-all space-y-4 group">
               <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black group-hover:scale-110 transition-transform shadow-xs">
                 <Mail className="w-6 h-6" />

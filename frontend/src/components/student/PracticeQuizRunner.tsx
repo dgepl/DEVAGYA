@@ -683,14 +683,14 @@ export function PracticeQuizRunner() {
                 onClick={() => handleSelectOption(currentQ.id, opt)}
                 className={`w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border flex items-center justify-between gap-3 ${
                   isSelected
-                    ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-200 [&_*]:text-white"
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 [&_*]:text-white"
                     : "bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
                 }`}
               >
                 <div className="flex-1">
                   <Markdown content={opt} />
                 </div>
-                {isSelected && <CheckCircle2 className="w-5 h-5 text-white shrink-0" />}
+                {isSelected && <Check className="w-5 h-5 text-white shrink-0" />}
               </button>
             );
           })}

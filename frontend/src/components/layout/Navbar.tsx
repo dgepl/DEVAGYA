@@ -54,12 +54,20 @@ export function Navbar() {
           
           {/* DESKTOP BRAND LOGO (LEFT-ALIGNED ON LG+ SCREENS) */}
           <div className="hidden lg:flex items-center ml-1 sm:ml-4">
-            <Link href="/" className="flex items-center group">
+            <Link href="/" className="flex items-center gap-2.5 xl:gap-3 group">
               <img 
                 src="/logo.png" 
                 alt="DEVGYA GLOBAL EDUTECH" 
-                className="h-[76px] xl:h-[80px] w-auto max-h-20 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300 origin-left" 
+                className="h-12 xl:h-14 w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300 origin-left shrink-0" 
               />
+              <div className="flex flex-col text-left justify-center leading-none select-none">
+                <span className="font-black text-sm xl:text-base tracking-tight text-slate-900 font-[family-name:var(--font-outfit)] uppercase whitespace-nowrap">
+                  DEVGYA GLOBAL
+                </span>
+                <span className="font-extrabold text-[9px] xl:text-[10px] tracking-widest text-teal-700 font-[family-name:var(--font-outfit)] uppercase whitespace-nowrap mt-0.5">
+                  EDUTECH
+                </span>
+              </div>
             </Link>
           </div>
 

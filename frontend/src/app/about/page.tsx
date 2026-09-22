@@ -447,7 +447,7 @@ export default function AboutPage() {
           <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl border border-slate-200 bg-white group">
             <div className="aspect-[16/10] sm:aspect-[16/9] w-full overflow-hidden">
               <img 
-                src="/images/about/books_distribution.jpg" 
+                src="/images/about/books_distribution_network.jpeg" 
                 alt="Books Distribution Network - Devgya Logistics & Warehousing" 
                 className="w-full h-full object-cover object-center group-hover:scale-102 transition-transform duration-700" 
               />
