@@ -321,11 +321,13 @@ class ActivityService:
             return "Faculty Recruitment"
         if "exam-prep" in path or "exam_prep" in feat_id or action == "exam_prep":
             return "AI Exam Prep Studio"
-        if "student/practice" in path or action in ["quiz_submission", "practice_quiz"]:
-            return "Practice Quiz Runner"
+        if "student/practice" in path or action in ["quiz_submission", "practice_quiz", "complete_quiz"] or feat_id in ["practice-quiz", "practice_quiz"]:
+            return "Practice & Quizzes"
         if "flashcard" in path or "flashcard" in feat_id:
             return "Flashcard Deck"
-        if "notes" in path or "notes" in feat_id or action == "create_note":
+        if "revision" in path or "revision" in feat_id:
+            return "Revision Studio"
+        if "notes" in path or "notes" in feat_id or action in ["create_note", "save_note"] or feat_id in ["notion-smart-notes", "smart-notes"]:
             return "Notion Smart Notes"
         if "classroom" in path or "lesson" in feat_id or action == "lesson_plan":
             return "AI Lesson Planner"
@@ -439,12 +441,20 @@ class ActivityService:
 
     def get_user_timeline(self, email: str, limit: int = 50) -> Dict[str, Any]:
         """Fetch chronological activity events for a specific user, strictly features only with counts."""
-        email_clean = email.strip().lower()
+        email_clean = (email or "").strip().lower()
+        base_user = email_clean.split("@")[0] if "@" in email_clean else email_clean
+        possible_identifiers = {
+            email_clean,
+            base_user,
+            f"{base_user}@student.devgya.in",
+            f"{base_user}@devgya.in"
+        }
         feature_events = []
         feature_counts: Dict[str, Dict[str, Any]] = {}
 
         for a in self.activities:
-            if (a.get("email") or "").lower() == email_clean and self.is_feature_event(a):
+            a_email = (a.get("email") or "").lower().strip()
+            if a_email in possible_identifiers and self.is_feature_event(a):
                 canonical_name = self.normalize_feature_name(a)
                 ev_copy = dict(a)
                 ev_copy["feature_name"] = canonical_name

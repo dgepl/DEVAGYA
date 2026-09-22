@@ -552,7 +552,8 @@ export default function SuperAdminPage() {
     try {
       const baseUrl = getApiBase();
       const token = typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null;
-      const res = await fetch(`${baseUrl}/admin/users/${encodeURIComponent(u.email)}/activity?limit=50`, {
+      const targetUser = u.email || u.username || "";
+      const res = await fetch(`${baseUrl}/admin/users/${encodeURIComponent(targetUser)}/activity?limit=50`, {
         headers: token ? { "x-admin-token": token } : {}
       });
       if (res.ok) {
@@ -1068,13 +1069,14 @@ export default function SuperAdminPage() {
       const baseUrl = getApiBase();
       const token = typeof window !== "undefined" ? localStorage.getItem("devgya_admin_token") : null;
       const targetIdentifier = userId || userEmail;
-      const res = await fetch(`${baseUrl}/admin/users/${encodeURIComponent(targetIdentifier)}`, {
+      const res = await fetch(`${baseUrl}/admin/users/${encodeURIComponent(targetIdentifier)}?email=${encodeURIComponent(userEmail || "")}`, {
         method: "DELETE",
         headers: token ? { "x-admin-token": token } : {}
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.status !== "error") {
-        setActionMsg(`User ${userEmail} deleted successfully.`);
+        const childNote = data.cascade_deleted_children ? ` (${data.cascade_deleted_children} linked child account${data.cascade_deleted_children > 1 ? "s" : ""} deleted)` : "";
+        setActionMsg(`User ${userEmail} deleted successfully${childNote}.`);
         setUsersList((prev) => prev.filter((u) => u.id !== userId && u.email !== userEmail));
         if (selectedUserDetail && (selectedUserDetail.id === userId || selectedUserDetail.email === userEmail)) {
           setSelectedUserDetail(null);
@@ -2303,6 +2305,28 @@ export default function SuperAdminPage() {
                                                   No tools launched today
                                                 </span>
                                               )}
+                                            </div>
+
+                                            {/* Child Activity Action Footer */}
+                                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
+                                              <div className="text-[10px] text-slate-500 font-medium truncate max-w-[110px]">
+                                                ID: <span className="font-mono font-bold text-slate-700">{ch.username || "student"}</span>
+                                              </div>
+                                              <button
+                                                onClick={() => handleOpenUserActivity({
+                                                  email: ch.username ? `${ch.username}@student.devgya.in` : ch.email,
+                                                  username: ch.username,
+                                                  full_name: ch.name || ch.child_name || ch.username,
+                                                  role: "student",
+                                                  is_active_today: ch.is_active_today,
+                                                  parent_email: u.email
+                                                })}
+                                                className="px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-[10.5px] flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                                                title="View child's complete activity timeline"
+                                              >
+                                                <Eye className="w-3 h-3" />
+                                                <span>Child Activity</span>
+                                              </button>
                                             </div>
                                           </div>
                                         ))}
@@ -3853,14 +3877,34 @@ export default function SuperAdminPage() {
                           ? `${item.date} at ${item.time_display}`
                           : formatActivityDateTime(item.timestamp, item.time_display);
                         return (
-                          <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="font-extrabold text-indigo-700">{item.feature_name || item.path}</span>
-                              <span className="text-[10px] font-mono text-slate-400">{evDate}</span>
+                          <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-extrabold text-indigo-700">{item.feature_name || item.path}</span>
+                                {item.child_name && (
+                                  <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-200 text-[10px] font-black">
+                                    Child: {item.child_name}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-400 shrink-0">{evDate}</span>
                             </div>
                             <div className="text-[11px] text-slate-500 font-mono truncate">
                               Path: {item.path} • Action: <span className="font-bold text-slate-700">{item.action || "feature_use"}</span>
                             </div>
+                            {item.details && (item.details.score || item.details.quiz_title || item.details.title) && (
+                              <div className="p-2 rounded-xl bg-white border border-slate-200 text-[11px] font-medium text-slate-700 space-y-0.5">
+                                {item.details.quiz_title && (
+                                  <p><span className="font-bold text-slate-900">Quiz:</span> {item.details.quiz_title}</p>
+                                )}
+                                {item.details.score && (
+                                  <p className="text-emerald-700 font-bold"><span>Score:</span> {item.details.score}</p>
+                                )}
+                                {item.details.title && (
+                                  <p><span className="font-bold text-slate-900">Note:</span> {item.details.title}</p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })

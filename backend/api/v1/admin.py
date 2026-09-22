@@ -293,8 +293,8 @@ async def get_all_users():
             p["is_active_today"] = True
             p["last_active_today"] = act.get("last_active")
             p["last_active_display"] = act.get("last_active_display")
-            p["features_used_today"] = act.get("features_used", [])
-            p["features_summary"] = act.get("features_summary", [])
+            p["features_used_today"] = list(act.get("features_used", []))
+            p["features_summary"] = list(act.get("features_summary", []))
             p["actions_today_count"] = act.get("actions_count", 0)
             p["total_feature_uses"] = act.get("total_feature_uses", 0)
         else:
@@ -310,7 +310,8 @@ async def get_all_users():
         try:
             children = await student_parent_service.get_parent_children(email)
             for ch in children:
-                u_name = ch.get("username")
+                u_name = (ch.get("username") or "").strip().lower()
+                ch_display_name = ch.get("name") or ch.get("full_name") or u_name
                 if u_name:
                     q_list = await student_parent_service.get_child_quizzes(u_name)
                     n_list = await student_parent_service.get_child_notes(u_name)
@@ -324,23 +325,57 @@ async def get_all_users():
                         ch["latest_quiz"] = None
                         ch["avg_score_pct"] = None
 
-                    # Attach child activity and feature usage telemetry
-                    child_act = today_summary.get(u_name.lower()) or today_summary.get(f"{u_name.lower()}@devgya.in")
+                    # Attach child activity and feature usage telemetry across all identifier variations
+                    child_act = (
+                        today_summary.get(u_name)
+                        or today_summary.get(f"{u_name}@student.devgya.in")
+                        or today_summary.get(f"{u_name}@devgya.in")
+                    )
                     if child_act:
                         ch["is_active_today"] = True
                         ch["last_active_today"] = child_act.get("last_active")
                         ch["last_active_display"] = child_act.get("last_active_display")
                         ch["features_used_today"] = child_act.get("features_used", [])
+                        ch["features_summary"] = child_act.get("features_summary", [])
                         ch["actions_today_count"] = child_act.get("actions_count", 0)
+                        ch["total_feature_uses"] = child_act.get("total_feature_uses", 0)
                     else:
-                        ch["is_active_today"] = False
-                        ch["last_active_today"] = None
-                        ch["last_active_display"] = None
-                        ch["features_used_today"] = []
-                        ch["actions_today_count"] = 0
+                        # Check if child has taken any quizzes or notes today
+                        today_date = time.strftime("%Y-%m-%d")
+                        today_quizzes = [q for q in q_list if (q.get("timestamp") or "")[:10] == today_date]
+                        today_notes = [n for n in n_list if (n.get("updated_at") or "")[:10] == today_date]
+                        ch_feats = []
+                        if today_quizzes:
+                            ch_feats.append(f"Practice & Quizzes ({len(today_quizzes)}x)")
+                        if today_notes:
+                            ch_feats.append(f"Notion Smart Notes ({len(today_notes)}x)")
+
+                        if ch_feats:
+                            ch["is_active_today"] = True
+                            ch["last_active_today"] = today_quizzes[0].get("timestamp") if today_quizzes else (today_notes[0].get("updated_at") if today_notes else None)
+                            ch["last_active_display"] = "Today"
+                            ch["features_used_today"] = ch_feats
+                            ch["actions_today_count"] = len(today_quizzes) + len(today_notes)
+                        else:
+                            ch["is_active_today"] = False
+                            ch["last_active_today"] = None
+                            ch["last_active_display"] = None
+                            ch["features_used_today"] = []
+                            ch["actions_today_count"] = 0
+
+                    # Aggregate child features onto parent's row so parent activity reflects child tool usage!
+                    if ch.get("is_active_today") and ch.get("features_used_today"):
+                        p["is_active_today"] = True
+                        for feat in ch["features_used_today"]:
+                            tagged_feat = f"{feat} [Child: {ch_display_name}]"
+                            if tagged_feat not in p["features_used_today"]:
+                                p["features_used_today"].append(tagged_feat)
+                        p["actions_today_count"] += ch.get("actions_today_count", 0)
+
             p["children"] = children
             p["children_count"] = len(children)
-        except Exception:
+        except Exception as err:
+            logger.warning(f"Error enriching children for {email}: {err}")
             p["children"] = []
             p["children_count"] = 0
 
@@ -352,117 +387,213 @@ async def get_all_users():
     }
 
 @router.delete("/users/{user_id:path}")
-async def delete_user(user_id: str):
+async def delete_user(user_id: str, email: Optional[str] = Query(None)):
     """Permanently delete a user profile from Supabase Cloud and cascade-delete any enrolled children accounts."""
     from urllib.parse import unquote
     clean_id = unquote(user_id).strip()
     from services.student_parent_service import student_parent_service
     
     # Identify email to cascade-delete children
-    email_to_check = clean_id if "@" in clean_id else None
+    email_to_check = email.strip().lower() if email else (clean_id if "@" in clean_id else None)
     if not email_to_check:
         try:
-            prof = await supabase_service.get_profile(clean_id)
-            if prof and prof.get("email"):
-                email_to_check = prof["email"]
-        except Exception:
-            pass
+            all_profs = await supabase_service.get_all_profiles()
+            for p in all_profs:
+                if str(p.get("id")) == clean_id or str(p.get("email", "")).lower() == clean_id.lower():
+                    email_to_check = p.get("email", "").strip().lower()
+                    break
+        except Exception as e:
+            logger.warning(f"Failed to lookup email for user {clean_id}: {e}")
 
     deleted_children = 0
     if email_to_check:
         try:
             deleted_children = await student_parent_service.delete_all_parent_children(email_to_check)
-        except Exception:
-            pass
+            logger.info(f"Cascade deleted {deleted_children} children accounts for parent {email_to_check}")
+        except Exception as e:
+            logger.error(f"Error cascade deleting children for parent {email_to_check}: {e}")
 
-    success = await supabase_service.delete_profile(clean_id)
+    success = await supabase_service.delete_profile(email_to_check or clean_id)
+    if not success and clean_id != email_to_check:
+        success = await supabase_service.delete_profile(clean_id)
+
     msg = "User account deleted successfully"
     if deleted_children > 0:
         msg += f" (along with {deleted_children} linked child account{'s' if deleted_children > 1 else ''})"
 
     return {
-        "status": "success" if success else "error",
-        "message": msg if success else "Failed to delete user profile",
+        "status": "success" if (success or deleted_children > 0) else "error",
+        "message": msg if (success or deleted_children > 0) else "Failed to delete user profile",
         "cascade_deleted_children": deleted_children
     }
 
 @router.get("/users/{email}/activity")
 async def get_user_activity(email: str, limit: int = Query(50)):
-    """Fetch detailed chronological event activity timeline and numerical feature usage counts for a specific user or student."""
+    """Fetch detailed chronological event activity timeline and numerical feature usage counts for a specific user, student, or parent (including child activities)."""
     from services.student_parent_service import student_parent_service
-    res = activity_service.get_user_timeline(email, limit=limit)
+    clean_id = (email or "").strip().lower()
+    base_user = clean_id.split("@")[0] if "@" in clean_id else clean_id
+
+    # 1. Fetch user's own timeline
+    res = activity_service.get_user_timeline(clean_id, limit=limit)
     if isinstance(res, dict):
         timeline = list(res.get("timeline", []))
-        features_summary = list(res.get("features_summary", []))
-        total_feature_uses = res.get("total_feature_uses", len(timeline))
     else:
         timeline = list(res)
-        features_summary = []
-        total_feature_uses = len(timeline)
 
-    # Check if student username or has quizzes/notes
-    clean_id = (email or "").strip().lower()
+    existing_ids = {item.get("id") for item in timeline}
+
     try:
-        quizzes = await student_parent_service.get_child_quizzes(clean_id)
-        existing_q_ids = {item.get("id") for item in timeline}
-        for q in quizzes:
-            q_eid = f"quiz_{q.get('id', '')}"
-            if q_eid not in existing_q_ids:
-                timeline.append({
-                    "id": q_eid,
-                    "email": clean_id,
-                    "name": clean_id,
-                    "role": "student",
-                    "action": "complete_quiz",
-                    "feature_id": "practice-quiz",
-                    "feature_name": "Practice & Quizzes",
-                    "path": "/dashboard/student/practice",
-                    "details": {
-                        "quiz_title": q.get("quiz_title"),
-                        "subject": q.get("subject"),
-                        "score": f"{q.get('score', 0)}/{q.get('total', 0)} ({q.get('percentage', 0)}%)",
-                        "percentage": q.get("percentage")
-                    },
-                    "timestamp": q.get("timestamp") or "",
-                    "time_display": q.get("timestamp", "")[-8:] if q.get("timestamp") else "Recent",
-                    "date": q.get("timestamp", "")[:10] if q.get("timestamp") else "Today"
-                })
+        # 2. Check if this account is a parent with enrolled children
+        children = await student_parent_service.get_parent_children(clean_id)
+        if children:
+            for ch in children:
+                ch_user = (ch.get("username") or "").strip().lower()
+                ch_name = ch.get("name") or ch.get("full_name") or ch_user
+                if not ch_user:
+                    continue
 
-        notes = await student_parent_service.get_child_notes(clean_id)
-        for n in notes:
-            n_eid = f"note_{n.get('id', '')}"
-            if n_eid not in existing_q_ids:
-                timeline.append({
-                    "id": n_eid,
-                    "email": clean_id,
-                    "name": clean_id,
-                    "role": "student",
-                    "action": "create_note",
-                    "feature_id": "notion-smart-notes",
-                    "feature_name": "Notion Smart Notes",
-                    "path": "/dashboard/student/notes",
-                    "details": {
-                        "title": n.get("title"),
-                        "subject": n.get("subject")
-                    },
-                    "timestamp": n.get("updated_at") or "",
-                    "time_display": "Recent",
-                    "date": n.get("updated_at", "")[:10] if n.get("updated_at") else "Today"
-                })
+                # Fetch child's direct activity events
+                ch_res = activity_service.get_user_timeline(ch_user, limit=50)
+                ch_timeline = ch_res.get("timeline", []) if isinstance(ch_res, dict) else ch_res
+                for ev in ch_timeline:
+                    if ev.get("id") not in existing_ids:
+                        existing_ids.add(ev.get("id"))
+                        ev_copy = dict(ev)
+                        ev_copy["child_name"] = ch_name
+                        ev_copy["feature_name"] = f"{ev_copy.get('feature_name', 'Tool')} (Child: {ch_name})"
+                        timeline.append(ev_copy)
 
-        # Re-sort newest first
-        timeline = sorted(timeline, key=lambda x: x.get("timestamp", ""), reverse=True)
-        total_feature_uses = len(timeline)
+                # Fetch child's quizzes
+                quizzes = await student_parent_service.get_child_quizzes(ch_user)
+                for q in quizzes:
+                    q_eid = f"quiz_{q.get('id', '')}"
+                    if q_eid not in existing_ids:
+                        existing_ids.add(q_eid)
+                        timeline.append({
+                            "id": q_eid,
+                            "email": f"{ch_user}@student.devgya.in",
+                            "name": ch_name,
+                            "child_name": ch_name,
+                            "role": "student",
+                            "action": "complete_quiz",
+                            "feature_id": "practice-quiz",
+                            "feature_name": f"Practice & Quizzes (Child: {ch_name})",
+                            "path": "/dashboard/student/practice",
+                            "details": {
+                                "quiz_title": q.get("quiz_title"),
+                                "subject": q.get("subject"),
+                                "score": f"{q.get('score', 0)}/{q.get('total', 0)} ({q.get('percentage', 0)}%)",
+                                "percentage": q.get("percentage")
+                            },
+                            "timestamp": q.get("timestamp") or "",
+                            "time_display": q.get("timestamp", "")[-8:] if q.get("timestamp") else "Recent",
+                            "date": q.get("timestamp", "")[:10] if q.get("timestamp") else "Today"
+                        })
+
+                # Fetch child's notes
+                notes = await student_parent_service.get_child_notes(ch_user)
+                for n in notes:
+                    n_eid = f"note_{n.get('id', '')}"
+                    if n_eid not in existing_ids:
+                        existing_ids.add(n_eid)
+                        timeline.append({
+                            "id": n_eid,
+                            "email": f"{ch_user}@student.devgya.in",
+                            "name": ch_name,
+                            "child_name": ch_name,
+                            "role": "student",
+                            "action": "create_note",
+                            "feature_id": "notion-smart-notes",
+                            "feature_name": f"Notion Smart Notes (Child: {ch_name})",
+                            "path": "/dashboard/student/notes",
+                            "details": {
+                                "title": n.get("title"),
+                                "subject": n.get("subject")
+                            },
+                            "timestamp": n.get("updated_at") or "",
+                            "time_display": "Recent",
+                            "date": n.get("updated_at", "")[:10] if n.get("updated_at") else "Today"
+                        })
+
+        else:
+            # Check if this user is a student account directly (by base_user)
+            quizzes = await student_parent_service.get_child_quizzes(base_user)
+            for q in quizzes:
+                q_eid = f"quiz_{q.get('id', '')}"
+                if q_eid not in existing_ids:
+                    existing_ids.add(q_eid)
+                    timeline.append({
+                        "id": q_eid,
+                        "email": clean_id,
+                        "name": base_user.capitalize(),
+                        "role": "student",
+                        "action": "complete_quiz",
+                        "feature_id": "practice-quiz",
+                        "feature_name": "Practice & Quizzes",
+                        "path": "/dashboard/student/practice",
+                        "details": {
+                            "quiz_title": q.get("quiz_title"),
+                            "subject": q.get("subject"),
+                            "score": f"{q.get('score', 0)}/{q.get('total', 0)} ({q.get('percentage', 0)}%)",
+                            "percentage": q.get("percentage")
+                        },
+                        "timestamp": q.get("timestamp") or "",
+                        "time_display": q.get("timestamp", "")[-8:] if q.get("timestamp") else "Recent",
+                        "date": q.get("timestamp", "")[:10] if q.get("timestamp") else "Today"
+                    })
+
+            notes = await student_parent_service.get_child_notes(base_user)
+            for n in notes:
+                n_eid = f"note_{n.get('id', '')}"
+                if n_eid not in existing_ids:
+                    existing_ids.add(n_eid)
+                    timeline.append({
+                        "id": n_eid,
+                        "email": clean_id,
+                        "name": base_user.capitalize(),
+                        "role": "student",
+                        "action": "create_note",
+                        "feature_id": "notion-smart-notes",
+                        "feature_name": "Notion Smart Notes",
+                        "path": "/dashboard/student/notes",
+                        "details": {
+                            "title": n.get("title"),
+                            "subject": n.get("subject")
+                        },
+                        "timestamp": n.get("updated_at") or "",
+                        "time_display": "Recent",
+                        "date": n.get("updated_at", "")[:10] if n.get("updated_at") else "Today"
+                    })
+
     except Exception as e:
-        logger.warning(f"Notice: Student activity enrichment: {e}")
+        logger.warning(f"Notice: Enriched activity lookup: {e}")
+
+    # Re-sort newest first
+    timeline = sorted(timeline, key=lambda x: x.get("timestamp", ""), reverse=True)
+
+    # Rebuild features_summary counts dynamically from all accumulated timeline events
+    feat_counts: Dict[str, Dict[str, Any]] = {}
+    for item in timeline:
+        fname = item.get("feature_name") or "Specialized Tool"
+        if fname not in feat_counts:
+            feat_counts[fname] = {
+                "name": fname,
+                "count": 1,
+                "last_used": item.get("timestamp"),
+                "last_used_display": item.get("time_display")
+            }
+        else:
+            feat_counts[fname]["count"] += 1
+
+    features_summary = sorted(list(feat_counts.values()), key=lambda x: x["count"], reverse=True)
 
     return {
         "status": "success",
         "email": email,
-        "count": len(timeline),
-        "timeline": timeline,
+        "count": len(timeline[:limit]),
+        "timeline": timeline[:limit],
         "features_summary": features_summary,
-        "total_feature_uses": total_feature_uses
     }
 
 @router.get("/analytics/detailed")

@@ -329,11 +329,32 @@ class StudentParentService:
         if SERVICE_KEY and SUPABASE_URL:
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
+                    # Purge student account records
                     await client.delete(
                         f"{SUPABASE_URL}/rest/v1/ai_conversations",
                         headers=supabase_headers,
                         params={"session_title": f"like.DEVGYA_STUDENT_ACC:{parent_clean}:*"}
                     )
+                    # Purge quizzes, smart notes, and profiles for each enrolled child
+                    for ch in children:
+                        u_name = (ch.get("username") or "").strip().lower()
+                        ch_id = ch.get("id")
+                        if u_name:
+                            await client.delete(
+                                f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                                headers=supabase_headers,
+                                params={"session_title": f"like.DEVGYA_STUDENT_QUIZZES:{u_name}:*"}
+                            )
+                            await client.delete(
+                                f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                                headers=supabase_headers,
+                                params={"session_title": f"like.DEVGYA_STUDENT_NOTES:{u_name}:*"}
+                            )
+                        if ch_id:
+                            await client.delete(
+                                f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{ch_id}",
+                                headers=supabase_headers
+                            )
             except Exception as e:
                 logger.warning(f"Notice: Supabase delete_all_parent_children deferred: {e}")
 

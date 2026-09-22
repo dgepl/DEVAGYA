@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any
 import logging
 from services.student_parent_service import student_parent_service
 from services.jwt_auth_service import get_current_user_optional
+from services.activity_service import activity_service
 
 logger = logging.getLogger("student_parent_router")
 
@@ -151,6 +152,26 @@ async def submit_quiz_result(payload: SaveQuizResultPayload):
     """Persists a completed quiz attempt to Supabase Cloud for student and parent observation."""
     try:
         res = await student_parent_service.record_quiz_result(payload.student_username, payload.model_dump())
+        
+        # Track into central activity telemetry for admin & parent activity logs
+        student_user = (payload.student_username or "").strip().lower()
+        if student_user:
+            activity_service.record_activity(
+                email=f"{student_user}@student.devgya.in",
+                name=student_user.capitalize(),
+                role="student",
+                action="complete_quiz",
+                feature_id="practice-quiz",
+                feature_name="Practice & Quizzes",
+                path="/dashboard/student/practice",
+                details={
+                    "quiz_title": payload.quiz_title,
+                    "subject": payload.subject,
+                    "score": f"{payload.score}/{payload.total} ({payload.percentage}%)",
+                    "percentage": payload.percentage
+                }
+            )
+
         return {"status": "success", "message": "Quiz result recorded successfully!", "quiz": res}
     except Exception as e:
         logger.error(f"Failed to save quiz result: {e}")
@@ -167,6 +188,24 @@ async def save_student_note(payload: SaveStudentNotePayload):
     """Persists a student smart note to Supabase Cloud."""
     try:
         note = await student_parent_service.save_student_note(payload.student_username, payload.model_dump())
+        
+        # Track into central activity telemetry for admin & parent activity logs
+        student_user = (payload.student_username or "").strip().lower()
+        if student_user:
+            activity_service.record_activity(
+                email=f"{student_user}@student.devgya.in",
+                name=student_user.capitalize(),
+                role="student",
+                action="create_note",
+                feature_id="notion-smart-notes",
+                feature_name="Notion Smart Notes",
+                path="/dashboard/student/notes",
+                details={
+                    "title": payload.title,
+                    "subject": payload.subject
+                }
+            )
+
         return {"status": "success", "message": "Smart note saved to cloud!", "note": note}
     except Exception as e:
         logger.error(f"Failed to save student note: {e}")

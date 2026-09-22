@@ -156,16 +156,24 @@ export default function LoginClient() {
       {/* LOGIN CARD WITH PRIMARY FOCUS */}
       <div className="w-full max-w-md bg-white/95 sm:bg-white backdrop-blur-xl p-7 sm:p-10 rounded-3xl border border-white/60 sm:border-slate-200/90 shadow-2xl relative z-10 space-y-6">
         
-        {/* LOGO BRANDING */}
-        <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center justify-center mb-1">
+        {/* LOGO BRANDING WITH DEVGYA GLOBAL EDUTECH */}
+        <div className="text-center space-y-2.5">
+          <Link href="/" className="inline-flex items-center justify-center gap-2.5 sm:gap-3 group mb-1 hover:opacity-95 transition-opacity">
             <img 
               src="/logo.png" 
-              alt="DEVGYA GLOBAL EDUTECH PRIVATE LIMITED" 
-              className="h-16 w-auto object-contain mx-auto mix-blend-multiply" 
+              alt="DEVGYA GLOBAL EDUTECH" 
+              className="h-12 sm:h-14 w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200 shrink-0" 
             />
+            <div className="flex flex-col text-left justify-center leading-none select-none">
+              <span className="font-black text-base sm:text-lg tracking-tight text-slate-900 font-[family-name:var(--font-outfit)] uppercase whitespace-nowrap">
+                DEVGYA GLOBAL
+              </span>
+              <span className="font-extrabold text-[10px] sm:text-[11px] tracking-widest text-teal-700 font-[family-name:var(--font-outfit)] uppercase whitespace-nowrap mt-0.5">
+                EDUTECH
+              </span>
+            </div>
           </Link>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight">Sign In to DEVGYA</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Sign In to DEVGYA</h1>
           <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">CBSE & NCERT AI Education Portal</p>
         </div>
 
