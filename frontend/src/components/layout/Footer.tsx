@@ -10,7 +10,7 @@ import {
   ArrowRight, 
   CheckCircle2, 
   Heart, 
-  Code2,
+  MapPin,
   Mail
 } from "lucide-react";
 import { YouTubeLogo, InstagramLogo, YOUTUBE_URL, INSTAGRAM_URL } from "@/components/common/SocialButtons";
@@ -84,7 +84,13 @@ export function Footer() {
               <li><Link href="/why-choose-us" className="hover:text-cyan-300 transition-colors">Why Choose Us</Link></li>
               <li><Link href="/faq" className="hover:text-cyan-300 transition-colors">FAQ &amp; Support</Link></li>
               <li><Link href="/contact" className="hover:text-cyan-300 transition-colors">Contact &amp; Location</Link></li>
-              <li className="pt-2 border-t border-white/10">
+              <li className="pt-2.5 border-t border-white/10 space-y-2">
+                <div className="flex items-start gap-2 text-slate-300 text-xs leading-relaxed">
+                  <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                  <span className="text-[11px] leading-relaxed text-slate-300">
+                    7759, W-3, Near Chhara Chungi, Jhajjar-124103, Haryana, India
+                  </span>
+                </div>
                 <a 
                   href="mailto:dgepl.info@gmail.com" 
                   className="text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-bold"
@@ -146,23 +152,11 @@ export function Footer() {
             </Link>
           </div>
 
-          {/* BOTTOM COPYRIGHT & DEVELOPER CREDITS BAR */}
-          <div className="pt-4 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-            <div className="text-center md:text-left">
-              <p className="text-xs text-slate-400 font-medium">
+          {/* BOTTOM COPYRIGHT BAR */}
+          <div className="pt-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="text-center sm:text-left w-full">
+              <p className="text-xs text-slate-400 font-medium text-center">
                 &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.
-              </p>
-            </div>
-
-            <div className="text-center md:text-right">
-              <p className="text-[11px] md:text-xs font-semibold text-slate-400 flex items-center justify-center md:justify-end gap-1.5 whitespace-nowrap">
-                <Code2 className="w-3.5 h-3.5 text-cyan-400 inline shrink-0" />
-                <span>
-                  Designed and Developed by{" "}
-                  <strong className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 whitespace-nowrap">
-                    Pratikk Yadav and Team (+91 8307224756)
-                  </strong>
-                </span>
               </p>
             </div>
           </div>

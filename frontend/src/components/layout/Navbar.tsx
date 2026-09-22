@@ -63,14 +63,22 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* MOBILE BRAND LOGO (CENTERED IN EXACT MIDDLE OF MOBILE SCREEN) */}
-          <div className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-auto">
-            <Link href="/" className="flex items-center group">
+          {/* MOBILE BRAND LOGO + PROFESSIONAL BRAND TEXT (RIGHT SIDE OF LOGO) */}
+          <div className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-auto max-w-[calc(100%-120px)]">
+            <Link href="/" className="flex items-center gap-1.5 sm:gap-2 group">
               <img 
                 src="/logo.png" 
                 alt="DEVGYA GLOBAL EDUTECH" 
-                className="h-[52px] sm:h-[68px] w-auto max-h-14 sm:max-h-20 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                className="h-8 sm:h-10 w-auto max-h-10 sm:max-h-12 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200 shrink-0" 
               />
+              <div className="flex flex-col text-left justify-center leading-none select-none">
+                <span className="font-black text-[11px] sm:text-[13px] tracking-tight text-slate-900 font-[family-name:var(--font-outfit)] uppercase whitespace-nowrap">
+                  DEVGYA GLOBAL
+                </span>
+                <span className="font-extrabold text-[7.5px] sm:text-[9px] tracking-widest text-teal-700 font-[family-name:var(--font-outfit)] uppercase whitespace-nowrap mt-0.5">
+                  EDUTECH
+                </span>
+              </div>
             </Link>
           </div>
 

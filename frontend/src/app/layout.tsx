@@ -54,8 +54,7 @@ export const metadata: Metadata = {
     "School Science Lab Equipment Provider India",
     "Smart Classroom LMS Software India",
     "AI Education Platform India",
-    "Parenting Guidance Coach AI",
-    "Pratikk Yadav Devgya"
+    "Parenting Guidance Coach AI"
   ],
   authors: [{ name: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED", url: "https://devgya.in" }],
   creator: "DEVGYA GLOBAL EDUTECH PRIVATE LIMITED",

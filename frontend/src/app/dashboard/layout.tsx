@@ -406,11 +406,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
         {!isAIChatPage && (
           <footer className="mt-auto px-4 sm:px-8 py-3.5 mb-14 md:mb-0 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-            <p className="text-[11px] sm:text-xs text-slate-500 font-semibold">
+            <p className="text-[11px] sm:text-xs text-slate-500 font-semibold w-full text-center">
               &copy; 2026 DEVGYA GLOBAL EDUTECH PRIVATE LIMITED. All rights reserved.
-            </p>
-            <p className="text-[10px] sm:text-xs text-slate-400 font-medium tracking-tight sm:text-right">
-              Designed and Developed by <span className="text-indigo-600 font-semibold whitespace-nowrap">Pratikk Yadav and Team (+91 8307224756)</span>
             </p>
           </footer>
         )}

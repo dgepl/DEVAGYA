@@ -32,13 +32,13 @@ export default function AboutPage() {
     <div className="min-h-screen bg-[#FAF8F5] text-slate-800 flex flex-col selection:bg-teal-600 selection:text-white">
       <Navbar />
 
-      {/* GENEROUS TOP SPACING BELOW THE FIXED NAVBAR */}
-      <PageTransition className="flex-1 pt-24 sm:pt-28 lg:pt-32">
+      {/* CLEAN TOP SPACING BELOW THE FIXED NAVBAR */}
+      <PageTransition className="flex-1 pt-14 sm:pt-24 lg:pt-28">
         
         {/* ========================================================================= */}
-        {/* TOP NAVIGATION BREADCRUMB / PILL BAR                                    */}
+        {/* TOP NAVIGATION BREADCRUMB / PILL BAR (HIDDEN ON MOBILE)                  */}
         {/* ========================================================================= */}
-        <div className="bg-[#0B1528] text-white border-b border-indigo-950/60 shadow-inner">
+        <div className="hidden md:block bg-[#0B1528] text-white border-b border-indigo-950/60 shadow-inner">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-bold font-[family-name:var(--font-jakarta)]">
             
             {/* HORIZONTALLY SCROLLABLE NAVIGATION PILLS (SWIPEABLE ON MOBILE) */}
