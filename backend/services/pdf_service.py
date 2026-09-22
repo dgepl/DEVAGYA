@@ -846,17 +846,12 @@ class PDFGeneratorService:
             story.append(Paragraph(f"{header_title} — {paper.subject.upper()}", subtitle_style))
         story.append(Spacer(1, 8))
 
-        # Metadata Table (Class, Time, Marks, Chapter)
+        # Metadata Table (Class, Max Marks, Time) - Chapter, Difficulty & Date omitted for official exam format
         meta_data = [
             [
                 Paragraph(f"<b>Class:</b> {paper.class_name}", meta_style),
                 Paragraph(f"<b>Max Marks:</b> {paper.total_marks}", meta_style),
                 Paragraph(f"<b>Time:</b> {paper.time_allowed_mins} Mins", meta_style)
-            ],
-            [
-                Paragraph(f"<b>Chapter:</b> {paper.chapter}", meta_style),
-                Paragraph(f"<b>Difficulty:</b> {paper.difficulty.capitalize()}", meta_style),
-                Paragraph(f"<b>Date:</b> Academic Session 2025-26", meta_style)
             ]
         ]
         meta_table = Table(meta_data, colWidths=[180, 170, 170])
