@@ -1075,13 +1075,9 @@ export function EnglishSpeakingCoach() {
       recognition.onresult = (event: any) => {
         if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
 
-        let isFinalDetected = false;
         let sessionTranscript = "";
         for (let i = 0; i < event.results.length; i++) {
           sessionTranscript += event.results[i][0].transcript + " ";
-          if (event.results[i].isFinal) {
-            isFinalDetected = true;
-          }
         }
 
         const candidateText = cleanSpeechTranscript(sessionTranscript);
@@ -1092,24 +1088,24 @@ export function EnglishSpeakingCoach() {
 
           clearTimeout(silenceTimerRef.current);
 
-          // If browser speech recognition marked phrase as final, dispatch immediately (0ms delay)!
-          if (isFinalDetected && candidateText.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-            handleSendMessage(candidateText);
-            return;
-          }
-
-          const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for)\s*$/i.test(candidateText);
+          // Natural conversational turn-taking:
+          // Do NOT interrupt immediately on browser's intermediate isFinal!
+          // Give user natural breathing and speaking room.
+          const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for|like|at|on|of)\s*$/i.test(candidateText);
           const words = candidateText.split(/\s+/).filter(Boolean);
-          let silenceDelay = 180; // Ultra-fast interim pause: 0.18s
+
+          let silenceDelay = 850; // Standard natural conversational pause: 0.85s
           if (isConnectorWord) {
-            silenceDelay = 380; // Brief pause when trailing on connector words
+            silenceDelay = 1400; // Extra room (1.4s) when user hesitates or ends on conjunction/connector
           } else if (words.length <= 2) {
-            silenceDelay = 220; // Brief pause for 1-2 words
+            silenceDelay = 1100; // Extra room (1.1s) on 1-2 words so user can complete their sentence
           }
 
           silenceTimerRef.current = setTimeout(() => {
             const readyToSend = cleanSpeechTranscript(accumulatedSpeechRef.current.trim());
-            if (readyToSend.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+            const readyWords = readyToSend.split(/\s+/).filter(Boolean);
+            // Require at least 2 words or a solid word (>= 3 chars) to avoid mic noise/pops triggering AI
+            if (readyToSend.length >= 2 && readyWords.length >= 1 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
               handleSendMessage(readyToSend);
             }
           }, silenceDelay);

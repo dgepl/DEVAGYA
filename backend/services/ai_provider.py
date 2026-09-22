@@ -25,8 +25,21 @@ class AIProviderService:
         return os.getenv("AI_API_KEY", os.getenv("GROQ_API_KEY", ""))
 
     @property
+    def is_google(self) -> bool:
+        key = self.api_key
+        return key.startswith("AQ.") or key.startswith("AIza") or "googleapis" in os.getenv("AI_BASE_URL", "")
+
+    @property
     def base_url(self) -> str:
-        raw = os.getenv("AI_BASE_URL", "https://api.groq.com/openai/v1").strip().strip("'\"")
+        explicit = os.getenv("AI_BASE_URL")
+        if explicit:
+            raw = explicit.strip().strip("'\"")
+        else:
+            key = self.api_key
+            if key.startswith("AQ.") or key.startswith("AIza"):
+                raw = "https://generativelanguage.googleapis.com/v1beta/openai"
+            else:
+                raw = "https://api.groq.com/openai/v1"
         if raw.startswith("[") and "](" in raw:
             raw = raw.split("](")[-1].rstrip(")")
         if not raw.startswith("http://") and not raw.startswith("https://"):
@@ -35,11 +48,21 @@ class AIProviderService:
 
     @property
     def model(self) -> str:
-        return os.getenv("AI_MODEL", "gemini-3.5-flash-lite")
+        explicit = os.getenv("AI_MODEL")
+        if explicit and explicit not in ("gemini-3.5-flash-lite", "gemini-2.5-flash"):
+            return explicit
+        if self.is_google:
+            return "gemini-3.6-flash"
+        return "llama-3.3-70b-versatile"
 
     @property
     def vision_model(self) -> str:
-        return os.getenv("AI_VISION_MODEL", "gemini-3.5-flash-lite")
+        explicit = os.getenv("AI_VISION_MODEL")
+        if explicit and explicit not in ("gemini-3.5-flash-lite", "gemini-2.5-flash"):
+            return explicit
+        if self.is_google:
+            return "gemini-3.6-flash"
+        return "llama-3.2-11b-vision-preview"
 
     def build_vision_content(self, text: str, image_data_urls: List[str]) -> List[Dict[str, Any]]:
         """Build an OpenAI-style multi-part message content for vision-capable models."""
@@ -307,6 +330,96 @@ class AIProviderService:
 
         return optimized
 
+    async def _stream_gemini_native(
+        self,
+        messages: List[Dict[str, Any]],
+        temperature: float = 0.5,
+        max_tokens: Optional[int] = None,
+        candidate_models: Optional[List[str]] = None
+    ) -> AsyncGenerator[str, None]:
+        """Direct native Google Gemini streamGenerateContent with thinkingBudget: 0 for instant, sub-second response."""
+        key = self.api_key
+        contents = []
+        system_instruction = None
+        for m in messages:
+            role = m.get("role")
+            content = m.get("content", "")
+            if role == "system":
+                if isinstance(content, str) and content.strip():
+                    system_instruction = {"parts": [{"text": content.strip()}]}
+            elif role == "user":
+                if isinstance(content, str) and content.strip():
+                    contents.append({"role": "user", "parts": [{"text": content.strip()}]})
+                elif isinstance(content, list):
+                    img_parts = []
+                    txt_parts = []
+                    for p in content:
+                        if p.get("type") == "image_url":
+                            url_val = (p.get("image_url") or {}).get("url", "")
+                            if "base64," in url_val:
+                                mime = "image/jpeg"
+                                if "data:image/png" in url_val:
+                                    mime = "image/png"
+                                elif "data:image/webp" in url_val:
+                                    mime = "image/webp"
+                                b64_data = url_val.split("base64,")[1].strip()
+                                img_parts.append({"inline_data": {"mime_type": mime, "data": b64_data}})
+                        elif p.get("type") == "text":
+                            t = p.get("text", "").strip()
+                            if t:
+                                txt_parts.append({"text": t})
+                    parts = img_parts + txt_parts
+                    if parts:
+                        contents.append({"role": "user", "parts": parts})
+            elif role == "assistant":
+                if isinstance(content, str) and content.strip():
+                    contents.append({"role": "model", "parts": [{"text": content.strip()}]})
+
+        models_to_try = candidate_models or ["gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"]
+        payload = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": max_tokens or 1500,
+                "thinkingConfig": {"thinkingBudget": 0}
+            }
+        }
+        if system_instruction:
+            payload["system_instruction"] = system_instruction
+
+        for m_idx, current_model in enumerate(models_to_try):
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{current_model}:streamGenerateContent?key={key}&alt=sse"
+            has_yielded = False
+            try:
+                async with httpx.AsyncClient(timeout=httpx.Timeout(connect=3.5, read=5.0, write=3.5, pool=3.5)) as client:
+                    async with client.stream("POST", url, json=payload) as response:
+                        if response.status_code != 200:
+                            logger.warning(f"Native Gemini model {current_model} returned {response.status_code}")
+                            continue
+                        async for line in response.aiter_lines():
+                            if line.startswith("data: "):
+                                chunk_str = line[6:].strip()
+                                if not chunk_str:
+                                    continue
+                                try:
+                                    data = json.loads(chunk_str)
+                                    for cand in data.get("candidates", []):
+                                        for p in cand.get("content", {}).get("parts", []):
+                                            t = p.get("text", "")
+                                            if t:
+                                                clean_part = re.sub(r'<think>[\s\S]*?</think>', '', t)
+                                                if clean_part:
+                                                    has_yielded = True
+                                                    yield clean_part
+                                except Exception:
+                                    pass
+                        if has_yielded:
+                            return
+            except Exception as e:
+                logger.warning(f"Error native streaming {current_model}: {e}")
+                if m_idx < len(models_to_try) - 1:
+                    continue
+
     async def stream_chat_completion(
         self,
         messages: List[Dict[str, Any]],
@@ -321,6 +434,24 @@ class AIProviderService:
             yield "DEVGYA AI engine is initializing. Please try again in a few moments."
             return
 
+        # For Google Gemini keys, use ultra-fast native streaming with thinkingBudget: 0 (sub-2s latency)
+        if self.is_google:
+            has_yielded = False
+            try:
+                cand_models = [model] if model and "gemini" in model.lower() else None
+                async for chunk in self._stream_gemini_native(
+                    messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    candidate_models=cand_models
+                ):
+                    has_yielded = True
+                    yield chunk
+            except Exception as gemini_err:
+                logger.warning(f"Native Gemini stream error, falling back to OpenAI format: {gemini_err}")
+            if has_yielded:
+                return
+
         headers = {
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json"
@@ -330,9 +461,9 @@ class AIProviderService:
         # Build candidate fallback models list with ultra-fast models
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = [selected_model, "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
+            candidate_fallbacks = [selected_model, "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"]
         else:
-            candidate_fallbacks = ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
+            candidate_fallbacks = ["openai/gpt-oss-20b", "llama-3.1-8b-instant", "qwen/qwen3.6-27b"]
 
         for alt_m in candidate_fallbacks:
             if alt_m and alt_m not in fallback_models:
