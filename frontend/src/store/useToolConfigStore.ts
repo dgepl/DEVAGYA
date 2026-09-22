@@ -318,7 +318,7 @@ export const useToolConfigStore = create<ToolConfigState>()(
         if (
           path === "/dashboard" ||
           path === "/dashboard/student" ||
-          path === "/dashboard/parent" ||
+          path.startsWith("/dashboard/parent") ||
           path === "/dashboard/school" ||
           path === "/dashboard/profile" ||
           path === "/dashboard/suggestions" ||

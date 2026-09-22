@@ -222,3 +222,20 @@ async def delete_student_note(note_id: str, username: str = Query(...)):
     """Deletes a student smart note from cloud."""
     await student_parent_service.delete_student_note(username, note_id)
     return {"status": "success", "message": "Note deleted from cloud."}
+
+@router.get("/parent/student-performance")
+async def get_student_performance_endpoint(
+    parent_email: Optional[str] = Query(None),
+    student_username: Optional[str] = Query(None),
+    resolved_email: str = Depends(_resolve_parent_email)
+):
+    """
+    Returns average student performance and week-wise subject breakdown reports for parents.
+    """
+    email = (parent_email or resolved_email).strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Parent email is required.")
+    return await student_parent_service.get_student_performance_report(
+        parent_email=email,
+        student_username=student_username
+    )

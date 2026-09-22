@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
+import { ParentStudentPerformanceReport } from "@/components/parent/ParentStudentPerformanceReport";
 
 export function MobileParentDashboard() {
   const { user } = useAppStore();
@@ -178,6 +179,9 @@ export function MobileParentDashboard() {
         </div>
       ) : (
         <>
+          {/* 3.5 STUDENT PERFORMANCE & WEEKLY SUBJECT REPORT */}
+          <ParentStudentPerformanceReport />
+
           {/* 4. PARENT CORE TOOLS GRID (MATCHING TEACHER DASHBOARD EXACT CARDS) */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">

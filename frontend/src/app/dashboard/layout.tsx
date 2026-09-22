@@ -19,6 +19,7 @@ import {
   Gamepad2,
   Mic,
   Activity,
+  TrendingUp,
   Brain,
   Target,
   Layers,
@@ -282,6 +283,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   } else if (user.role === "parent") {
     navItems = [
       { label: "Parent Dashboard", href: "/dashboard/parent", icon: LayoutDashboard },
+      { label: "Student Performance Report", href: "/dashboard/parent/analytics", icon: TrendingUp },
       { label: "My Children & Accounts", href: "/dashboard/parent/children", icon: Users },
       // Parent AI Agents
       { label: "Parenting Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake },

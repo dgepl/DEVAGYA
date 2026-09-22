@@ -20,6 +20,7 @@ import {
 import { useAppStore } from "@/store/useAppStore";
 import { MobileParentDashboard } from "@/components/dashboard/MobileParentDashboard";
 import { ParentChildOverviewCard } from "@/components/parent/ParentChildOverviewCard";
+import { ParentStudentPerformanceReport } from "@/components/parent/ParentStudentPerformanceReport";
 
 export function ParentDashboard() {
   const { user } = useAppStore();
@@ -53,6 +54,9 @@ export function ParentDashboard() {
           <span>Ask AI Parenting Coach</span>
         </Link>
       </div>
+
+      {/* STUDENT AVERAGE PERFORMANCE & WEEKLY SUBJECT REPORT */}
+      <ParentStudentPerformanceReport />
 
       {/* ENROLLED CHILDREN OVERVIEW */}
       <ParentChildOverviewCard />

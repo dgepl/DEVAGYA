@@ -4,6 +4,7 @@ import time
 import uuid
 import hashlib
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 import httpx
@@ -543,5 +544,176 @@ class StudentParentService:
             except Exception as e:
                 logger.warning(f"Notice: Cloud delete_student_note deferred: {e}")
         return True
+
+    # =========================================================================
+    # 5. STUDENT PERFORMANCE & WEEKLY SUBJECT-WISE REPORTS
+    # =========================================================================
+
+    async def get_student_performance_report(
+        self, parent_email: str, student_username: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Calculates and returns:
+        1. Average student performance (overall score %, grade status).
+        2. Subject-wise average performance breakdown.
+        3. Week-wise average performance report for every subject across recent weeks.
+        """
+        parent_clean = (parent_email or "").strip().lower()
+        children = await self.get_parent_children(parent_clean)
+        if not children:
+            return {
+                "status": "success",
+                "has_children": False,
+                "children": [],
+                "selected_child": None,
+                "overall_average": 0,
+                "total_quizzes": 0,
+                "performance_status": "No Children Enrolled",
+                "status_color": "slate",
+                "subject_averages": [],
+                "weekly_reports": []
+            }
+
+        # Select target child
+        selected_child = None
+        if student_username:
+            u_clean = student_username.strip().lower()
+            for ch in children:
+                if (ch.get("username") or "").lower() == u_clean:
+                    selected_child = ch
+                    break
+
+        if not selected_child:
+            selected_child = children[0]
+
+        target_username = selected_child.get("username", "").strip().lower()
+        quizzes = await self.get_child_quizzes(target_username)
+
+        # 1. Overall Average
+        if quizzes:
+            percentages = [q.get("percentage", 0) for q in quizzes if isinstance(q.get("percentage"), (int, float))]
+            overall_average = round(sum(percentages) / len(percentages), 1) if percentages else 0
+        else:
+            overall_average = 0
+
+        # Status & Grade
+        if overall_average >= 90:
+            status = "Outstanding (A1 Grade)"
+            status_color = "emerald"
+        elif overall_average >= 80:
+            status = "Excellent (A2 Grade)"
+            status_color = "indigo"
+        elif overall_average >= 70:
+            status = "Good (B1 Grade)"
+            status_color = "cyan"
+        elif overall_average >= 60:
+            status = "Satisfactory (B2 Grade)"
+            status_color = "amber"
+        elif overall_average > 0:
+            status = "Needs Practice"
+            status_color = "rose"
+        else:
+            status = "Awaiting First Assessment"
+            status_color = "slate"
+
+        # 2. Subject-wise Averages across all time
+        subject_buckets: Dict[str, List[Dict[str, Any]]] = {}
+        for q in quizzes:
+            subj = (q.get("subject") or "General").strip().title()
+            if subj not in subject_buckets:
+                subject_buckets[subj] = []
+            subject_buckets[subj].append(q)
+
+        subject_averages = []
+        for subj, q_list in sorted(subject_buckets.items(), key=lambda x: len(x[1]), reverse=True):
+            pcts = [item.get("percentage", 0) for item in q_list if isinstance(item.get("percentage"), (int, float))]
+            avg_pct = round(sum(pcts) / len(pcts), 1) if pcts else 0
+            highest = max(pcts) if pcts else 0
+            lowest = min(pcts) if pcts else 0
+            grade = "A1" if avg_pct >= 90 else "A2" if avg_pct >= 80 else "B1" if avg_pct >= 70 else "B2" if avg_pct >= 60 else "C1"
+            subject_averages.append({
+                "subject": subj,
+                "average": avg_pct,
+                "quizzes_count": len(q_list),
+                "highest": highest,
+                "lowest": lowest,
+                "grade": grade
+            })
+
+        # 3. Week-wise Performance Report for Every Subject
+        now = datetime.now(timezone.utc)
+        # Monday 00:00:00 UTC of current week
+        current_monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        weekly_reports = []
+        # Build 4 consecutive weeks (Week 0 = This Week, Week 1 = Last Week, etc.)
+        for w_idx in range(4):
+            w_start = current_monday - timedelta(weeks=w_idx)
+            w_end = w_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+
+            label = (
+                "This Week" if w_idx == 0 else
+                "Last Week" if w_idx == 1 else
+                f"{w_idx} Weeks Ago"
+            )
+            date_range_str = f"{w_start.strftime('%d %b')} - {w_end.strftime('%d %b')}"
+
+            # Filter quizzes in this window
+            week_quizzes = []
+            for q in quizzes:
+                ts_str = q.get("timestamp")
+                if ts_str:
+                    try:
+                        clean_ts = ts_str.replace("Z", "+00:00")
+                        q_dt = datetime.fromisoformat(clean_ts)
+                        if w_start <= q_dt <= w_end:
+                            week_quizzes.append(q)
+                    except Exception:
+                        pass
+
+            # Calculate week average
+            w_pcts = [q.get("percentage", 0) for q in week_quizzes if isinstance(q.get("percentage"), (int, float))]
+            week_avg = round(sum(w_pcts) / len(w_pcts), 1) if w_pcts else None
+
+            # Calculate subject-wise averages for this week
+            w_subj_buckets: Dict[str, List[float]] = {}
+            for q in week_quizzes:
+                s_name = (q.get("subject") or "General").strip().title()
+                if s_name not in w_subj_buckets:
+                    w_subj_buckets[s_name] = []
+                w_subj_buckets[s_name].append(q.get("percentage", 0))
+
+            week_subject_averages = []
+            for s_name, scores in sorted(w_subj_buckets.items(), key=lambda x: x[0]):
+                s_avg = round(sum(scores) / len(scores), 1) if scores else 0
+                week_subject_averages.append({
+                    "subject": s_name,
+                    "average": s_avg,
+                    "quizzes_count": len(scores)
+                })
+
+            weekly_reports.append({
+                "week_index": w_idx,
+                "label": label,
+                "date_range": date_range_str,
+                "full_label": f"{label} ({date_range_str})",
+                "week_average": week_avg,
+                "quizzes_count": len(week_quizzes),
+                "subject_averages": week_subject_averages
+            })
+
+        return {
+            "status": "success",
+            "has_children": True,
+            "children": children,
+            "selected_child": selected_child,
+            "overall_average": overall_average,
+            "total_quizzes": len(quizzes),
+            "performance_status": status,
+            "status_color": status_color,
+            "subject_averages": subject_averages,
+            "weekly_reports": weekly_reports,
+            "all_quizzes": quizzes[:20]
+        }
 
 student_parent_service = StudentParentService()
