@@ -347,14 +347,6 @@ export default function RegisterClient() {
                 School
               </button>
             </div>
-
-            {/* INFORMATIVE NOTICE FOR STUDENTS */}
-            <div className="mt-2.5 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-start gap-2 text-left">
-              <span className="text-sm">🎒</span>
-              <p className="text-[11px] text-indigo-900 font-medium leading-relaxed">
-                <strong className="font-extrabold text-indigo-950">Student Registration:</strong> Direct student self-registration is closed. Parents create and manage student accounts with username &amp; password directly inside the <strong className="font-extrabold text-indigo-950">Parent Portal</strong>.
-              </p>
-            </div>
           </div>
 
           {/* SCHOOL SPECIFIC FIELDS */}
