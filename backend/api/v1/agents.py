@@ -1,5 +1,6 @@
 import base64
 import io
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -127,6 +128,8 @@ def _build_agent_ai_messages(
         return messages
 
     conv_messages = conv.get("messages", [])
+    if agent_code == "english_coach" and len(conv_messages) > 6:
+        conv_messages = conv_messages[-6:]
     total_msgs = len(conv_messages)
     for idx, msg in enumerate(conv_messages):
         msg_text = str(msg.get("content") or "").strip()
@@ -260,15 +263,27 @@ async def agent_chat_message(
                 email_cand = "guest@devgya.in"
 
         agent_name = agent.get("name") if isinstance(agent, dict) else agent_code.replace("_", " ").title()
-        activity_service.record_activity(
-            email=email_cand,
-            name=agent_name,
-            role="teacher" if "teacher" in agent_code else "student",
-            action="ai_chat",
-            feature_id=agent_code,
-            feature_name=f"AI Agent: {agent_name}",
-            path=f"/dashboard/agents?agent={agent_code}"
-        )
+        if agent_code == "english_coach":
+            asyncio.create_task(asyncio.to_thread(
+                activity_service.record_activity,
+                email=email_cand,
+                name=agent_name,
+                role="teacher" if "teacher" in agent_code else "student",
+                action="ai_chat",
+                feature_id=agent_code,
+                feature_name=f"AI Agent: {agent_name}",
+                path=f"/dashboard/agents?agent={agent_code}"
+            ))
+        else:
+            activity_service.record_activity(
+                email=email_cand,
+                name=agent_name,
+                role="teacher" if "teacher" in agent_code else "student",
+                action="ai_chat",
+                feature_id=agent_code,
+                feature_name=f"AI Agent: {agent_name}",
+                path=f"/dashboard/agents?agent={agent_code}"
+            )
     except Exception as act_err:
         logger.warning(f"Failed to record agent activity: {act_err}")
 
@@ -331,9 +346,15 @@ async def agent_chat_message(
         except Exception:
             pass
 
-    chat_history_service.add_message(
-        conv["id"], "user", user_msg_content, data_urls
-    )
+    if agent_code == "english_coach":
+        asyncio.create_task(asyncio.to_thread(
+            chat_history_service.add_message,
+            conv["id"], "user", user_msg_content, data_urls
+        ))
+    else:
+        chat_history_service.add_message(
+            conv["id"], "user", user_msg_content, data_urls
+        )
     if "messages" not in conv or not isinstance(conv["messages"], list):
         conv["messages"] = []
     conv["messages"].append({
@@ -355,8 +376,9 @@ async def agent_chat_message(
         async def event_generator():
             full = ""
             try:
-                fast_model = "gemini-3.1-flash-lite" if agent_code == "english_coach" else None
-                async for chunk in ai_provider.stream_chat_completion(ai_messages, model=fast_model):
+                fast_model = "gemini-3.5-flash-lite" if agent_code == "english_coach" else None
+                max_toks = 140 if agent_code == "english_coach" else None
+                async for chunk in ai_provider.stream_chat_completion(ai_messages, max_tokens=max_toks, model=fast_model):
                     full += chunk
                     yield chunk
             except Exception as e:
@@ -383,8 +405,12 @@ async def agent_chat_message(
                         fallback_msg = "Hello! I'm here and ready to help. What topic or lesson would you like to explore?"
                     full = fallback_msg
                     yield fallback_msg
-                chat_history_service.add_message(conv["id"], "assistant", full)
-                chat_history_service.touch_conversation(conv["id"])
+                if agent_code == "english_coach":
+                    asyncio.create_task(asyncio.to_thread(chat_history_service.add_message, conv["id"], "assistant", full))
+                    asyncio.create_task(asyncio.to_thread(chat_history_service.touch_conversation, conv["id"]))
+                else:
+                    chat_history_service.add_message(conv["id"], "assistant", full)
+                    chat_history_service.touch_conversation(conv["id"])
 
         response = StreamingResponse(event_generator(), media_type="text/plain")
         response.headers["X-Conversation-Id"] = conv["id"]

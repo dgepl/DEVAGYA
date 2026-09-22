@@ -794,6 +794,7 @@ export function EnglishSpeakingCoach() {
     turnBaseSpeechRef.current = "";
     setCurrentSpeechText("");
     setIsAiThinking(true);
+    isAiThinkingRef.current = true;
     setMicPermissionError(null);
 
     // Reset audio queue for fresh response
@@ -888,6 +889,7 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
           // As soon as first streaming tokens arrive, immediately turn off thinking spinner
           if (isAiThinkingRef.current) {
             setIsAiThinking(false);
+            isAiThinkingRef.current = false;
           }
         }
 
@@ -907,6 +909,7 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
         };
         setConversationHistory(prev => [...prev, aiMsgItem]);
         setIsAiThinking(false);
+        isAiThinkingRef.current = false;
 
         // Seamless speech playback: synthesize the clean conversational reply in one fluid stream
         // This ensures Edge-TTS natural neural punctuation cadence without awkward multi-second gaps between sentences
@@ -925,11 +928,13 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
         setLiveAiSpeech(fullAiText);
         parseFeedback(fullAiText, input);
         setIsAiThinking(false);
+        isAiThinkingRef.current = false;
         playCoachAudio(cleanForSpeech(fullAiText));
       }
     } catch (err) {
       console.error("Conversation error:", err);
       setIsAiThinking(false);
+      isAiThinkingRef.current = false;
       const fallbackMsg = cameraActive
         ? "Your facial expression looks very confident! Take a gentle breath, your pronunciation is coming along nicely. Shall we practice the next line?"
         : "Your pronunciation is coming along nicely! Take a relaxed breath. Shall we practice the next line?";
@@ -993,11 +998,11 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
 
           const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for)\s*$/i.test(candidateText);
           const words = candidateText.split(/\s+/).filter(Boolean);
-          const hasTerminalPunct = /[.!?]$/.test(candidateText.trim());
-
-          let silenceDelay = 1250; // Fast natural pause: 1.25s
-          if (isConnectorWord || words.length < 3 || !hasTerminalPunct) {
-            silenceDelay = 2000; // Allow 2.0s when mid-sentence or thinking
+          let silenceDelay = 550; // Ultra-fast natural pause: 0.55s for instant coach response
+          if (isConnectorWord) {
+            silenceDelay = 950; // Brief 0.95s pause when finishing on connector words like "and...", "so..."
+          } else if (words.length <= 2) {
+            silenceDelay = 750; // 0.75s pause for brief 1-2 word utterances
           }
 
           silenceTimerRef.current = setTimeout(() => {

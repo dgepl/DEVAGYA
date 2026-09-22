@@ -311,6 +311,7 @@ class AIProviderService:
         self,
         messages: List[Dict[str, Any]],
         temperature: float = 0.6,
+        max_tokens: Optional[int] = None,
         model: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """SSE streaming generator for real-time typing effect with pure DEVGYA branding."""
@@ -329,7 +330,7 @@ class AIProviderService:
         # Build candidate fallback models list with ultra-fast models
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = [selected_model, "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-flash-latest"]
+            candidate_fallbacks = [selected_model, "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"]
         else:
             candidate_fallbacks = ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
@@ -337,11 +338,14 @@ class AIProviderService:
             if alt_m and alt_m not in fallback_models:
                 fallback_models.append(alt_m)
 
+        max_turns_opt = 4 if ("flash-lite" in str(selected_model) or max_tokens and max_tokens <= 200) else 8
         payload = {
-            "messages": self._optimize_messages(messages),
+            "messages": self._optimize_messages(messages, max_turns=max_turns_opt),
             "temperature": temperature,
             "stream": True
         }
+        if max_tokens:
+            payload["max_tokens"] = max_tokens
 
         for m_idx, current_model in enumerate(fallback_models):
             payload["model"] = current_model
