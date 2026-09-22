@@ -134,9 +134,9 @@ class AIProviderService:
 
         async with httpx.AsyncClient(timeout=90.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"]
+                models_to_try = [selected_model, "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"]
             elif has_imgs:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
+                models_to_try = [selected_model, "gemini-3.6-flash", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
             else:
                 models_to_try = [selected_model, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
             # Deduplicate while preserving order
@@ -256,7 +256,7 @@ class AIProviderService:
                 "parts": [{"text": system_text.strip()}]
             }
 
-        candidate_models = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"]
+        candidate_models = ["gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"]
         async with httpx.AsyncClient(timeout=60.0) as client:
             for m in candidate_models:
                 try:
