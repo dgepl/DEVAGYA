@@ -299,6 +299,47 @@ class StudentParentService:
 
         return True
 
+    async def delete_all_parent_children(self, parent_email: str) -> int:
+        """Permanently cascades deletion to all children accounts enrolled by a parent."""
+        parent_clean = (parent_email or "").strip().lower()
+        if not parent_clean:
+            return 0
+
+        children = await self.get_parent_children(parent_clean)
+        deleted_count = 0
+
+        # 1. Purge from local cache
+        for ch in children:
+            u_name = (ch.get("username") or "").strip().lower()
+            if u_name:
+                if u_name in self._local_cache:
+                    del self._local_cache[u_name]
+                    deleted_count += 1
+
+        # Also purge any dangling local accounts matching parent_email
+        for u_name, acc in list(self._local_cache.items()):
+            if (acc.get("parent_email") or "").strip().lower() == parent_clean:
+                del self._local_cache[u_name]
+                deleted_count += 1
+
+        if deleted_count > 0:
+            self._save_local_cache()
+
+        # 2. Purge from Supabase Cloud
+        if SERVICE_KEY and SUPABASE_URL:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    await client.delete(
+                        f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                        headers=supabase_headers,
+                        params={"session_title": f"like.DEVGYA_STUDENT_ACC:{parent_clean}:*"}
+                    )
+            except Exception as e:
+                logger.warning(f"Notice: Supabase delete_all_parent_children deferred: {e}")
+
+        logger.info(f"Cascade deleted {deleted_count} children accounts for parent {parent_clean}")
+        return max(deleted_count, len(children))
+
     # =========================================================================
     # 2. STUDENT USERNAME AUTHENTICATION
     # =========================================================================

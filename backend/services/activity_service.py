@@ -335,6 +335,12 @@ class ActivityService:
             return "Live Video AI Consultation"
         if "timer" in path or "planner" in path:
             return "Study Planner & Pomodoro"
+        if "leaderboard" in path or feat_id == "leaderboard":
+            return "Student Leaderboard"
+        if "children" in path or feat_id in ["children", "my_children"]:
+            return "Child Accounts & Progress"
+        if "suggestion" in path or "suggestion" in feat_id or action in ["submit_suggestion", "view_suggestions"]:
+            return "Platform Suggestions & Ideas"
 
         # Agent chat names
         if feat_id == "teacher_mentor" or "teacher_mentor" in path:

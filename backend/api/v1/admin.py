@@ -286,6 +286,21 @@ async def get_all_users():
                     else:
                         ch["latest_quiz"] = None
                         ch["avg_score_pct"] = None
+
+                    # Attach child activity and feature usage telemetry
+                    child_act = today_summary.get(u_name.lower()) or today_summary.get(f"{u_name.lower()}@devgya.in")
+                    if child_act:
+                        ch["is_active_today"] = True
+                        ch["last_active_today"] = child_act.get("last_active")
+                        ch["last_active_display"] = child_act.get("last_active_display")
+                        ch["features_used_today"] = child_act.get("features_used", [])
+                        ch["actions_today_count"] = child_act.get("actions_count", 0)
+                    else:
+                        ch["is_active_today"] = False
+                        ch["last_active_today"] = None
+                        ch["last_active_display"] = None
+                        ch["features_used_today"] = []
+                        ch["actions_today_count"] = 0
             p["children"] = children
             p["children_count"] = len(children)
         except Exception:
@@ -301,13 +316,37 @@ async def get_all_users():
 
 @router.delete("/users/{user_id:path}")
 async def delete_user(user_id: str):
-    """Permanently delete a user profile from Supabase Cloud and local caches."""
+    """Permanently delete a user profile from Supabase Cloud and cascade-delete any enrolled children accounts."""
     from urllib.parse import unquote
     clean_id = unquote(user_id).strip()
+    from services.student_parent_service import student_parent_service
+    
+    # Identify email to cascade-delete children
+    email_to_check = clean_id if "@" in clean_id else None
+    if not email_to_check:
+        try:
+            prof = await supabase_service.get_profile(clean_id)
+            if prof and prof.get("email"):
+                email_to_check = prof["email"]
+        except Exception:
+            pass
+
+    deleted_children = 0
+    if email_to_check:
+        try:
+            deleted_children = await student_parent_service.delete_all_parent_children(email_to_check)
+        except Exception:
+            pass
+
     success = await supabase_service.delete_profile(clean_id)
+    msg = "User account deleted successfully"
+    if deleted_children > 0:
+        msg += f" (along with {deleted_children} linked child account{'s' if deleted_children > 1 else ''})"
+
     return {
         "status": "success" if success else "error",
-        "message": "User deleted successfully" if success else "Failed to delete user profile"
+        "message": msg if success else "Failed to delete user profile",
+        "cascade_deleted_children": deleted_children
     }
 
 @router.get("/users/{email}/activity")

@@ -936,6 +936,14 @@ class SupabaseService:
             except Exception:
                 pass
 
+        # 4. Cascade delete any enrolled children accounts if user is a parent
+        if target_email:
+            try:
+                from services.student_parent_service import student_parent_service
+                await student_parent_service.delete_all_parent_children(target_email)
+            except Exception as cascade_err:
+                logger.warning(f"Error cascading children deletion for {target_email}: {cascade_err}")
+
         return deleted or True
 
     async def _ensure_default_school_id(self) -> Optional[str]:

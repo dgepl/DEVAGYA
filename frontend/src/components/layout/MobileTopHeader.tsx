@@ -35,7 +35,8 @@ import {
   Briefcase,
   Building2,
   User,
-  Users
+  Users,
+  MessageSquarePlus
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -162,6 +163,7 @@ export function MobileTopHeader() {
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
     { label: "Recruitment", href: "/dashboard/recruitment", icon: Briefcase },
+    { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
   ];
 
   if (role === "school") {
@@ -169,6 +171,7 @@ export function MobileTopHeader() {
       { label: "School Overview", href: "/dashboard/school", icon: LayoutDashboard },
       { label: "Job Vacancies", href: "/dashboard/school/vacancies", icon: Briefcase },
       { label: "Applicants & Resumes", href: "/dashboard/school/applicants", icon: Users },
+      { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
       { label: "School Profile", href: "/dashboard/school/profile", icon: Building2 },
     ];
   } else if (role === "student") {
@@ -180,6 +183,7 @@ export function MobileTopHeader() {
       { label: "Notion Smart Notes", href: "/dashboard/student/notes", icon: FileText },
       { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock },
       { label: "Leaderboard", href: "/dashboard/student/leaderboard", icon: Trophy },
+      { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
     ];
   } else if (role === "parent") {
     navItems = [
@@ -187,6 +191,7 @@ export function MobileTopHeader() {
       { label: "Parenting Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake },
       { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
       { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
+      { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
     ];
   }
 

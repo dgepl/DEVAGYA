@@ -42,7 +42,8 @@ import {
   Sliders,
   Headphones,
   Briefcase,
-  Building2
+  Building2,
+  MessageSquarePlus
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -99,6 +100,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         pathname.replace("/dashboard/", "").replace(/[-_/]/g, " ").toUpperCase();
 
       const featureId = agentParam ? `agent-${agentParam}` : pathname.replace("/dashboard/", "").replace(/[/]/g, "-") || "dashboard";
+      const isFeatureRoute = pathname.startsWith("/dashboard/") && !["/dashboard", "/dashboard/student", "/dashboard/parent", "/dashboard/school"].includes(pathname);
+      const actionType = isFeatureRoute || agentParam ? "feature_use" : "navigate";
+
       const payload = {
         email: user.email,
         user_email: user.email,
@@ -106,7 +110,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         user_name: user.name || "",
         role: user.role || "teacher",
         user_role: user.role || "teacher",
-        action: "navigate",
+        action: actionType,
         feature_id: featureId,
         feature_name: activeFeatureName,
         path: agentParam ? `${pathname}?agent=${agentParam}` : pathname
@@ -187,6 +191,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         pathname.startsWith("/dashboard/agents") ||
         pathname === "/dashboard/knowledge" ||
         pathname === "/dashboard/chat" ||
+        pathname === "/dashboard/suggestions" ||
         pathname === "/dashboard/profile";
 
       if (!isStudentAllowed) {
@@ -196,6 +201,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       const isParentAllowed = 
         pathname.startsWith("/dashboard/parent") ||
         pathname.startsWith("/dashboard/agents") ||
+        pathname === "/dashboard/suggestions" ||
         pathname === "/dashboard/profile";
 
       if (!isParentAllowed) {
@@ -204,6 +210,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     } else if (user.role === "school") {
       const isSchoolAllowed = 
         pathname.startsWith("/dashboard/school") ||
+        pathname === "/dashboard/suggestions" ||
         pathname === "/dashboard/profile";
 
       if (!isSchoolAllowed) {
@@ -221,6 +228,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         pathname === "/dashboard/video-consultation" ||
         pathname.startsWith("/dashboard/english-coach") ||
         pathname.startsWith("/dashboard/recruitment") ||
+        pathname === "/dashboard/suggestions" ||
         pathname === "/dashboard/profile";
 
       if (!isTeacherAllowed) {
@@ -248,6 +256,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     { label: "Skill Enhance Practice", href: "/dashboard/teacher-olympiad/practice", icon: BookOpen },
     { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
     { label: "Recruitment", href: "/dashboard/recruitment", icon: Briefcase },
+    { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
   ];
 
   if (user.role === "school") {
@@ -255,6 +264,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       { label: "School Overview", href: "/dashboard/school", icon: Building2 },
       { label: "Job Vacancies", href: "/dashboard/school/vacancies", icon: Briefcase },
       { label: "Applicants & Resumes", href: "/dashboard/school/applicants", icon: Users },
+      { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
       { label: "School Profile", href: "/dashboard/school/profile", icon: User },
     ];
   } else if (user.role === "student") {
@@ -266,6 +276,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       { label: "Notion Smart Notes", href: "/dashboard/student/notes", icon: FileText },
       { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock },
       { label: "Leaderboard", href: "/dashboard/student/leaderboard", icon: Trophy },
+      { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
     ];
   } else if (user.role === "parent") {
     navItems = [
@@ -276,6 +287,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       // General AI Agents
       { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
       { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
+      { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
     ];
   }
 

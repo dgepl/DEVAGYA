@@ -314,13 +314,14 @@ export const useToolConfigStore = create<ToolConfigState>()(
       isFeatureAllowed: (path: string, agentCode?: string) => {
         if (!path) return true;
 
-        // Base dashboard and profile pages are always allowed
+        // Base dashboard, profile, and suggestion pages are always allowed
         if (
           path === "/dashboard" ||
           path === "/dashboard/student" ||
           path === "/dashboard/parent" ||
           path === "/dashboard/school" ||
           path === "/dashboard/profile" ||
+          path === "/dashboard/suggestions" ||
           path.startsWith("/admin")
         ) {
           return true;
