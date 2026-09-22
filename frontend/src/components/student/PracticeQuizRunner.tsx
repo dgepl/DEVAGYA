@@ -246,7 +246,11 @@ export function PracticeQuizRunner() {
 
     // Persist to Supabase Cloud for parent observability & student history
     try {
-      const studentUsername = (user as any)?.username || user?.name?.toLowerCase().replace(/\s+/g, "_") || "student";
+      const studentUsername = 
+        user?.username || 
+        (user?.email?.endsWith("@student.devgya.in") ? user.email.replace("@student.devgya.in", "") : "") || 
+        user?.name?.toLowerCase().replace(/\s+/g, "_") || 
+        "student";
       const apiBase = getApiBase();
       fetch(`${apiBase}/student/quiz-result`, {
         method: "POST",

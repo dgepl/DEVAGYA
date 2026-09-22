@@ -39,6 +39,19 @@ def _verify_password(password: str, hashed: str, salt: str) -> bool:
     calc_hash, _ = _hash_password(password, salt)
     return calc_hash == hashed
 
+def _parse_jsonb(val: Any) -> Optional[Dict[str, Any]]:
+    """Safely extracts a dict from Supabase JSONB which can return as string or dict."""
+    if isinstance(val, dict):
+        return val
+    if isinstance(val, str):
+        try:
+            parsed = json.loads(val)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+    return None
+
 class StudentParentService:
     """
     Manages Parent-created Student Accounts, username-based login,
@@ -89,8 +102,8 @@ class StudentParentService:
                     if res.status_code == 200:
                         rows = res.json()
                         for r in rows:
-                            ch = r.get("chat_history")
-                            if isinstance(ch, dict) and ch.get("username"):
+                            ch = _parse_jsonb(r.get("chat_history"))
+                            if ch and ch.get("username"):
                                 # Do not expose password hash or salt to frontend
                                 safe_child = dict(ch)
                                 safe_child.pop("password_hash", None)
@@ -380,8 +393,8 @@ class StudentParentService:
                         headers=supabase_headers
                     )
                     if res.status_code == 200 and res.json():
-                        ch = res.json()[0].get("chat_history")
-                        if isinstance(ch, dict) and ch.get("username"):
+                        ch = _parse_jsonb(res.json()[0].get("chat_history"))
+                        if ch and ch.get("username"):
                             self._local_cache[user_clean] = ch
                             return ch
             except Exception as e:
@@ -457,8 +470,8 @@ class StudentParentService:
                     )
                     if res.status_code == 200:
                         for r in res.json():
-                            ch = r.get("chat_history")
-                            if isinstance(ch, dict):
+                            ch = _parse_jsonb(r.get("chat_history"))
+                            if ch:
                                 quizzes.append(ch)
             except Exception as e:
                 logger.warning(f"Notice: Cloud get_child_quizzes deferred: {e}")
@@ -513,8 +526,8 @@ class StudentParentService:
                     )
                     if res.status_code == 200:
                         for r in res.json():
-                            ch = r.get("chat_history")
-                            if isinstance(ch, dict):
+                            ch = _parse_jsonb(r.get("chat_history"))
+                            if ch:
                                 notes.append(ch)
             except Exception as e:
                 logger.warning(f"Notice: Cloud get_child_notes deferred: {e}")

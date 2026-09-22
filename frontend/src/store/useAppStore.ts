@@ -27,6 +27,8 @@ export interface UserProfile {
   contactPerson?: string;
 
   // Student Specific
+  username?: string;
+  parentEmail?: string;
   targetExam?: string;
   strongSubject?: string;
   weakSubject?: string;
