@@ -185,11 +185,11 @@ export default function AboutPage() {
               {/* RIGHT COLUMN: HERO IMAGE SHOWCASE (TOP-TIER HIGH-DEF VISUAL) */}
               <div className="lg:col-span-6 relative">
                 <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/20 shadow-2xl bg-slate-900 group">
-                  <div className="aspect-[16/10] sm:aspect-[16/10] lg:aspect-[4/3] xl:aspect-[16/10] w-full overflow-hidden">
+                  <div className="aspect-[4/5] sm:aspect-[4/3] lg:aspect-[4/5] xl:aspect-[9/10] w-full max-h-[580px] overflow-hidden">
                     <img 
                       src="/images/about/hero_about.jpg" 
-                      alt="DEVGYA Educators and Students in STEM Environment" 
-                      className="w-full h-full object-cover object-[center_15%] group-hover:scale-103 transition-transform duration-700" 
+                      alt="DEVGYA Educators and Students" 
+                      className="w-full h-full object-cover object-top group-hover:scale-102 transition-transform duration-700" 
                     />
                   </div>
                   {/* SUBTLE INNER GRADIENT */}
