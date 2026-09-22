@@ -337,6 +337,7 @@ export function EnglishSpeakingCoach() {
   const autoRestartTimerRef = useRef<any>(null);
   const audioQueueRef = useRef<string[]>([]);
   const isPlayingQueueRef = useRef<boolean>(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Keep refs synced
   useEffect(() => { isLiveActiveRef.current = isLiveActive; }, [isLiveActive]);
@@ -579,6 +580,13 @@ export function EnglishSpeakingCoach() {
 
   // Ultra-Fast TTS Audio Player for Single Sentence with Race-Condition Guard
   const playCoachAudio = useCallback((textToSpeak: string, onFinish?: () => void) => {
+    // If call is ended, immediately halt any audio playback
+    if (!isLiveActiveRef.current && !showTextKeyboard) {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
+      return;
+    }
+
     if (soundMutedRef.current) {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
@@ -619,6 +627,12 @@ export function EnglishSpeakingCoach() {
         currentAudioRef.current.onended = null;
         currentAudioRef.current.onerror = null;
         currentAudioRef.current = null;
+      }
+
+      if (!isLiveActiveRef.current && !showTextKeyboard) {
+        setIsAiSpeaking(false);
+        isAiSpeakingRef.current = false;
+        return;
       }
 
       if (onFinish) {
@@ -685,6 +699,12 @@ export function EnglishSpeakingCoach() {
   }, [selectedVoice, languageMode]);
 
   const fallbackSpeechSynthesis = (text: string, onFinish?: () => void) => {
+    if (!isLiveActiveRef.current && !showTextKeyboard) {
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
+      return;
+    }
+
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const isDevanagari = /[\u0900-\u097F]/.test(text);
@@ -718,24 +738,40 @@ export function EnglishSpeakingCoach() {
         called = true;
         setIsAiSpeaking(false);
         isAiSpeakingRef.current = false;
-        onFinish?.();
+        if (isLiveActiveRef.current || showTextKeyboard) {
+          onFinish?.();
+        }
       };
 
       utt.onend = done;
       utt.onerror = done;
-      window.speechSynthesis.speak(utt);
+      if (isLiveActiveRef.current || showTextKeyboard) {
+        window.speechSynthesis.speak(utt);
+      }
     } else {
       setIsAiSpeaking(false);
       isAiSpeakingRef.current = false;
-      onFinish?.();
+      if (isLiveActiveRef.current || showTextKeyboard) {
+        onFinish?.();
+      }
     }
   };
 
   // 0-DELAY SEAMLESS AUDIO QUEUE ENGINE (Plays sentence-by-sentence without mic thrashing)
   const playNextInQueue = useCallback(() => {
+    // If call is ended or page switched, drop entire queue immediately
+    if (!isLiveActiveRef.current && !showTextKeyboard) {
+      audioQueueRef.current = [];
+      isPlayingQueueRef.current = false;
+      setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
+      return;
+    }
+
     if (audioQueueRef.current.length === 0) {
       isPlayingQueueRef.current = false;
       setIsAiSpeaking(false);
+      isAiSpeakingRef.current = false;
       // Automatic hands-free listening resume ONLY after entire queue finishes
       if (isLiveActiveRef.current && !isAiThinkingRef.current) {
         setTimeout(() => {
@@ -757,19 +793,24 @@ export function EnglishSpeakingCoach() {
     playCoachAudio(nextSentence, () => {
       playNextInQueue();
     });
-  }, [playCoachAudio]);
+  }, [playCoachAudio, showTextKeyboard]);
 
   const enqueueSentence = useCallback((sentence: string) => {
+    if (!isLiveActiveRef.current && !showTextKeyboard) return;
     const clean = cleanForSpeech(sentence);
     if (!clean || clean.length < 2) return;
     audioQueueRef.current.push(clean);
     if (!isPlayingQueueRef.current) {
       playNextInQueue();
     }
-  }, [playNextInQueue]);
+  }, [playNextInQueue, showTextKeyboard]);
 
   // Interrupt AI Speaking (Like Gemini Live: tap to interrupt)
   const handleInterruptAi = () => {
+    if (abortControllerRef.current) {
+      try { abortControllerRef.current.abort(); } catch {}
+      abortControllerRef.current = null;
+    }
     if (currentAudioRef.current) {
       currentAudioRef.current.onplay = null;
       currentAudioRef.current.onended = null;
@@ -783,7 +824,10 @@ export function EnglishSpeakingCoach() {
     audioQueueRef.current = [];
     isPlayingQueueRef.current = false;
     setIsAiSpeaking(false);
-    if (isLiveActive) {
+    isAiSpeakingRef.current = false;
+    setIsAiThinking(false);
+    isAiThinkingRef.current = false;
+    if (isLiveActiveRef.current) {
       startListening();
     }
   };
@@ -855,9 +899,16 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
       if (user?.email) fd.append("user_email", user.email);
       fd.append("language", languageMode);
 
+      if (abortControllerRef.current) {
+        try { abortControllerRef.current.abort(); } catch {}
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       const res = await fetch(`${getApiBase()}/agents/chat`, {
         method: "POST",
-        body: fd
+        body: fd,
+        signal: controller.signal
       });
 
       if (!res.ok) {
@@ -879,6 +930,12 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
         let sentenceBuffer = "";
 
         while (true) {
+          // If user clicked End Call or navigated away, kill streaming immediately
+          if (!isLiveActiveRef.current && !showTextKeyboard) {
+            try { reader.cancel(); } catch {}
+            break;
+          }
+
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
@@ -898,14 +955,19 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
           if (match) {
             const finishedSentence = match[1].trim();
             sentenceBuffer = match[2] || "";
-            // Don't vocalize technical Better/Tip labels
-            if (!finishedSentence.includes("✨") && !finishedSentence.includes("💡") && !/^(Better|Tip):/i.test(finishedSentence)) {
+            // Don't vocalize technical Better/Tip labels or speak if call ended
+            if (isLiveActiveRef.current && !finishedSentence.includes("✨") && !finishedSentence.includes("💡") && !/^(Better|Tip):/i.test(finishedSentence)) {
               const cleanPart = cleanForSpeech(finishedSentence);
               if (cleanPart && cleanPart.length >= 2) {
                 enqueueSentence(cleanPart);
               }
             }
           }
+        }
+
+        // Check again if call ended while streaming
+        if (!isLiveActiveRef.current && !showTextKeyboard) {
+          return;
         }
 
         // Flush any remaining conversational text in sentenceBuffer
@@ -935,7 +997,7 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
         isAiThinkingRef.current = false;
 
         // If nothing was enqueued yet, enqueue clean full text
-        if (audioQueueRef.current.length === 0 && !isPlayingQueueRef.current) {
+        if (audioQueueRef.current.length === 0 && !isPlayingQueueRef.current && (isLiveActiveRef.current || showTextKeyboard)) {
           const speechToPlay = cleanForSpeech(fullAiText);
           if (speechToPlay) {
             enqueueSentence(speechToPlay);
@@ -953,17 +1015,27 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
         parseFeedback(fullAiText, input);
         setIsAiThinking(false);
         isAiThinkingRef.current = false;
-        playCoachAudio(cleanForSpeech(fullAiText));
+        if (isLiveActiveRef.current || showTextKeyboard) {
+          playCoachAudio(cleanForSpeech(fullAiText));
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === "AbortError" || (!isLiveActiveRef.current && !showTextKeyboard)) {
+        // Cleanly handle call termination/unmount without noisy errors or speech
+        setIsAiThinking(false);
+        isAiThinkingRef.current = false;
+        return;
+      }
       console.error("Conversation error:", err);
       setIsAiThinking(false);
       isAiThinkingRef.current = false;
-      const fallbackMsg = cameraActive
-        ? "Your facial expression looks very confident! Take a gentle breath, your pronunciation is coming along nicely. Shall we practice the next line?"
-        : "Your pronunciation is coming along nicely! Take a relaxed breath. Shall we practice the next line?";
-      setLiveAiSpeech(fallbackMsg);
-      playCoachAudio(fallbackMsg);
+      if (isLiveActiveRef.current || showTextKeyboard) {
+        const fallbackMsg = cameraActive
+          ? "Your facial expression looks very confident! Take a gentle breath, your pronunciation is coming along nicely. Shall we practice the next line?"
+          : "Your pronunciation is coming along nicely! Take a relaxed breath. Shall we practice the next line?";
+        setLiveAiSpeech(fallbackMsg);
+        playCoachAudio(fallbackMsg);
+      }
     }
   }, [languageMode, activeScenario, conversationId, user?.id, cameraActive, playCoachAudio]);
 
@@ -1088,6 +1160,53 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
     isListeningRef.current = false;
   }, []);
 
+  // Universal Kill-Switch: Immediately halts all voice synthesis, HTML5 audio, background streams, and mic
+  const stopAllSpeechAndAudio = useCallback(() => {
+    // 1. Immediately deactivate session flags synchronously
+    isLiveActiveRef.current = false;
+
+    // 2. Abort in-flight network streaming request so no more chunks or sentences arrive
+    if (abortControllerRef.current) {
+      try { abortControllerRef.current.abort(); } catch {}
+      abortControllerRef.current = null;
+    }
+
+    // 3. Immediately silence native browser speech synthesis
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
+
+    // 4. Immediately halt & destroy any active HTML5 audio element
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.onplay = null;
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
+        currentAudioRef.current.pause();
+        currentAudioRef.current.src = "";
+      } catch {}
+      currentAudioRef.current = null;
+    }
+
+    // 5. Purge queued sentences so no upcoming speech can play
+    audioQueueRef.current = [];
+    isPlayingQueueRef.current = false;
+
+    // 6. Stop speech recognition and clear timers
+    clearTimeout(silenceTimerRef.current);
+    clearTimeout(autoRestartTimerRef.current);
+    stopListening();
+
+    // 7. Reset all AI speaking and thinking states
+    isAiSpeakingRef.current = false;
+    setIsAiSpeaking(false);
+    isAiThinkingRef.current = false;
+    setIsAiThinking(false);
+    accumulatedSpeechRef.current = "";
+    turnBaseSpeechRef.current = "";
+    setCurrentSpeechText("");
+  }, [stopListening]);
+
   // Start Live Session with a Selected Scenario (Modal callback)
   const startCallWithScenario = (scenario: ScenarioTopic) => {
     setActiveScenario(scenario);
@@ -1115,19 +1234,10 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
   // Toggle Live Mode (Start / End Conversation)
   const toggleLiveConversation = () => {
     if (isLiveActive) {
-      // End conversation
+      // End conversation immediately: kill speech synthesis, stop stream, purge audio, and turn off camera
       setIsLiveActive(false);
-      stopListening();
+      stopAllSpeechAndAudio();
       stopCamera();
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-        currentAudioRef.current = null;
-      }
-      setIsAiSpeaking(false);
-      setIsAiThinking(false);
-      accumulatedSpeechRef.current = "";
-      turnBaseSpeechRef.current = "";
-      setCurrentSpeechText("");
     } else {
       // Prompt user to select scenario before starting to talk with AI
       setShowScenarioModal(true);
@@ -1160,18 +1270,25 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
     }
   };
 
-  // Auto-start camera on mount for immediate perception
+  // Lifecycle management: Auto-start camera on mount, and ensure immediate silence on unmount or page change
   useEffect(() => {
     startCamera("user");
-    return () => {
+
+    const handleLeave = () => {
+      stopAllSpeechAndAudio();
       stopCamera();
-      stopListening();
-      if (currentAudioRef.current) currentAudioRef.current.pause();
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
     };
-  }, []);
+
+    window.addEventListener("pagehide", handleLeave);
+    window.addEventListener("beforeunload", handleLeave);
+
+    return () => {
+      window.removeEventListener("pagehide", handleLeave);
+      window.removeEventListener("beforeunload", handleLeave);
+      stopAllSpeechAndAudio();
+      stopCamera();
+    };
+  }, [startCamera, stopCamera, stopAllSpeechAndAudio]);
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col space-y-4 p-3 sm:p-5 pb-28 md:pb-8">
