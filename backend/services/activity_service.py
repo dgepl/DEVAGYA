@@ -199,9 +199,9 @@ class ActivityService:
         })
 
         # STRICT DEDUPLICATION:
-        # If the exact same user invoked this exact feature and action within the last 15 seconds,
-        # return the existing event so 1 feature usage never shows 2 times in the activity log!
-        for recent in self.activities[:15]:
+        # Fast 3-second debounce for identical feature actions to prevent accidental double-submits,
+        # but allow multiple real usages (e.g. generating 2 papers) to be recorded accurately.
+        for recent in self.activities[:10]:
             if (
                 recent.get("email") == email_clean
                 and self.normalize_feature_name(recent) == canonical_feature_name
@@ -212,8 +212,7 @@ class ActivityService:
                     if prev_ts:
                         prev_dt = datetime.fromisoformat(prev_ts.replace("Z", "+00:00"))
                         diff = abs((now_utc - prev_dt).total_seconds())
-                        if diff < 15:
-                            logger.info(f"Deduplicated duplicate feature invocation for {email_clean} on {canonical_feature_name} (interval {diff:.1f}s)")
+                        if diff < 3:
                             return recent
                 except Exception:
                     pass
@@ -249,9 +248,11 @@ class ActivityService:
         """
         Determines if an activity event corresponds to actual feature usage,
         strictly excluding:
-        1. Authentication/session actions (login, logout, otp, register, password)
-        2. Passive page navigations/visits (navigate, visit, view_page, page_visit, view_dashboard)
-        3. Generic dashboard overviews/views (Teacher Dashboard, Student Dashboard, Parent Dashboard, etc.)
+        1. User platform suggestions / feedback (explicitly excluded from activity)
+        2. Authentication/session actions (login, logout, otp, register, password)
+        3. Passive page navigations/visits (navigate, visit, view_page, page_visit, view_dashboard)
+        4. Page route visits that sent generic 'feature_use' without actual generation/usage details
+        5. Generic dashboard overviews/views (Teacher Dashboard, Student Dashboard, Parent Dashboard, etc.)
         """
         if not act or not isinstance(act, dict):
             return False
@@ -261,7 +262,11 @@ class ActivityService:
         feat_id = (act.get("feature_id") or "").lower().strip()
         path = (act.get("path") or "").lower().strip()
 
-        # 1. Auth / Login / Logout blocklist
+        # 1. Suggestions blocklist - explicitly NOT shown in activity
+        if "suggestion" in action or "suggestion" in feat_name or "suggestion" in feat_id or "suggestion" in path:
+            return False
+
+        # 2. Auth / Login / Logout blocklist
         auth_keywords = [
             "login", "logout", "otp", "auth", "register", "sign_in", "sign_out",
             "signin", "signout", "password", "forgot", "session"
@@ -275,15 +280,21 @@ class ActivityService:
         if path in ["/login", "/register", "/auth", "/forgot-password", "/reset-password"]:
             return False
 
-        # 2. Page Navigation / Passive Visit blocklist
+        # 3. Page Navigation / Passive Visit blocklist
         nav_actions = [
             "navigate", "visit", "view_page", "page_visit", "view_dashboard", 
-            "page_view", "route_change", "school_view", "view_profile"
+            "page_view", "route_change", "school_view", "view_profile", "view", ""
         ]
         if action in nav_actions:
             return False
 
-        # 3. Dashboard / Overview page names blocklist
+        # 4. Filter out passive page visits that sent generic 'feature_use' with no real payload details
+        if action == "feature_use":
+            details = act.get("details")
+            if not details or not isinstance(details, dict) or len(details) == 0:
+                return False
+
+        # 5. Dashboard / Overview page names blocklist
         dash_names = [
             "teacher dashboard", "student dashboard", "parent dashboard", 
             "dashboard visit", "dashboard", "student home", "school campus profile",
@@ -292,7 +303,7 @@ class ActivityService:
         if feat_name in dash_names or feat_id in ["dashboard", "student-dashboard", "parent-dashboard", "school-profile"]:
             return False
 
-        # 4. If action is empty or generic 'view' on a dashboard/root route
+        # 6. If action is empty or generic 'view' on a dashboard/root route
         if action in ["", "view"] and path in ["/dashboard", "/dashboard/student", "/dashboard/parent", "/dashboard/school", "/dashboard/school/profile", "/"]:
             return False
 
@@ -341,8 +352,6 @@ class ActivityService:
             return "Student Leaderboard"
         if "children" in path or feat_id in ["children", "my_children"]:
             return "Child Accounts & Progress"
-        if "suggestion" in path or "suggestion" in feat_id or action in ["submit_suggestion", "view_suggestions"]:
-            return "Platform Suggestions & Ideas"
 
         # Agent chat names
         if feat_id == "teacher_mentor" or "teacher_mentor" in path:

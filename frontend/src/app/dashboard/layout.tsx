@@ -100,8 +100,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         pathname.replace("/dashboard/", "").replace(/[-_/]/g, " ").toUpperCase();
 
       const featureId = agentParam ? `agent-${agentParam}` : pathname.replace("/dashboard/", "").replace(/[/]/g, "-") || "dashboard";
-      const isFeatureRoute = pathname.startsWith("/dashboard/") && !["/dashboard", "/dashboard/student", "/dashboard/parent", "/dashboard/school"].includes(pathname);
-      const actionType = isFeatureRoute || agentParam ? "feature_use" : "navigate";
+      // Page route navigation is strictly a presence/navigation event, NOT a feature usage.
+      // Real feature usage is tracked only when user actually generates a paper, creates an assignment, takes a quiz, etc.
+      const actionType = "navigate";
 
       const payload = {
         email: user.email,

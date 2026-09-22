@@ -293,10 +293,10 @@ async def get_all_users():
             p["is_active_today"] = True
             p["last_active_today"] = act.get("last_active")
             p["last_active_display"] = act.get("last_active_display")
-            p["features_used_today"] = list(act.get("features_used", []))
-            p["features_summary"] = list(act.get("features_summary", []))
+            p["features_used_today"] = [f for f in act.get("features_used", []) if "suggestion" not in f.lower()]
+            p["features_summary"] = [f for f in act.get("features_summary", []) if "suggestion" not in f.get("name", "").lower()]
             p["actions_today_count"] = act.get("actions_count", 0)
-            p["total_feature_uses"] = act.get("total_feature_uses", 0)
+            p["total_feature_uses"] = sum(f.get("count", 1) for f in p["features_summary"])
         else:
             p["is_active_today"] = False
             p["last_active_today"] = None
@@ -335,10 +335,10 @@ async def get_all_users():
                         ch["is_active_today"] = True
                         ch["last_active_today"] = child_act.get("last_active")
                         ch["last_active_display"] = child_act.get("last_active_display")
-                        ch["features_used_today"] = child_act.get("features_used", [])
-                        ch["features_summary"] = child_act.get("features_summary", [])
+                        ch["features_used_today"] = [f for f in child_act.get("features_used", []) if "suggestion" not in f.lower()]
+                        ch["features_summary"] = [f for f in child_act.get("features_summary", []) if "suggestion" not in f.get("name", "").lower()]
                         ch["actions_today_count"] = child_act.get("actions_count", 0)
-                        ch["total_feature_uses"] = child_act.get("total_feature_uses", 0)
+                        ch["total_feature_uses"] = sum(f.get("count", 1) for f in ch["features_summary"])
                     else:
                         # Check if child has taken any quizzes or notes today
                         today_date = time.strftime("%Y-%m-%d")
@@ -569,13 +569,26 @@ async def get_user_activity(email: str, limit: int = Query(50)):
     except Exception as e:
         logger.warning(f"Notice: Enriched activity lookup: {e}")
 
+    # Filter timeline to strictly valid real feature events, completely excluding suggestions
+    timeline = [
+        item for item in timeline
+        if activity_service.is_feature_event(item) and "suggestion" not in (
+            str(item.get("feature_name", "")) + 
+            str(item.get("feature_id", "")) + 
+            str(item.get("action", "")) + 
+            str(item.get("path", ""))
+        ).lower()
+    ]
+
     # Re-sort newest first
     timeline = sorted(timeline, key=lambda x: x.get("timestamp", ""), reverse=True)
 
-    # Rebuild features_summary counts dynamically from all accumulated timeline events
+    # Rebuild features_summary counts dynamically from real feature events only
     feat_counts: Dict[str, Dict[str, Any]] = {}
     for item in timeline:
         fname = item.get("feature_name") or "Specialized Tool"
+        if "suggestion" in fname.lower():
+            continue
         if fname not in feat_counts:
             feat_counts[fname] = {
                 "name": fname,
@@ -587,11 +600,13 @@ async def get_user_activity(email: str, limit: int = Query(50)):
             feat_counts[fname]["count"] += 1
 
     features_summary = sorted(list(feat_counts.values()), key=lambda x: x["count"], reverse=True)
+    total_feature_uses = sum(f["count"] for f in features_summary)
 
     return {
         "status": "success",
         "email": email,
         "count": len(timeline[:limit]),
+        "total_feature_uses": total_feature_uses,
         "timeline": timeline[:limit],
         "features_summary": features_summary,
     }

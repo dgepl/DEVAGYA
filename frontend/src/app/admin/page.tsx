@@ -70,7 +70,7 @@ import { useToolConfigStore, ToolItem, isToolEnabled } from "@/store/useToolConf
 import { getApiBase } from "@/lib/api";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
 
-// Filter out page visits, navigations, and login/logout events from activity telemetries
+// Filter out page visits, navigations, suggestions, and login/logout events from activity telemetries
 const isFeatureEvent = (item: any) => {
   if (!item) return false;
   const action = (item.action || "").toLowerCase().trim();
@@ -78,18 +78,32 @@ const isFeatureEvent = (item: any) => {
   const featId = (item.feature_id || "").toLowerCase().trim();
   const path = (item.path || "").toLowerCase().trim();
 
+  // 1. Suggestions blocklist - explicitly NOT shown in activity
+  if (action.includes("suggestion") || featName.includes("suggestion") || featId.includes("suggestion") || path.includes("suggestion")) {
+    return false;
+  }
+
+  // 2. Auth / Login / Logout blocklist
   const authWords = ["login", "logout", "otp", "auth", "register", "sign_in", "sign_out", "password", "signin", "signout"];
   if (authWords.some(w => action.includes(w) || featName.includes(w) || featId.includes(w))) return false;
   if (["/login", "/register", "/auth", "/forgot-password"].includes(path)) return false;
 
-  const navActions = ["navigate", "visit", "view_page", "page_visit", "view_dashboard", "page_view", "school_view", "view_profile", "route_change"];
+  // 3. Page Navigation / Passive Visit blocklist
+  const navActions = ["navigate", "visit", "view_page", "page_visit", "view_dashboard", "page_view", "school_view", "view_profile", "route_change", "view", ""];
   if (navActions.includes(action)) return false;
 
+  // 4. Filter out passive page visits that sent generic 'feature_use' with no real payload details
+  if (action === "feature_use") {
+    const details = item.details;
+    if (!details || typeof details !== "object" || Object.keys(details).length === 0) return false;
+  }
+
+  // 5. Dashboard / Overview page names blocklist
   const dashNames = ["teacher dashboard", "student dashboard", "parent dashboard", "dashboard visit", "dashboard", "school campus profile", "student home", "overview"];
-  if (dashNames.includes(featName) && ["view", "visit", "navigate", ""].includes(action)) return false;
+  if (dashNames.includes(featName)) return false;
   if (["dashboard", "student-dashboard", "parent-dashboard", "school-profile"].includes(featId)) return false;
 
-  if ((action === "view" || !action) && ["/dashboard", "/dashboard/student", "/dashboard/parent", "/dashboard/school", "/dashboard/school/profile", "/"].includes(path)) return false;
+  if (["/dashboard", "/dashboard/student", "/dashboard/parent", "/dashboard/school", "/dashboard/school/profile", "/"].includes(path)) return false;
 
   return true;
 };
@@ -2104,7 +2118,7 @@ export default function SuperAdminPage() {
                     ) : (
                       filteredUsers.map((u) => {
                         const isActiveToday = Boolean(u.is_active_today);
-                        const featuresUsed = u.features_used_today || [];
+                        const featuresUsed = (u.features_used_today || []).filter((feat: string) => !feat.toLowerCase().includes("suggestion"));
                         const lastTime = u.last_active_display || (u.last_active_today ? formatActivityTime(u.last_active_today) : null);
 
                         return (
@@ -2279,9 +2293,9 @@ export default function SuperAdminPage() {
                                               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
                                                 Features Used Today:
                                               </span>
-                                              {Array.isArray(ch.features_used_today) && ch.features_used_today.length > 0 ? (
+                                              {Array.isArray(ch.features_used_today) && ch.features_used_today.filter((feat: string) => !feat.toLowerCase().includes("suggestion")).length > 0 ? (
                                                 <div className="flex flex-wrap gap-1">
-                                                  {ch.features_used_today.map((feat: string, fIdx: number) => {
+                                                  {ch.features_used_today.filter((feat: string) => !feat.toLowerCase().includes("suggestion")).map((feat: string, fIdx: number) => {
                                                     const match = feat.match(/^(.*)\s\(([0-9]+)x\)$/);
                                                     const name = match ? match[1] : feat;
                                                     const count = match ? match[2] : null;
@@ -3770,12 +3784,13 @@ export default function SuperAdminPage() {
 
             {/* Quick summary cards */}
             {(() => {
-              const effectiveSummary = userFeaturesSummary.length > 0 
+              const baseSummary = userFeaturesSummary.length > 0 
                 ? userFeaturesSummary 
                 : (() => {
                     const counts: Record<string, { name: string; count: number; last_used?: string }> = {};
                     for (const item of userTimeline.filter(isFeatureEvent)) {
                       const name = item.feature_name || "Specialized Tool";
+                      if (name.toLowerCase().includes("suggestion")) continue;
                       if (!counts[name]) {
                         counts[name] = { name, count: 1, last_used: item.timestamp };
                       } else {
@@ -3784,6 +3799,8 @@ export default function SuperAdminPage() {
                     }
                     return Object.values(counts).sort((a, b) => b.count - a.count);
                   })();
+
+              const effectiveSummary = baseSummary.filter((f: any) => !f.name.toLowerCase().includes("suggestion"));
 
               const totalUses = userTotalFeatureUses || effectiveSummary.reduce((acc: number, f: any) => acc + (f.count || 1), 0);
               const filteredEvents = userTimeline.filter(isFeatureEvent);
