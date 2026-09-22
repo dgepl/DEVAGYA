@@ -31,6 +31,9 @@ LANGUAGE_INSTRUCTIONS = {
     "english": "",
 }
 
+# High-speed in-memory conversation context cache for live conversational agents (e.g. English Coach)
+_live_conv_cache: Dict[str, dict] = {}
+
 
 from services.rate_limiter import check_rate_limit
 from fastapi import Depends
@@ -317,7 +320,12 @@ async def agent_chat_message(
 
     # Resolve or create the conversation (self-healing if id expired or not found)
     conv = None
-    if conversation_id:
+    if agent_code == "english_coach" and conversation_id and conversation_id in _live_conv_cache:
+        conv = _live_conv_cache[conversation_id]
+        if conv and conv.get("language") != language:
+            conv["language"] = language
+            asyncio.create_task(asyncio.to_thread(chat_history_service.update_language, conversation_id, language))
+    elif conversation_id:
         conv = chat_history_service.get_conversation(conversation_id, user_id)
         if conv and conv.get("language") != language:
             chat_history_service.update_language(conversation_id, language)
@@ -326,6 +334,9 @@ async def agent_chat_message(
         conv = chat_history_service.create_conversation(
             user_id, _derive_title(message or (doc_sections[0] if doc_sections else "Document Chat")), agent_code=agent_code, language=language
         )
+
+    if agent_code == "english_coach" and conv:
+        _live_conv_cache[conv["id"]] = conv
 
     # Process uploaded images -> compressed base64 data URLs
     data_urls: List[str] = []
@@ -367,7 +378,12 @@ async def agent_chat_message(
 
     if conv.get("title") in ("New Chat", None) and final_user_prompt:
         title_source = user_msg_content if (agent_code == "english_coach" and user_msg_content != final_user_prompt) else (message or (all_doc_files[0].filename if all_doc_files else "New Chat"))
-        chat_history_service.update_title(conv["id"], _derive_title(title_source))
+        new_title = _derive_title(title_source)
+        conv["title"] = new_title
+        if agent_code == "english_coach":
+            asyncio.create_task(asyncio.to_thread(chat_history_service.update_title, conv["id"], new_title))
+        else:
+            chat_history_service.update_title(conv["id"], new_title)
 
     # Build AI messages from full conversation context (reusing conv to save Supabase fetch latency)
     ai_messages = _build_agent_ai_messages(conv["id"], user_id, agent["system_prompt"], language, conv=conv, agent_code=agent_code)
@@ -376,8 +392,8 @@ async def agent_chat_message(
         async def event_generator():
             full = ""
             try:
-                fast_model = "gemini-flash-lite-latest" if agent_code == "english_coach" else None
-                max_toks = 90 if agent_code == "english_coach" else None
+                fast_model = "gemini-3.5-flash-lite" if agent_code == "english_coach" else None
+                max_toks = 85 if agent_code == "english_coach" else None
                 async for chunk in ai_provider.stream_chat_completion(ai_messages, max_tokens=max_toks, model=fast_model):
                     full += chunk
                     yield chunk

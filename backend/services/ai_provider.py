@@ -330,7 +330,7 @@ class AIProviderService:
         # Build candidate fallback models list with ultra-fast models
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = [selected_model, "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"]
+            candidate_fallbacks = [selected_model, "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
         else:
             candidate_fallbacks = ["openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 

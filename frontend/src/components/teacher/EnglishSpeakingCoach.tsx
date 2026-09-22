@@ -881,7 +881,8 @@ ${visualDirective}
 Teacher said: "${input}"
 
 Instructions:
-- Reply in 1-2 ultra-crisp spoken sentences (max 25-30 words total).
+- CRITICAL FOR 1-SECOND RESPONSE: Start IMMEDIATELY with an instant 1-2 word enthusiastic reaction followed by an exclamation mark (e.g. "Awesome!", "Spot on!", "Great effort!", or in Hindi "शानदार!", "बहुत बढ़िया!", "अति उत्तम!"), then immediately continue with your supportive spoken advice.
+- Reply in 1-2 ultra-crisp spoken sentences (max 20-25 words total).
 ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, praise, and tips ONLY in pure Devanagari Hindi (हिंदी देवनागरी लिपि). Do NOT write Hindi using English/Latin alphabet." : ""}
 - Acknowledge what they said and their facial expression warmly like an enthusiastic colleague.
 - If there is an obvious grammar or pronunciation slip, append strictly at the end:
@@ -949,9 +950,8 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
             isAiThinkingRef.current = false;
           }
 
-          // Progressive sentence streaming: play sentence 1 as soon as it completes!
-          // Matches sentence ending with punctuation or newline
-          const match = sentenceBuffer.match(/^([\s\S]*?[\.\!\?\n])(\s+[\s\S]*|$)/);
+          // Progressive sentence & initial clause streaming: play clause 1 as soon as punctuation arrives!
+          const match = sentenceBuffer.match(/^([\s\S]*?[\.\!\?\n]|[\s\S]{16,}?[\,\;\:\–\—])(\s+[\s\S]*|$)/);
           if (match) {
             const finishedSentence = match[1].trim();
             sentenceBuffer = match[2] || "";
@@ -1094,11 +1094,11 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
 
           const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for)\s*$/i.test(candidateText);
           const words = candidateText.split(/\s+/).filter(Boolean);
-          let silenceDelay = 350; // Ultra-fast natural pause: 0.35s for instant coach response like Gemini Live
+          let silenceDelay = 200; // Ultra-fast pause: 0.20s for immediate response like Gemini Live
           if (isConnectorWord) {
-            silenceDelay = 700; // Brief 0.70s pause when finishing on connector words like "and...", "so..."
+            silenceDelay = 420; // 0.42s pause when finishing on connector words like "and...", "so..."
           } else if (words.length <= 2) {
-            silenceDelay = 500; // 0.50s pause for brief 1-2 word utterances
+            silenceDelay = 260; // 0.26s pause for brief 1-2 word utterances
           }
 
           silenceTimerRef.current = setTimeout(() => {
