@@ -19,13 +19,21 @@ ADMIN_DATA_DIR = Path(__file__).parent.parent.parent / "data"
 ADMIN_DATA_DIR.mkdir(parents=True, exist_ok=True)
 ADMIN_SESSION_FILE = ADMIN_DATA_DIR / "admin_session.json"
 
+VALID_ADMIN_USERS = {
+    "ved prakash": "Ved Prakash",
+    "melbin benny": "Melbin Benny",
+    "pratikk": "Pratikk",
+    "admin": "Super Admin"
+}
+
 class AdminSessionManager:
     """Manages single-device session enforcement. When an admin logs in, all previous sessions on any device are revoked."""
     def __init__(self):
         self.current_token: Optional[str] = None
-        self.username: str = "admin"
+        self.username: str = "Super Admin"
         self.logged_in_at: Optional[str] = None
         self.device_info: Optional[str] = None
+        self.last_revoked_by: Optional[str] = None
         self._load()
 
     def _load(self):
@@ -34,9 +42,10 @@ class AdminSessionManager:
                 with open(ADMIN_SESSION_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self.current_token = data.get("current_token")
-                    self.username = data.get("username", "admin")
+                    self.username = data.get("username", "Super Admin")
                     self.logged_in_at = data.get("logged_in_at")
                     self.device_info = data.get("device_info", "")
+                    self.last_revoked_by = data.get("last_revoked_by")
             except Exception as e:
                 logger.warning(f"Error loading admin session: {e}")
 
@@ -47,19 +56,24 @@ class AdminSessionManager:
                     "current_token": self.current_token,
                     "username": self.username,
                     "logged_in_at": self.logged_in_at,
-                    "device_info": self.device_info
+                    "device_info": self.device_info,
+                    "last_revoked_by": self.last_revoked_by
                 }, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to persist admin session: {e}")
 
-    def create_session(self, username: str = "admin", device_info: str = "") -> str:
+    def create_session(self, username: str = "Super Admin", device_info: str = "") -> str:
+        # If there was an active session and another admin logs in, record who revoked it
+        if self.current_token and self.username and self.username != username:
+            self.last_revoked_by = username
+
         new_token = f"devgya_adm_{int(time.time())}_{uuid.uuid4().hex}"
         self.current_token = new_token
         self.username = username
         self.logged_in_at = datetime.utcnow().isoformat()
         self.device_info = device_info
         self._save()
-        logger.info(f"Created active admin session: {new_token[:16]}... Previous sessions revoked.")
+        logger.info(f"Created active admin session for '{username}': {new_token[:16]}... Previous sessions revoked.")
         return new_token
 
     def verify_session(self, token: Optional[str]) -> bool:
@@ -75,8 +89,10 @@ class AdminSessionManager:
     def get_session_info(self) -> Dict[str, Any]:
         return {
             "active": bool(self.current_token),
+            "username": self.username,
             "logged_in_at": self.logged_in_at,
-            "device_info": self.device_info
+            "device_info": self.device_info,
+            "last_revoked_by": self.last_revoked_by
         }
 
 admin_session_manager = AdminSessionManager()
@@ -157,24 +173,29 @@ class UpdateSchedulePayload(BaseModel):
 
 @router.post("/login")
 async def admin_login(payload: AdminLoginPayload, request: Request):
-    """Authenticate Admin user with credentials admin / admin123. Invalidates any other admin sessions on other devices."""
-    if payload.username.strip() == "admin" and payload.password.strip() == "admin123":
+    """Authenticate Admin user from dropdown list (ved prakash, melbin benny, pratikk). Invalidates any previous admin sessions."""
+    clean_user = payload.username.strip().lower()
+    clean_pass = payload.password.strip()
+
+    if clean_user in VALID_ADMIN_USERS and clean_pass == "admin123":
+        display_name = VALID_ADMIN_USERS[clean_user]
         ua = request.headers.get("user-agent", "")
-        session_token = admin_session_manager.create_session(username="admin", device_info=ua)
+        session_token = admin_session_manager.create_session(username=display_name, device_info=ua)
         return {
             "status": "success",
-            "message": "Super Admin access granted. Any previous active session on another device has been logged out.",
+            "message": f"Super Admin access granted to {display_name}. Any previous active session on another device has been logged out.",
+            "username": display_name,
             "token": session_token,
             "session_id": session_token
         }
-    raise HTTPException(status_code=401, detail="Invalid Super Admin credentials. Use username: admin, password: admin123")
+    raise HTTPException(status_code=401, detail="Invalid Super Admin credentials. Select your Admin Username and enter the password.")
 
 @router.get("/session-verify")
 async def verify_admin_session(
     x_admin_token: Optional[str] = Header(None),
     authorization: Optional[str] = Header(None)
 ):
-    """Checks whether the admin session token is still active and valid. Returns 401 SESSION_REVOKED if another device logged in."""
+    """Checks whether the admin session token is still active and valid. Returns 401 with the new admin username if another admin logged in."""
     token = x_admin_token
     if not token and authorization and authorization.startswith("Bearer "):
         token = authorization[7:].strip()
@@ -187,17 +208,33 @@ async def verify_admin_session(
         )
 
     if not admin_session_manager.verify_session(token):
+        current_admin = admin_session_manager.username or "Another administrator"
+        detail_msg = f"Session terminated because {current_admin} logged in from another device."
         raise HTTPException(
             status_code=401,
-            detail="SESSION_REVOKED",
-            headers={"X-Admin-Session": "revoked"}
+            detail=detail_msg,
+            headers={
+                "X-Admin-Session": "revoked",
+                "X-Current-Admin": current_admin
+            }
         )
 
     return {
         "status": "active",
         "valid": True,
         "message": "Admin session active",
+        "username": admin_session_manager.username,
         "session_info": admin_session_manager.get_session_info()
+    }
+
+@router.get("/current-session")
+async def get_current_admin_session():
+    """Returns active session details so the UI can show who is currently logged in."""
+    return {
+        "active": bool(admin_session_manager.current_token),
+        "username": admin_session_manager.username if admin_session_manager.current_token else None,
+        "logged_in_at": admin_session_manager.logged_in_at if admin_session_manager.current_token else None,
+        "last_revoked_by": admin_session_manager.last_revoked_by
     }
 
 @router.post("/logout")

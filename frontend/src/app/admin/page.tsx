@@ -94,10 +94,17 @@ const isFeatureEvent = (item: any) => {
   return true;
 };
 
+const ADMIN_USER_OPTIONS = [
+  { id: "ved prakash", label: "Ved Prakash", role: "Super Admin" },
+  { id: "melbin benny", label: "Melbin Benny", role: "Administrator" },
+  { id: "pratikk", label: "Pratikk", role: "Administrator" },
+];
+
 export default function SuperAdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [adminUser, setAdminUser] = useState("");
+  const [adminUser, setAdminUser] = useState("ved prakash");
   const [adminPass, setAdminPass] = useState("");
+  const [currentAdminUser, setCurrentAdminUser] = useState<string>("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loadingLogin, setLoadingLogin] = useState(false);
   const [sessionRevokedNotice, setSessionRevokedNotice] = useState<string | null>(null);
@@ -257,8 +264,12 @@ export default function SuperAdminPage() {
   const [savingSchedule, setSavingSchedule] = useState(false);
 
   const handleRevokedSession = (msg?: string) => {
-    localStorage.removeItem("devgya_admin_token");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("devgya_admin_token");
+      localStorage.removeItem("devgya_admin_username");
+    }
     setIsAuthenticated(false);
+    setCurrentAdminUser("");
     setSessionRevokedNotice(
       msg || "Another administrator logged in from another device. For security, your session has been ended automatically."
     );
@@ -276,15 +287,27 @@ export default function SuperAdminPage() {
         headers: { "x-admin-token": token }
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.username) {
+          setCurrentAdminUser(data.username);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("devgya_admin_username", data.username);
+          }
+        }
         return true;
       }
       if (res.status === 401) {
         const err = await res.json().catch(() => ({}));
-        if (err.detail === "SESSION_REVOKED") {
-          handleRevokedSession("Another administrator logged in from another device. You have been logged out automatically.");
-        } else {
-          handleRevokedSession("Admin session has expired. Please log in again.");
+        const revokedBy = res.headers.get("x-current-admin");
+        let noticeMsg = err.detail;
+        if (!noticeMsg || noticeMsg === "SESSION_REVOKED" || noticeMsg === "INVALID_TOKEN") {
+          if (revokedBy) {
+            noticeMsg = `Session terminated because ${revokedBy} logged in from another device.`;
+          } else {
+            noticeMsg = "Another administrator logged in from another device. You have been logged out automatically.";
+          }
         }
+        handleRevokedSession(noticeMsg);
         return false;
       }
       return false;
@@ -297,6 +320,10 @@ export default function SuperAdminPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const token = localStorage.getItem("devgya_admin_token");
+    const storedAdmin = localStorage.getItem("devgya_admin_username");
+    if (storedAdmin) {
+      setCurrentAdminUser(storedAdmin);
+    }
     if (token) {
       verifySession(token).then((isValid) => {
         if (isValid) {
@@ -329,8 +356,10 @@ export default function SuperAdminPage() {
     } finally {
       if (typeof window !== "undefined") {
         localStorage.removeItem("devgya_admin_token");
+        localStorage.removeItem("devgya_admin_username");
       }
       setIsAuthenticated(false);
+      setCurrentAdminUser("");
       setSessionRevokedNotice(null);
     }
   };
@@ -355,10 +384,14 @@ export default function SuperAdminPage() {
 
       if (res.ok && data.token) {
         localStorage.setItem("devgya_admin_token", data.token);
+        if (data.username) {
+          localStorage.setItem("devgya_admin_username", data.username);
+          setCurrentAdminUser(data.username);
+        }
         setIsAuthenticated(true);
         fetchAdminData(data.token);
       } else {
-        setLoginError(data.detail || "Invalid Super Admin credentials. Use admin / admin123");
+        setLoginError(data.detail || "Invalid Super Admin credentials. Please select an authorized admin and enter the password.");
       }
     } catch (err) {
       setLoginError("Failed to reach server. Ensure FastAPI backend is running on port 8000.");
@@ -378,7 +411,10 @@ export default function SuperAdminPage() {
         headers: token ? { "x-admin-token": token } : {}
       });
       if (res.status === 401) {
-        handleRevokedSession("Session has been terminated because another device logged in.");
+        const err = await res.json().catch(() => ({}));
+        const revokedBy = res.headers.get("x-current-admin");
+        const msg = err.detail || (revokedBy ? `Session terminated because ${revokedBy} logged in from another device.` : "Session has been terminated because another administrator logged in.");
+        handleRevokedSession(msg);
         return;
       }
       const data = await res.json();
@@ -1346,9 +1382,12 @@ export default function SuperAdminPage() {
           </div>
 
           {sessionRevokedNotice && (
-            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 text-xs font-bold flex items-start gap-2.5">
-              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-              <span>{sessionRevokedNotice}</span>
+            <div className="p-4 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl text-amber-200 text-xs font-semibold flex items-start gap-3 shadow-lg shadow-amber-950/40 animate-in fade-in slide-in-from-top-2 duration-300">
+              <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-black text-amber-300 uppercase tracking-wider text-[10px]">Active Session Overridden</p>
+                <p className="leading-relaxed">{sessionRevokedNotice}</p>
+              </div>
             </div>
           )}
 
@@ -1361,15 +1400,28 @@ export default function SuperAdminPage() {
 
           <form onSubmit={handleAdminLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-300">Admin Username</label>
-              <input
-                type="text"
-                required
-                value={adminUser}
-                onChange={(e) => setAdminUser(e.target.value)}
-                placeholder="admin"
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-300">Select Admin Username</label>
+                <span className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider">Authorized Only</span>
+              </div>
+              <div className="relative">
+                <select
+                  required
+                  value={adminUser}
+                  onChange={(e) => setAdminUser(e.target.value)}
+                  className="w-full appearance-none px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer pr-10 hover:border-slate-600 transition-colors"
+                >
+                  {ADMIN_USER_OPTIONS.map((opt) => (
+                    <option key={opt.id} value={opt.id} className="bg-slate-900 text-white py-2">
+                      {opt.label} ({opt.role})
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400">Choose your registered admin identity</p>
             </div>
 
             <div className="space-y-1.5">
@@ -1394,8 +1446,8 @@ export default function SuperAdminPage() {
             </button>
           </form>
 
-          <div className="text-center pt-2 border-t border-slate-800 text-[11px] text-slate-400 font-mono">
-            Default Credentials: admin / admin123
+          <div className="text-center pt-2 border-t border-slate-800 text-[11px] text-slate-400">
+            Authorized Profiles: <span className="font-semibold text-slate-300">Ved Prakash</span> • <span className="font-semibold text-slate-300">Melbin Benny</span> • <span className="font-semibold text-slate-300">Pratikk</span>
           </div>
         </div>
       </div>
@@ -1489,16 +1541,30 @@ export default function SuperAdminPage() {
             </div>
           </div>
 
-          {/* ACTIVE DEVICE CARD */}
-          <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/70 space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
-                <Laptop className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Device Protected</span>
+          {/* LOGGED IN ADMIN PROFILE & ACTIVE DEVICE CARD */}
+          <div className="p-3.5 bg-gradient-to-b from-slate-800 to-slate-800/80 rounded-2xl border border-slate-700/80 space-y-2.5 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-600 to-amber-500 flex items-center justify-center text-white text-xs font-black shadow-md shrink-0">
+                {currentAdminUser ? currentAdminUser.charAt(0).toUpperCase() : "A"}
               </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Logged In Admin</p>
+                <p className="text-xs font-black text-white truncate" title={currentAdminUser || "Super Admin"}>
+                  {currentAdminUser || "Super Admin"}
+                </p>
+              </div>
             </div>
-            <p className="text-[10px] text-slate-400 font-medium">Single-session lock active</p>
+
+            <div className="pt-2 border-t border-slate-700/70 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400">
+                <Laptop className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Active Lock</span>
+              </div>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Protected
+              </span>
+            </div>
           </div>
 
           {/* NAVIGATION SLIDEBAR ITEMS */}
@@ -1518,7 +1584,7 @@ export default function SuperAdminPage() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                    <Icon className="w-4 h-4" />
                     <span>{item.label}</span>
                   </div>
                   {item.badge && (
@@ -1565,7 +1631,12 @@ export default function SuperAdminPage() {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="text-sm font-black tracking-tight">Super Admin</span>
+          <div className="flex flex-col">
+            <span className="text-xs font-black tracking-tight">Super Admin</span>
+            {currentAdminUser && (
+              <span className="text-[10px] text-indigo-300 font-bold truncate max-w-[130px]">{currentAdminUser}</span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -1593,9 +1664,14 @@ export default function SuperAdminPage() {
           <div className="w-4/5 max-w-xs bg-slate-900 text-white h-full p-5 flex flex-col justify-between overflow-y-auto animate-in slide-in-from-left duration-200">
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
-                  <span className="font-black text-sm">DEVGYA Admin</span>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                    <span className="font-black text-sm">DEVGYA Admin</span>
+                  </div>
+                  {currentAdminUser && (
+                    <p className="text-[11px] text-indigo-300 font-bold">Admin: {currentAdminUser}</p>
+                  )}
                 </div>
                 <button
                   onClick={() => setMobileNavOpen(false)}
@@ -1643,7 +1719,7 @@ export default function SuperAdminPage() {
                 className="w-full py-2.5 px-3 rounded-xl bg-rose-600 text-white text-xs font-bold flex items-center justify-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
-                <span>Log Out</span>
+                <span>Log Out ({currentAdminUser || "Admin"})</span>
               </button>
             </div>
           </div>
@@ -1666,6 +1742,13 @@ export default function SuperAdminPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
+            {currentAdminUser && (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-bold shadow-2xs">
+                <User className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Logged In: <strong className="text-indigo-700 font-black">{currentAdminUser}</strong></span>
+              </div>
+            )}
+
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Live Database Sync</span>
@@ -3044,12 +3127,23 @@ export default function SuperAdminPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-5 bg-indigo-50/80 rounded-2xl border border-indigo-200 space-y-2">
+                  <span className="text-[10px] font-black uppercase text-indigo-600">Authenticated Admin</span>
+                  <h4 className="text-sm font-black text-indigo-950 flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-indigo-600" />
+                    <span>{currentAdminUser || "Super Admin"}</span>
+                  </h4>
+                  <p className="text-xs text-indigo-900/80 leading-relaxed font-medium">
+                    Currently verified administrator with master control and database privileges.
+                  </p>
+                </div>
+
                 <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                  <span className="text-[10px] font-black uppercase text-indigo-600">Enforcement Policy</span>
+                  <span className="text-[10px] font-black uppercase text-slate-500">Enforcement Policy</span>
                   <h4 className="text-sm font-black text-slate-900">Single-Device Active Lock</h4>
                   <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                    When an administrator logs in from any new device or browser, all previous active admin sessions on any other device are instantly invalidated.
+                    When any other admin logs in, this session is automatically terminated and the incoming admin's name is announced.
                   </p>
                 </div>
 
@@ -3060,7 +3154,7 @@ export default function SuperAdminPage() {
                     <span>Active Verified Session</span>
                   </h4>
                   <p className="text-xs text-emerald-800 leading-relaxed font-medium">
-                    Continuous 5-second polling actively verifies session validity with backend memory.
+                    Continuous 5-second polling actively verifies session token integrity with backend server.
                   </p>
                 </div>
               </div>
