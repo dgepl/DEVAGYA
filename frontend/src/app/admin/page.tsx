@@ -62,7 +62,7 @@ import {
   Flame,
   ArrowUpRight,
   Copy,
-  GraduationCap
+  GraduationCap,
 } from "lucide-react";
 import { useToolConfigStore, ToolItem, isToolEnabled } from "@/store/useToolConfigStore";
 import { getApiBase } from "@/lib/api";
