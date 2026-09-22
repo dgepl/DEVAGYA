@@ -6,7 +6,6 @@ import {
   HeartHandshake, 
   Sparkles, 
   GraduationCap, 
-  Headphones, 
   Search, 
   X, 
   ArrowRight,
@@ -24,7 +23,7 @@ export function MobileParentDashboard() {
   const rawParentTools = [
     { name: "Parenting Coach", sub: "Behavior & Home Routine", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "AI Coach" },
     { name: "Career Counselor", sub: "Stream & College Guidance", href: "/dashboard/agents?agent=career_counselor", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "Career" },
-    { name: "English Speaking Coach", sub: "Daily Conversation & Fluency", href: "/dashboard/english-coach", icon: Headphones, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", type: "Speaking Coach" },
+    { name: "Research Assistant", sub: "Stream & Exam Pathways", href: "/dashboard/agents?agent=research_assistant", icon: Search, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", type: "Research" },
   ];
 
   const parentTools = useMemo(() => {

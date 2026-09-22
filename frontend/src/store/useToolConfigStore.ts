@@ -228,19 +228,6 @@ export const INITIAL_TOOLS: ToolItem[] = [
     color: "from-rose-500 to-red-600"
   },
   {
-    id: "parent_english_coach",
-    name: "English Speaking Coach",
-    role: "parent",
-    category: "Spoken Fluency",
-    path: "/dashboard/english-coach",
-    badge: "SPOKEN COACH",
-    description: "Practice spoken English communication and phrasing for school meetings and parent-teacher interactions.",
-    greeting: "Practice your English speaking fluency and confidence.",
-    is_enabled: true,
-    icon_name: "Headphones",
-    color: "from-indigo-500 to-purple-600"
-  },
-  {
     id: "parent_research_assistant",
     name: "Research Assistant AI",
     role: "parent",

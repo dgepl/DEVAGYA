@@ -288,7 +288,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       // Parent AI Agents
       { label: "Parenting Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake },
       // General AI Agents
-      { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
       { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
       { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
     ];

@@ -14,8 +14,7 @@ import {
   Brain,
   Smartphone,
   Smile,
-  Target,
-  Headphones
+  Target
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { MobileParentDashboard } from "@/components/dashboard/MobileParentDashboard";
@@ -62,7 +61,7 @@ export function ParentDashboard() {
       <ParentChildOverviewCard />
 
       {/* PARENT AI TOOLS & CONSULTATION TILES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
         {/* PARENTING COACH */}
         <Link 
@@ -100,26 +99,6 @@ export function ParentDashboard() {
           </div>
           <div className="flex items-center gap-1.5 text-xs font-bold text-purple-600 group-hover:translate-x-1 transition-transform">
             <span>Career Guidance</span>
-            <ArrowRight className="w-4 h-4" />
-          </div>
-        </Link>
-
-        {/* ENGLISH SPEAKING COACH */}
-        <Link 
-          href="/dashboard/english-coach" 
-          className="p-6 bg-white border border-slate-200 rounded-3xl shadow-sm hover:border-indigo-300 transition-all flex flex-col justify-between group h-48"
-        >
-          <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center">
-              <Headphones className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-extrabold text-slate-900">English Speaking Coach</h3>
-            <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              Improve conversational fluency, vocabulary & public speaking tips with live speech coaching.
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 group-hover:translate-x-1 transition-transform">
-            <span>Practice Speaking</span>
             <ArrowRight className="w-4 h-4" />
           </div>
         </Link>

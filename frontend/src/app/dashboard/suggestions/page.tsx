@@ -73,7 +73,6 @@ const FEATURE_OPTIONS_BY_ROLE: Record<string, Array<{ id: string; name: string }
   parent: [
     { id: "parent_coach", name: "Parenting AI Coach" },
     { id: "children_accounts", name: "Children Accounts & Progress Tracking" },
-    { id: "english_coach", name: "English Speaking Coach" },
     { id: "research_assistant", name: "Research Assistant" },
     { id: "parent_reports", name: "Child Academic Report Cards" },
     { id: "other", name: "Other / Propose New Feature" },
