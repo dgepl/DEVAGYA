@@ -338,6 +338,22 @@ export function EnglishSpeakingCoach() {
   const audioQueueRef = useRef<string[]>([]);
   const isPlayingQueueRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const activeUtteranceRef = useRef<any>(null);
+  const cachedVoicesRef = useRef<SpeechSynthesisVoice[]>([]);
+
+  // Pre-warm browser voices for instant 0-delay playback
+  useEffect(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      const loadVoices = () => {
+        try {
+          const v = window.speechSynthesis.getVoices();
+          if (v && v.length > 0) cachedVoicesRef.current = v;
+        } catch {}
+      };
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
 
   // Keep refs synced
   useEffect(() => { isLiveActiveRef.current = isLiveActive; }, [isLiveActive]);
@@ -601,9 +617,6 @@ export function EnglishSpeakingCoach() {
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
     }
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
 
     const cleanText = cleanForSpeech(textToSpeak);
     if (!cleanText || cleanText.length < 2) {
@@ -652,7 +665,7 @@ export function EnglishSpeakingCoach() {
     };
 
     try {
-      // Instant Gemini Live Speech: use native device Web Speech API for immediate (30ms) zero-latency playback
+      // Instant Gemini Live Speech: use native device Web Speech API for immediate zero-latency playback
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         fallbackSpeechSynthesis(cleanText, handleFinished);
         return;
@@ -706,7 +719,6 @@ export function EnglishSpeakingCoach() {
     }
 
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
       const isDevanagari = /[\u0900-\u097F]/.test(text);
       const isHindi = languageMode === "hindi" || isDevanagari;
 
@@ -715,7 +727,7 @@ export function EnglishSpeakingCoach() {
       utt.rate = isHindi ? 0.95 : 1.0;
       utt.pitch = isHindi ? 1.02 : 1.0;
 
-      const voices = window.speechSynthesis.getVoices();
+      const voices = cachedVoicesRef.current.length > 0 ? cachedVoicesRef.current : window.speechSynthesis.getVoices();
       if (isHindi) {
         // High quality authentic Indian Hindi voices
         const hindiVoice = voices.find(v => 
@@ -736,6 +748,7 @@ export function EnglishSpeakingCoach() {
       const done = () => {
         if (called) return;
         called = true;
+        activeUtteranceRef.current = null;
         setIsAiSpeaking(false);
         isAiSpeakingRef.current = false;
         if (isLiveActiveRef.current || showTextKeyboard) {
@@ -745,7 +758,9 @@ export function EnglishSpeakingCoach() {
 
       utt.onend = done;
       utt.onerror = done;
+      activeUtteranceRef.current = utt;
       if (isLiveActiveRef.current || showTextKeyboard) {
+        try { window.speechSynthesis.resume(); } catch {}
         window.speechSynthesis.speak(utt);
       }
     } else {
@@ -860,35 +875,17 @@ export function EnglishSpeakingCoach() {
     };
     setConversationHistory(prev => [...prev, userMsgItem]);
 
+    // Clear any previous turn's speech cleanly before initiating fresh turn
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
+
     try {
-      let modeInstruction = "";
-      if (languageMode === "hindi") {
-        modeInstruction = "The educator is practicing with Hindi guidance. You MUST speak, praise, and explain in authentic Hindi written strictly in pure Devanagari script (हिंदी देवनागरी लिपि). NEVER write Hindi in English/Latin letters. Keep the '✨ Better:' phrase in clean English for practice, and all praise, tips, and conversation in pure Devanagari Hindi.";
-      } else if (languageMode === "hinglish") {
-        modeInstruction = "The educator is in bilingual mode. Provide conversational English coaching in natural, friendly Hinglish.";
-      } else {
-        modeInstruction = "Respond in fluent, articulate, natural, supportive English with realistic warmth.";
-      }
-
-      const visualDirective = cameraActive
-        ? `[LIVE CAMERA ON - Teacher's Live Face Expression: ${liveFaceRef.current.label} (${liveFaceRef.current.emoji}) - Naturally acknowledge their expression and presence in 3-5 words]`
-        : `[CAMERA OFF - Audio Only Practice - Focus strictly on spoken English]`;
-
-      const promptDirective = `[GEMINI LIVE SPOKEN CONVERSATION]
-Scenario: ${activeScenario.title}
-Language Mode: ${languageMode} (${modeInstruction})
-${visualDirective}
-Teacher said: "${input}"
-
-Instructions:
-- CRITICAL FOR 1-SECOND RESPONSE: Start IMMEDIATELY with an instant 1-2 word enthusiastic reaction followed by an exclamation mark (e.g. "Awesome!", "Spot on!", "Great effort!", or in Hindi "शानदार!", "बहुत बढ़िया!", "अति उत्तम!"), then immediately continue with your supportive spoken advice.
-- Reply in 1-2 ultra-crisp spoken sentences (max 20-25 words total).
-${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, praise, and tips ONLY in pure Devanagari Hindi (हिंदी देवनागरी लिपि). Do NOT write Hindi using English/Latin alphabet." : ""}
-- Acknowledge what they said and their facial expression warmly like an enthusiastic colleague.
-- If there is an obvious grammar or pronunciation slip, append strictly at the end:
-✨ Better: [Polished Line in English]
-💡 Tip: [1 short tip${languageMode === "hindi" ? " in Devanagari Hindi" : ""}]
-- End with a snappy question to keep the conversation flowing smoothly!`;
+      const promptDirective = languageMode === "hindi"
+        ? `Scenario: ${activeScenario.title}. Teacher said: "${input}". शुद्ध हिंदी (देवनागरी) में 1 संक्षिप्त वाक्य में उत्तर दें। शुरुआत "शानदार!" या "बहुत बढ़िया!" से करें। ✨ Better: [English line] 💡 Tip: [Hindi tip]`
+        : cameraActive
+        ? `Scenario: ${activeScenario.title}. Face: ${liveFaceRef.current.label}. Teacher said: "${input}". Reply warmly in 1 short spoken sentence (max 15 words) starting with 1 energetic reaction word (e.g. "Awesome!", "Spot on!"). ✨ Better: [English phrase] 💡 Tip: [short tip]`
+        : `Scenario: ${activeScenario.title}. Teacher said: "${input}". Reply warmly in 1 short spoken sentence (max 15 words) starting with 1 energetic reaction word (e.g. "Awesome!", "Spot on!"). ✨ Better: [English phrase] 💡 Tip: [short tip]`;
 
       const fd = new FormData();
       fd.append("message", promptDirective);
@@ -1078,9 +1075,13 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
       recognition.onresult = (event: any) => {
         if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
 
+        let isFinalDetected = false;
         let sessionTranscript = "";
         for (let i = 0; i < event.results.length; i++) {
           sessionTranscript += event.results[i][0].transcript + " ";
+          if (event.results[i].isFinal) {
+            isFinalDetected = true;
+          }
         }
 
         const candidateText = cleanSpeechTranscript(sessionTranscript);
@@ -1089,16 +1090,21 @@ ${languageMode === "hindi" ? "- CRITICAL: Write your conversational reply, prais
           accumulatedSpeechRef.current = candidateText;
           setCurrentSpeechText(candidateText);
 
-          // SMART NATURAL CONVERSATIONAL SILENCE DETECTION:
           clearTimeout(silenceTimerRef.current);
+
+          // If browser speech recognition marked phrase as final, dispatch immediately (0ms delay)!
+          if (isFinalDetected && candidateText.length >= 2 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
+            handleSendMessage(candidateText);
+            return;
+          }
 
           const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for)\s*$/i.test(candidateText);
           const words = candidateText.split(/\s+/).filter(Boolean);
-          let silenceDelay = 200; // Ultra-fast pause: 0.20s for immediate response like Gemini Live
+          let silenceDelay = 180; // Ultra-fast interim pause: 0.18s
           if (isConnectorWord) {
-            silenceDelay = 420; // 0.42s pause when finishing on connector words like "and...", "so..."
+            silenceDelay = 380; // Brief pause when trailing on connector words
           } else if (words.length <= 2) {
-            silenceDelay = 260; // 0.26s pause for brief 1-2 word utterances
+            silenceDelay = 220; // Brief pause for 1-2 words
           }
 
           silenceTimerRef.current = setTimeout(() => {

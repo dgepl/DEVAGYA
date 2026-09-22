@@ -99,31 +99,30 @@ def _build_agent_ai_messages(
     # Build system prompt with language instruction
     if agent_code == "english_coach":
         if language == "hindi":
-            lang_instruction = (
-                "CRITICAL INSTRUCTION FOR HINDI COACHING:\n"
-                "1. You MUST speak, praise, converse, and explain ONLY in pure, authentic Hindi written in clean Devanagari script (हिंदी देवनागरी लिपि, e.g. 'बहुत बढ़िया! आपका बोलना बहुत प्रभावशाली है।').\n"
-                "2. NEVER write Hindi words using English/Latin alphabets (STRICTLY NO Romanized Hindi/Hinglish like 'aap kaise hain'). Every Hindi word MUST be in Devanagari script.\n"
-                "3. When providing the polished English expression for the teacher to practice:\n"
-                "   - Keep the '✨ Better: [Clean English sentence]' in clear spoken English so the learner can speak it.\n"
-                "   - Keep the '💡 Tip: [Helpful tip]' and all praise/questions in natural, warm Devanagari Hindi.\n"
-                "4. Keep your reply conversational, encouraging, and natural (1-2 spoken sentences) with authentic Hindi colleague cadence for instant voice synthesis."
+            full_system = (
+                "You are DEVGYA's live spoken English Coach. Reply warmly in 1-2 spoken sentences (max 15-20 words). "
+                "CRITICAL: Start immediately with an energetic 1-word praise ending with '!' (e.g. 'शानदार!', 'बहुत बढ़िया!'). "
+                "Speak strictly in pure Devanagari Hindi (हिंदी). If correcting grammar, append at end: ✨ Better: [English line] 💡 Tip: [Hindi tip]."
             )
         elif language == "hinglish":
-            lang_instruction = (
-                "CRITICAL INSTRUCTION: Reply in natural conversational Hinglish. Keep the tone warm and collegial, and provide the '✨ Better:' line in clean polished English."
+            full_system = (
+                "You are DEVGYA's live spoken English Coach. Reply warmly in 1-2 spoken sentences in Hinglish (max 15-20 words). "
+                "CRITICAL: Start immediately with an energetic 1-word reaction ending with '!' (e.g. 'Awesome!', 'Spot on!'). "
+                "If correcting grammar, append at end: ✨ Better: [English line] 💡 Tip: [Hinglish tip]."
             )
         else:
-            lang_instruction = (
-                "CRITICAL INSTRUCTION: Reply in fluent, expressive, natural conversational English with authentic human warmth, realistic prosody, and supportive encouragement."
+            full_system = (
+                "You are DEVGYA's live spoken English Coach. Reply warmly in 1-2 spoken sentences (max 15-20 words). "
+                "CRITICAL: Start immediately with an energetic 1-word reaction ending with '!' (e.g. 'Awesome!', 'Spot on!', 'Great effort!'). "
+                "If correcting grammar, append at end: ✨ Better: [Polished English line] 💡 Tip: [Short tip]."
             )
+        messages = [{"role": "system", "content": full_system}]
     else:
         lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, "")
-
-    full_system = agent_system_prompt
-    if lang_instruction:
-        full_system = f"{agent_system_prompt}\n\n{lang_instruction}"
-
-    messages = [{"role": "system", "content": full_system}]
+        full_system = agent_system_prompt
+        if lang_instruction:
+            full_system = f"{agent_system_prompt}\n\n{lang_instruction}"
+        messages = [{"role": "system", "content": full_system}]
 
     if conv is None:
         conv = chat_history_service.get_conversation(conversation_id, user_id)
@@ -131,8 +130,8 @@ def _build_agent_ai_messages(
         return messages
 
     conv_messages = conv.get("messages", [])
-    if agent_code == "english_coach" and len(conv_messages) > 6:
-        conv_messages = conv_messages[-6:]
+    if agent_code == "english_coach" and len(conv_messages) > 4:
+        conv_messages = conv_messages[-4:]
     total_msgs = len(conv_messages)
     for idx, msg in enumerate(conv_messages):
         msg_text = str(msg.get("content") or "").strip()
@@ -393,8 +392,9 @@ async def agent_chat_message(
             full = ""
             try:
                 fast_model = "gemini-3.5-flash-lite" if agent_code == "english_coach" else None
-                max_toks = 85 if agent_code == "english_coach" else None
-                async for chunk in ai_provider.stream_chat_completion(ai_messages, max_tokens=max_toks, model=fast_model):
+                max_toks = 90 if agent_code == "english_coach" else None
+                stream_temp = 0.4 if agent_code == "english_coach" else 0.6
+                async for chunk in ai_provider.stream_chat_completion(ai_messages, temperature=stream_temp, max_tokens=max_toks, model=fast_model):
                     full += chunk
                     yield chunk
             except Exception as e:

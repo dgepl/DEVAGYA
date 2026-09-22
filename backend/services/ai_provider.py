@@ -338,7 +338,7 @@ class AIProviderService:
             if alt_m and alt_m not in fallback_models:
                 fallback_models.append(alt_m)
 
-        max_turns_opt = 4 if ("flash-lite" in str(selected_model) or max_tokens and max_tokens <= 200) else 8
+        max_turns_opt = 3 if (max_tokens and max_tokens <= 120) else 6
         payload = {
             "messages": self._optimize_messages(messages, max_turns=max_turns_opt),
             "temperature": temperature,
@@ -350,13 +350,13 @@ class AIProviderService:
         for m_idx, current_model in enumerate(fallback_models):
             payload["model"] = current_model
             try:
-                # Fast connection & read timeout (6s) so stalled models fail over instantly
-                async with httpx.AsyncClient(timeout=httpx.Timeout(connect=4.5, read=7.0, write=4.5, pool=4.5)) as client:
+                # Fast connection & read timeout (3.5s/4.5s) so stalled models fail over immediately
+                async with httpx.AsyncClient(timeout=httpx.Timeout(connect=3.5, read=4.5, write=3.5, pool=3.5)) as client:
                     async with client.stream("POST", f"{self.base_url}/chat/completions", headers=headers, json=payload) as response:
                         if response.status_code == 429 or response.status_code >= 400:
                             logger.warning(f"Model {current_model} returned HTTP {response.status_code}. Retrying with fallback model...")
                             if m_idx < len(fallback_models) - 1:
-                                await asyncio.sleep(0.5)
+                                await asyncio.sleep(0.3)
                                 continue
                             else:
                                 yield f"\n\n*(DEVGYA AI engine is currently processing high traffic. Please try again in a few moments.)*"
