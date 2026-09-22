@@ -117,6 +117,10 @@ export default function BusinessPage() {
               <h1 className="text-3xl sm:text-5xl font-black font-[family-name:var(--font-outfit)] text-slate-900 tracking-tight">
                 DEVGYA for Business - in Operational Soon
               </h1>
+
+              <p className="text-base sm:text-lg font-bold text-slate-600 max-w-xl mx-auto">
+                Empowering Business &amp; Enabling Growth
+              </p>
             </div>
 
             {/* PRODUCT BULLET LIST (AS IN IMAGE 1) */}
