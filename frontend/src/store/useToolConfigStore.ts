@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { getApiBase } from "@/lib/api";
 
 export interface ToolItem {
   id: string;
@@ -13,6 +14,16 @@ export interface ToolItem {
   is_enabled: boolean; // Admin permission: true = allowed, false = hidden from sidebar & mobile and blocked
   icon_name: string;
   color: string;
+}
+
+export function isToolEnabled(val: unknown): boolean {
+  if (val === false || val === 0 || val === "false" || val === "0") {
+    return false;
+  }
+  if (val === true || val === 1 || val === "true" || val === "1") {
+    return true;
+  }
+  return val !== undefined && val !== null ? Boolean(val) : true;
 }
 
 export const INITIAL_TOOLS: ToolItem[] = [
@@ -277,9 +288,13 @@ export const useToolConfigStore = create<ToolConfigState>()(
 
       toggleFeatureAllowed: (id: string) => {
         set((state) => ({
-          tools: state.tools.map((tool) =>
-            tool.id === id ? { ...tool, is_enabled: !tool.is_enabled } : tool
-          )
+          tools: state.tools.map((tool) => {
+            if (tool.id === id) {
+              const currentlyAllowed = isToolEnabled(tool.is_enabled);
+              return { ...tool, is_enabled: !currentlyAllowed };
+            }
+            return tool;
+          })
         }));
         get().saveToServer();
       },
@@ -288,7 +303,7 @@ export const useToolConfigStore = create<ToolConfigState>()(
         set((state) => ({
           tools: state.tools.map((tool) => {
             if (role === "all" || tool.role === role) {
-              return { ...tool, is_enabled: isAllowed };
+              return { ...tool, is_enabled: Boolean(isAllowed) };
             }
             return tool;
           })
@@ -329,7 +344,9 @@ export const useToolConfigStore = create<ToolConfigState>()(
           const match = tools.find(
             (t) => t.id === resolvedAgent || t.path.includes(`agent=${resolvedAgent}`)
           );
-          if (match) return match.is_enabled !== false;
+          if (match) {
+            return isToolEnabled(match.is_enabled);
+          }
         }
 
         // 2. Check by exact path or clean path
@@ -339,7 +356,9 @@ export const useToolConfigStore = create<ToolConfigState>()(
           return t.path === path || tClean === cleanPath || (tClean.length > 11 && cleanPath.startsWith(tClean));
         });
 
-        if (match) return match.is_enabled !== false;
+        if (match) {
+          return isToolEnabled(match.is_enabled);
+        }
 
         return true;
       },
@@ -367,18 +386,30 @@ export const useToolConfigStore = create<ToolConfigState>()(
 
       fetchFromServer: async () => {
         try {
-          const res = await fetch("/api/v1/admin/tools");
-          if (res.ok) {
+          const baseUrl = typeof window !== "undefined" ? getApiBase() : "/api/v1";
+          let res: Response | null = null;
+          try {
+            res = await fetch(`${baseUrl}/admin/tools`);
+          } catch {
+            try {
+              res = await fetch("/api/v1/admin/tools");
+            } catch {}
+          }
+
+          if (res && res.ok) {
             const data = await res.json();
             if (Array.isArray(data.tools) && data.tools.length > 0) {
               const serverToolsMap = new Map(data.tools.map((t: any) => [t.id, t]));
               const merged = INITIAL_TOOLS.map((def) => {
                 const serverItem = serverToolsMap.get(def.id) as Partial<ToolItem> | undefined;
                 if (serverItem) {
+                  const serverEnabled = serverItem.is_enabled !== undefined 
+                    ? isToolEnabled(serverItem.is_enabled)
+                    : def.is_enabled;
                   return {
                     ...def,
                     ...serverItem,
-                    is_enabled: serverItem.is_enabled !== undefined ? Boolean(serverItem.is_enabled) : def.is_enabled
+                    is_enabled: serverEnabled
                   };
                 }
                 return def;
@@ -394,12 +425,33 @@ export const useToolConfigStore = create<ToolConfigState>()(
       saveToServer: async () => {
         try {
           const { tools } = get();
-          const res = await fetch("/api/v1/admin/tools", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tools })
-          });
-          return res.ok;
+          const normalizedTools = tools.map((t) => ({
+            ...t,
+            is_enabled: isToolEnabled(t.is_enabled)
+          }));
+
+          const baseUrl = typeof window !== "undefined" ? getApiBase() : "/api/v1";
+          let success = false;
+          try {
+            const res = await fetch(`${baseUrl}/admin/tools`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ tools: normalizedTools })
+            });
+            if (res.ok) success = true;
+          } catch {}
+
+          if (!success) {
+            try {
+              const res = await fetch("/api/v1/admin/tools", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tools: normalizedTools })
+              });
+              if (res.ok) success = true;
+            } catch {}
+          }
+          return success;
         } catch {
           return false;
         }

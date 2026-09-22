@@ -591,12 +591,22 @@ supabase_headers = {
 }
 
 def _load_tools_store() -> List[Dict[str, Any]]:
-    # 1. Try Supabase Cloud first
+    # 1. Fast local cache path
+    if os.path.exists(TOOLS_STORE_PATH):
+        try:
+            with open(TOOLS_STORE_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+        except Exception:
+            pass
+
+    # 2. Try Supabase Cloud if local cache is not available (ALWAYS get latest updated row)
     if SERVICE_KEY and SUPABASE_URL:
         try:
             with httpx.Client(timeout=5.0) as client:
                 res = client.get(
-                    f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=eq.DEVGYA_PLATFORM_CONFIG&select=chat_history&limit=1",
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=eq.DEVGYA_PLATFORM_CONFIG&select=id,chat_history,created_at&order=created_at.desc&limit=1",
                     headers=supabase_headers
                 )
                 if res.status_code == 200 and res.json():
@@ -607,31 +617,51 @@ def _load_tools_store() -> List[Dict[str, Any]]:
                         with open(TOOLS_STORE_PATH, "w", encoding="utf-8") as f:
                             json.dump(tools_data, f, indent=2, ensure_ascii=False)
                         return tools_data
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to load tools from Supabase: {e}")
 
-    # 2. Fallback to local cache
-    if not os.path.exists(TOOLS_STORE_PATH):
-        return []
-    try:
-        with open(TOOLS_STORE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    return []
 
 def _sync_tools_to_cloud(tools_data: List[Dict[str, Any]]):
     if not SERVICE_KEY or not SUPABASE_URL:
         return
     try:
         with httpx.Client(timeout=8.0) as client:
-            client.post(
-                f"{SUPABASE_URL}/rest/v1/ai_conversations",
-                headers=supabase_headers,
-                json={
-                    "session_title": "DEVGYA_PLATFORM_CONFIG",
-                    "chat_history": {"tools": tools_data}
-                }
+            # Check if any config rows already exist
+            check_res = client.get(
+                f"{SUPABASE_URL}/rest/v1/ai_conversations?session_title=eq.DEVGYA_PLATFORM_CONFIG&select=id,created_at&order=created_at.desc",
+                headers=supabase_headers
             )
+            if check_res.status_code == 200 and check_res.json():
+                rows = check_res.json()
+                latest_id = rows[0]["id"]
+                # Update existing row with patch
+                client.patch(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations?id=eq.{latest_id}",
+                    headers=supabase_headers,
+                    json={
+                        "chat_history": {"tools": tools_data}
+                    }
+                )
+                # Clean up any duplicate rows
+                if len(rows) > 1:
+                    for old_row in rows[1:]:
+                        try:
+                            client.delete(
+                                f"{SUPABASE_URL}/rest/v1/ai_conversations?id=eq.{old_row['id']}",
+                                headers=supabase_headers
+                            )
+                        except Exception:
+                            pass
+            else:
+                client.post(
+                    f"{SUPABASE_URL}/rest/v1/ai_conversations",
+                    headers=supabase_headers,
+                    json={
+                        "session_title": "DEVGYA_PLATFORM_CONFIG",
+                        "chat_history": {"tools": tools_data}
+                    }
+                )
     except Exception as e:
         logger.warning(f"Cloud tools sync notice: {e}")
 
@@ -653,7 +683,10 @@ async def get_all_platform_tools():
         t_copy = dict(t)
         if "is_coming_soon" in t_copy:
             del t_copy["is_coming_soon"]
-        if "is_enabled" not in t_copy:
+        raw_enabled = t_copy.get("is_enabled")
+        if raw_enabled is not None:
+            t_copy["is_enabled"] = bool(raw_enabled) and raw_enabled not in (False, "false", "0", 0)
+        else:
             t_copy["is_enabled"] = True
         cleaned.append(t_copy)
     return {
@@ -671,14 +704,18 @@ async def update_all_platform_tools(payload: ToolsUpdatePayload):
             t_copy = dict(t)
             if "is_coming_soon" in t_copy:
                 del t_copy["is_coming_soon"]
-            if "is_enabled" not in t_copy:
+            raw_enabled = t_copy.get("is_enabled")
+            if raw_enabled is not None:
+                t_copy["is_enabled"] = bool(raw_enabled) and raw_enabled not in (False, "false", "0", 0)
+            else:
                 t_copy["is_enabled"] = True
             cleaned.append(t_copy)
         _save_tools_store(cleaned)
         return {
             "status": "success",
             "message": "Platform tools configuration updated successfully",
-            "count": len(cleaned)
+            "count": len(cleaned),
+            "tools": cleaned
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to persist tool configurations: {str(e)}")

@@ -64,7 +64,7 @@ import {
   Copy,
   GraduationCap
 } from "lucide-react";
-import { useToolConfigStore, ToolItem } from "@/store/useToolConfigStore";
+import { useToolConfigStore, ToolItem, isToolEnabled } from "@/store/useToolConfigStore";
 import { getApiBase } from "@/lib/api";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
 
@@ -1166,10 +1166,11 @@ export default function SuperAdminPage() {
       if (permissionRoleFilter !== "all" && tool.role !== permissionRoleFilter) {
         return false;
       }
-      if (permissionStatusFilter === "allowed" && tool.is_enabled === false) {
+      const isToolAllowed = isToolEnabled(tool.is_enabled);
+      if (permissionStatusFilter === "allowed" && !isToolAllowed) {
         return false;
       }
-      if (permissionStatusFilter === "disabled" && tool.is_enabled !== false) {
+      if (permissionStatusFilter === "disabled" && isToolAllowed) {
         return false;
       }
       if (permissionSearch.trim()) {
@@ -2208,7 +2209,7 @@ export default function SuperAdminPage() {
               {/* PERMISSIONS GRID */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredTools.map((tool) => {
-                  const isAllowed = tool.is_enabled !== false;
+                  const isAllowed = isToolEnabled(tool.is_enabled);
                   return (
                     <div 
                       key={tool.id} 
@@ -2234,7 +2235,11 @@ export default function SuperAdminPage() {
                         {/* TOGGLE SWITCH */}
                         <button
                           type="button"
-                          onClick={() => toggleFeatureAllowed(tool.id)}
+                          onClick={() => {
+                            toggleFeatureAllowed(tool.id);
+                            setActionMsg(`Updated ${tool.name}: ${!isAllowed ? "✅ Allowed (Visible)" : "⚠️ Disabled (Hidden)"}`);
+                            setTimeout(() => setActionMsg(null), 3000);
+                          }}
                           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                             isAllowed ? "bg-emerald-600" : "bg-slate-300"
                           }`}
