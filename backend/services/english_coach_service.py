@@ -178,14 +178,15 @@ DIAGNOSTIC_QUESTIONS = [
 ]
 
 # =====================================================================
-# 2. STRUCTURED LRSI & LRSP LECTURE ROADMAP
+# 2. STRUCTURED LRSI & LRSP LECTURE ROADMAP (DIVERSIFIED STAGES)
 # =====================================================================
 def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str, Any]]:
-    """Generates sequential, locked modules tailored to the student's level and weak points."""
+    """Generates sequential, locked modules tailored to the student's level and weak points with unique stages."""
+    weak_str = ', '.join(weak_points[:3]) if weak_points else 'Tenses and Natural Flow'
     return [
         {
             "id": "module_1",
-            "title": "Module 1: Foundation Spoken Fluency (LRSI Method)",
+            "title": "Module 1: Everyday Conversational Fluency & Confidence",
             "methodology": "LRSI (Listen, Repeat, Speak, Interact)",
             "description": "Overcome hesitation, master everyday conversation openers, and eliminate filler words.",
             "focus_areas": ["Natural Intonation", "Quick Sentence Formation", "Filler Word Reduction"],
@@ -193,36 +194,36 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
                 {
                     "step_id": "m1_listen",
                     "type": "listen",
-                    "title": "Listen: Clear Conversational Cadence",
-                    "prompt": "Listen carefully to the coach's tone, pacing, and natural sentence pauses.",
-                    "model_audio_text": "Good morning everyone. It is a genuine pleasure to connect with all of you today. Let us get started on our discussion."
+                    "title": "Step 1: Audio Ear Training (Native Cadence & Flow)",
+                    "prompt": "Listen carefully to the coach's tone, pacing, and natural sentence pauses in everyday conversation.",
+                    "model_audio_text": "Good morning everyone! It is a genuine pleasure to connect with all of you today. Let us get started on our discussion."
                 },
                 {
                     "step_id": "m1_repeat",
                     "type": "repeat",
-                    "title": "Repeat: Echo Pronunciation & Intonation",
-                    "prompt": "Press the microphone and repeat the exact phrase with clear cadence.",
+                    "title": "Step 2: Shadowing Cadence (Rhythm & Stress Echo)",
+                    "prompt": "Press the microphone and repeat the exact phrase with clear cadence and natural stress.",
                     "target_phrase": "It is a genuine pleasure to connect with all of you today."
                 },
                 {
                     "step_id": "m1_speak",
                     "type": "speak",
-                    "title": "Speak: Situational Classroom Greeting",
-                    "prompt": "How would you warmly welcome your students or colleagues to an interactive morning session? Speak in 1-2 clear sentences.",
-                    "sample_answer": "Good morning class! I am excited to see your bright smiles today. Let us dive into our fascinating topic!"
+                    "title": "Step 3: Daily Express Scenario (Spoken Response + AI Critique)",
+                    "prompt": "How would you warmly welcome colleagues or classmates to an interactive morning session? Speak in 2-3 clear sentences. The AI Coach will evaluate your positive and negative points!",
+                    "sample_answer": "Good morning everyone! I am excited to see your bright energy today. Let us dive into our discussion with full enthusiasm!"
                 },
                 {
                     "step_id": "m1_interact",
                     "type": "interact",
-                    "title": "Interact: Live Back-and-Forth Dialogue",
-                    "prompt": "Have a spontaneous spoken exchange with the AI coach. Respond warmly to whatever the coach asks you.",
-                    "coach_starter": "Hello there! Tell me one exciting thing you learned or taught recently in your school."
+                    "title": "Step 4: Hands-Free Daily Small Talk (Live Conversational Dialogue)",
+                    "prompt": "Hands-Free Voice Mode: The AI coach speaks, listens, and auto-submits your turns without you having to press buttons. Have a casual campus chat!",
+                    "coach_starter": "Hello there! Tell me one exciting thing you learned or experienced recently in your school or work."
                 },
                 {
                     "step_id": "m1_game",
                     "type": "game",
                     "game_type": "word_sprint",
-                    "title": "Mini-Game: 30-Second Word Association Sprint",
+                    "title": "Step 5: 30-Second Word Association Fluency Sprint",
                     "prompt": "Speak aloud as many inspiring adjectives related to 'Education & Learning' as you can within 30 seconds!",
                     "target_keywords": ["engaging", "creative", "curious", "brilliant", "thoughtful", "vibrant", "interactive", "inspiring", "dynamic", "knowledgeable"]
                 }
@@ -236,118 +237,148 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
         },
         {
             "id": "module_2",
-            "title": "Module 2: Polish Grammar & Vocabulary Precision",
-            "methodology": "Interactive Polish & Error Fixer",
-            "description": f"Targeted corrections for your specific diagnostic gaps: {', '.join(weak_points[:3]) if weak_points else 'Tenses and Prepositions'}.",
-            "focus_areas": ["Accurate Verb Tenses", "Idiomatic Collocations", "Phonetic Articulation"],
+            "title": "Module 2: Grammar in Spoken Action & Sentence Reconstruction",
+            "methodology": "Sentence Clinic & Conversational Negotiation",
+            "description": f"Targeted corrections for your specific diagnostic gaps: {weak_str}.",
+            "focus_areas": ["Accurate Verb Tenses", "Eliminating Indianisms", "Polite Negotiation Phrasing"],
             "steps": [
                 {
                     "step_id": "m2_listen",
                     "type": "listen",
-                    "title": "Listen: Expressing Past & Present Experiences",
-                    "prompt": "Notice how the speaker smoothly transitions from past observations to current conclusions.",
-                    "model_audio_text": "Over the past several weeks, our students have demonstrated significant improvement in mathematical reasoning, and they are now ready for advanced challenges."
+                    "title": "Step 1: Native Connectors & Sentence Flow Masterclass",
+                    "prompt": "Notice how the speaker smoothly links past progress to present plans using connectors like 'over the past' and 'consequently'.",
+                    "model_audio_text": "Over the past several weeks, our students have demonstrated significant improvement in mathematical reasoning, and consequently, they are now ready for advanced challenges."
                 },
                 {
-                    "step_id": "m2_repeat",
-                    "type": "repeat",
-                    "title": "Repeat: Polish Tongue Twister for Lip & Tongue Agility",
-                    "prompt": "Articulate each syllable cleanly without stumbling.",
-                    "target_phrase": "Vincent vowed vengeance very vehemently with vibrant voice."
+                    "step_id": "m2_error_fix",
+                    "type": "error_fix",
+                    "title": "Step 2: Live Spoken Sentence Clinic (Spot & Speak The Fix)",
+                    "prompt": "Listen to this common spoken Indian English slip: 'I am working here since five years.' Speak the grammatically corrected version aloud into your microphone!",
+                    "flawed_sentence": "I am working here since five years.",
+                    "corrected_sentence": "I have been working here for five years.",
+                    "explanation": "Use present perfect continuous ('have been working') with duration 'for five years', not 'since'."
                 },
                 {
                     "step_id": "m2_speak",
                     "type": "speak",
-                    "title": "Speak: Fixing Common Indian English Flaws",
-                    "prompt": "Avoid saying 'revert back' or 'prepone'. State how you would professionally request someone to reply to your email by tomorrow.",
-                    "sample_answer": "Please let me know your thoughts by tomorrow afternoon at your earliest convenience."
+                    "title": "Step 3: Professional Email/Meeting Phrasing (Spoken AI Critique)",
+                    "prompt": "Avoid saying 'revert back' or 'prepone'. State how you would professionally request someone to reply to your email by tomorrow afternoon. Speak in 2 clear sentences.",
+                    "sample_answer": "Please let me know your thoughts by tomorrow afternoon at your earliest convenience. I look forward to your valuable feedback."
                 },
                 {
                     "step_id": "m2_interact",
                     "type": "interact",
-                    "title": "Interact: Professional Problem Solving",
-                    "prompt": "A parent or student asks you for extra time to submit an assignment. Politely explain your classroom policy.",
-                    "coach_starter": "Teacher, my child could not finish the science project due to a family wedding. Can we submit it next week?"
+                    "title": "Step 4: Hands-Free Problem Solving & Polite Negotiation",
+                    "prompt": "A colleague or parent asks you for an unreasonable deadline extension. Hands-free dialogue: respond politely, explain your policy, and find common ground.",
+                    "coach_starter": "Hi teacher, my team couldn't finish the report due to a personal emergency. Can we get a one-week extension?"
                 },
                 {
                     "step_id": "m2_game",
                     "type": "game",
                     "game_type": "sentence_fixer",
-                    "title": "Mini-Game: Spot & Speak The Grammar Fix",
+                    "title": "Step 5: Rapid Grammar Fixer Challenge",
                     "prompt": "Look at the flawed sentence, identify the grammatical error, and speak the correct version into your microphone!",
-                    "flawed_sentence": "I am working here since five years.",
-                    "corrected_sentence": "I have been working here for five years."
+                    "flawed_sentence": "She don't know the answer because she was absent yesterday.",
+                    "corrected_sentence": "She doesn't know the answer because she was absent yesterday."
                 }
             ],
             "game": {
                 "id": "sentence_fixer",
                 "title": "Game: Spot & Speak The Fix",
-                "flawed_sentence": "I am working here since five years.",
-                "corrected_sentence": "I have been working here for five years."
+                "flawed_sentence": "She don't know the answer because she was absent yesterday.",
+                "corrected_sentence": "She doesn't know the answer because she was absent yesterday."
             }
         },
         {
             "id": "module_3",
-            "title": "Module 3: Public Speaking & Presentation Mastery (LRSP Method)",
+            "title": "Module 3: Persuasive Keynote & Public Speaking Mastery",
             "methodology": "LRSP (Listen, Repeat, Speak, Present)",
             "description": "Master stage presence, opening hooks, transition connectors, and impromptu speech delivery.",
-            "focus_areas": ["Strong Speech Hooks", "Storytelling Arc", "Pacing & Modulation", "Live AI Critique"],
+            "focus_areas": ["The 3-Part Speech Formula", "Impromptu Audience Defense", "Power Pauses & Modulation"],
             "steps": [
                 {
                     "step_id": "m3_listen",
                     "type": "listen",
-                    "title": "Listen: The 3-Part Public Speech Formula",
+                    "title": "Step 1: TED-Style Keynote Breakdown (Hook, Proof, Call to Action)",
                     "prompt": "Listen to the formula: 1) The Grabber Hook, 2) The Core Proof, 3) The Inspiring Call to Action.",
                     "model_audio_text": "Imagine a classroom where every student is so excited that they cannot wait for the bell to ring. That is not a dream—that is the classroom we are creating together today."
                 },
                 {
-                    "step_id": "m3_repeat",
-                    "type": "repeat",
-                    "title": "Repeat: High-Impact Keynote Transition",
-                    "prompt": "Deliver this transition with authoritative, confident volume.",
-                    "target_phrase": "This brings me directly to our most transformative conclusion."
-                },
-                {
-                    "step_id": "m3_speak",
-                    "type": "speak",
-                    "title": "Speak: 30-Second Elevator Pitch",
-                    "prompt": "In 30 seconds, introduce a creative educational innovation you want to implement in school.",
-                    "sample_answer": "I propose creating an experiential discovery lab where students learn science by designing real working prototypes."
+                    "step_id": "m3_hook",
+                    "type": "hook_delivery",
+                    "title": "Step 2: The 30-Second Attention Grabber Hook",
+                    "prompt": "Deliver an electrifying 30-second speech opening on the topic: 'The Power of Education'. Use a question, a shocking statistic, or a personal story!",
+                    "target_phrase": "Have you ever wondered what makes a great mind truly unstoppable? It begins with a single teacher who believes."
                 },
                 {
                     "step_id": "m3_present",
                     "type": "present",
-                    "title": "Present: 1-Minute Live Public Speech Stage",
-                    "prompt": "Deliver a 60-second public speech on: 'Why Curiosity is the Greatest Teacher'. The AI coach will evaluate your filler words, pacing, and conviction!",
+                    "title": "Step 3: 1-Minute Live Public Speech Stage (Full AI Scorecard)",
+                    "prompt": "Deliver a 60-second public speech on: 'Why Curiosity is the Greatest Teacher'. The AI coach will evaluate your filler words, pacing, positive highlights, and areas to improve!",
                     "topic": "Why Curiosity is the Greatest Teacher"
+                },
+                {
+                    "step_id": "m3_interact",
+                    "type": "interact",
+                    "title": "Step 4: Hands-Free Impromptu Q&A Defense",
+                    "prompt": "The audience is asking tough spontaneous questions about your presentation! Hands-free voice: defend your point clearly and confidently.",
+                    "coach_starter": "You argued that curiosity is greater than discipline. But isn't discipline what actually gets exams cleared?"
                 },
                 {
                     "step_id": "m3_game",
                     "type": "game",
                     "game_type": "tongue_twister",
-                    "title": "Mini-Game: Speed Tongue Twister Sprint",
+                    "title": "Step 5: Articulation & Tongue Agility Sprint",
                     "prompt": "Speak this classic articulation tongue twister without stumbling. Speed and crisp pronunciation count!",
                     "target_phrase": "She sells seashells by the seashore and the shells she sells are seashells"
                 }
             ],
             "game": {
-                "id": "impromptu_challenge",
-                "title": "Game: 30-Second Impromptu Speech Sprint",
-                "instructions": "Speak continuously for 30 seconds without saying 'um', 'uh', or 'like' on the topic: 'My Favorite Book'."
+                "id": "tongue_twister",
+                "title": "Game: Articulation Sprint",
+                "target_phrase": "She sells seashells by the seashore and the shells she sells are seashells"
             }
         },
         {
             "id": "module_4",
-            "title": "Module 4: Final Capstone Live Interaction & Mastery Evaluation",
-            "methodology": "Live Spoken Capstone & Spoken Mastery Report",
-            "description": "The culminating live spoken session. Demonstrate your spoken mastery to generate your official report card.",
-            "focus_areas": ["Spontaneous Fluency", "Professional Vocabulary", "Complete Spoken Report"],
+            "title": "Module 4: Executive Interview & Mastery Capstone",
+            "methodology": "STAR Technique & Official Graduation",
+            "description": "The culminating spoken masterclass. Demonstrate your professional fluency to generate your official report card and certificate.",
+            "focus_areas": ["STAR Method Framing", "Executive Presence", "Mastery Certification"],
             "steps": [
+                {
+                    "step_id": "m4_listen",
+                    "type": "listen",
+                    "title": "Step 1: Executive Leadership Tone & STAR Blueprint",
+                    "prompt": "Listen to how high-performing leaders answer questions: Situation, Task, Action, Result with clear authority.",
+                    "model_audio_text": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a 40 percent boost in exam performance."
+                },
+                {
+                    "step_id": "m4_star",
+                    "type": "star_method",
+                    "title": "Step 2: STAR Behavioral Framework Practice",
+                    "prompt": "Structure a spoken answer to: 'Describe a challenge you overcame'. State the Situation, your specific Action, and the final positive Result in 3-4 sentences.",
+                    "sample_answer": "In our previous term, our team faced tight project deadlines. I reorganized our weekly milestones, communicated daily updates, and successfully delivered the project two days ahead of schedule."
+                },
+                {
+                    "step_id": "m4_speak",
+                    "type": "speak",
+                    "title": "Step 3: Executive Pitch ('Tell Me About Yourself')",
+                    "prompt": "Deliver your 45-second professional elevator pitch summarizing your skills, passion, and vision. The AI Coach will give detailed positive and negative feedback.",
+                    "sample_answer": "I am an enthusiastic educator and lifelong learner passionate about inspiring young minds through creative problem solving. My mission is to build classrooms where every learner thrives."
+                },
+                {
+                    "step_id": "m4_interact",
+                    "type": "interact",
+                    "title": "Step 4: Hands-Free Senior Boardroom Mock Interview",
+                    "prompt": "You are in an executive interview. Hands-free dialogue: answer spontaneous questions from the hiring director with authority and fluency.",
+                    "coach_starter": "Welcome to the final interview panel. How do you handle high-pressure conflicts or differing opinions in your team?"
+                },
                 {
                     "step_id": "m4_live_capstone",
                     "type": "capstone",
-                    "title": "Capstone: Live Spoken AI Interaction",
-                    "prompt": "Engage in a live interactive interview with Devgya English Coach. Answer spontaneous questions about leadership, communication, and your vision.",
+                    "title": "Step 5: Final Graduation Presentation & Official Certificate",
+                    "prompt": "Deliver your final spoken graduation speech summarizing your learning journey and your vision. DEVGYA AI will evaluate your speech and award your official Spoken English Mastery Certificate!",
                     "coach_starter": "Welcome to your Final Spoken Capstone! Tell me: how has your confidence in spoken English evolved, and how will you use it in your daily life?"
                 }
             ]
@@ -609,7 +640,71 @@ class EnglishCoachService:
         }
 
     # ------------------------------------------------------------------
-    # 5. PUBLIC SPEAKING CRITIC (TARGETED AI EVALUATION)
+    # 5. SPEAK STAGE AI CRITIC (POSITIVE, NEGATIVE & IMPROVEMENT TIPS)
+    # ------------------------------------------------------------------
+    async def evaluate_speak_stage(
+        self,
+        prompt: str,
+        sample_answer: Optional[str],
+        user_speech: str,
+        user_level: str = "Intermediate"
+    ) -> Dict[str, Any]:
+        """
+        Evaluates student's spoken answer in the Speak stage.
+        Identifies positive points, negative points / slip-ups, how to improve, and provides a polished native version.
+        """
+        clean_speech = (user_speech or "").strip()
+        if not clean_speech or len(clean_speech.split()) < 3:
+            return {
+                "positive_points": ["Willingness to attempt spoken English"],
+                "negative_points": ["Response was too short (under 3 words) to assess sentence flow."],
+                "how_to_improve": "Try speaking at least 2 full sentences using a clear subject, verb, and object.",
+                "polished_version": sample_answer or "Good morning everyone! It is a true pleasure to speak with you today.",
+                "spoken_feedback": "Good attempt! Next time, try to speak two complete sentences so we can evaluate your rhythm and grammar."
+            }
+
+        eval_prompt = f"""You are Devgya Spoken English Coach.
+A student (Level: {user_level}) was given this speaking prompt:
+Prompt: "{prompt}"
+Reference Sample: "{sample_answer or 'N/A'}"
+
+Student's Spoken Answer:
+\"\"\"{clean_speech}\"\"\"
+
+Analyze their spoken English and return a JSON object with EXACTLY these keys:
+1. "positive_points": A list of 2-3 concise bullet points praising their vocabulary, confidence, grammar correctness, or clear delivery.
+2. "negative_points": A list of 1-2 concise bullet points pointing out grammar slips, awkward Indianisms (e.g., 'revert back', 'since 5 years', 'today morning'), misplaced prepositions, or hesitation.
+3. "how_to_improve": 1-2 actionable sentences telling the student how to fix the issue and sound more natural.
+4. "polished_version": A beautifully natural, native-sounding 1-2 sentence version of what they intended to say.
+5. "spoken_feedback": A warm, encouraging 2-sentence summary (max 30 words) that the AI coach will speak aloud to the student.
+"""
+        messages = [
+            {"role": "system", "content": "You are an expert spoken English evaluator. You help Indian learners master spoken English. Return ONLY valid JSON."},
+            {"role": "user", "content": eval_prompt}
+        ]
+
+        try:
+            raw = await ai_provider.chat_completion(messages, temperature=0.3, response_format_json=True)
+            data = json.loads(raw)
+            return {
+                "positive_points": data.get("positive_points", ["Good vocal confidence", "Clear attempt at conveying ideas"]),
+                "negative_points": data.get("negative_points", ["Check sentence connector and verb agreement"]),
+                "how_to_improve": data.get("how_to_improve", "Focus on speaking in complete phrases without rushing."),
+                "polished_version": data.get("polished_version", sample_answer or clean_speech),
+                "spoken_feedback": data.get("spoken_feedback", "Great effort! Your ideas are very clear. Work on your verb tenses to sound even more natural.")
+            }
+        except Exception as e:
+            logger.warning(f"Speak stage AI critique error: {e}")
+            return {
+                "positive_points": ["Strong spoken confidence", "Relevant response to the question"],
+                "negative_points": ["Minor grammatical agreement or phrasing slip"],
+                "how_to_improve": "Practice pausing slightly at commas to give your sentence natural breathing room.",
+                "polished_version": sample_answer or clean_speech,
+                "spoken_feedback": "Well done on expressing your thoughts! Listen to the polished version to refine your phrasing."
+            }
+
+    # ------------------------------------------------------------------
+    # 6. PUBLIC SPEAKING CRITIC (TARGETED AI EVALUATION)
     # ------------------------------------------------------------------
     async def evaluate_public_speaking(self, speech_text: str, topic: str, user_level: str) -> Dict[str, Any]:
         """Evaluates 1-minute public speaking presentation for fillers, structure, and corrections."""

@@ -29,6 +29,14 @@ class PublicSpeakingCritiqueRequest(BaseModel):
     user_level: str = "Intermediate"
 
 
+class SpeakCritiqueRequest(BaseModel):
+    user_id: Optional[str] = "guest_user"
+    prompt: str
+    sample_answer: Optional[str] = None
+    user_speech: str
+    user_level: Optional[str] = "Intermediate"
+
+
 class FinalizeReportRequest(BaseModel):
     user_id: str
     user_role: str = "student"
@@ -117,6 +125,22 @@ async def process_dialogue_turn(payload: DialogueTurnRequest):
         return result
     except Exception as e:
         logger.error(f"Error in dialogue turn: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/speak-critique")
+async def critique_speak_stage(payload: SpeakCritiqueRequest):
+    """AI adjudicator evaluates spoken answer in Speak stage for positive & negative points, and improvements."""
+    try:
+        evaluation = await english_coach_service.evaluate_speak_stage(
+            prompt=payload.prompt,
+            sample_answer=payload.sample_answer,
+            user_speech=payload.user_speech,
+            user_level=payload.user_level or "Intermediate"
+        )
+        return evaluation
+    except Exception as e:
+        logger.error(f"Error evaluating speak stage: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

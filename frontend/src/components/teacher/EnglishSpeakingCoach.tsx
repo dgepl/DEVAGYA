@@ -48,7 +48,7 @@ interface QuestionItem {
 
 interface StepItem {
   step_id: string;
-  type: "listen" | "repeat" | "speak" | "interact" | "present" | "capstone" | "game";
+  type: "listen" | "repeat" | "speak" | "interact" | "present" | "capstone" | "game" | "error_fix" | "hook_delivery" | "star_method";
   title: string;
   prompt: string;
   model_audio_text?: string;
@@ -60,6 +60,7 @@ interface StepItem {
   target_keywords?: string[];
   flawed_sentence?: string;
   corrected_sentence?: string;
+  explanation?: string;
 }
 
 interface GameItem {
@@ -140,15 +141,30 @@ export function EnglishSpeakingCoach() {
   const [critiqueLoading, setCritiqueLoading] = useState<boolean>(false);
   const [speakingCritique, setSpeakingCritique] = useState<any>(null);
 
-  // Interactive Live Chat (LRSI)
+  // Speak Stage Feedback State (AI Positives, Negatives, Improvements)
+  const [speakCritique, setSpeakCritique] = useState<{
+    positive_points: string[];
+    negative_points: string[];
+    how_to_improve: string;
+    polished_version: string;
+    spoken_feedback: string;
+  } | null>(null);
+  const [speakCritiqueLoading, setSpeakCritiqueLoading] = useState<boolean>(false);
+
+  // Interactive Live Chat (LRSI) & Hands-Free Conversational Voice Loop
   const [dialogueMessages, setDialogueMessages] = useState<Array<{ sender: "coach" | "user"; text: string; correction?: string | null }>>([]);
   const [isCoachThinking, setIsCoachThinking] = useState<boolean>(false);
+  const [isHandsFreeMode, setIsHandsFreeMode] = useState<boolean>(true);
 
-  // Audio / Speech Recognition Refs
+  // Audio / Speech Recognition & Hands-Free Loop Refs
   const recognitionRef = useRef<any>(null);
   const timerIntervalRef = useRef<any>(null);
   const gameIntervalRef = useRef<any>(null);
   const cachedVoiceRef = useRef<any>(null);
+  const isHandsFreeRef = useRef<boolean>(true);
+  const activeStepTypeRef = useRef<string>("");
+  const silenceTimerRef = useRef<any>(null);
+  const isCoachThinkingRef = useRef<boolean>(false);
 
   // Clean transcript utility
   const cleanTranscript = (t: string) => {
@@ -248,6 +264,15 @@ export function EnglishSpeakingCoach() {
     }
   };
 
+  // Sync refs with reactive state
+  useEffect(() => {
+    isHandsFreeRef.current = isHandsFreeMode;
+  }, [isHandsFreeMode]);
+
+  useEffect(() => {
+    isCoachThinkingRef.current = isCoachThinking;
+  }, [isCoachThinking]);
+
   // Reset per-step states whenever step, module, or tab changes
   useEffect(() => {
     setUserSpokenText("");
@@ -258,6 +283,8 @@ export function EnglishSpeakingCoach() {
     setIsTimerActive(false);
     setSpeakingTimer(60);
     setSpeakingCritique(null);
+    setSpeakCritique(null);
+    setSpeakCritiqueLoading(false);
     setIsGameActive(false);
     setGameTimer(30);
     setCollectedKeywords([]);
@@ -266,10 +293,29 @@ export function EnglishSpeakingCoach() {
     stopSpeaking();
     clearInterval(timerIntervalRef.current);
     clearInterval(gameIntervalRef.current);
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch {}
     }
-  }, [activeStepIdx, activeModuleIdx, activeTab]);
+
+    const currentMod = modules[activeModuleIdx];
+    const currentStep = currentMod?.steps[activeStepIdx];
+    activeStepTypeRef.current = currentStep?.type || "";
+
+    // If entering the interact step with hands-free mode, start with coach greeting spoken aloud
+    if (activeTab === "player" && currentStep?.type === "interact" && currentStep.coach_starter && dialogueMessages.length === 0) {
+      const timer = setTimeout(() => {
+        speakText(currentStep.coach_starter!, () => {
+          if (isHandsFreeRef.current && activeStepTypeRef.current === "interact") {
+            startRecordingSpeech({ continuous: true });
+          }
+        });
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [activeStepIdx, activeModuleIdx, activeTab, modules]);
 
   useEffect(() => {
     loadState();
@@ -277,6 +323,9 @@ export function EnglishSpeakingCoach() {
       stopSpeaking();
       clearInterval(timerIntervalRef.current);
       clearInterval(gameIntervalRef.current);
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
       if (recognitionRef.current) {
         try { recognitionRef.current.abort(); } catch {}
       }
@@ -401,12 +450,13 @@ export function EnglishSpeakingCoach() {
     try {
       const rec = new SpeechRecognition();
       rec.lang = "en-IN";
-      rec.continuous = options?.continuous || false;
+      const isInteract = activeStepTypeRef.current === "interact";
+      rec.continuous = options?.continuous !== undefined ? options.continuous : isInteract;
       rec.interimResults = true;
 
       rec.onstart = () => {
         setIsListening(true);
-        if (!options?.continuous) {
+        if (!options?.continuous && !isInteract) {
           setUserSpokenText("");
         }
       };
@@ -419,6 +469,22 @@ export function EnglishSpeakingCoach() {
         const cleaned = cleanTranscript(transcript);
         setUserSpokenText(cleaned);
         options?.onResult?.(cleaned);
+
+        // Hands-Free Auto-Send on Sentence Pause Detection in 'interact' stage
+        if (activeStepTypeRef.current === "interact" && isHandsFreeRef.current && !isCoachThinkingRef.current) {
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+          const words = cleaned.trim().split(/\s+/).filter(Boolean);
+          if (words.length >= 2) {
+            silenceTimerRef.current = setTimeout(() => {
+              if (!isCoachThinkingRef.current) {
+                stopRecordingSpeech();
+                handleSendDialogueTurn(cleaned);
+              }
+            }, 1100);
+          }
+        }
       };
 
       rec.onerror = () => {
@@ -438,6 +504,9 @@ export function EnglishSpeakingCoach() {
   };
 
   const stopRecordingSpeech = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
     }
@@ -466,7 +535,51 @@ export function EnglishSpeakingCoach() {
     });
   };
 
-  // 5. Public Speaking Stage (LRSP 60s Timer & Evaluation)
+  // 5. Speak Stage AI Critique (Positives, Negatives, Improvements)
+  const handleEvaluateSpeakStage = async (explicitText?: string) => {
+    const textToEvaluate = (explicitText || userSpokenText).trim();
+    if (!textToEvaluate) {
+      alert("Please speak your answer into the microphone first!");
+      return;
+    }
+
+    stopRecordingSpeech();
+    setSpeakCritiqueLoading(true);
+
+    try {
+      const uId = user?.id || user?.email || "guest_user";
+      const currentMod = modules[activeModuleIdx];
+      const currentStep = currentMod?.steps[activeStepIdx];
+
+      const res = await fetch(`${getApiBase()}/english-coach/speak-critique`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: uId,
+          prompt: currentStep?.prompt || "Speaking Challenge",
+          sample_answer: currentStep?.sample_answer || null,
+          user_speech: textToEvaluate,
+          user_level: track?.fluency_level || "Intermediate"
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSpeakCritique(data);
+        if (data.spoken_feedback) {
+          speakText(data.spoken_feedback);
+        }
+      } else {
+        alert("Could not evaluate speech. Please try again.");
+      }
+    } catch (err) {
+      console.warn("Speak critique error:", err);
+    } finally {
+      setSpeakCritiqueLoading(false);
+    }
+  };
+
+  // 6. Public Speaking Stage (LRSP 60s Timer & Evaluation)
   const handleStartPublicSpeaking = () => {
     setSpeakingTimer(60);
     setIsTimerActive(true);
@@ -531,14 +644,19 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // 6. Interactive Spoken Dialogue (Dedicated Sub-Second LRSI Endpoint)
-  const handleSendDialogueTurn = async () => {
-    if (!userSpokenText.trim() || isCoachThinking) return;
+  // 7. Interactive Spoken Dialogue (Dedicated Sub-Second LRSI Endpoint + Hands-Free Loop)
+  const handleSendDialogueTurn = async (overrideText?: string) => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
 
-    const userText = userSpokenText.trim();
+    const userText = (overrideText !== undefined ? overrideText : userSpokenText).trim();
+    if (!userText || isCoachThinkingRef.current) return;
+
     setUserSpokenText("");
     setDialogueMessages(prev => [...prev, { sender: "user", text: userText }]);
     setIsCoachThinking(true);
+    isCoachThinkingRef.current = true;
 
     try {
       const currentMod = modules[activeModuleIdx];
@@ -563,12 +681,21 @@ export function EnglishSpeakingCoach() {
           text: replyText,
           correction: data.correction
         }]);
-        speakText(replyText);
+
+        // Speak coach response aloud; upon completion, auto-resume listening if hands-free is active!
+        speakText(replyText, () => {
+          if (isHandsFreeRef.current && activeStepTypeRef.current === "interact") {
+            setTimeout(() => {
+              startRecordingSpeech({ continuous: true });
+            }, 300);
+          }
+        });
       }
     } catch (err) {
       console.warn("Dialogue turn error:", err);
     } finally {
       setIsCoachThinking(false);
+      isCoachThinkingRef.current = false;
     }
   };
 
@@ -652,7 +779,16 @@ export function EnglishSpeakingCoach() {
       return repeatMatchScore !== null && repeatMatchScore >= 50;
     }
     if (currentStep.type === "speak") {
-      return userSpokenText.trim().split(/\s+/).length >= 3;
+      return speakCritique !== null || userSpokenText.trim().split(/\s+/).length >= 4;
+    }
+    if (currentStep.type === "error_fix") {
+      return Boolean(sentenceFixResult?.success || gameCompleted);
+    }
+    if (currentStep.type === "hook_delivery") {
+      return repeatMatchScore !== null && repeatMatchScore >= 50;
+    }
+    if (currentStep.type === "star_method") {
+      return userSpokenText.trim().split(/\s+/).length >= 6;
     }
     if (currentStep.type === "interact") {
       const userTurns = dialogueMessages.filter(m => m.sender === "user").length;
@@ -1203,21 +1339,218 @@ export function EnglishSpeakingCoach() {
               </div>
             )}
 
-            {/* STEP 3: SPEAK */}
+            {/* STEP: SPEAK (WITH FULL AI FEEDBACK: POSITIVES, NEGATIVES, IMPROVEMENTS & MODEL AUDIO) */}
             {currentStep.type === "speak" && (
-              <div className="p-6 rounded-2xl bg-amber-50/50 border border-amber-100 space-y-4">
-                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <MessageSquare className="w-4 h-4 text-amber-600" />
-                  Your Speaking Challenge
-                </span>
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-50/70 via-orange-50/40 to-white border border-amber-200/80 space-y-5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <MessageSquare className="w-4 h-4 text-amber-600" />
+                    Spoken Challenge & Live Evaluation
+                  </span>
+                  {speakCritique && (
+                    <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      Feedback Evaluated
+                    </span>
+                  )}
+                </div>
+
+                <div className="p-4 rounded-xl bg-white border border-amber-200 shadow-2xs space-y-2">
+                  <span className="text-[11px] font-extrabold text-amber-700 uppercase tracking-wide">Speaking Prompt:</span>
+                  <p className="text-sm sm:text-base font-bold text-slate-800 leading-snug">
+                    {currentStep.prompt}
+                  </p>
+                </div>
+
                 {currentStep.sample_answer && (
-                  <div className="text-xs font-medium text-amber-900 bg-white p-3 rounded-xl border border-amber-200/60">
-                    <span className="font-bold">Suggested Reference:</span> "{currentStep.sample_answer}"
+                  <div className="text-xs font-medium text-amber-950 bg-amber-100/40 p-3.5 rounded-xl border border-amber-200/60 flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-extrabold text-amber-900 block">Suggested Reference:</span>
+                      <p className="italic text-slate-700 mt-0.5">"{currentStep.sample_answer}"</p>
+                    </div>
                   </div>
                 )}
-                <div className="pt-2">
+
+                {/* RECORDING / EVALUATION CONTROLS */}
+                <div className="flex flex-wrap items-center gap-3 pt-1">
                   <button
                     onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
+                    className={`px-6 py-3 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 shadow-sm ${
+                      isListening
+                        ? "bg-rose-600 text-white animate-pulse"
+                        : "bg-amber-600 text-white hover:bg-amber-700"
+                    }`}
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>{isListening ? "Listening... Speak your answer" : "1. Click Mic & Speak Answer"}</span>
+                  </button>
+
+                  {userSpokenText.trim().length > 0 && (
+                    <button
+                      onClick={() => handleEvaluateSpeakStage()}
+                      disabled={speakCritiqueLoading || isListening}
+                      className="px-6 py-3 rounded-xl font-black text-xs bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 shadow-sm transition-all active:scale-95"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{speakCritiqueLoading ? "AI Coach Evaluating..." : "2. Get AI Feedback & Analysis"}</span>
+                    </button>
+                  )}
+                </div>
+
+                {userSpokenText && (
+                  <div className="p-3.5 bg-white rounded-xl border border-amber-200 text-xs space-y-1">
+                    <span className="font-bold text-slate-400">Captured Speech Transcript:</span>
+                    <p className="font-semibold text-slate-800 text-sm leading-relaxed">"{userSpokenText}"</p>
+                  </div>
+                )}
+
+                {/* AI EVALUATION LOADING INDICATOR */}
+                {speakCritiqueLoading && (
+                  <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center gap-3 text-xs text-indigo-700 font-bold">
+                    <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                    <span>Devgya AI Coach is reviewing your pronunciation, grammar, vocabulary, and confidence...</span>
+                  </div>
+                )}
+
+                {/* STRUCTURED AI FEEDBACK CARDS */}
+                {speakCritique && (
+                  <div className="space-y-3 pt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* POSITIVE POINTS */}
+                      <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-2">
+                        <span className="text-xs font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          What You Did Well (Positive Points)
+                        </span>
+                        <ul className="space-y-1.5">
+                          {speakCritique.positive_points.map((pt, i) => (
+                            <li key={i} className="text-xs font-semibold text-emerald-950 flex items-start gap-1.5">
+                              <span className="text-emerald-600 font-bold">•</span>
+                              <span>{pt}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* NEGATIVE POINTS / SLIP-UPS */}
+                      <div className="p-4 rounded-xl bg-rose-50/70 border border-rose-200 space-y-2">
+                        <span className="text-xs font-black text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 text-rose-600" />
+                          Points to Fix (Slip-ups & Gaps)
+                        </span>
+                        <ul className="space-y-1.5">
+                          {speakCritique.negative_points.map((pt, i) => (
+                            <li key={i} className="text-xs font-semibold text-rose-950 flex items-start gap-1.5">
+                              <span className="text-rose-600 font-bold">•</span>
+                              <span>{pt}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* ACTIONABLE IMPROVEMENT & POLISHED MODEL ANSWER */}
+                    <div className="p-4 rounded-xl bg-indigo-50/80 border border-indigo-200 space-y-3">
+                      <div>
+                        <span className="text-xs font-black text-indigo-900 uppercase tracking-wider block">
+                          🚀 How to Improve Your Spoken Delivery:
+                        </span>
+                        <p className="text-xs font-semibold text-indigo-950 mt-1 leading-relaxed">
+                          {speakCritique.how_to_improve}
+                        </p>
+                      </div>
+
+                      {speakCritique.polished_version && (
+                        <div className="p-3.5 rounded-lg bg-white border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                          <div className="space-y-0.5">
+                            <span className="text-[11px] font-bold text-slate-400 uppercase">Native Polished Model:</span>
+                            <p className="text-xs font-bold text-slate-900 italic">
+                              "{speakCritique.polished_version}"
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => speakText(speakCritique.polished_version)}
+                            disabled={isAiSpeaking}
+                            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] flex items-center gap-1 shrink-0 transition-colors"
+                          >
+                            <Volume2 className="w-3.5 h-3.5" />
+                            <span>{isAiSpeaking ? "Playing..." : "Hear Audio"}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP: ERROR FIX (LIVE SPOKEN SENTENCE CLINIC) */}
+            {currentStep.type === "error_fix" && (
+              <div className="p-6 rounded-2xl bg-rose-50/60 border border-rose-200 space-y-4">
+                <span className="text-xs font-black text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <RotateCcw className="w-4 h-4 text-rose-600" />
+                  Live Spoken Sentence Clinic
+                </span>
+
+                <div className="p-4 bg-white rounded-xl border border-rose-200 space-y-1">
+                  <span className="text-[11px] font-bold text-rose-600 uppercase">Flawed Indian English Phrasing:</span>
+                  <p className="text-base font-extrabold text-slate-800">"{currentStep.flawed_sentence}"</p>
+                </div>
+
+                {currentStep.explanation && (
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    💡 <strong className="text-slate-800">Grammar Rule:</strong> {currentStep.explanation}
+                  </p>
+                )}
+
+                <div className="space-y-2 pt-1">
+                  <span className="text-xs text-slate-700 font-bold block">Your Spoken Challenge:</span>
+                  <p className="text-xs text-slate-600">Speak the grammatically accurate sentence into your microphone.</p>
+                  <button
+                    onClick={handleSentenceFixVoiceCheck}
+                    className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
+                      isListening ? "bg-rose-500 text-white animate-pulse" : "bg-emerald-600 text-white hover:bg-emerald-700 font-black shadow-sm"
+                    }`}
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>{isListening ? "Listening... Speak the fix" : "Speak The Corrected Sentence"}</span>
+                  </button>
+                </div>
+
+                {sentenceFixResult && (
+                  <div className={`p-4 rounded-xl border text-xs font-bold ${
+                    sentenceFixResult.success ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-rose-100 text-rose-800 border-rose-300"
+                  }`}>
+                    {sentenceFixResult.message}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP: HOOK DELIVERY (30-SECOND ATTENTION GRABBER HOOK) */}
+            {currentStep.type === "hook_delivery" && (
+              <div className="p-6 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-4">
+                <span className="text-xs font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Flame className="w-4 h-4 text-amber-600" />
+                  The 30-Second Attention Grabber Hook
+                </span>
+
+                <div className="p-4 bg-white rounded-xl border border-amber-200 space-y-1">
+                  <span className="text-[11px] font-bold text-amber-700 uppercase">Target Opening Hook:</span>
+                  <p className="text-sm sm:text-base font-extrabold text-slate-800">"{currentStep.target_phrase}"</p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                  <button
+                    onClick={() => speakText(currentStep.target_phrase!)}
+                    className="px-4 py-2 rounded-xl bg-white border border-amber-200 text-amber-800 font-bold text-xs hover:bg-amber-50 flex items-center gap-1.5 transition-colors"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>Listen To Native Hook Delivery</span>
+                  </button>
+                  <button
+                    onClick={handleRepeatVoiceCapture}
                     className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
                       isListening
                         ? "bg-rose-600 text-white animate-pulse"
@@ -1225,35 +1558,158 @@ export function EnglishSpeakingCoach() {
                     }`}
                   >
                     <Mic className="w-4 h-4" />
-                    <span>{isListening ? "Listening to your answer..." : "Speak Your Answer Aloud"}</span>
+                    <span>{isListening ? "Listening... Deliver Hook!" : "Deliver Hook Into Mic"}</span>
                   </button>
                 </div>
+
+                {repeatMatchScore !== null && (
+                  <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs font-bold text-amber-900">
+                    Hook Delivery Accuracy: <strong>{repeatMatchScore}%</strong>
+                    {repeatMatchScore >= 50 ? " — Excellent projection and energy! 🌟" : " — Keep your volume high and articulate clearly!"}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP: STAR METHOD (EXECUTIVE BEHAVIORAL FRAMEWORK) */}
+            {currentStep.type === "star_method" && (
+              <div className="p-6 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-4">
+                <span className="text-xs font-black text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4 text-indigo-600" />
+                  STAR Behavioral Framework Practice
+                </span>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-bold">
+                  <div className="p-2.5 bg-white rounded-xl border border-indigo-100">
+                    <span className="text-indigo-600 block">S</span>
+                    <span className="text-slate-700 text-[11px]">Situation</span>
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl border border-indigo-100">
+                    <span className="text-indigo-600 block">T</span>
+                    <span className="text-slate-700 text-[11px]">Task</span>
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl border border-indigo-100">
+                    <span className="text-indigo-600 block">A</span>
+                    <span className="text-slate-700 text-[11px]">Action</span>
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl border border-indigo-100">
+                    <span className="text-indigo-600 block">R</span>
+                    <span className="text-slate-700 text-[11px]">Result</span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white rounded-xl border border-indigo-200 space-y-1">
+                  <span className="text-[11px] font-bold text-indigo-600 uppercase">Framework Prompt:</span>
+                  <p className="text-xs sm:text-sm font-semibold text-slate-800">{currentStep.prompt}</p>
+                </div>
+
+                {currentStep.sample_answer && (
+                  <div className="p-3 bg-white/80 rounded-xl border border-indigo-100 text-xs text-slate-700">
+                    <strong className="text-indigo-900">Reference Model: </strong>"{currentStep.sample_answer}"
+                  </div>
+                )}
+
+                <div className="pt-1">
+                  <button
+                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
+                    className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
+                      isListening ? "bg-rose-600 text-white animate-pulse" : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+                    }`}
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>{isListening ? "Listening to your STAR answer..." : "Deliver STAR Response"}</span>
+                  </button>
+                </div>
+
                 {userSpokenText && (
-                  <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs space-y-1">
-                    <span className="font-bold text-slate-400">Your Answer:</span>
+                  <div className="p-3 bg-white rounded-xl border border-indigo-200 text-xs space-y-1">
+                    <span className="font-bold text-slate-400">Captured Response:</span>
                     <p className="font-semibold text-slate-800">"{userSpokenText}"</p>
                   </div>
                 )}
               </div>
             )}
 
-            {/* STEP 4: INTERACT (LRSI LIVE CHAT WITH GRAMMAR CORRECTION) */}
+            {/* STEP 4: INTERACT (HANDS-FREE LIVE VOICE LOOP & SPOKEN DIALOGUE) */}
             {currentStep.type === "interact" && (
-              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
-                <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-indigo-600" />
-                  Live Conversational Exchange with AI Coach
-                </span>
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-800/40 space-y-5 shadow-xl">
+                {/* HEADER & HANDS-FREE TOGGLE */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      <Sparkles className="w-4 h-4 text-indigo-400" />
+                    </span>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-white">Live Spoken English Conversation</h4>
+                      <p className="text-xs text-indigo-200">Focused on natural English speaking, idioms, and cadence</p>
+                    </div>
+                  </div>
+
+                  {/* HANDS-FREE STATUS & TOGGLE */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const next = !isHandsFreeMode;
+                        setIsHandsFreeMode(next);
+                        if (!next) {
+                          stopRecordingSpeech();
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black border flex items-center gap-1.5 transition-all ${
+                        isHandsFreeMode
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs"
+                          : "bg-white/10 text-slate-300 border-white/10 hover:bg-white/15"
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5 text-amber-400 fill-current" />
+                      <span>Hands-Free Auto-Voice: {isHandsFreeMode ? "ACTIVE" : "PAUSED"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* DYNAMIC HANDS-FREE STATUS BAR */}
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-xs font-bold">
+                  <div className="flex items-center gap-2.5">
+                    {isAiSpeaking ? (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-ping" />
+                        <span className="text-indigo-300">🔊 Coach is speaking aloud...</span>
+                      </>
+                    ) : isCoachThinking ? (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                        <span className="text-amber-300">⚡ Coach is formulating response...</span>
+                      </>
+                    ) : isListening ? (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-emerald-300">🎙️ Listening to you... Speak freely (auto-sends on pause)</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                        <span className="text-slate-300">Microphone standby. Click mic below or say hello!</span>
+                      </>
+                    )}
+                  </div>
+
+                  {isHandsFreeMode && (
+                    <span className="text-[11px] text-indigo-300/80 font-normal hidden sm:inline">
+                      Auto-detects sentence pauses (1.1s)
+                    </span>
+                  )}
+                </div>
 
                 {currentStep.coach_starter && dialogueMessages.length === 0 && (
-                  <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 flex items-start justify-between gap-3">
+                  <div className="p-4 rounded-xl bg-white/10 border border-white/10 flex items-start justify-between gap-3">
                     <div className="space-y-1">
-                      <span className="text-[11px] font-extrabold text-indigo-700 uppercase">Coach Question:</span>
-                      <p className="text-sm font-semibold text-indigo-950">"{currentStep.coach_starter}"</p>
+                      <span className="text-[11px] font-extrabold text-amber-300 uppercase">Coach Opening Question:</span>
+                      <p className="text-sm font-semibold text-white">"{currentStep.coach_starter}"</p>
                     </div>
                     <button
                       onClick={() => speakText(currentStep.coach_starter!)}
-                      className="p-2 rounded-lg bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50"
+                      disabled={isAiSpeaking}
+                      className="p-2 rounded-lg bg-white/15 text-white hover:bg-white/25 border border-white/10"
                     >
                       <Volume2 className="w-4 h-4" />
                     </button>
@@ -1265,33 +1721,51 @@ export function EnglishSpeakingCoach() {
                   {dialogueMessages.map((msg, i) => (
                     <div key={i} className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}>
                       {msg.correction && (
-                        <div className="mb-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl shadow-xs">
-                          💡 Coach Tip: {msg.correction}
+                        <div className="mb-1 text-[11px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/40 px-3 py-1 rounded-xl shadow-xs">
+                          💡 Spoken Tip: {msg.correction}
                         </div>
                       )}
                       <div className={`p-3.5 rounded-2xl max-w-md text-xs font-semibold leading-relaxed ${
                         msg.sender === "user"
-                          ? "bg-indigo-600 text-white rounded-tr-none shadow-sm"
-                          : "bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-xs"
+                          ? "bg-indigo-600 text-white rounded-tr-none shadow-md"
+                          : "bg-white/10 border border-white/15 text-white rounded-tl-none shadow-xs"
                       }`}>
                         {msg.text}
                       </div>
                     </div>
                   ))}
                   {isCoachThinking && (
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                      <div className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-300">
+                      <div className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
                       <span>Coach is replying...</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 pt-2">
+                {/* LIVE SPEECH TRANSCRIPTION PREVIEW */}
+                {userSpokenText && (
+                  <div className="p-3 bg-white/10 rounded-xl border border-white/15 text-xs flex items-center justify-between gap-2">
+                    <span className="text-slate-300 truncate">
+                      <strong className="text-emerald-300">You: </strong>"{userSpokenText}"
+                    </span>
+                    {isHandsFreeMode && (
+                      <span className="text-[10px] text-amber-300 shrink-0 font-bold animate-pulse">
+                        Auto-sending on pause...
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* CONTROLS (VOICE + TEXT FALLBACK) */}
+                <div className="flex items-center gap-2 pt-1">
                   <button
-                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
+                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech({ continuous: true })}
                     className={`p-3 rounded-2xl font-bold text-xs flex items-center justify-center transition-all ${
-                      isListening ? "bg-rose-600 text-white animate-pulse" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                      isListening
+                        ? "bg-rose-500 text-white animate-pulse"
+                        : "bg-indigo-600 text-white hover:bg-indigo-500"
                     }`}
+                    title={isListening ? "Pause Listening" : "Start Speaking"}
                   >
                     <Mic className="w-5 h-5" />
                   </button>
@@ -1299,13 +1773,18 @@ export function EnglishSpeakingCoach() {
                     type="text"
                     value={userSpokenText}
                     onChange={(e) => setUserSpokenText(e.target.value)}
-                    placeholder="Speak via mic or type your conversational reply..."
-                    className="flex-1 px-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-semibold focus:outline-hidden focus:border-indigo-500"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && userSpokenText.trim()) {
+                        handleSendDialogueTurn();
+                      }
+                    }}
+                    placeholder="Speak freely via microphone or type your message here..."
+                    className="flex-1 px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-xs text-white placeholder-slate-400 font-semibold focus:outline-hidden focus:border-indigo-400"
                   />
                   <button
-                    onClick={handleSendDialogueTurn}
+                    onClick={() => handleSendDialogueTurn()}
                     disabled={!userSpokenText.trim() || isCoachThinking}
-                    className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-sm transition-all disabled:opacity-40"
+                    className="px-5 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold text-xs shadow-sm transition-all disabled:opacity-30"
                   >
                     Send
                   </button>
@@ -1590,10 +2069,13 @@ export function EnglishSpeakingCoach() {
                   <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200">
                     {currentStep.type === "listen" && "🎧 Listen to the model audio first"}
                     {currentStep.type === "repeat" && "🎙️ Repeat the phrase with >= 50% accuracy"}
-                    {currentStep.type === "speak" && "💬 Speak your answer aloud (3+ words)"}
-                    {currentStep.type === "interact" && "🤝 Have at least 1 dialogue turn with coach"}
+                    {currentStep.type === "speak" && "💬 Speak your answer & get AI feedback"}
+                    {currentStep.type === "error_fix" && "🛠️ Speak the corrected sentence aloud"}
+                    {currentStep.type === "hook_delivery" && "🔥 Deliver the 30s grabber hook"}
+                    {currentStep.type === "star_method" && "⭐ Deliver your STAR response"}
+                    {currentStep.type === "interact" && "🤝 Complete at least 1 spoken exchange"}
                     {currentStep.type === "present" && "🎤 Deliver your speech & request critique"}
-                    {currentStep.type === "game" && "🎮 Play the mini-game to unlock next stage"}
+                    {currentStep.type === "game" && "🎮 Clear the activity to unlock next stage"}
                     {currentStep.type === "capstone" && "🎓 Speak your capstone speech"}
                   </span>
                 )}
