@@ -178,11 +178,11 @@ DIAGNOSTIC_QUESTIONS = [
 ]
 
 # =====================================================================
-# 2. STRUCTURED LRSI & LRSP LECTURE ROADMAP (DIVERSIFIED STAGES)
+# 2. STRUCTURED LRSI & LRSP LECTURE ROADMAP (3 PROGRESSIVE DRILLS PER STEP)
 # =====================================================================
 def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str, Any]]:
-    """Generates sequential, locked modules tailored to the student's level and weak points with unique stages."""
-    weak_str = ', '.join(weak_points[:3]) if weak_points else 'Tenses and Natural Flow'
+    """Generates sequential modules tailored to weak points where each step has 3 progressive practice drills."""
+    weak_str = ', '.join(weak_points[:3]) if weak_points else 'Tenses and Natural Sentence Flow'
     return [
         {
             "id": "module_1",
@@ -196,28 +196,105 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
                     "type": "listen",
                     "title": "Step 1: Audio Ear Training (Native Cadence & Flow)",
                     "prompt": "Listen carefully to the coach's tone, pacing, and natural sentence pauses in everyday conversation.",
-                    "model_audio_text": "Good morning everyone! It is a genuine pleasure to connect with all of you today. Let us get started on our discussion."
+                    "model_audio_text": "Good morning everyone! It is a genuine pleasure to connect with all of you today. Let us get started on our discussion.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Drill 1: Morning Welcome & Warmth",
+                            "model_audio_text": "Good morning everyone! It is a genuine pleasure to connect with all of you today.",
+                            "focus": "Warm intonation and greeting cadence"
+                        },
+                        {
+                            "id": 2,
+                            "title": "Drill 2: Expressing Excitement & Project Updates",
+                            "model_audio_text": "I am truly excited to share our latest project updates, and I think you will find the results fascinating.",
+                            "focus": "Smooth transition before the connector 'and'"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Drill 3: Engaging Group Transition",
+                            "model_audio_text": "Before we dive into our central topic, let us take a quick moment to reflect on what we accomplished this week.",
+                            "focus": "Natural pause after introductory clause"
+                        }
+                    ]
                 },
                 {
                     "step_id": "m1_repeat",
                     "type": "repeat",
                     "title": "Step 2: Shadowing Cadence (Rhythm & Stress Echo)",
-                    "prompt": "Press the microphone and repeat the exact phrase with clear cadence and natural stress.",
-                    "target_phrase": "It is a genuine pleasure to connect with all of you today."
+                    "prompt": "Press the microphone and repeat each phrase with clear cadence and natural stress.",
+                    "target_phrase": "It is a genuine pleasure to connect with all of you today.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Drill 1: Casual Warmth Echo",
+                            "target_phrase": "It is a genuine pleasure to connect with all of you today.",
+                            "prompt": "Echo this phrase emphasizing 'genuine pleasure' and 'all of you'."
+                        },
+                        {
+                            "id": 2,
+                            "title": "Drill 2: Courteous Collocation Echo",
+                            "target_phrase": "Could you please take a quick look at my presentation slides?",
+                            "prompt": "Notice how 'take a quick look' flows as a single natural unit."
+                        },
+                        {
+                            "id": 3,
+                            "title": "Drill 3: Confident Momentum Echo",
+                            "target_phrase": "We made substantial progress, and we are now ready for our next milestone.",
+                            "prompt": "Deliver with energetic, upward inflection on 'substantial progress'."
+                        }
+                    ]
                 },
                 {
                     "step_id": "m1_speak",
                     "type": "speak",
                     "title": "Step 3: Daily Express Scenario (Spoken Response + AI Critique)",
-                    "prompt": "How would you warmly welcome colleagues or classmates to an interactive morning session? Speak in 2-3 clear sentences. The AI Coach will evaluate your positive and negative points!",
-                    "sample_answer": "Good morning everyone! I am excited to see your bright energy today. Let us dive into our discussion with full enthusiasm!"
+                    "prompt": "Speak your response into the microphone. The AI Coach will give detailed positive points, slip-ups to fix, and spoken advice.",
+                    "sample_answer": "Good morning everyone! I am excited to see your bright energy today. Let us dive into our discussion with full enthusiasm!",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Drill 1: Welcoming a New Peer",
+                            "prompt": "How would you warmly welcome a new classmate or colleague to your morning project group? Speak 2 clear sentences.",
+                            "sample_answer": "Welcome to our team! We are thrilled to have you here and cannot wait to work together on this exciting project."
+                        },
+                        {
+                            "id": 2,
+                            "title": "Drill 2: Sharing Positive News",
+                            "prompt": "Announce to your group that your school science model was selected for the regional exhibition.",
+                            "sample_answer": "I have fantastic news to share with everyone! Our science model was chosen for the regional exhibition thanks to our collective dedication."
+                        },
+                        {
+                            "id": 3,
+                            "title": "Drill 3: Proposing a New Idea",
+                            "prompt": "Pitch a creative 2-sentence suggestion to make morning school meetings more fun and interactive.",
+                            "sample_answer": "I propose we start our morning meetings with a 2-minute creative challenge. It will help everyone speak up and feel energized for the day."
+                        }
+                    ]
                 },
                 {
                     "step_id": "m1_interact",
                     "type": "interact",
                     "title": "Step 4: Hands-Free Daily Small Talk (Live Conversational Dialogue)",
                     "prompt": "Hands-Free Voice Mode: The AI coach speaks, listens, and auto-submits your turns without you having to press buttons. Have a casual campus chat!",
-                    "coach_starter": "Hello there! Tell me one exciting thing you learned or experienced recently in your school or work."
+                    "coach_starter": "Hello there! Tell me one exciting thing you learned or experienced recently in your school or work.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Exchange 1: Daily Highlights & Passions",
+                            "coach_starter": "Hello there! Tell me one exciting thing you learned or experienced recently in your school or work."
+                        },
+                        {
+                            "id": 2,
+                            "title": "Exchange 2: Favorite Books & Hobbies",
+                            "coach_starter": "That sounds wonderful! When you have free time over the weekend, what kind of activities or books do you love exploring?"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Exchange 3: Dreams & Aspirations",
+                            "coach_starter": "If you could master any skill in the world this year, what would you choose and why?"
+                        }
+                    ]
                 },
                 {
                     "step_id": "m1_game",
@@ -225,7 +302,24 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
                     "game_type": "word_sprint",
                     "title": "Step 5: 30-Second Word Association Fluency Sprint",
                     "prompt": "Speak aloud as many inspiring adjectives related to 'Education & Learning' as you can within 30 seconds!",
-                    "target_keywords": ["engaging", "creative", "curious", "brilliant", "thoughtful", "vibrant", "interactive", "inspiring", "dynamic", "knowledgeable"]
+                    "target_keywords": ["engaging", "creative", "curious", "brilliant", "thoughtful", "vibrant", "interactive", "inspiring", "dynamic", "knowledgeable"],
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Sprint 1: Inspiring Learning Words",
+                            "target_keywords": ["engaging", "creative", "curious", "brilliant", "thoughtful", "vibrant"]
+                        },
+                        {
+                            "id": 2,
+                            "title": "Sprint 2: Teamwork & Communication",
+                            "target_keywords": ["collaborative", "articulate", "diplomatic", "supportive", "constructive"]
+                        },
+                        {
+                            "id": 3,
+                            "title": "Sprint 3: High-Energy Leadership",
+                            "target_keywords": ["visionary", "decisive", "proactive", "empowering", "inspirational"]
+                        }
+                    ]
                 }
             ],
             "game": {
@@ -247,30 +341,110 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
                     "type": "listen",
                     "title": "Step 1: Native Connectors & Sentence Flow Masterclass",
                     "prompt": "Notice how the speaker smoothly links past progress to present plans using connectors like 'over the past' and 'consequently'.",
-                    "model_audio_text": "Over the past several weeks, our students have demonstrated significant improvement in mathematical reasoning, and consequently, they are now ready for advanced challenges."
+                    "model_audio_text": "Over the past several weeks, our students have demonstrated significant improvement in mathematical reasoning, and consequently, they are now ready for advanced challenges.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Drill 1: Expressing Duration ('Have Been' vs 'Am')",
+                            "model_audio_text": "I have been working on this educational research for the past six months, and the insights are remarkable.",
+                            "focus": "Use 'have been ... for' to express continuing duration"
+                        },
+                        {
+                            "id": 2,
+                            "title": "Drill 2: Contrasting Conjunctions ('Yet' & 'Although')",
+                            "model_audio_text": "Although our preparation was intense, yet the entire team remained confident and poised throughout the event.",
+                            "focus": "Smooth flow across contrasting ideas"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Drill 3: Precise Time & Prepositions",
+                            "model_audio_text": "Our keynote workshop begins promptly at nine o'clock on Monday morning in the main auditorium.",
+                            "focus": "'At' for specific time, 'on' for specific days"
+                        }
+                    ]
                 },
                 {
                     "step_id": "m2_error_fix",
                     "type": "error_fix",
                     "title": "Step 2: Live Spoken Sentence Clinic (Spot & Speak The Fix)",
-                    "prompt": "Listen to this common spoken Indian English slip: 'I am working here since five years.' Speak the grammatically corrected version aloud into your microphone!",
+                    "prompt": "Listen to the common spoken Indian English slip. Speak the grammatically corrected version aloud into your microphone!",
                     "flawed_sentence": "I am working here since five years.",
                     "corrected_sentence": "I have been working here for five years.",
-                    "explanation": "Use present perfect continuous ('have been working') with duration 'for five years', not 'since'."
+                    "explanation": "Use present perfect continuous ('have been working') with duration 'for five years', not 'since'.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Drill 1: Duration Tense Fix",
+                            "flawed_sentence": "I am working here since five years.",
+                            "corrected_sentence": "I have been working here for five years.",
+                            "explanation": "Use 'have been working' with duration 'for five years', not 'since'."
+                        },
+                        {
+                            "id": 2,
+                            "title": "Drill 2: Redundant Phrase Fix",
+                            "flawed_sentence": "Please revert back with your confirmation by tomorrow.",
+                            "corrected_sentence": "Please reply with your confirmation by tomorrow.",
+                            "explanation": "'Revert' already means to return to a previous state. Say 'reply' or 'get back to me'."
+                        },
+                        {
+                            "id": 3,
+                            "title": "Drill 3: Concord Concordance Fix",
+                            "flawed_sentence": "Neither of the two candidate teachers were ready to take the class.",
+                            "corrected_sentence": "Neither of the two candidate teachers was ready to take the class.",
+                            "explanation": "'Neither of' takes a singular verb ('was')."
+                        }
+                    ]
                 },
                 {
                     "step_id": "m2_speak",
                     "type": "speak",
                     "title": "Step 3: Professional Email/Meeting Phrasing (Spoken AI Critique)",
                     "prompt": "Avoid saying 'revert back' or 'prepone'. State how you would professionally request someone to reply to your email by tomorrow afternoon. Speak in 2 clear sentences.",
-                    "sample_answer": "Please let me know your thoughts by tomorrow afternoon at your earliest convenience. I look forward to your valuable feedback."
+                    "sample_answer": "Please let me know your thoughts by tomorrow afternoon at your earliest convenience. I look forward to your valuable feedback.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Drill 1: Requesting a Deadline Extension",
+                            "prompt": "How would you politely ask a senior manager or teacher for two additional days to polish a presentation?",
+                            "sample_answer": "Could I please request a two-day extension on this assignment? I want to ensure every analysis is thoroughly validated."
+                        },
+                        {
+                            "id": 2,
+                            "title": "Drill 2: Rescheduling a Meeting",
+                            "prompt": "Instead of saying 'Can we prepone the meeting?', propose moving the meeting to an earlier time politely.",
+                            "sample_answer": "Would it be convenient for you if we moved our meeting forward to eleven o'clock tomorrow morning?"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Drill 3: Diplomatic Clarification",
+                            "prompt": "You didn't understand someone's argument in a meeting. Ask them to clarify diplomatically without sounding defensive.",
+                            "sample_answer": "May I ask for a quick clarification on your last point? I want to make sure I am fully aligned with your recommendation."
+                        }
+                    ]
                 },
                 {
                     "step_id": "m2_interact",
                     "type": "interact",
                     "title": "Step 4: Hands-Free Problem Solving & Polite Negotiation",
                     "prompt": "A colleague or parent asks you for an unreasonable deadline extension. Hands-free dialogue: respond politely, explain your policy, and find common ground.",
-                    "coach_starter": "Hi teacher, my team couldn't finish the report due to a personal emergency. Can we get a one-week extension?"
+                    "coach_starter": "Hi teacher, my team couldn't finish the report due to a personal emergency. Can we get a one-week extension?",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Scenario 1: Assignment Extension Negotiation",
+                            "coach_starter": "Hi teacher, my team couldn't finish the report due to a personal emergency. Can we get a one-week extension?"
+                        },
+                        {
+                            "id": 2,
+                            "title": "Scenario 2: Grading Inquiry Discussion",
+                            "coach_starter": "Hello! I noticed I lost marks on question four, but I feel my explanation was complete. Could you review it with me?"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Scenario 3: Resolving Conflicting Schedules",
+                            "coach_starter": "We have two department meetings scheduled at the exact same hour tomorrow. How do you suggest we proceed?"
+                        }
+                    ]
                 },
                 {
                     "step_id": "m2_game",
@@ -279,7 +453,27 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
                     "title": "Step 5: Rapid Grammar Fixer Challenge",
                     "prompt": "Look at the flawed sentence, identify the grammatical error, and speak the correct version into your microphone!",
                     "flawed_sentence": "She don't know the answer because she was absent yesterday.",
-                    "corrected_sentence": "She doesn't know the answer because she was absent yesterday."
+                    "corrected_sentence": "She doesn't know the answer because she was absent yesterday.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Fix 1: Auxiliary Agreement",
+                            "flawed_sentence": "She don't know the answer because she was absent yesterday.",
+                            "corrected_sentence": "She doesn't know the answer because she was absent yesterday."
+                        },
+                        {
+                            "id": 2,
+                            "title": "Fix 2: Past Hypothetical",
+                            "flawed_sentence": "If I would have known, I would tell you.",
+                            "corrected_sentence": "If I had known, I would have told you."
+                        },
+                        {
+                            "id": 3,
+                            "title": "Fix 3: Time Preposition",
+                            "flawed_sentence": "The competition will begin in Monday at morning.",
+                            "corrected_sentence": "The competition will begin on Monday morning."
+                        }
+                    ]
                 }
             ],
             "game": {
@@ -301,28 +495,99 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
                     "type": "listen",
                     "title": "Step 1: TED-Style Keynote Breakdown (Hook, Proof, Call to Action)",
                     "prompt": "Listen to the formula: 1) The Grabber Hook, 2) The Core Proof, 3) The Inspiring Call to Action.",
-                    "model_audio_text": "Imagine a classroom where every student is so excited that they cannot wait for the bell to ring. That is not a dream—that is the classroom we are creating together today."
+                    "model_audio_text": "Imagine a classroom where every student is so excited that they cannot wait for the bell to ring. That is not a dream—that is the classroom we are creating together today.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Drill 1: The Visionary Opening",
+                            "model_audio_text": "Imagine a world where learning is not about memorizing answers, but about discovering questions that change lives.",
+                            "focus": "The Power Pause after 'Imagine'"
+                        },
+                        {
+                            "id": 2,
+                            "title": "Drill 2: The Evidence Bridge",
+                            "model_audio_text": "Our data reveals a striking truth: when students teach one another, retention jumps from twenty percent to eighty percent.",
+                            "focus": "Emphasis on statistical contrast"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Drill 3: The Resonant Call to Action",
+                            "model_audio_text": "Let us not wait for the future of education to arrive. Let us step forward and build it right here, right now.",
+                            "focus": "Authoritative, downward inflection"
+                        }
+                    ]
                 },
                 {
                     "step_id": "m3_hook",
                     "type": "hook_delivery",
                     "title": "Step 2: The 30-Second Attention Grabber Hook",
                     "prompt": "Deliver an electrifying 30-second speech opening on the topic: 'The Power of Education'. Use a question, a shocking statistic, or a personal story!",
-                    "target_phrase": "Have you ever wondered what makes a great mind truly unstoppable? It begins with a single teacher who believes."
+                    "target_phrase": "Have you ever wondered what makes a great mind truly unstoppable? It begins with a single teacher who believes.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Hook 1: The Thought-Provoking Question",
+                            "target_phrase": "Have you ever wondered what makes a great mind truly unstoppable? It begins with a single teacher who believes."
+                        },
+                        {
+                            "id": 2,
+                            "title": "Hook 2: The Striking Discovery",
+                            "target_phrase": "Every great discovery in human history started with a question that everyone else was too afraid to ask."
+                        },
+                        {
+                            "id": 3,
+                            "title": "Hook 3: The Emotional Human Story",
+                            "target_phrase": "Five years ago, a student sat in the back row believing she could not succeed. Today, she leads our robotics team."
+                        }
+                    ]
                 },
                 {
                     "step_id": "m3_present",
                     "type": "present",
                     "title": "Step 3: 1-Minute Live Public Speech Stage (Full AI Scorecard)",
                     "prompt": "Deliver a 60-second public speech on: 'Why Curiosity is the Greatest Teacher'. The AI coach will evaluate your filler words, pacing, positive highlights, and areas to improve!",
-                    "topic": "Why Curiosity is the Greatest Teacher"
+                    "topic": "Why Curiosity is the Greatest Teacher",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Speech Challenge 1: The Sparks of Curiosity",
+                            "topic": "Why Curiosity is the Greatest Teacher"
+                        },
+                        {
+                            "id": 2,
+                            "title": "Speech Challenge 2: Embracing Mistakes",
+                            "topic": "Why Failure is the Best Stepping Stone to Mastery"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Speech Challenge 3: Technology & Mentorship",
+                            "topic": "How AI and Great Teachers Can Transform Every Child's Future"
+                        }
+                    ]
                 },
                 {
                     "step_id": "m3_interact",
                     "type": "interact",
                     "title": "Step 4: Hands-Free Impromptu Q&A Defense",
                     "prompt": "The audience is asking tough spontaneous questions about your presentation! Hands-free voice: defend your point clearly and confidently.",
-                    "coach_starter": "You argued that curiosity is greater than discipline. But isn't discipline what actually gets exams cleared?"
+                    "coach_starter": "You argued that curiosity is greater than discipline. But isn't discipline what actually gets exams cleared?",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Defense 1: Curiosity vs Strict Discipline",
+                            "coach_starter": "You argued that curiosity is greater than discipline. But isn't discipline what actually gets exams cleared?"
+                        },
+                        {
+                            "id": 2,
+                            "title": "Defense 2: Technology vs Human Connection",
+                            "coach_starter": "Some say artificial intelligence will replace teachers. What is your honest stance on that?"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Defense 3: Overcoming Academic Anxiety",
+                            "coach_starter": "How can a student stay confident in public speaking when their mind suddenly goes blank?"
+                        }
+                    ]
                 },
                 {
                     "step_id": "m3_game",
@@ -330,7 +595,24 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
                     "game_type": "tongue_twister",
                     "title": "Step 5: Articulation & Tongue Agility Sprint",
                     "prompt": "Speak this classic articulation tongue twister without stumbling. Speed and crisp pronunciation count!",
-                    "target_phrase": "She sells seashells by the seashore and the shells she sells are seashells"
+                    "target_phrase": "She sells seashells by the seashore and the shells she sells are seashells",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Agility 1: S and SH Distinction",
+                            "target_phrase": "She sells seashells by the seashore and the shells she sells are seashells"
+                        },
+                        {
+                            "id": 2,
+                            "title": "Agility 2: V and W Lip Distinction",
+                            "target_phrase": "Vincent vowed vengeance very vehemently with vibrant voice"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Agility 3: P and B Plosive Clarity",
+                            "target_phrase": "Peter Piper picked a peck of pickled peppers with pristine precision"
+                        }
+                    ]
                 }
             ],
             "game": {
@@ -351,28 +633,105 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
                     "type": "listen",
                     "title": "Step 1: Executive Leadership Tone & STAR Blueprint",
                     "prompt": "Listen to how high-performing leaders answer questions: Situation, Task, Action, Result with clear authority.",
-                    "model_audio_text": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a 40 percent boost in exam performance."
+                    "model_audio_text": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a 40 percent boost in exam performance.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Drill 1: Executive Authority Cadence",
+                            "model_audio_text": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a forty percent boost in exam performance.",
+                            "focus": "Clear metrics and concise results"
+                        },
+                        {
+                            "id": 2,
+                            "title": "Drill 2: Crisis Leadership Tone",
+                            "model_audio_text": "During unexpected platform downtime, I mobilized our emergency communications channel within ten minutes to reassure all stakeholders.",
+                            "focus": "Decisive, composed voice control"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Drill 3: Strategic Long-Term Vision",
+                            "model_audio_text": "My goal is to cultivate an institutional culture where continuous learning and empathy drive measurable educational breakthroughs.",
+                            "focus": "Inspiring closing cadence"
+                        }
+                    ]
                 },
                 {
                     "step_id": "m4_star",
                     "type": "star_method",
                     "title": "Step 2: STAR Behavioral Framework Practice",
-                    "prompt": "Structure a spoken answer to: 'Describe a challenge you overcame'. State the Situation, your specific Action, and the final positive Result in 3-4 sentences.",
-                    "sample_answer": "In our previous term, our team faced tight project deadlines. I reorganized our weekly milestones, communicated daily updates, and successfully delivered the project two days ahead of schedule."
+                    "prompt": "Structure a spoken answer: State the Situation, your specific Action, and the final positive Result in 3-4 sentences.",
+                    "sample_answer": "In our previous term, our team faced tight project deadlines. I reorganized our weekly milestones, communicated daily updates, and successfully delivered the project two days ahead of schedule.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "STAR Challenge 1: Tight Deadlines",
+                            "prompt": "Tell me about a time you handled an urgent, high-pressure deadline.",
+                            "sample_answer": "Our school faced a 48-hour deadline for curriculum submission. I divided the syllabus modules among four educators, coordinated hourly checks, and submitted the finalized report four hours early."
+                        },
+                        {
+                            "id": 2,
+                            "title": "STAR Challenge 2: Resolving Disagreements",
+                            "prompt": "Describe a situation where you worked with someone with an opposing viewpoint.",
+                            "sample_answer": "A colleague disagreed with adopting our new digital quiz tool. I scheduled a coffee chat, listened to his workflow concerns, and showed him how it saved two hours weekly, turning him into its biggest advocate."
+                        },
+                        {
+                            "id": 3,
+                            "title": "STAR Challenge 3: Leading an Innovation",
+                            "prompt": "Describe an innovation or new initiative you spearheaded.",
+                            "sample_answer": "I identified that students struggled with spoken confidence. I launched a daily 3-minute impromptu speech circle, which increased active classroom speaking by fifty percent in two months."
+                        }
+                    ]
                 },
                 {
                     "step_id": "m4_speak",
                     "type": "speak",
                     "title": "Step 3: Executive Pitch ('Tell Me About Yourself')",
                     "prompt": "Deliver your 45-second professional elevator pitch summarizing your skills, passion, and vision. The AI Coach will give detailed positive and negative feedback.",
-                    "sample_answer": "I am an enthusiastic educator and lifelong learner passionate about inspiring young minds through creative problem solving. My mission is to build classrooms where every learner thrives."
+                    "sample_answer": "I am an enthusiastic educator and lifelong learner passionate about inspiring young minds through creative problem solving. My mission is to build classrooms where every learner thrives.",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Pitch 1: Personal Brand & Passion",
+                            "prompt": "In 30-40 seconds, answer the executive question: 'Tell me about yourself and what drives you.'",
+                            "sample_answer": "I am a dedicated communicator and lifelong educator driven by empowering learners to find their authentic voice and communicate with unshakeable confidence."
+                        },
+                        {
+                            "id": 2,
+                            "title": "Pitch 2: Your Core Differentiator",
+                            "prompt": "What sets your communication style apart from others? Speak in 3 clear sentences.",
+                            "sample_answer": "What sets me apart is my ability to listen deeply before speaking. This allows me to connect with diverse audiences and break complex concepts into relatable stories."
+                        },
+                        {
+                            "id": 3,
+                            "title": "Pitch 3: Career Ambition Pitch",
+                            "prompt": "Where do you see yourself making the biggest impact in the next three years?",
+                            "sample_answer": "Over the next three years, I want to lead global communication workshops that bridge educational divides and equip students worldwide with world-class English speaking mastery."
+                        }
+                    ]
                 },
                 {
                     "step_id": "m4_interact",
                     "type": "interact",
                     "title": "Step 4: Hands-Free Senior Boardroom Mock Interview",
                     "prompt": "You are in an executive interview. Hands-free dialogue: answer spontaneous questions from the hiring director with authority and fluency.",
-                    "coach_starter": "Welcome to the final interview panel. How do you handle high-pressure conflicts or differing opinions in your team?"
+                    "coach_starter": "Welcome to the final interview panel. How do you handle high-pressure conflicts or differing opinions in your team?",
+                    "practice_items": [
+                        {
+                            "id": 1,
+                            "title": "Interview Round 1: Pressure & Conflict",
+                            "coach_starter": "Welcome to the final interview panel. How do you handle high-pressure conflicts or differing opinions in your team?"
+                        },
+                        {
+                            "id": 2,
+                            "title": "Interview Round 2: Handling Constructive Criticism",
+                            "coach_starter": "Tell me about a piece of constructive feedback you received recently. How did you process it and what changed?"
+                        },
+                        {
+                            "id": 3,
+                            "title": "Interview Round 3: Leadership Philosophy",
+                            "coach_starter": "What is the single most important leadership quality in today's fast-evolving educational world?"
+                        }
+                    ]
                 },
                 {
                     "step_id": "m4_live_capstone",
@@ -531,11 +890,79 @@ class EnglishCoachService:
             return False
 
     # ------------------------------------------------------------------
-    # 3. DIAGNOSTIC EVALUATION (DETERMINISTIC)
+    # 3. DYNAMIC AI CURRICULUM GENERATION & DIAGNOSTIC EVALUATION
     # ------------------------------------------------------------------
-    def submit_diagnostic(self, user_id: str, user_answers: Dict[str, int], user_role: str = "student") -> Dict[str, Any]:
+    async def generate_personalized_curriculum_with_ai(
+        self,
+        score: int,
+        level: str,
+        weak_points: List[str],
+        detailed_breakdown: List[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
         """
-        Grades the 10 fixed questions, identifies weak points, sets level, and initializes roadmap.
+        Dynamically generates an AI-powered 4-module spoken English curriculum tailored specifically
+        to the student's test score, failed questions, and detected weak points.
+        Each step contains 3 progressive real-life practice drills.
+        """
+        failed_items = []
+        if detailed_breakdown:
+            for item in detailed_breakdown:
+                if not item.get("is_correct"):
+                    failed_items.append(f"{item.get('category')}: {item.get('weakness_tag')}")
+
+        failed_summary = ", ".join(failed_items) if failed_items else "General Spoken Polish & Natural Cadence"
+        weak_summary = ", ".join(weak_points) if weak_points else "Natural sentence cadence and idioms"
+
+        prompt = f"""You are Devgya Chief English Curriculum Director.
+Create a personalized 4-module Spoken English Curriculum for an Indian student who just completed the diagnostic test.
+
+Student Profile:
+- Diagnostic Score: {score}/10
+- Fluency Level: {level}
+- Weak Points Identified: {weak_summary}
+- Failed Diagnostic Topics: {failed_summary}
+
+REQUIREMENTS:
+1. Generate a JSON array of 4 modules:
+   - Module 1: Everyday Conversational Fluency & Confidence (focusing on overcoming hesitation and early weak points)
+   - Module 2: Grammar in Spoken Action & Sentence Reconstruction (focusing directly on their failed diagnostic grammar points: {failed_summary})
+   - Module 3: Persuasive Keynote & Public Speaking (stage presence, opening hook, impromptu defense)
+   - Module 4: Executive Interview & Mastery Capstone (STAR framework, executive pitch, final live interview)
+
+2. CRITICAL: In EVERY step of each module, generate a `practice_items` array containing EXACTLY 3 progressive, real-life, practical practice items (Drill 1: Foundation, Drill 2: Intermediate, Drill 3: Advanced Mastery).
+   - Listen steps: 3 progressive model audio sentences with native rhythm and intonation focus.
+   - Repeat steps: 3 progressive target phrases to echo with prompts.
+   - Speak steps: 3 situational prompts with sample answers.
+   - Error Fix steps: 3 real-world flawed Indian English sentences targeting their specific test gaps, with corrected versions and explanations.
+   - Interact steps: 3 progressive conversational exchange topics with coach starters.
+   - Hook delivery steps: 3 progressive opening speech hooks.
+   - STAR steps: 3 behavioral situation prompts with sample answers.
+   - Present steps: 3 speech topics.
+
+3. All sentences must be practical, authentic, and engaging.
+4. Output MUST be ONLY a valid JSON array of 4 module objects with id, title, methodology, description, focus_areas, steps, and game.
+"""
+        messages = [
+            {"role": "system", "content": "You are Devgya Chief English Curriculum Architect. Return ONLY a valid JSON array of 4 modules."},
+            {"role": "user", "content": prompt}
+        ]
+
+        try:
+            raw = await ai_provider.chat_completion(messages, temperature=0.3, response_format_json=True)
+            modules = json.loads(raw)
+            if isinstance(modules, list) and len(modules) >= 4:
+                return modules
+            elif isinstance(modules, dict) and "modules" in modules and isinstance(modules["modules"], list):
+                return modules["modules"]
+        except Exception as e:
+            logger.warning(f"AI curriculum generation fallback: {e}")
+
+        # Fallback to the rich 3-drill dynamic template
+        return get_curriculum_modules(level, weak_points)
+
+    async def submit_diagnostic(self, user_id: str, user_answers: Dict[str, int], user_role: str = "student") -> Dict[str, Any]:
+        """
+        Grades the 10 fixed questions, identifies weak points, sets level, and initializes roadmap with AI generation.
         """
         score = 0
         weak_points = []
@@ -570,6 +997,14 @@ class EnglishCoachService:
         else:
             level = "Foundation (A2 Expressive Basics)"
 
+        # Generate custom AI modules tailored specifically to the user's weaknesses
+        modules = await self.generate_personalized_curriculum_with_ai(
+            score=score,
+            level=level,
+            weak_points=weak_points,
+            detailed_breakdown=detailed_breakdown
+        )
+
         track = self.get_user_track(user_id, user_role=user_role)
         track["diagnostic_completed"] = True
         track["diagnostic_score"] = score
@@ -580,13 +1015,12 @@ class EnglishCoachService:
         track["unlocked_module_index"] = 0
         track["completed_steps"] = []
         track["mastery_report"] = None
+        track["custom_modules"] = modules
         track["created_at"] = self._get_now_iso()
         track["expires_at"] = self._get_expiry_iso()
         track["is_expired"] = False
 
         self.save_user_track(user_id, track, user_role=user_role)
-
-        modules = get_curriculum_modules(level, weak_points)
 
         return {
             "score": score,

@@ -57,6 +57,11 @@ class DialogueTurnRequest(BaseModel):
     target_focus: Optional[str] = "Spoken English Fluency"
 
 
+class RegenerateCurriculumRequest(BaseModel):
+    user_id: str
+    user_role: str = "student"
+
+
 @router.get("/diagnostic-questions")
 async def get_diagnostic_questions():
     """Returns the 10 fixed questions without the answer key for the user's initial test."""
@@ -68,10 +73,12 @@ async def get_diagnostic_questions():
 async def get_coach_state(user_id: str, user_role: str = "student"):
     """Fetches user's current progress, diagnostic status, unlocked lectures, and 30-day expiry timer."""
     track = english_coach_service.get_user_track(user_id, user_role=user_role)
-    modules = get_curriculum_modules(
-        track.get("fluency_level", "Intermediate"),
-        track.get("weak_points", [])
-    )
+    modules = track.get("custom_modules")
+    if not modules:
+        modules = get_curriculum_modules(
+            track.get("fluency_level", "Intermediate"),
+            track.get("weak_points", [])
+        )
     return {
         "track": track,
         "modules": modules
@@ -82,7 +89,7 @@ async def get_coach_state(user_id: str, user_role: str = "student"):
 async def submit_diagnostic_test(payload: DiagnosticSubmitRequest):
     """Grades the 10-mark test, detects weak points, unlocks module 1, and initializes roadmap."""
     try:
-        result = english_coach_service.submit_diagnostic(
+        result = await english_coach_service.submit_diagnostic(
             user_id=payload.user_id,
             user_answers=payload.answers,
             user_role=payload.user_role
@@ -90,6 +97,29 @@ async def submit_diagnostic_test(payload: DiagnosticSubmitRequest):
         return result
     except Exception as e:
         logger.error(f"Error submitting diagnostic test: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/regenerate-curriculum")
+async def regenerate_curriculum(payload: RegenerateCurriculumRequest):
+    """Regenerates the AI curriculum based on the user's existing diagnostic results and weak points."""
+    try:
+        track = english_coach_service.get_user_track(payload.user_id, user_role=payload.user_role)
+        score = track.get("diagnostic_score", 5)
+        level = track.get("fluency_level", "Intermediate (B1 Conversational)")
+        weak_points = track.get("weak_points", [])
+
+        modules = await english_coach_service.generate_personalized_curriculum_with_ai(
+            score=score,
+            level=level,
+            weak_points=weak_points,
+            detailed_breakdown=[]
+        )
+        track["custom_modules"] = modules
+        english_coach_service.save_user_track(payload.user_id, track, user_role=payload.user_role)
+        return {"status": "success", "modules": modules, "track": track}
+    except Exception as e:
+        logger.error(f"Error regenerating curriculum: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

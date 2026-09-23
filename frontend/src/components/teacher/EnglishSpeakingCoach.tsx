@@ -46,6 +46,19 @@ interface QuestionItem {
   weakness_tag: string;
 }
 
+interface PracticeItem {
+  id: number;
+  title: string;
+  prompt?: string;
+  model_audio_text?: string;
+  target_phrase?: string;
+  sample_answer?: string;
+  coach_starter?: string;
+  flawed_sentence?: string;
+  corrected_sentence?: string;
+  explanation?: string;
+}
+
 interface StepItem {
   step_id: string;
   type: "listen" | "repeat" | "speak" | "interact" | "present" | "capstone" | "game" | "error_fix" | "hook_delivery" | "star_method";
@@ -61,6 +74,7 @@ interface StepItem {
   flawed_sentence?: string;
   corrected_sentence?: string;
   explanation?: string;
+  practice_items?: PracticeItem[];
 }
 
 interface GameItem {
@@ -107,6 +121,7 @@ export function EnglishSpeakingCoach() {
   const [track, setTrack] = useState<UserTrack | null>(null);
   const [modules, setModules] = useState<ModuleItem[]>([]);
   const [activeTab, setActiveTab] = useState<"diagnostic" | "roadmap" | "player" | "report">("roadmap");
+  const [isRegeneratingCurriculum, setIsRegeneratingCurriculum] = useState<boolean>(false);
 
   // Diagnostic Test State
   const [diagnosticQuestions, setDiagnosticQuestions] = useState<QuestionItem[]>([]);
@@ -118,6 +133,8 @@ export function EnglishSpeakingCoach() {
   // Module Player State
   const [activeModuleIdx, setActiveModuleIdx] = useState<number>(0);
   const [activeStepIdx, setActiveStepIdx] = useState<number>(0);
+  const [activeDrillIdx, setActiveDrillIdx] = useState<number>(0);
+  const [completedDrills, setCompletedDrills] = useState<Record<string, number[]>>({});
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
   const [isListening, setIsListening] = useState<boolean>(false);
   const [userSpokenText, setUserSpokenText] = useState<string>("");
@@ -158,6 +175,7 @@ export function EnglishSpeakingCoach() {
 
   // Audio / Speech Recognition & Hands-Free Loop Refs
   const recognitionRef = useRef<any>(null);
+  const isUserActivelyRecordingRef = useRef<boolean>(false);
   const timerIntervalRef = useRef<any>(null);
   const gameIntervalRef = useRef<any>(null);
   const cachedVoiceRef = useRef<any>(null);
@@ -275,6 +293,7 @@ export function EnglishSpeakingCoach() {
 
   // Reset per-step states whenever step, module, or tab changes
   useEffect(() => {
+    setActiveDrillIdx(0);
     setUserSpokenText("");
     setRepeatMatchScore(null);
     setRepeatWordMatches([]);
@@ -296,9 +315,7 @@ export function EnglishSpeakingCoach() {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
     }
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
-    }
+    stopRecordingSpeech();
 
     const currentMod = modules[activeModuleIdx];
     const currentStep = currentMod?.steps[activeStepIdx];
@@ -434,7 +451,47 @@ export function EnglishSpeakingCoach() {
     return { score, matches };
   };
 
-  // 4. Speech Recognition Engine
+  // Drill completion tracker
+  const markCurrentDrillDone = useCallback(() => {
+    const currentMod = modules[activeModuleIdx];
+    const currentStep = currentMod?.steps[activeStepIdx];
+    if (!currentStep) return;
+    setCompletedDrills(prev => {
+      const existing = prev[currentStep.step_id] || [];
+      if (!existing.includes(activeDrillIdx)) {
+        return { ...prev, [currentStep.step_id]: [...existing, activeDrillIdx] };
+      }
+      return prev;
+    });
+  }, [modules, activeModuleIdx, activeStepIdx, activeDrillIdx]);
+
+  // AI Curriculum Regeneration
+  const handleRegenerateCurriculum = async () => {
+    setIsRegeneratingCurriculum(true);
+    try {
+      const uId = user?.id || user?.email || "guest_user";
+      const uRole = user?.role || "student";
+      const res = await fetch(`${getApiBase()}/english-coach/regenerate-curriculum`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: uId, user_role: uRole })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setModules(data.modules || []);
+        setTrack(data.track);
+        alert("AI has generated a brand new personalized spoken curriculum based on your test results!");
+      } else {
+        alert("Failed to regenerate curriculum. Please check your connection.");
+      }
+    } catch (err) {
+      console.warn("Error regenerating curriculum:", err);
+    } finally {
+      setIsRegeneratingCurriculum(false);
+    }
+  };
+
+  // 4. Speech Recognition Engine (Desktop & Mobile Optimized)
   const startRecordingSpeech = (options?: { continuous?: boolean; onResult?: (text: string) => void }) => {
     if (typeof window === "undefined") return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -443,22 +500,37 @@ export function EnglishSpeakingCoach() {
       return;
     }
 
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
+    // Cancel any ongoing browser speech synthesis so desktop Chrome doesn't abort speech recognition
+    if (window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+      setIsAiSpeaking(false);
     }
+
+    // Explicitly unbind all event handlers from the previous recognition instance to prevent phantom onend triggers
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
+
+    isUserActivelyRecordingRef.current = true;
 
     try {
       const rec = new SpeechRecognition();
       rec.lang = "en-IN";
-      const isInteract = activeStepTypeRef.current === "interact";
-      rec.continuous = options?.continuous !== undefined ? options.continuous : isInteract;
+      // ALWAYS continuous: true on Desktop Chrome so it doesn't shut off after 1 second of pause!
+      rec.continuous = true;
       rec.interimResults = true;
 
       rec.onstart = () => {
         setIsListening(true);
-        if (!options?.continuous && !isInteract) {
-          setUserSpokenText("");
-        }
       };
 
       rec.onresult = (event: any) => {
@@ -478,20 +550,39 @@ export function EnglishSpeakingCoach() {
           const words = cleaned.trim().split(/\s+/).filter(Boolean);
           if (words.length >= 2) {
             silenceTimerRef.current = setTimeout(() => {
-              if (!isCoachThinkingRef.current) {
+              if (!isCoachThinkingRef.current && isUserActivelyRecordingRef.current) {
                 stopRecordingSpeech();
                 handleSendDialogueTurn(cleaned);
               }
-            }, 1100);
+            }, 1200);
           }
         }
       };
 
-      rec.onerror = () => {
-        setIsListening(false);
+      rec.onerror = (event: any) => {
+        // Desktop Chrome triggers 'no-speech' if the user hesitates for 1 second.
+        // DO NOT shut down the microphone on 'no-speech' or 'aborted'!
+        if (event?.error === "no-speech" || event?.error === "aborted") {
+          return;
+        }
+        if (event?.error === "audio-capture" || event?.error === "not-allowed") {
+          console.warn("Speech recognition access error:", event?.error);
+          isUserActivelyRecordingRef.current = false;
+          setIsListening(false);
+        }
       };
 
       rec.onend = () => {
+        // If the user is still actively recording (e.g., Desktop Chrome closed after a pause),
+        // restart smoothly if AI is not speaking and coach is not thinking
+        if (isUserActivelyRecordingRef.current && !isCoachThinkingRef.current) {
+          try {
+            rec.start();
+            return;
+          } catch {
+            // If restart fails, clean up
+          }
+        }
         setIsListening(false);
       };
 
@@ -499,16 +590,26 @@ export function EnglishSpeakingCoach() {
       rec.start();
     } catch (err) {
       console.warn("Speech start error:", err);
+      isUserActivelyRecordingRef.current = false;
       setIsListening(false);
     }
   };
 
   const stopRecordingSpeech = () => {
+    isUserActivelyRecordingRef.current = false;
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
+      try {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      } catch {}
+      recognitionRef.current = null;
     }
     setIsListening(false);
   };
@@ -521,15 +622,21 @@ export function EnglishSpeakingCoach() {
     }
     const currentMod = modules[activeModuleIdx];
     const currentStep = currentMod?.steps[activeStepIdx];
-    const target = currentStep?.target_phrase || "";
+    const target = (currentStep?.practice_items && currentStep.practice_items[activeDrillIdx]?.target_phrase) || currentStep?.target_phrase || "";
 
     startRecordingSpeech({
-      continuous: false,
+      continuous: true,
       onResult: (text: string) => {
         if (target) {
           const { score, matches } = calculateWordMatch(target, text);
           setRepeatMatchScore(score);
           setRepeatWordMatches(matches);
+          if (score >= 45) {
+            markCurrentDrillDone();
+          }
+          if (score >= 65) {
+            speakText("Great pronunciation! Clean match.");
+          }
         }
       }
     });
@@ -550,14 +657,17 @@ export function EnglishSpeakingCoach() {
       const uId = user?.id || user?.email || "guest_user";
       const currentMod = modules[activeModuleIdx];
       const currentStep = currentMod?.steps[activeStepIdx];
+      const activeItem = (currentStep?.practice_items && currentStep.practice_items[activeDrillIdx]) || null;
+      const promptToSend = activeItem?.prompt || currentStep?.prompt || "Speaking Challenge";
+      const sampleToSend = activeItem?.sample_answer || currentStep?.sample_answer || null;
 
       const res = await fetch(`${getApiBase()}/english-coach/speak-critique`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: uId,
-          prompt: currentStep?.prompt || "Speaking Challenge",
-          sample_answer: currentStep?.sample_answer || null,
+          prompt: promptToSend,
+          sample_answer: sampleToSend,
           user_speech: textToEvaluate,
           user_level: track?.fluency_level || "Intermediate"
         })
@@ -566,6 +676,7 @@ export function EnglishSpeakingCoach() {
       if (res.ok) {
         const data = await res.json();
         setSpeakCritique(data);
+        markCurrentDrillDone();
         if (data.spoken_feedback) {
           speakText(data.spoken_feedback);
         }
@@ -633,6 +744,7 @@ export function EnglishSpeakingCoach() {
       if (res.ok) {
         const critique = await res.json();
         setSpeakingCritique(critique);
+        markCurrentDrillDone();
         if (critique.live_correction) {
           speakText(`Here is your polished delivery: ${critique.live_correction}`);
         }
@@ -661,13 +773,16 @@ export function EnglishSpeakingCoach() {
     try {
       const currentMod = modules[activeModuleIdx];
       const currentStep = currentMod?.steps[activeStepIdx];
+      const activeItem = (currentStep?.practice_items && currentStep.practice_items[activeDrillIdx]) || null;
+      const starter = activeItem?.coach_starter || currentStep?.coach_starter || "";
+
       const res = await fetch(`${getApiBase()}/english-coach/dialogue-turn`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_message: userText,
           history: dialogueMessages,
-          coach_starter: currentStep?.coach_starter || "",
+          coach_starter: starter,
           user_level: track?.fluency_level || "Intermediate",
           target_focus: currentMod?.focus_areas?.[0] || "Spoken English Fluency"
         })
@@ -681,6 +796,7 @@ export function EnglishSpeakingCoach() {
           text: replyText,
           correction: data.correction
         }]);
+        markCurrentDrillDone();
 
         // Speak coach response aloud; upon completion, auto-resume listening if hands-free is active!
         speakText(replyText, () => {
@@ -719,6 +835,7 @@ export function EnglishSpeakingCoach() {
         setCollectedKeywords(found);
         if (found.length >= 2) {
           setGameCompleted(true);
+          markCurrentDrillDone();
         }
       }
     });
@@ -731,6 +848,7 @@ export function EnglishSpeakingCoach() {
           setIsGameActive(false);
           stopRecordingSpeech();
           setGameCompleted(true);
+          markCurrentDrillDone();
           return 0;
         }
         return prev - 1;
@@ -743,23 +861,27 @@ export function EnglishSpeakingCoach() {
       stopRecordingSpeech();
       return;
     }
+    const currentMod = modules[activeModuleIdx];
+    const currentStep = currentMod?.steps[activeStepIdx];
+    const targetCorrect = (currentStep?.practice_items && currentStep.practice_items[activeDrillIdx]?.corrected_sentence) || currentStep?.corrected_sentence || "";
+
     startRecordingSpeech({
-      continuous: false,
+      continuous: true,
       onResult: (text: string) => {
-        const clean = text.toLowerCase().replace(/[^a-z0-9\s]/g, "");
-        const hasBeen = clean.includes("have been") || clean.includes("has been");
-        const hasFor = clean.includes("for five") || clean.includes("for 5");
-        if (hasBeen && hasFor) {
+        if (!targetCorrect) return;
+        const { score } = calculateWordMatch(targetCorrect, text);
+        if (score >= 45) {
           setSentenceFixResult({
             success: true,
-            message: "Spot on! 'I have been working here for five years' is grammatically accurate! 🌟"
+            message: `Spot on! "${targetCorrect}" is grammatically accurate! 🌟`
           });
           setGameCompleted(true);
+          markCurrentDrillDone();
           speakText("Spot on! That is grammatically accurate.");
         } else {
           setSentenceFixResult({
             success: false,
-            message: "Listen closely: replace 'am working' with 'have been working', and 'since' with 'for'."
+            message: `Notice the target structure: "${targetCorrect}". Keep practicing!`
           });
         }
       }
@@ -772,38 +894,38 @@ export function EnglishSpeakingCoach() {
     const currentStep = currentMod?.steps[activeStepIdx];
     if (!currentStep) return false;
 
+    let drillPassed = false;
     if (currentStep.type === "listen") {
-      return hasListened;
-    }
-    if (currentStep.type === "repeat") {
-      return repeatMatchScore !== null && repeatMatchScore >= 50;
-    }
-    if (currentStep.type === "speak") {
-      return speakCritique !== null || userSpokenText.trim().split(/\s+/).length >= 4;
-    }
-    if (currentStep.type === "error_fix") {
-      return Boolean(sentenceFixResult?.success || gameCompleted);
-    }
-    if (currentStep.type === "hook_delivery") {
-      return repeatMatchScore !== null && repeatMatchScore >= 50;
-    }
-    if (currentStep.type === "star_method") {
-      return userSpokenText.trim().split(/\s+/).length >= 6;
-    }
-    if (currentStep.type === "interact") {
+      drillPassed = hasListened;
+    } else if (currentStep.type === "repeat") {
+      drillPassed = repeatMatchScore !== null && repeatMatchScore >= 45;
+    } else if (currentStep.type === "speak") {
+      drillPassed = speakCritique !== null || userSpokenText.trim().split(/\s+/).length >= 4;
+    } else if (currentStep.type === "error_fix") {
+      drillPassed = Boolean(sentenceFixResult?.success || gameCompleted);
+    } else if (currentStep.type === "hook_delivery") {
+      drillPassed = repeatMatchScore !== null && repeatMatchScore >= 45;
+    } else if (currentStep.type === "star_method") {
+      drillPassed = userSpokenText.trim().split(/\s+/).length >= 4;
+    } else if (currentStep.type === "interact") {
       const userTurns = dialogueMessages.filter(m => m.sender === "user").length;
-      return userTurns >= 1;
+      drillPassed = userTurns >= 1;
+    } else if (currentStep.type === "present") {
+      drillPassed = speakingCritique !== null || userSpokenText.trim().split(/\s+/).length >= 8;
+    } else if (currentStep.type === "game") {
+      drillPassed = gameCompleted;
+    } else if (currentStep.type === "capstone") {
+      drillPassed = userSpokenText.trim().length > 0;
+    } else {
+      drillPassed = true;
     }
-    if (currentStep.type === "present") {
-      return speakingCritique !== null || userSpokenText.trim().split(/\s+/).length >= 10;
+
+    if (currentStep.practice_items && currentStep.practice_items.length > 0) {
+      const completed = completedDrills[currentStep.step_id] || [];
+      return completed.length >= 1 || drillPassed;
     }
-    if (currentStep.type === "game") {
-      return gameCompleted;
-    }
-    if (currentStep.type === "capstone") {
-      return userSpokenText.trim().length > 0;
-    }
-    return true;
+
+    return drillPassed;
   };
 
   // 7. Final Capstone & Report Generation
@@ -1074,6 +1196,14 @@ export function EnglishSpeakingCoach() {
               <span>30-Day Cycle Active</span>
             </div>
             <button
+              onClick={handleRegenerateCurriculum}
+              disabled={isRegeneratingCurriculum}
+              className="text-xs font-semibold text-indigo-300 hover:text-white flex items-center gap-1.5 transition-colors bg-indigo-900/60 hover:bg-indigo-900 px-3 py-1.5 rounded-xl border border-indigo-700/50 disabled:opacity-50"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span>{isRegeneratingCurriculum ? "Synthesizing AI Plan..." : "Regenerate AI Plan"}</span>
+            </button>
+            <button
               onClick={handleResetCycle}
               className="text-xs font-semibold text-slate-400 hover:text-rose-300 flex items-center gap-1 transition-colors"
             >
@@ -1193,6 +1323,42 @@ export function EnglishSpeakingCoach() {
     const currentStep = currentMod?.steps[activeStepIdx];
     const isLastStep = currentMod && activeStepIdx === currentMod.steps.length - 1;
 
+    // Multi-drill progressive practice resolution
+    const practiceItems = currentStep?.practice_items || [];
+    const hasMultipleDrills = practiceItems.length > 0;
+    const safeDrillIdx = hasMultipleDrills ? Math.min(activeDrillIdx, practiceItems.length - 1) : 0;
+    const currentDrill = hasMultipleDrills ? practiceItems[safeDrillIdx] : null;
+
+    const currentPrompt = currentDrill?.prompt || currentStep?.prompt || "";
+    const currentModelAudio = currentDrill?.model_audio_text || currentStep?.model_audio_text;
+    const currentTargetPhrase = currentDrill?.target_phrase || currentStep?.target_phrase;
+    const currentSampleAnswer = currentDrill?.sample_answer || currentStep?.sample_answer;
+    const currentCoachStarter = currentDrill?.coach_starter || currentStep?.coach_starter;
+    const currentFlawedSentence = currentDrill?.flawed_sentence || currentStep?.flawed_sentence;
+    const currentCorrectedSentence = currentDrill?.corrected_sentence || currentStep?.corrected_sentence;
+    const currentExplanation = currentDrill?.explanation || currentStep?.explanation;
+
+    const switchDrill = (idx: number) => {
+      setActiveDrillIdx(idx);
+      setUserSpokenText("");
+      setRepeatMatchScore(null);
+      setRepeatWordMatches([]);
+      setSpeakCritique(null);
+      setSentenceFixResult(null);
+      stopRecordingSpeech();
+      if (currentStep?.type === "interact") {
+        const starter = practiceItems[idx]?.coach_starter || currentStep?.coach_starter;
+        if (starter) {
+          setDialogueMessages([]);
+          speakText(starter, () => {
+            if (isHandsFreeRef.current) {
+              startRecordingSpeech({ continuous: true });
+            }
+          });
+        }
+      }
+    };
+
     return (
       <div className="max-w-4xl mx-auto space-y-6 py-6 px-4 animate-in fade-in duration-300">
         {/* NAVIGATION TOP BAR */}
@@ -1232,18 +1398,62 @@ export function EnglishSpeakingCoach() {
               </p>
             </div>
 
+            {/* MULTI-PRACTICE PROGRESSIVE DRILLS SELECTOR */}
+            {hasMultipleDrills && (
+              <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                    Multi-Level Progressive Practice ({practiceItems.length} Drills)
+                  </span>
+                  <span className="text-[11px] font-extrabold text-indigo-700 bg-indigo-100/70 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                    Drill {safeDrillIdx + 1} of {practiceItems.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {practiceItems.map((drill, idx) => {
+                    const isDone = (completedDrills[currentStep.step_id] || []).includes(idx);
+                    const isCurrent = safeDrillIdx === idx;
+                    return (
+                      <button
+                        key={drill.id || idx}
+                        onClick={() => switchDrill(idx)}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+                          isCurrent
+                            ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-400"
+                            : isDone
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100"
+                            : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {isDone ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[10px] flex items-center justify-center font-black">
+                            {idx + 1}
+                          </span>
+                        )}
+                        <span>{drill.title || `Drill ${idx + 1}`}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* STEP 1: LISTEN */}
-            {currentStep.type === "listen" && currentStep.model_audio_text && (
+            {currentStep.type === "listen" && currentModelAudio && (
               <div className="p-6 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
                     <Volume2 className="w-4 h-4 text-indigo-600" />
-                    Model Spoken Pronunciation
+                    Model Spoken Pronunciation {hasMultipleDrills && `(Drill ${safeDrillIdx + 1})`}
                   </span>
                   <button
                     onClick={() => {
                       setHasListened(true);
-                      speakText(currentStep.model_audio_text!);
+                      markCurrentDrillDone();
+                      speakText(currentModelAudio);
                     }}
                     disabled={isAiSpeaking}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-sm hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
@@ -1253,7 +1463,7 @@ export function EnglishSpeakingCoach() {
                   </button>
                 </div>
                 <p className="text-base sm:text-lg font-bold text-slate-800 leading-relaxed italic bg-white p-4 rounded-xl border border-indigo-100/60 shadow-xs">
-                  "{currentStep.model_audio_text}"
+                  "{currentModelAudio}"
                 </p>
                 {hasListened && (
                   <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
@@ -1265,12 +1475,12 @@ export function EnglishSpeakingCoach() {
             )}
 
             {/* STEP 2: REPEAT (WITH PRONUNCIATION WORD-BY-WORD DIFF) */}
-            {currentStep.type === "repeat" && currentStep.target_phrase && (
+            {currentStep.type === "repeat" && currentTargetPhrase && (
               <div className="p-6 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
                     <Mic className="w-4 h-4 text-purple-600" />
-                    Target Phrase To Echo
+                    Target Phrase To Echo {hasMultipleDrills && `(Drill ${safeDrillIdx + 1})`}
                   </span>
                   {repeatMatchScore !== null && (
                     <span className={`px-3 py-1 rounded-full text-xs font-black border ${
@@ -1284,7 +1494,7 @@ export function EnglishSpeakingCoach() {
                 </div>
 
                 <p className="text-base sm:text-lg font-bold text-purple-950 bg-white p-4 rounded-xl border border-purple-100 shadow-xs">
-                  "{currentStep.target_phrase}"
+                  "{currentTargetPhrase}"
                 </p>
 
                 {/* WORD-LEVEL PHONETIC MATCH BREAKDOWN */}
@@ -1312,7 +1522,7 @@ export function EnglishSpeakingCoach() {
 
                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                   <button
-                    onClick={() => speakText(currentStep.target_phrase!)}
+                    onClick={() => speakText(currentTargetPhrase)}
                     className="px-4 py-2 rounded-xl bg-white border border-purple-200 text-purple-700 font-bold text-xs hover:bg-purple-50 flex items-center gap-1.5 transition-colors"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
@@ -1345,7 +1555,7 @@ export function EnglishSpeakingCoach() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
                     <MessageSquare className="w-4 h-4 text-amber-600" />
-                    Spoken Challenge & Live Evaluation
+                    Spoken Challenge & Live Evaluation {hasMultipleDrills && `(Drill ${safeDrillIdx + 1})`}
                   </span>
                   {speakCritique && (
                     <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
@@ -1358,16 +1568,16 @@ export function EnglishSpeakingCoach() {
                 <div className="p-4 rounded-xl bg-white border border-amber-200 shadow-2xs space-y-2">
                   <span className="text-[11px] font-extrabold text-amber-700 uppercase tracking-wide">Speaking Prompt:</span>
                   <p className="text-sm sm:text-base font-bold text-slate-800 leading-snug">
-                    {currentStep.prompt}
+                    {currentPrompt}
                   </p>
                 </div>
 
-                {currentStep.sample_answer && (
+                {currentSampleAnswer && (
                   <div className="text-xs font-medium text-amber-950 bg-amber-100/40 p-3.5 rounded-xl border border-amber-200/60 flex items-start gap-2">
                     <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-extrabold text-amber-900 block">Suggested Reference:</span>
-                      <p className="italic text-slate-700 mt-0.5">"{currentStep.sample_answer}"</p>
+                      <p className="italic text-slate-700 mt-0.5">"{currentSampleAnswer}"</p>
                     </div>
                   </div>
                 )}
@@ -1490,17 +1700,17 @@ export function EnglishSpeakingCoach() {
               <div className="p-6 rounded-2xl bg-rose-50/60 border border-rose-200 space-y-4">
                 <span className="text-xs font-black text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
                   <RotateCcw className="w-4 h-4 text-rose-600" />
-                  Live Spoken Sentence Clinic
+                  Live Spoken Sentence Clinic {hasMultipleDrills && `(Drill ${safeDrillIdx + 1})`}
                 </span>
 
                 <div className="p-4 bg-white rounded-xl border border-rose-200 space-y-1">
                   <span className="text-[11px] font-bold text-rose-600 uppercase">Flawed Indian English Phrasing:</span>
-                  <p className="text-base font-extrabold text-slate-800">"{currentStep.flawed_sentence}"</p>
+                  <p className="text-base font-extrabold text-slate-800">"{currentFlawedSentence}"</p>
                 </div>
 
-                {currentStep.explanation && (
+                {currentExplanation && (
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    💡 <strong className="text-slate-800">Grammar Rule:</strong> {currentStep.explanation}
+                    💡 <strong className="text-slate-800">Grammar Rule:</strong> {currentExplanation}
                   </p>
                 )}
 
@@ -1533,17 +1743,17 @@ export function EnglishSpeakingCoach() {
               <div className="p-6 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-4">
                 <span className="text-xs font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
                   <Flame className="w-4 h-4 text-amber-600" />
-                  The 30-Second Attention Grabber Hook
+                  The 30-Second Attention Grabber Hook {hasMultipleDrills && `(Drill ${safeDrillIdx + 1})`}
                 </span>
 
                 <div className="p-4 bg-white rounded-xl border border-amber-200 space-y-1">
                   <span className="text-[11px] font-bold text-amber-700 uppercase">Target Opening Hook:</span>
-                  <p className="text-sm sm:text-base font-extrabold text-slate-800">"{currentStep.target_phrase}"</p>
+                  <p className="text-sm sm:text-base font-extrabold text-slate-800">"{currentTargetPhrase}"</p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                   <button
-                    onClick={() => speakText(currentStep.target_phrase!)}
+                    onClick={() => speakText(currentTargetPhrase || "")}
                     className="px-4 py-2 rounded-xl bg-white border border-amber-200 text-amber-800 font-bold text-xs hover:bg-amber-50 flex items-center gap-1.5 transition-colors"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
@@ -1565,7 +1775,7 @@ export function EnglishSpeakingCoach() {
                 {repeatMatchScore !== null && (
                   <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs font-bold text-amber-900">
                     Hook Delivery Accuracy: <strong>{repeatMatchScore}%</strong>
-                    {repeatMatchScore >= 50 ? " — Excellent projection and energy! 🌟" : " — Keep your volume high and articulate clearly!"}
+                    {repeatMatchScore >= 45 ? " — Excellent projection and energy! 🌟" : " — Keep your volume high and articulate clearly!"}
                   </div>
                 )}
               </div>
@@ -1576,7 +1786,7 @@ export function EnglishSpeakingCoach() {
               <div className="p-6 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-4">
                 <span className="text-xs font-black text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
                   <GraduationCap className="w-4 h-4 text-indigo-600" />
-                  STAR Behavioral Framework Practice
+                  STAR Behavioral Framework Practice {hasMultipleDrills && `(Drill ${safeDrillIdx + 1})`}
                 </span>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-bold">
@@ -1600,16 +1810,16 @@ export function EnglishSpeakingCoach() {
 
                 <div className="p-4 bg-white rounded-xl border border-indigo-200 space-y-1">
                   <span className="text-[11px] font-bold text-indigo-600 uppercase">Framework Prompt:</span>
-                  <p className="text-xs sm:text-sm font-semibold text-slate-800">{currentStep.prompt}</p>
+                  <p className="text-xs sm:text-sm font-semibold text-slate-800">{currentPrompt}</p>
                 </div>
 
-                {currentStep.sample_answer && (
+                {currentSampleAnswer && (
                   <div className="p-3 bg-white/80 rounded-xl border border-indigo-100 text-xs text-slate-700">
-                    <strong className="text-indigo-900">Reference Model: </strong>"{currentStep.sample_answer}"
+                    <strong className="text-indigo-900">Reference Model: </strong>"{currentSampleAnswer}"
                   </div>
                 )}
 
-                <div className="pt-1">
+                <div className="flex flex-wrap items-center gap-3 pt-1">
                   <button
                     onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
                     className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
@@ -1619,6 +1829,17 @@ export function EnglishSpeakingCoach() {
                     <Mic className="w-4 h-4" />
                     <span>{isListening ? "Listening to your STAR answer..." : "Deliver STAR Response"}</span>
                   </button>
+
+                  {userSpokenText.trim().length > 0 && (
+                    <button
+                      onClick={() => handleEvaluateSpeakStage()}
+                      disabled={speakCritiqueLoading || isListening}
+                      className="px-6 py-2.5 rounded-xl font-black text-xs bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 shadow-sm transition-all active:scale-95"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{speakCritiqueLoading ? "Evaluating STAR Response..." : "Get AI Feedback on STAR"}</span>
+                    </button>
+                  )}
                 </div>
 
                 {userSpokenText && (
@@ -1700,14 +1921,14 @@ export function EnglishSpeakingCoach() {
                   )}
                 </div>
 
-                {currentStep.coach_starter && dialogueMessages.length === 0 && (
+                {currentCoachStarter && dialogueMessages.length === 0 && (
                   <div className="p-4 rounded-xl bg-white/10 border border-white/10 flex items-start justify-between gap-3">
                     <div className="space-y-1">
-                      <span className="text-[11px] font-extrabold text-amber-300 uppercase">Coach Opening Question:</span>
-                      <p className="text-sm font-semibold text-white">"{currentStep.coach_starter}"</p>
+                      <span className="text-[11px] font-extrabold text-amber-300 uppercase">Coach Opening Question {hasMultipleDrills && `(Drill ${safeDrillIdx + 1})`}:</span>
+                      <p className="text-sm font-semibold text-white">"{currentCoachStarter}"</p>
                     </div>
                     <button
-                      onClick={() => speakText(currentStep.coach_starter!)}
+                      onClick={() => speakText(currentCoachStarter)}
                       disabled={isAiSpeaking}
                       className="p-2 rounded-lg bg-white/15 text-white hover:bg-white/25 border border-white/10"
                     >
@@ -2064,11 +2285,21 @@ export function EnglishSpeakingCoach() {
                 Previous Step
               </button>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {hasMultipleDrills && safeDrillIdx < practiceItems.length - 1 && (
+                  <button
+                    onClick={() => switchDrill(safeDrillIdx + 1)}
+                    className="px-5 py-2.5 rounded-xl text-xs font-black bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 shadow-xs flex items-center gap-1.5 transition-all active:scale-95"
+                  >
+                    <span>Next Practice Drill ({safeDrillIdx + 2}/{practiceItems.length})</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
+
                 {!canAdvanceStep() && (
                   <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200">
                     {currentStep.type === "listen" && "🎧 Listen to the model audio first"}
-                    {currentStep.type === "repeat" && "🎙️ Repeat the phrase with >= 50% accuracy"}
+                    {currentStep.type === "repeat" && "🎙️ Repeat the phrase with >= 45% accuracy"}
                     {currentStep.type === "speak" && "💬 Speak your answer & get AI feedback"}
                     {currentStep.type === "error_fix" && "🛠️ Speak the corrected sentence aloud"}
                     {currentStep.type === "hook_delivery" && "🔥 Deliver the 30s grabber hook"}
