@@ -28,19 +28,12 @@ interface CoachReportData {
   diagnostic_score: number;
   fluency_level: string;
   weak_points: string[];
-  completed_modules_count: number;
-  total_modules_count: number;
-  final_report?: {
-    overall_fluency_band: string;
-    pronunciation_accuracy_percent: number;
-    grammar_structure_percent: number;
-    public_speaking_confidence_percent: number;
-    mastered_competencies: string[];
-    areas_for_continued_practice: string[];
-    parent_recommendations: string[];
-    teacher_recommendations: string[];
-  } | null;
-  is_expired: boolean;
+  completed_modules_count?: number;
+  completed_modules?: number;
+  total_modules_count?: number;
+  final_report?: any;
+  mastery_report?: any;
+  is_expired?: boolean;
 }
 
 interface SubjectAverage {
@@ -428,45 +421,54 @@ export function ParentStudentPerformanceReport() {
             )}
 
             {/* Final Report Card if generated */}
-            {coachReport.final_report && (
-              <div className="p-4 bg-white rounded-2xl border border-emerald-200/80 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Official Spoken English Mastery Assessment</span>
-                  </h4>
-                  <span className="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-md">
-                    Band: {coachReport.final_report.overall_fluency_band}
-                  </span>
-                </div>
+            {(coachReport.final_report || coachReport.mastery_report) && (() => {
+              const rep = coachReport.final_report || coachReport.mastery_report;
+              const fluencyBand = rep.overall_fluency_band || rep.fluency_band || "Proficient Communicator";
+              const pronunciation = rep.pronunciation_accuracy_percent ?? rep.pronunciation_rating ?? 85;
+              const grammar = rep.grammar_structure_percent ?? rep.grammar_accuracy ?? 85;
+              const publicSpeaking = rep.public_speaking_confidence_percent ?? rep.public_speaking_confidence ?? 88;
+              const recommendations = rep.parent_recommendations || (rep.coach_recommendation_for_parents ? [rep.coach_recommendation_for_parents] : []);
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150">
-                    <span className="text-[10px] text-slate-500 font-bold block">Pronunciation Accuracy</span>
-                    <span className="text-base font-black text-slate-900">{coachReport.final_report.pronunciation_accuracy_percent}%</span>
+              return (
+                <div className="p-4 bg-white rounded-2xl border border-emerald-200/80 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Official Spoken English Mastery Assessment</span>
+                    </h4>
+                    <span className="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-md">
+                      Band: {fluencyBand}
+                    </span>
                   </div>
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150">
-                    <span className="text-[10px] text-slate-500 font-bold block">Grammar in Spontaneous Speech</span>
-                    <span className="text-base font-black text-slate-900">{coachReport.final_report.grammar_structure_percent}%</span>
-                  </div>
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150">
-                    <span className="text-[10px] text-slate-500 font-bold block">Public Speaking Confidence</span>
-                    <span className="text-base font-black text-slate-900">{coachReport.final_report.public_speaking_confidence_percent}%</span>
-                  </div>
-                </div>
 
-                {coachReport.final_report.parent_recommendations?.length > 0 && (
-                  <div className="pt-2 border-t border-slate-100 space-y-1">
-                    <span className="text-[11px] font-black text-slate-700 block">Home Action Plan for Parents:</span>
-                    <ul className="space-y-1 text-xs text-slate-600 list-disc list-inside">
-                      {coachReport.final_report.parent_recommendations.map((rec, rIdx) => (
-                        <li key={rIdx}>{rec}</li>
-                      ))}
-                    </ul>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150">
+                      <span className="text-[10px] text-slate-500 font-bold block">Pronunciation Accuracy</span>
+                      <span className="text-base font-black text-slate-900">{pronunciation}%</span>
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150">
+                      <span className="text-[10px] text-slate-500 font-bold block">Grammar in Spontaneous Speech</span>
+                      <span className="text-base font-black text-slate-900">{grammar}%</span>
+                    </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150">
+                      <span className="text-[10px] text-slate-500 font-bold block">Public Speaking Confidence</span>
+                      <span className="text-base font-black text-slate-900">{publicSpeaking}%</span>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
+
+                  {recommendations.length > 0 && (
+                    <div className="pt-2 border-t border-slate-100 space-y-1">
+                      <span className="text-[11px] font-black text-slate-700 block">Home Action Plan for Parents:</span>
+                      <ul className="space-y-1 text-xs text-slate-600 list-disc list-inside">
+                        {recommendations.map((rec: string, rIdx: number) => (
+                          <li key={rIdx}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

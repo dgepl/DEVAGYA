@@ -41,6 +41,14 @@ class ResetCycleRequest(BaseModel):
     user_role: str = "student"
 
 
+class DialogueTurnRequest(BaseModel):
+    user_message: str
+    history: Optional[List[Dict[str, str]]] = []
+    coach_starter: Optional[str] = ""
+    user_level: Optional[str] = "Intermediate"
+    target_focus: Optional[str] = "Spoken English Fluency"
+
+
 @router.get("/diagnostic-questions")
 async def get_diagnostic_questions():
     """Returns the 10 fixed questions without the answer key for the user's initial test."""
@@ -95,6 +103,23 @@ async def complete_lecture_step(payload: LectureStepCompleteRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/dialogue-turn")
+async def process_dialogue_turn(payload: DialogueTurnRequest):
+    """High-speed spoken conversational turn for LRSI step with immediate live spoken correction."""
+    try:
+        result = await english_coach_service.process_dialogue_turn(
+            user_message=payload.user_message,
+            history=payload.history,
+            coach_starter=payload.coach_starter or "",
+            user_level=payload.user_level or "Intermediate",
+            target_focus=payload.target_focus or "Spoken English Fluency"
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error in dialogue turn: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/public-speaking-critique")
 async def critique_public_speaking(payload: PublicSpeakingCritiqueRequest):
     """AI adjudicator evaluates spoken presentation for fillers, grammar, and live corrections."""
@@ -130,15 +155,21 @@ async def finalize_mastery_report(payload: FinalizeReportRequest):
 async def get_parent_report(student_id: str):
     """Returns child's latest English speaking diagnostic and mastery report for parent portal."""
     track = english_coach_service.get_user_track(student_id, user_role="student")
+    report = track.get("mastery_report") or track.get("final_report")
     return {
+        "status": "success",
         "student_id": student_id,
         "diagnostic_completed": track.get("diagnostic_completed", False),
         "diagnostic_score": track.get("diagnostic_score", 0),
         "fluency_level": track.get("fluency_level", "Unassessed"),
         "weak_points": track.get("weak_points", []),
         "completed_modules": track.get("unlocked_module_index", 0),
-        "mastery_report": track.get("mastery_report"),
-        "cycle_valid_until": track.get("expires_at")
+        "completed_modules_count": track.get("unlocked_module_index", 0),
+        "total_modules_count": 4,
+        "mastery_report": report,
+        "final_report": report,
+        "cycle_valid_until": track.get("expires_at"),
+        "is_expired": track.get("is_expired", False)
     }
 
 

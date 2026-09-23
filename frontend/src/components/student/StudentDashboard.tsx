@@ -6,7 +6,7 @@ import {
   Flame, Trophy, Sparkles, Target, Brain, Zap, ArrowRight,
   Video, MessageSquare, Clock, FileText, Play, Award, Crown,
   BookOpen, Compass, Shield, ChevronRight, Star, Home, Users,
-  Bot, Mic, Layers
+  Bot, Mic, Layers, Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -45,6 +45,7 @@ export function StudentDashboard() {
   const myRank = leaders.findIndex((e) => e.user_id === user.id) + 1;
 
   const rawQuickTools = [
+    { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones, color: "from-cyan-500 to-blue-600", desc: "LRSI & Public Speaking" },
     { label: "AI Socratic Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain, color: "from-indigo-500 to-violet-600", desc: "Step-by-step guidance" },
     { label: "AI Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy, color: "from-rose-500 to-pink-600", desc: "CBSE Roadmaps & Qs" },
     { label: "Practice Quizzes", href: "/dashboard/student/practice", icon: Target, color: "from-emerald-500 to-teal-600", desc: "Untimed Chapter Mocks" },

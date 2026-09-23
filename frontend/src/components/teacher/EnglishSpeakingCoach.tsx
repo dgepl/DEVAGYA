@@ -48,7 +48,7 @@ interface QuestionItem {
 
 interface StepItem {
   step_id: string;
-  type: "listen" | "repeat" | "speak" | "interact" | "present" | "capstone";
+  type: "listen" | "repeat" | "speak" | "interact" | "present" | "capstone" | "game";
   title: string;
   prompt: string;
   model_audio_text?: string;
@@ -56,6 +56,10 @@ interface StepItem {
   sample_answer?: string;
   coach_starter?: string;
   topic?: string;
+  game_type?: "word_sprint" | "sentence_fixer" | "tongue_twister";
+  target_keywords?: string[];
+  flawed_sentence?: string;
+  corrected_sentence?: string;
 }
 
 interface GameItem {
@@ -118,6 +122,18 @@ export function EnglishSpeakingCoach() {
   const [userSpokenText, setUserSpokenText] = useState<string>("");
   const [stepCompleteNotice, setStepCompleteNotice] = useState<string | null>(null);
 
+  // Pronunciation Evaluation State (Repeat Step)
+  const [repeatMatchScore, setRepeatMatchScore] = useState<number | null>(null);
+  const [repeatWordMatches, setRepeatWordMatches] = useState<Array<{ word: string; matched: boolean }>>([]);
+  const [hasListened, setHasListened] = useState<boolean>(false);
+
+  // Interactive Games State
+  const [gameTimer, setGameTimer] = useState<number>(30);
+  const [isGameActive, setIsGameActive] = useState<boolean>(false);
+  const [collectedKeywords, setCollectedKeywords] = useState<string[]>([]);
+  const [sentenceFixResult, setSentenceFixResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [gameCompleted, setGameCompleted] = useState<boolean>(false);
+
   // Public Speaking Stage (LRSP)
   const [speakingTimer, setSpeakingTimer] = useState<number>(60);
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
@@ -125,17 +141,36 @@ export function EnglishSpeakingCoach() {
   const [speakingCritique, setSpeakingCritique] = useState<any>(null);
 
   // Interactive Live Chat (LRSI)
-  const [dialogueMessages, setDialogueMessages] = useState<Array<{ sender: "coach" | "user"; text: string }>>([]);
+  const [dialogueMessages, setDialogueMessages] = useState<Array<{ sender: "coach" | "user"; text: string; correction?: string | null }>>([]);
   const [isCoachThinking, setIsCoachThinking] = useState<boolean>(false);
 
   // Audio / Speech Recognition Refs
   const recognitionRef = useRef<any>(null);
   const timerIntervalRef = useRef<any>(null);
+  const gameIntervalRef = useRef<any>(null);
+  const cachedVoiceRef = useRef<any>(null);
 
   // Clean transcript utility
   const cleanTranscript = (t: string) => {
     return t.replace(/\s+/g, " ").trim();
   };
+
+  // Cache voices once browser synthesizes them
+  useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const updateVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        const inVoice = voices.find(v => 
+          (v.lang.includes("en-IN") || v.lang.includes("en-GB") || v.lang.includes("en-US")) && 
+          (v.name.includes("Neerja") || v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Female") || v.name.includes("India"))
+        ) || voices.find(v => v.lang.startsWith("en"));
+        cachedVoiceRef.current = inVoice || voices[0];
+      }
+    };
+    updateVoices();
+    window.speechSynthesis.onvoiceschanged = updateVoices;
+  }, []);
 
   // Speak aloud using browser Web Speech API
   const speakText = (text: string, onDone?: () => void) => {
@@ -143,16 +178,12 @@ export function EnglishSpeakingCoach() {
     try {
       window.speechSynthesis.cancel();
       const utt = new SpeechSynthesisUtterance(text);
-      utt.rate = 0.95;
+      utt.rate = 0.93;
       utt.pitch = 1.0;
       utt.lang = "en-IN";
-      const voices = window.speechSynthesis.getVoices();
-      const femaleVoice = voices.find(v => 
-        (v.lang.includes("en-IN") || v.lang.includes("en-GB") || v.lang.includes("en-US")) && 
-        (v.name.includes("Neerja") || v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Female"))
-      ) || voices.find(v => v.lang.startsWith("en"));
-      if (femaleVoice) utt.voice = femaleVoice;
-
+      if (cachedVoiceRef.current) {
+        utt.voice = cachedVoiceRef.current;
+      }
       utt.onstart = () => setIsAiSpeaking(true);
       utt.onend = () => {
         setIsAiSpeaking(false);
@@ -189,7 +220,6 @@ export function EnglishSpeakingCoach() {
         setModules(data.modules || []);
 
         if (!data.track.diagnostic_completed || data.track.is_expired) {
-          // User must take the diagnostic test first
           setActiveTab("diagnostic");
           fetchDiagnosticQuestions();
         } else if (data.track.mastery_report) {
@@ -218,11 +248,35 @@ export function EnglishSpeakingCoach() {
     }
   };
 
+  // Reset per-step states whenever step, module, or tab changes
+  useEffect(() => {
+    setUserSpokenText("");
+    setRepeatMatchScore(null);
+    setRepeatWordMatches([]);
+    setHasListened(false);
+    setIsListening(false);
+    setIsTimerActive(false);
+    setSpeakingTimer(60);
+    setSpeakingCritique(null);
+    setIsGameActive(false);
+    setGameTimer(30);
+    setCollectedKeywords([]);
+    setSentenceFixResult(null);
+    setGameCompleted(false);
+    stopSpeaking();
+    clearInterval(timerIntervalRef.current);
+    clearInterval(gameIntervalRef.current);
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+    }
+  }, [activeStepIdx, activeModuleIdx, activeTab]);
+
   useEffect(() => {
     loadState();
     return () => {
       stopSpeaking();
       clearInterval(timerIntervalRef.current);
+      clearInterval(gameIntervalRef.current);
       if (recognitionRef.current) {
         try { recognitionRef.current.abort(); } catch {}
       }
@@ -271,6 +325,11 @@ export function EnglishSpeakingCoach() {
 
   // 3. Complete Step & Strict Progression (No Skipping)
   const handleCompleteStep = async (stepId: string) => {
+    if (!canAdvanceStep()) {
+      alert("Please complete the required speaking exercise for this step before advancing.");
+      return;
+    }
+
     const uId = user?.id || user?.email || "guest_user";
     const uRole = user?.role || "student";
     try {
@@ -288,10 +347,9 @@ export function EnglishSpeakingCoach() {
       if (res.ok) {
         const data = await res.json();
         setTrack(data.track);
-        setStepCompleteNotice("Step Completed! Unlocked next step.");
+        setStepCompleteNotice("Step Completed! Unlocked next stage.");
         setTimeout(() => setStepCompleteNotice(null), 3000);
 
-        // Advance to next step or next module
         const currentMod = modules[activeModuleIdx];
         if (currentMod && activeStepIdx < currentMod.steps.length - 1) {
           setActiveStepIdx(prev => prev + 1);
@@ -308,8 +366,27 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // 4. Speech Recognition Engine for Repeating & Speaking
-  const startRecordingSpeech = (onResultCallback?: (text: string) => void) => {
+  // Calculate word-level phonetic accuracy for the Repeat step
+  const calculateWordMatch = (target: string, captured: string) => {
+    const cleanTargetWords = target.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+    const cleanCapturedWords = captured.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+    if (cleanTargetWords.length === 0) return { score: 0, matches: [] };
+
+    let matchedCount = 0;
+    const matches = cleanTargetWords.map(tw => {
+      const isMatched = cleanCapturedWords.some(cw => 
+        cw === tw || (tw.length > 4 && (cw.startsWith(tw.slice(0, -1)) || tw.startsWith(cw.slice(0, -1))))
+      );
+      if (isMatched) matchedCount++;
+      return { word: tw, matched: isMatched };
+    });
+
+    const score = Math.round((matchedCount / cleanTargetWords.length) * 100);
+    return { score, matches };
+  };
+
+  // 4. Speech Recognition Engine
+  const startRecordingSpeech = (options?: { continuous?: boolean; onResult?: (text: string) => void }) => {
     if (typeof window === "undefined") return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -324,12 +401,14 @@ export function EnglishSpeakingCoach() {
     try {
       const rec = new SpeechRecognition();
       rec.lang = "en-IN";
-      rec.continuous = false;
+      rec.continuous = options?.continuous || false;
       rec.interimResults = true;
 
       rec.onstart = () => {
         setIsListening(true);
-        setUserSpokenText("");
+        if (!options?.continuous) {
+          setUserSpokenText("");
+        }
       };
 
       rec.onresult = (event: any) => {
@@ -339,10 +418,10 @@ export function EnglishSpeakingCoach() {
         }
         const cleaned = cleanTranscript(transcript);
         setUserSpokenText(cleaned);
-        onResultCallback?.(cleaned);
+        options?.onResult?.(cleaned);
       };
 
-      rec.onerror = (e: any) => {
+      rec.onerror = () => {
         setIsListening(false);
       };
 
@@ -365,14 +444,36 @@ export function EnglishSpeakingCoach() {
     setIsListening(false);
   };
 
-  // 5. Public Speaking Timer & Critique
+  // Repeat step voice recorder & validator
+  const handleRepeatVoiceCapture = () => {
+    if (isListening) {
+      stopRecordingSpeech();
+      return;
+    }
+    const currentMod = modules[activeModuleIdx];
+    const currentStep = currentMod?.steps[activeStepIdx];
+    const target = currentStep?.target_phrase || "";
+
+    startRecordingSpeech({
+      continuous: false,
+      onResult: (text: string) => {
+        if (target) {
+          const { score, matches } = calculateWordMatch(target, text);
+          setRepeatMatchScore(score);
+          setRepeatWordMatches(matches);
+        }
+      }
+    });
+  };
+
+  // 5. Public Speaking Stage (LRSP 60s Timer & Evaluation)
   const handleStartPublicSpeaking = () => {
     setSpeakingTimer(60);
     setIsTimerActive(true);
     setUserSpokenText("");
     setSpeakingCritique(null);
 
-    startRecordingSpeech();
+    startRecordingSpeech({ continuous: true });
 
     clearInterval(timerIntervalRef.current);
     timerIntervalRef.current = setInterval(() => {
@@ -419,7 +520,6 @@ export function EnglishSpeakingCoach() {
       if (res.ok) {
         const critique = await res.json();
         setSpeakingCritique(critique);
-        // Play AI live spoken correction
         if (critique.live_correction) {
           speakText(`Here is your polished delivery: ${critique.live_correction}`);
         }
@@ -431,7 +531,7 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // 6. Interactive Spoken Dialogue (LRSI)
+  // 6. Interactive Spoken Dialogue (Dedicated Sub-Second LRSI Endpoint)
   const handleSendDialogueTurn = async () => {
     if (!userSpokenText.trim() || isCoachThinking) return;
 
@@ -441,35 +541,133 @@ export function EnglishSpeakingCoach() {
     setIsCoachThinking(true);
 
     try {
-      const fd = new FormData();
-      fd.append("message", `Spoken English practice dialogue turn. User said: "${userText}". Reply warmly in 1 short spoken sentence (max 15 words) starting with 1 energetic feedback word.`);
-      fd.append("agent_code", "english_coach");
-      fd.append("user_id", user?.id || user?.email || "guest");
-      fd.append("language", "english");
-
-      const res = await fetch(`${getApiBase()}/agents/chat`, {
+      const currentMod = modules[activeModuleIdx];
+      const currentStep = currentMod?.steps[activeStepIdx];
+      const res = await fetch(`${getApiBase()}/english-coach/dialogue-turn`, {
         method: "POST",
-        body: fd
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_message: userText,
+          history: dialogueMessages,
+          coach_starter: currentStep?.coach_starter || "",
+          user_level: track?.fluency_level || "Intermediate",
+          target_focus: currentMod?.focus_areas?.[0] || "Spoken English Fluency"
+        })
       });
 
-      if (res.ok && res.body) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let coachReply = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          coachReply += decoder.decode(value, { stream: true });
-        }
-        const cleanReply = coachReply.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-        setDialogueMessages(prev => [...prev, { sender: "coach", text: cleanReply }]);
-        speakText(cleanReply);
+      if (res.ok) {
+        const data = await res.json();
+        const replyText = data.reply;
+        setDialogueMessages(prev => [...prev, { 
+          sender: "coach", 
+          text: replyText,
+          correction: data.correction
+        }]);
+        speakText(replyText);
       }
     } catch (err) {
       console.warn("Dialogue turn error:", err);
     } finally {
       setIsCoachThinking(false);
     }
+  };
+
+  // Mini-Games Engine (Word Sprint, Sentence Fixer, Tongue Twister)
+  const handleStartWordSprint = () => {
+    setGameTimer(30);
+    setIsGameActive(true);
+    setCollectedKeywords([]);
+    setGameCompleted(false);
+    setUserSpokenText("");
+
+    const currentMod = modules[activeModuleIdx];
+    const currentStep = currentMod?.steps[activeStepIdx];
+    const keywords = (currentStep?.target_keywords || []).map(k => k.toLowerCase());
+
+    startRecordingSpeech({
+      continuous: true,
+      onResult: (text: string) => {
+        const lower = text.toLowerCase();
+        const found = keywords.filter(k => lower.includes(k));
+        setCollectedKeywords(found);
+        if (found.length >= 2) {
+          setGameCompleted(true);
+        }
+      }
+    });
+
+    clearInterval(gameIntervalRef.current);
+    gameIntervalRef.current = setInterval(() => {
+      setGameTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(gameIntervalRef.current);
+          setIsGameActive(false);
+          stopRecordingSpeech();
+          setGameCompleted(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleSentenceFixVoiceCheck = () => {
+    if (isListening) {
+      stopRecordingSpeech();
+      return;
+    }
+    startRecordingSpeech({
+      continuous: false,
+      onResult: (text: string) => {
+        const clean = text.toLowerCase().replace(/[^a-z0-9\s]/g, "");
+        const hasBeen = clean.includes("have been") || clean.includes("has been");
+        const hasFor = clean.includes("for five") || clean.includes("for 5");
+        if (hasBeen && hasFor) {
+          setSentenceFixResult({
+            success: true,
+            message: "Spot on! 'I have been working here for five years' is grammatically accurate! 🌟"
+          });
+          setGameCompleted(true);
+          speakText("Spot on! That is grammatically accurate.");
+        } else {
+          setSentenceFixResult({
+            success: false,
+            message: "Listen closely: replace 'am working' with 'have been working', and 'since' with 'for'."
+          });
+        }
+      }
+    });
+  };
+
+  // Anti-skip prerequisite check: Has user actually performed the step?
+  const canAdvanceStep = () => {
+    const currentMod = modules[activeModuleIdx];
+    const currentStep = currentMod?.steps[activeStepIdx];
+    if (!currentStep) return false;
+
+    if (currentStep.type === "listen") {
+      return hasListened;
+    }
+    if (currentStep.type === "repeat") {
+      return repeatMatchScore !== null && repeatMatchScore >= 50;
+    }
+    if (currentStep.type === "speak") {
+      return userSpokenText.trim().split(/\s+/).length >= 3;
+    }
+    if (currentStep.type === "interact") {
+      const userTurns = dialogueMessages.filter(m => m.sender === "user").length;
+      return userTurns >= 1;
+    }
+    if (currentStep.type === "present") {
+      return speakingCritique !== null || userSpokenText.trim().split(/\s+/).length >= 10;
+    }
+    if (currentStep.type === "game") {
+      return gameCompleted;
+    }
+    if (currentStep.type === "capstone") {
+      return userSpokenText.trim().length > 0;
+    }
+    return true;
   };
 
   // 7. Final Capstone & Report Generation
@@ -907,7 +1105,10 @@ export function EnglishSpeakingCoach() {
                     Model Spoken Pronunciation
                   </span>
                   <button
-                    onClick={() => speakText(currentStep.model_audio_text!)}
+                    onClick={() => {
+                      setHasListened(true);
+                      speakText(currentStep.model_audio_text!);
+                    }}
                     disabled={isAiSpeaking}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-sm hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
                   >
@@ -918,19 +1119,61 @@ export function EnglishSpeakingCoach() {
                 <p className="text-base sm:text-lg font-bold text-slate-800 leading-relaxed italic bg-white p-4 rounded-xl border border-indigo-100/60 shadow-xs">
                   "{currentStep.model_audio_text}"
                 </p>
+                {hasListened && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Audio heard! Step unlocked for advancement.</span>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* STEP 2: REPEAT */}
+            {/* STEP 2: REPEAT (WITH PRONUNCIATION WORD-BY-WORD DIFF) */}
             {currentStep.type === "repeat" && currentStep.target_phrase && (
               <div className="p-6 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-4">
-                <span className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Mic className="w-4 h-4 text-purple-600" />
-                  Target Phrase To Echo
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Mic className="w-4 h-4 text-purple-600" />
+                    Target Phrase To Echo
+                  </span>
+                  {repeatMatchScore !== null && (
+                    <span className={`px-3 py-1 rounded-full text-xs font-black border ${
+                      repeatMatchScore >= 65 
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        : "bg-amber-100 text-amber-800 border-amber-300"
+                    }`}>
+                      {repeatMatchScore >= 65 ? "🌟 Match Score: " : "⚠️ Match Score: "}{repeatMatchScore}%
+                    </span>
+                  )}
+                </div>
+
                 <p className="text-base sm:text-lg font-bold text-purple-950 bg-white p-4 rounded-xl border border-purple-100 shadow-xs">
                   "{currentStep.target_phrase}"
                 </p>
+
+                {/* WORD-LEVEL PHONETIC MATCH BREAKDOWN */}
+                {repeatWordMatches.length > 0 && (
+                  <div className="p-3 bg-white rounded-xl border border-purple-200 space-y-2">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Word Pronunciation Accuracy:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {repeatWordMatches.map((m, idx) => (
+                        <span 
+                          key={idx} 
+                          className={`px-2.5 py-1 rounded-lg text-xs font-extrabold border flex items-center gap-1 ${
+                            m.matched
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                              : "bg-rose-50 text-rose-700 border-rose-300"
+                          }`}
+                        >
+                          {m.word} {m.matched ? "✓" : "✗"}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                   <button
                     onClick={() => speakText(currentStep.target_phrase!)}
@@ -940,7 +1183,7 @@ export function EnglishSpeakingCoach() {
                     <span>Listen Again</span>
                   </button>
                   <button
-                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
+                    onClick={handleRepeatVoiceCapture}
                     className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
                       isListening
                         ? "bg-rose-600 text-white animate-pulse"
@@ -948,7 +1191,7 @@ export function EnglishSpeakingCoach() {
                     }`}
                   >
                     <Mic className="w-4 h-4" />
-                    <span>{isListening ? "Listening... Tap to Stop" : "Press & Repeat Aloud"}</span>
+                    <span>{isListening ? "Listening... Speak Now" : "Press & Repeat Aloud"}</span>
                   </button>
                 </div>
                 {userSpokenText && (
@@ -994,7 +1237,7 @@ export function EnglishSpeakingCoach() {
               </div>
             )}
 
-            {/* STEP 4: INTERACT (LRSI LIVE CHAT) */}
+            {/* STEP 4: INTERACT (LRSI LIVE CHAT WITH GRAMMAR CORRECTION) */}
             {currentStep.type === "interact" && (
               <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                 <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -1018,10 +1261,15 @@ export function EnglishSpeakingCoach() {
                 )}
 
                 {/* DIALOGUE BUBBLES */}
-                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                   {dialogueMessages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`p-3 rounded-2xl max-w-md text-xs font-semibold leading-relaxed ${
+                    <div key={i} className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}>
+                      {msg.correction && (
+                        <div className="mb-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl shadow-xs">
+                          💡 Coach Tip: {msg.correction}
+                        </div>
+                      )}
+                      <div className={`p-3.5 rounded-2xl max-w-md text-xs font-semibold leading-relaxed ${
                         msg.sender === "user"
                           ? "bg-indigo-600 text-white rounded-tr-none shadow-sm"
                           : "bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-xs"
@@ -1086,6 +1334,18 @@ export function EnglishSpeakingCoach() {
                   </h3>
                 </div>
 
+                {/* ANIMATED PODIUM WAVE VISUALIZER */}
+                {isTimerActive && (
+                  <div className="flex items-center justify-center gap-1.5 py-3">
+                    <div className="w-1.5 h-6 bg-emerald-400 rounded-full animate-bounce" />
+                    <div className="w-1.5 h-10 bg-emerald-300 rounded-full animate-pulse" />
+                    <div className="w-1.5 h-14 bg-emerald-400 rounded-full animate-bounce" />
+                    <div className="w-1.5 h-8 bg-emerald-300 rounded-full animate-pulse" />
+                    <div className="w-1.5 h-5 bg-emerald-400 rounded-full animate-bounce" />
+                    <span className="text-xs font-bold text-emerald-300 ml-2">Live On Stage — Continuous Speech Recording</span>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center gap-3">
                   {!isTimerActive ? (
                     <button
@@ -1149,6 +1409,134 @@ export function EnglishSpeakingCoach() {
               </div>
             )}
 
+            {/* NEW STEP: INTERACTIVE MINI-GAME STAGE */}
+            {currentStep.type === "game" && (
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-900 to-purple-950 text-white border border-indigo-700/50 space-y-5 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <Flame className="w-3.5 h-3.5 fill-current" />
+                      Gamified Spoken Drill
+                    </span>
+                    <span className="text-xs font-bold text-indigo-200">
+                      {currentStep.game_type === "word_sprint" ? "Word Sprint" : currentStep.game_type === "sentence_fixer" ? "Sentence Fixer" : "Articulation Sprint"}
+                    </span>
+                  </div>
+                  {gameCompleted && (
+                    <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-extrabold border border-emerald-500/30 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Activity Cleared!
+                    </span>
+                  )}
+                </div>
+
+                {/* GAME TYPE 1: WORD SPRINT */}
+                {currentStep.game_type === "word_sprint" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs sm:text-sm text-indigo-100 font-medium">
+                        Speak aloud as many adjectives related to education as possible! Target: at least 2 keywords.
+                      </p>
+                      <span className="font-mono text-xs font-black bg-white/10 px-3 py-1 rounded-full">
+                        ⏱️ {gameTimer}s
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {(currentStep.target_keywords || []).map((kw, i) => {
+                        const isFound = collectedKeywords.includes(kw.toLowerCase());
+                        return (
+                          <span 
+                            key={i} 
+                            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all ${
+                              isFound 
+                                ? "bg-emerald-500 text-slate-950 border-emerald-400 scale-105 shadow-md"
+                                : "bg-white/10 text-indigo-200 border-white/10"
+                            }`}
+                          >
+                            {kw} {isFound ? "⭐" : ""}
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                      {!isGameActive ? (
+                        <button
+                          onClick={handleStartWordSprint}
+                          className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs shadow-md transition-all active:scale-95"
+                        >
+                          Start 30s Word Sprint
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                          <Mic className="w-4 h-4 animate-bounce" />
+                          <span>Listening for words... speak quickly!</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* GAME TYPE 2: SENTENCE FIXER */}
+                {currentStep.game_type === "sentence_fixer" && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-white/10 rounded-xl border border-white/15 space-y-1">
+                      <span className="text-[11px] font-bold text-rose-300 uppercase">Flawed Sentence:</span>
+                      <p className="text-base font-extrabold text-rose-100">"{currentStep.flawed_sentence}"</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-xs text-indigo-200 font-bold">Your Task:</span>
+                      <p className="text-xs text-slate-300">Speak the grammatically corrected sentence into your microphone.</p>
+                      <button
+                        onClick={handleSentenceFixVoiceCheck}
+                        className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
+                          isListening ? "bg-rose-500 text-white animate-pulse" : "bg-emerald-500 text-slate-950 hover:bg-emerald-400 font-black"
+                        }`}
+                      >
+                        <Mic className="w-4 h-4" />
+                        <span>{isListening ? "Listening... Speak the fix" : "Speak The Corrected Sentence"}</span>
+                      </button>
+                    </div>
+
+                    {sentenceFixResult && (
+                      <div className={`p-4 rounded-xl border text-xs font-bold ${
+                        sentenceFixResult.success ? "bg-emerald-500/20 text-emerald-200 border-emerald-500/40" : "bg-rose-500/20 text-rose-200 border-rose-500/40"
+                      }`}>
+                        {sentenceFixResult.message}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* GAME TYPE 3: TONGUE TWISTER SPRINT */}
+                {currentStep.game_type === "tongue_twister" && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-white/10 rounded-xl border border-white/15 space-y-1">
+                      <span className="text-[11px] font-bold text-amber-300 uppercase">Tongue Twister:</span>
+                      <p className="text-base font-extrabold text-white">"{currentStep.target_phrase}"</p>
+                    </div>
+                    <button
+                      onClick={handleRepeatVoiceCapture}
+                      className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
+                        isListening ? "bg-rose-500 text-white animate-pulse" : "bg-amber-400 text-slate-950 font-black"
+                      }`}
+                    >
+                      <Mic className="w-4 h-4" />
+                      <span>{isListening ? "Listening... Speak fast!" : "Attempt Speed Challenge"}</span>
+                    </button>
+                    {repeatMatchScore !== null && (
+                      <div className="text-xs font-bold text-indigo-200">
+                        Accuracy: <strong className="text-white">{repeatMatchScore}%</strong>
+                        {repeatMatchScore >= 50 ? " — Challenge Passed! 🌟" : " — Try speaking a little clearer!"}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* STEP 6: CAPSTONE FINAL INTERACTION */}
             {currentStep.type === "capstone" && (
               <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-4">
@@ -1187,8 +1575,8 @@ export function EnglishSpeakingCoach() {
               </div>
             )}
 
-            {/* FOOTER BUTTONS */}
-            <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+            {/* FOOTER BUTTONS WITH ANTI-SKIP PREREQUISITE ENFORCEMENT */}
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 gap-3">
               <button
                 disabled={activeStepIdx === 0}
                 onClick={() => setActiveStepIdx(prev => Math.max(0, prev - 1))}
@@ -1197,13 +1585,32 @@ export function EnglishSpeakingCoach() {
                 Previous Step
               </button>
 
-              <button
-                onClick={() => handleCompleteStep(currentStep.step_id)}
-                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
-              >
-                <span>{isLastStep ? "Complete Module" : "Mark Step Complete & Advance"}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-3">
+                {!canAdvanceStep() && (
+                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200">
+                    {currentStep.type === "listen" && "🎧 Listen to the model audio first"}
+                    {currentStep.type === "repeat" && "🎙️ Repeat the phrase with >= 50% accuracy"}
+                    {currentStep.type === "speak" && "💬 Speak your answer aloud (3+ words)"}
+                    {currentStep.type === "interact" && "🤝 Have at least 1 dialogue turn with coach"}
+                    {currentStep.type === "present" && "🎤 Deliver your speech & request critique"}
+                    {currentStep.type === "game" && "🎮 Play the mini-game to unlock next stage"}
+                    {currentStep.type === "capstone" && "🎓 Speak your capstone speech"}
+                  </span>
+                )}
+
+                <button
+                  disabled={!canAdvanceStep()}
+                  onClick={() => handleCompleteStep(currentStep.step_id)}
+                  className={`px-6 py-2.5 rounded-xl text-xs font-extrabold shadow-sm transition-all active:scale-95 flex items-center gap-1.5 ${
+                    canAdvanceStep()
+                      ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  }`}
+                >
+                  <span>{isLastStep ? "Complete Module" : "Mark Step Complete & Advance"}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         )}
