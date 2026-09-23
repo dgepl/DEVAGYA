@@ -43,6 +43,7 @@ from api.v1.tts import router as tts_router
 from api.v1.recruitment import router as recruitment_router
 from api.v1.student_parent import router as student_parent_router
 from api.v1.suggestions import router as suggestions_router
+from api.v1.english_coach import router as english_coach_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -139,6 +140,7 @@ app.include_router(tts_router, prefix=settings.API_V1_STR)
 app.include_router(recruitment_router, prefix=settings.API_V1_STR)
 app.include_router(student_parent_router, prefix=settings.API_V1_STR)
 app.include_router(suggestions_router, prefix=settings.API_V1_STR)
+app.include_router(english_coach_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():

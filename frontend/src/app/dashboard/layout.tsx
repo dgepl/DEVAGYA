@@ -191,6 +191,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       const isStudentAllowed = 
         pathname.startsWith("/dashboard/student") ||
         pathname.startsWith("/dashboard/agents") ||
+        pathname.startsWith("/dashboard/english-coach") ||
         pathname === "/dashboard/knowledge" ||
         pathname === "/dashboard/chat" ||
         pathname === "/dashboard/suggestions" ||
@@ -272,6 +273,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   } else if (user.role === "student") {
     navItems = [
       { label: "Student Home", href: "/dashboard/student", icon: LayoutDashboard },
+      { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
       { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain },
       { label: "AI Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy },
       { label: "Practice & Quizzes", href: "/dashboard/student/practice", icon: Target },

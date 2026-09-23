@@ -17,10 +17,31 @@ import {
   ArrowRight,
   Brain,
   Layers,
-  GraduationCap
+  GraduationCap,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { getApiBase } from "@/lib/api";
+
+interface CoachReportData {
+  diagnostic_completed: boolean;
+  diagnostic_score: number;
+  fluency_level: string;
+  weak_points: string[];
+  completed_modules_count: number;
+  total_modules_count: number;
+  final_report?: {
+    overall_fluency_band: string;
+    pronunciation_accuracy_percent: number;
+    grammar_structure_percent: number;
+    public_speaking_confidence_percent: number;
+    mastered_competencies: string[];
+    areas_for_continued_practice: string[];
+    parent_recommendations: string[];
+    teacher_recommendations: string[];
+  } | null;
+  is_expired: boolean;
+}
 
 interface SubjectAverage {
   subject: string;
@@ -71,6 +92,8 @@ export function ParentStudentPerformanceReport() {
   const [data, setData] = useState<PerformanceData | null>(null);
   const [selectedUsername, setSelectedUsername] = useState<string>("");
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
+  const [coachReport, setCoachReport] = useState<CoachReportData | null>(null);
+  const [coachLoading, setCoachLoading] = useState(false);
 
   const fetchPerformance = async (username?: string) => {
     if (!parentEmail) return;
@@ -93,9 +116,35 @@ export function ParentStudentPerformanceReport() {
     }
   };
 
+  const fetchCoachReport = async (studentId: string) => {
+    if (!studentId) return;
+    setCoachLoading(true);
+    try {
+      const apiBase = getApiBase();
+      const res = await fetch(`${apiBase}/english-coach/parent-report/${encodeURIComponent(studentId)}`);
+      if (res.ok) {
+        const json = await res.json();
+        setCoachReport(json);
+      } else {
+        setCoachReport(null);
+      }
+    } catch {
+      setCoachReport(null);
+    } finally {
+      setCoachLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchPerformance(selectedUsername);
   }, [parentEmail, selectedUsername]);
+
+  useEffect(() => {
+    const studentId = selectedUsername || data?.selected_child?.username || data?.selected_child?.id;
+    if (studentId) {
+      fetchCoachReport(studentId);
+    }
+  }, [selectedUsername, data?.selected_child?.username, data?.selected_child?.id]);
 
   // Subject color mapping
   const getSubjectColor = (subject: string) => {
@@ -297,6 +346,129 @@ export function ParentStudentPerformanceReport() {
           )}
         </div>
 
+      </div>
+
+      {/* 2.5 SPOKEN ENGLISH & PUBLIC SPEAKING COACH MASTERY TRACK (LRSI / LRSP) */}
+      <div className="bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/50 rounded-3xl p-6 border border-indigo-150/70 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-100 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+              <Headphones className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-black text-slate-900">
+                  Spoken English & Public Speaking Track
+                </h3>
+                <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                  LRSI / LRSP Method
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Personalized pronunciation, live interactive speech, and public speaking confidence
+              </p>
+            </div>
+          </div>
+          {coachReport?.final_report && (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-full text-xs font-black self-start sm:self-auto">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Certified Mastery</span>
+            </div>
+          )}
+        </div>
+
+        {coachLoading ? (
+          <div className="py-6 flex items-center justify-center gap-2 text-xs text-slate-400 font-bold">
+            <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" />
+            <span>Loading spoken English records for {selectedChild?.name || "student"}...</span>
+          </div>
+        ) : !coachReport?.diagnostic_completed ? (
+          <div className="p-4 bg-white/80 rounded-2xl border border-slate-200 text-center space-y-2">
+            <p className="text-xs font-bold text-slate-700">
+              {selectedChild?.name || "Student"} has not yet taken the 10-Mark Diagnostic English Test.
+            </p>
+            <p className="text-[11px] text-slate-500 max-w-lg mx-auto">
+              Once they complete the test in the English Speaking Coach, their identified weak points, personalized LRSI/LRSP lectures, and public speaking recordings will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Top diagnostic stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 bg-white rounded-2xl border border-slate-200">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Diagnostic Score</span>
+                <span className="text-lg font-black text-indigo-600">{coachReport.diagnostic_score} / 10</span>
+              </div>
+              <div className="p-3 bg-white rounded-2xl border border-slate-200">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Proficiency Level</span>
+                <span className="text-lg font-black text-slate-900">{coachReport.fluency_level}</span>
+              </div>
+              <div className="p-3 bg-white rounded-2xl border border-slate-200">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Lectures Completed</span>
+                <span className="text-lg font-black text-emerald-600">{coachReport.completed_modules_count} of {coachReport.total_modules_count}</span>
+              </div>
+              <div className="p-3 bg-white rounded-2xl border border-slate-200">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Cycle Status</span>
+                <span className={`text-xs font-black inline-block mt-1 px-2 py-0.5 rounded-full ${coachReport.is_expired ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-700'}`}>
+                  {coachReport.is_expired ? "Cycle Renewal Due" : "30-Day Active Track"}
+                </span>
+              </div>
+            </div>
+
+            {/* Weak points identified */}
+            {coachReport.weak_points && coachReport.weak_points.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-bold text-slate-600">Target Focus Areas:</span>
+                {coachReport.weak_points.map((wp, i) => (
+                  <span key={i} className="px-2.5 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold">
+                    ⚠️ {wp}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Final Report Card if generated */}
+            {coachReport.final_report && (
+              <div className="p-4 bg-white rounded-2xl border border-emerald-200/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Official Spoken English Mastery Assessment</span>
+                  </h4>
+                  <span className="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-md">
+                    Band: {coachReport.final_report.overall_fluency_band}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150">
+                    <span className="text-[10px] text-slate-500 font-bold block">Pronunciation Accuracy</span>
+                    <span className="text-base font-black text-slate-900">{coachReport.final_report.pronunciation_accuracy_percent}%</span>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150">
+                    <span className="text-[10px] text-slate-500 font-bold block">Grammar in Spontaneous Speech</span>
+                    <span className="text-base font-black text-slate-900">{coachReport.final_report.grammar_structure_percent}%</span>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150">
+                    <span className="text-[10px] text-slate-500 font-bold block">Public Speaking Confidence</span>
+                    <span className="text-base font-black text-slate-900">{coachReport.final_report.public_speaking_confidence_percent}%</span>
+                  </div>
+                </div>
+
+                {coachReport.final_report.parent_recommendations?.length > 0 && (
+                  <div className="pt-2 border-t border-slate-100 space-y-1">
+                    <span className="text-[11px] font-black text-slate-700 block">Home Action Plan for Parents:</span>
+                    <ul className="space-y-1 text-xs text-slate-600 list-disc list-inside">
+                      {coachReport.final_report.parent_recommendations.map((rec, rIdx) => (
+                        <li key={rIdx}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 3. STUDENT AVERAGE REPORT PER WEEK-WISE IN EVERY SUBJECT */}

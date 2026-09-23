@@ -1,1936 +1,1364 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import {
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
+import { 
+  Sparkles, 
+  Mic, 
+  MicOff, 
+  Volume2, 
+  VolumeX, 
+  Play, 
+  Pause, 
+  CheckCircle2, 
+  AlertCircle, 
+  Lock, 
+  Unlock, 
+  Clock, 
+  Award, 
+  Trophy, 
+  BookOpen, 
+  MessageSquare, 
+  ArrowRight, 
+  RefreshCw, 
+  Zap, 
+  Flame, 
+  Target, 
+  HelpCircle, 
+  Smile, 
+  ChevronRight, 
+  ShieldCheck, 
+  Layers, 
   Headphones,
-  Mic,
-  MicOff,
-  Volume2,
-  VolumeX,
-  Sparkles,
+  FileText,
   RotateCcw,
-  Send,
-  Lightbulb,
-  ChevronDown,
-  Globe,
-  Award,
-  BookOpen,
-  Users,
-  GraduationCap,
-  MessageSquare,
-  Zap,
-  Phone,
-  PhoneOff,
-  Keyboard,
-  X,
-  History,
-  Video,
-  VideoOff,
-  SwitchCamera,
-  Eye,
-  Smile,
-  ArrowRight
+  HeartHandshake,
+  GraduationCap
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { getApiBase } from "@/lib/api";
 
-interface VoiceOption {
-  code: string;
-  name: string;
-  gender: "Female" | "Male";
-  lang: string;
-  accent: string;
-  avatar: string;
-  category: "hindi" | "indian-english" | "global-english";
+interface QuestionItem {
+  id: number;
+  category: string;
+  question: string;
+  options: string[];
+  weakness_tag: string;
 }
 
-const COACH_VOICES: VoiceOption[] = [
-  // 1. Authentic Hindi Voices (Native Indian Hindi Accent)
-  {
-    code: "hi-IN-SwaraNeural",
-    name: "Swara (स्वर - हिंदी)",
-    gender: "Female",
-    lang: "hi-IN",
-    accent: "Authentic Hindi Accent 🇮🇳",
-    avatar: "👩",
-    category: "hindi"
-  },
-  {
-    code: "hi-IN-MadhurNeural",
-    name: "Madhur (मधुर - हिंदी)",
-    gender: "Male",
-    lang: "hi-IN",
-    accent: "Natural Hindi Accent 🇮🇳",
-    avatar: "👨",
-    category: "hindi"
-  },
-  // 2. Realistic Indian English Voices (Educator Accent)
-  {
-    code: "en-IN-NeerjaNeural",
-    name: "Neerja (Indian English)",
-    gender: "Female",
-    lang: "en-IN",
-    accent: "Warm Indian Educator 🇮🇳",
-    avatar: "👩",
-    category: "indian-english"
-  },
-  {
-    code: "en-IN-PrabhatNeural",
-    name: "Prabhat (Indian English)",
-    gender: "Male",
-    lang: "en-IN",
-    accent: "Crisp Indian Educator 🇮🇳",
-    avatar: "👨",
-    category: "indian-english"
-  },
-  // 3. Realistic Global Fluent English Voices
-  {
-    code: "en-US-JennyNeural",
-    name: "Jenny (US English)",
-    gender: "Female",
-    lang: "en-US",
-    accent: "Natural Fluent Accent 🇺🇸",
-    avatar: "👩",
-    category: "global-english"
-  },
-  {
-    code: "en-US-GuyNeural",
-    name: "Guy (US English)",
-    gender: "Male",
-    lang: "en-US",
-    accent: "Conversational Fluent 🇺🇸",
-    avatar: "👨",
-    category: "global-english"
-  },
-  {
-    code: "en-GB-SoniaNeural",
-    name: "Sonia (British English)",
-    gender: "Female",
-    lang: "en-GB",
-    accent: "Articulate Academic 🇬🇧",
-    avatar: "👩",
-    category: "global-english"
-  }
-];
+interface StepItem {
+  step_id: string;
+  type: "listen" | "repeat" | "speak" | "interact" | "present" | "capstone";
+  title: string;
+  prompt: string;
+  model_audio_text?: string;
+  target_phrase?: string;
+  sample_answer?: string;
+  coach_starter?: string;
+  topic?: string;
+}
 
-interface ScenarioTopic {
+interface GameItem {
   id: string;
   title: string;
-  shortTitle: string;
-  icon: any;
-  starterPrompt: string;
-  starterDisplay: string;
-  quickStarters: string[];
+  instructions?: string;
+  flawed_sentence?: string;
+  corrected_sentence?: string;
+  target_keywords?: string[];
 }
 
-const PRACTICE_SCENARIOS: ScenarioTopic[] = [
-  {
-    id: "classroom_instructions",
-    title: "Classroom Instructions & Control",
-    shortTitle: "Classroom",
-    icon: GraduationCap,
-    starterPrompt: "Hello coach! I want to practice giving smooth, clear classroom instructions to my students in English.",
-    starterDisplay: "Hello! I am Devgya English Coach. What classroom instruction would you like to practice giving your students?",
-    quickStarters: [
-      "Please settle down and open page 42.",
-      "Work in pairs and discuss this problem.",
-      "Kindly raise your hand if you have a doubt."
-    ]
-  },
-  {
-    id: "ptm_dialogue",
-    title: "Parent-Teacher Meeting (PTM)",
-    shortTitle: "Parent PTM",
-    icon: Users,
-    starterPrompt: "Hello coach! Let us roleplay a parent-teacher meeting where a parent is worried about their child's marks.",
-    starterDisplay: "Hello! I am Devgya English Coach. In PTMs, always balance positive reinforcement with constructive guidance. What would you like to say first?",
-    quickStarters: [
-      "Aarav is very creative, but needs more focus in homework.",
-      "We can work together to help improve their test scores.",
-      "I have noticed great progress in their class participation."
-    ]
-  },
-  {
-    id: "staff_principal",
-    title: "Principal & Staff Room Discussions",
-    shortTitle: "Staff & Principal",
-    icon: BookOpen,
-    starterPrompt: "Hello coach! I want to practice proposing an inter-house science exhibition to our School Principal.",
-    starterDisplay: "Hello! I am Devgya English Coach. Speaking with school leadership requires confidence and structured points. How would you introduce your proposal?",
-    quickStarters: [
-      "I would like to propose an inter-house science exhibition.",
-      "We require permission to use the school auditorium next Friday.",
-      "Here is the tentative schedule and budget for the event."
-    ]
-  },
-  {
-    id: "free_fluency",
-    title: "Daily Spoken Fluency (Free Talk)",
-    shortTitle: "Free Fluency",
-    icon: MessageSquare,
-    starterPrompt: "Hello coach! Let us have a spontaneous, flowing spoken conversation about interactive teaching techniques.",
-    starterDisplay: "Hello! I am Devgya English Coach. Continuous conversation is the fastest way to build spoken fluency. How was your day in class?",
-    quickStarters: [
-      "Today my students were really engaged in our interactive quiz.",
-      "I tried a new active learning method in class.",
-      "How can I encourage quiet students to speak up?"
-    ]
-  },
-  {
-    id: "pronunciation_polish",
-    title: "Pronunciation & Tongue Twisters",
-    shortTitle: "Pronunciation",
-    icon: Zap,
-    starterPrompt: "Hello coach! Please give me a pronunciation challenge for tricky sounds like /w/ vs /v/.",
-    starterDisplay: "Hello! I am Devgya English Coach. Let us polish your phonetics and lip movement! Repeat after me when ready.",
-    quickStarters: [
-      "Which wristwatches are Swiss wristwatches?",
-      "Vincent vowed vengeance very vehemently.",
-      "She sells sea shells on the seashore."
-    ]
-  }
-];
-
-interface FeedbackItem {
-  originalText: string;
-  polishedPhrasing?: string;
-  pedagogicalTip?: string;
+interface ModuleItem {
+  id: string;
+  title: string;
+  methodology: string;
+  description: string;
+  focus_areas: string[];
+  steps: StepItem[];
+  game?: GameItem;
 }
 
-interface LiveFaceState {
-  hasFace: boolean;
-  expression: string;
-  emoji: string;
-  label: string;
-}
-
-// Global dynamic face-api loader singleton
-let faceapi: any = null;
-let faceModelsLoaded = false;
-let modelLoadingPromise: Promise<boolean> | null = null;
-
-async function loadFaceExpressionModels(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  if (faceModelsLoaded) return true;
-  if (modelLoadingPromise) return modelLoadingPromise;
-
-  modelLoadingPromise = (async () => {
-    try {
-      if (!faceapi) {
-        faceapi = await import("@vladmandic/face-api");
-      }
-      if (!faceapi.nets.tinyFaceDetector.isLoaded) {
-        await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
-      }
-      if (!faceapi.nets.faceExpressionNet.isLoaded) {
-        await faceapi.nets.faceExpressionNet.loadFromUri("/models");
-      }
-      faceModelsLoaded = true;
-      return true;
-    } catch (err) {
-      console.warn("Face expression models loading notice:", err);
-      return false;
-    }
-  })();
-
-  return modelLoadingPromise;
+interface UserTrack {
+  user_id: string;
+  user_role: string;
+  diagnostic_completed: boolean;
+  diagnostic_score: number;
+  diagnostic_total: number;
+  weak_points: string[];
+  fluency_level: string;
+  current_module_index: number;
+  unlocked_module_index: number;
+  completed_steps: string[];
+  public_speaking_feedback?: any;
+  mastery_report?: any;
+  expires_at?: string;
+  is_expired?: boolean;
 }
 
 export function EnglishSpeakingCoach() {
   const { user } = useAppStore();
 
-  // Settings
-  const [selectedVoice, setSelectedVoice] = useState<string>("en-IN-NeerjaNeural");
-  const [languageMode, setLanguageMode] = useState<"english" | "hindi" | "hinglish">("english");
-  const [activeScenario, setActiveScenario] = useState<ScenarioTopic>(PRACTICE_SCENARIOS[0]);
+  // Primary State
+  const [loading, setLoading] = useState<boolean>(true);
+  const [track, setTrack] = useState<UserTrack | null>(null);
+  const [modules, setModules] = useState<ModuleItem[]>([]);
+  const [activeTab, setActiveTab] = useState<"diagnostic" | "roadmap" | "player" | "report">("roadmap");
 
-  // Switch language mode and automatically adapt voice + greeting
-  const handleLanguageChange = (newMode: "english" | "hindi" | "hinglish") => {
-    setLanguageMode(newMode);
+  // Diagnostic Test State
+  const [diagnosticQuestions, setDiagnosticQuestions] = useState<QuestionItem[]>([]);
+  const [currentQIndex, setCurrentQIndex] = useState<number>(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
+  const [submittingTest, setSubmittingTest] = useState<boolean>(false);
+  const [diagnosticResult, setDiagnosticResult] = useState<any>(null);
 
-    if (newMode === "hindi") {
-      // Auto-assign authentic Hindi neural voice
-      setSelectedVoice(prev => {
-        if (prev.startsWith("hi-")) return prev;
-        const isMale = prev.includes("Guy") || prev.includes("Prabhat") || prev.includes("Madhur");
-        return isMale ? "hi-IN-MadhurNeural" : "hi-IN-SwaraNeural";
-      });
-
-      // Update greeting if user hasn't started talking yet
-      if (conversationHistory.length === 0) {
-        setLiveAiSpeech(`नमस्ते! मैं आपका देवज्ञ इंग्लिश स्पीकिंग कोच हूँ। आज हम ${activeScenario.title} का अभ्यास करेंगे। जब भी आप तैयार हों, बोलना शुरू करें!`);
-      }
-    } else if (newMode === "hinglish") {
-      setSelectedVoice(prev => {
-        if (prev.startsWith("en-IN-")) return prev;
-        return "en-IN-NeerjaNeural";
-      });
-      if (conversationHistory.length === 0) {
-        setLiveAiSpeech(`Hello! Main aapka Devgya English Coach hoon. Aaj hum ${activeScenario.title} practice karenge. Jab aap ready hon, boliye!`);
-      }
-    } else {
-      // Pure English
-      setSelectedVoice(prev => {
-        if (!prev.startsWith("hi-")) return prev;
-        return "en-IN-NeerjaNeural";
-      });
-      if (conversationHistory.length === 0) {
-        setLiveAiSpeech(`Hello! I am your Devgya English Coach. We are practicing ${activeScenario.title}. Speak whenever you are ready!`);
-      }
-    }
-  };
-
-  // Conversational Session State (Like Gemini Live)
-  const [isLiveActive, setIsLiveActive] = useState<boolean>(false);
-  const [isListening, setIsListening] = useState<boolean>(false);
+  // Module Player State
+  const [activeModuleIdx, setActiveModuleIdx] = useState<number>(0);
+  const [activeStepIdx, setActiveStepIdx] = useState<number>(0);
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
-  const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
-  const [soundMuted, setSoundMuted] = useState<boolean>(false);
-  const [showTextKeyboard, setShowTextKeyboard] = useState<boolean>(false);
-  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
-  const [showScenarioModal, setShowScenarioModal] = useState<boolean>(false);
-  const [micPermissionError, setMicPermissionError] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const [userSpokenText, setUserSpokenText] = useState<string>("");
+  const [stepCompleteNotice, setStepCompleteNotice] = useState<string | null>(null);
 
-  // Live Camera Vision States
-  const [cameraActive, setCameraActive] = useState<boolean>(true);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const cameraStreamRef = useRef<MediaStream | null>(null);
+  // Public Speaking Stage (LRSP)
+  const [speakingTimer, setSpeakingTimer] = useState<number>(60);
+  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
+  const [critiqueLoading, setCritiqueLoading] = useState<boolean>(false);
+  const [speakingCritique, setSpeakingCritique] = useState<any>(null);
 
-  // Real-time Facial Perception State
-  const [liveFace, setLiveFace] = useState<LiveFaceState>({
-    hasFace: true,
-    expression: "neutral",
-    emoji: "🎯",
-    label: "Focused & Attentive"
-  });
-  const liveFaceRef = useRef<LiveFaceState>({
-    hasFace: true,
-    expression: "neutral",
-    emoji: "🎯",
-    label: "Focused & Attentive"
-  });
+  // Interactive Live Chat (LRSI)
+  const [dialogueMessages, setDialogueMessages] = useState<Array<{ sender: "coach" | "user"; text: string }>>([]);
+  const [isCoachThinking, setIsCoachThinking] = useState<boolean>(false);
 
-  // Multi-Turn Conversation History Context
-  const [conversationId, setConversationId] = useState<string>("");
-  const [conversationHistory, setConversationHistory] = useState<
-    Array<{ id: string; sender: "user" | "ai"; text: string; timestamp: string }>
-  >([]);
-
-  // Real-time Subtitles & Transcripts
-  const [currentSpeechText, setCurrentSpeechText] = useState<string>("");
-  const [liveAiSpeech, setLiveAiSpeech] = useState<string>(PRACTICE_SCENARIOS[0].starterDisplay);
-  const [latestFeedback, setLatestFeedback] = useState<FeedbackItem | null>(null);
-  const [textInput, setTextInput] = useState<string>("");
-
-  // Refs for Continuous Audio Engine
+  // Audio / Speech Recognition Refs
   const recognitionRef = useRef<any>(null);
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const isLiveActiveRef = useRef(false);
-  const isListeningRef = useRef(false);
-  const isAiSpeakingRef = useRef(false);
-  const isAiThinkingRef = useRef(false);
-  const soundMutedRef = useRef(false);
-  const accumulatedSpeechRef = useRef<string>("");
-  const turnBaseSpeechRef = useRef<string>("");
-  const silenceTimerRef = useRef<any>(null);
-  const autoRestartTimerRef = useRef<any>(null);
-  const audioQueueRef = useRef<string[]>([]);
-  const isPlayingQueueRef = useRef<boolean>(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const activeUtteranceRef = useRef<any>(null);
-  const cachedVoicesRef = useRef<SpeechSynthesisVoice[]>([]);
+  const timerIntervalRef = useRef<any>(null);
 
-  // Pre-warm browser voices for instant 0-delay playback
-  useEffect(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      const loadVoices = () => {
-        try {
-          const v = window.speechSynthesis.getVoices();
-          if (v && v.length > 0) cachedVoicesRef.current = v;
-        } catch {}
-      };
-      loadVoices();
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }, []);
-
-  // Keep refs synced
-  useEffect(() => { isLiveActiveRef.current = isLiveActive; }, [isLiveActive]);
-  useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
-  useEffect(() => { isAiSpeakingRef.current = isAiSpeaking; }, [isAiSpeaking]);
-  useEffect(() => { isAiThinkingRef.current = isAiThinking; }, [isAiThinking]);
-  useEffect(() => { soundMutedRef.current = soundMuted; }, [soundMuted]);
-
-  // Clean & Deduplicate Speech Recognition Transcript to prevent stutter / repeats ("hlo hlo hlo" -> "hlo")
-  const cleanSpeechTranscript = (rawText: string): string => {
-    if (!rawText) return "";
-    const words = rawText.trim().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return "";
-
-    const dedupedWords: string[] = [];
-    for (let i = 0; i < words.length; i++) {
-      const w = words[i];
-      const prev1 = dedupedWords[dedupedWords.length - 1];
-      const prev2 = dedupedWords[dedupedWords.length - 2];
-      const cleanW = w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
-      const clean1 = prev1 ? prev1.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") : "";
-      const clean2 = prev2 ? prev2.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") : "";
-
-      const isValidDouble = ["had", "that", "it"].includes(cleanW);
-      if (cleanW && cleanW === clean1) {
-        if (!isValidDouble || cleanW === clean2) {
-          continue;
-        }
-      }
-      dedupedWords.push(w);
-    }
-
-    let text = dedupedWords.join(" ");
-
-    for (let n = 2; n <= 4; n++) {
-      const arr = text.split(/\s+/);
-      if (arr.length >= n * 2) {
-        const tail = arr.slice(-n).join(" ").toLowerCase();
-        const prior = arr.slice(-2 * n, -n).join(" ").toLowerCase();
-        if (tail === prior) {
-          text = arr.slice(0, -n).join(" ");
-        }
-      }
-    }
-
-    return text.trim();
+  // Clean transcript utility
+  const cleanTranscript = (t: string) => {
+    return t.replace(/\s+/g, " ").trim();
   };
 
-  // Clean Text Helper for TTS: strips markdown, better phrasing lines, tips, quotes and emojis
-  const cleanForSpeech = (raw: string): string => {
-    if (!raw) return "";
-    let clean = raw;
-    clean = clean.replace(/✨?\s*\*?Better(?:\s+Phrasing)?\*?:\s*["“]?([^"”\n\r]+)["”]?/gi, "");
-    clean = clean.replace(/💡?\s*\*?Tip\*?:\s*([^\n\r]+)/gi, "");
-    clean = clean.replace(/\*\*([^*]+)\*\*/g, "$1");
-    clean = clean.replace(/\*([^*]+)\*/g, "$1");
-    clean = clean.replace(/`([^`]+)`/g, "$1");
-    clean = clean.replace(/#+\s+/g, "");
-    clean = clean.replace(/^[-*•]\s+/gm, "");
-    clean = clean.replace(/["“]([^"”]+)["”]/g, "$1");
-    clean = clean.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, "");
-    return clean.replace(/\s+/g, " ").trim();
-  };
-
-  // Camera Management
-  const startCamera = useCallback(async (mode: "user" | "environment" = facingMode) => {
+  // Speak aloud using browser Web Speech API
+  const speakText = (text: string, onDone?: () => void) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     try {
-      if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks().forEach(t => t.stop());
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: mode, width: { ideal: 480 }, height: { ideal: 480 } },
-        audio: false
-      });
-      cameraStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(() => {});
-      }
-      setCameraActive(true);
-      setFacingMode(mode);
-    } catch (err) {
-      console.warn("Camera access failed:", err);
-      setCameraActive(false);
-    }
-  }, [facingMode]);
-
-  const stopCamera = useCallback(() => {
-    if (cameraStreamRef.current) {
-      cameraStreamRef.current.getTracks().forEach(t => t.stop());
-      cameraStreamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setCameraActive(false);
-    const offState = { hasFace: false, expression: "off", emoji: "📷", label: "Camera Off" };
-    liveFaceRef.current = offState;
-    setLiveFace(offState);
-  }, []);
-
-  const switchCamera = () => {
-    const next = facingMode === "user" ? "environment" : "user";
-    startCamera(next);
-  };
-
-  // Instant Snapshot Grabber for Vision (ultra-light 240x240, ~4KB for instant transmission)
-  const captureLiveFrameBlob = (): Promise<Blob | null> => {
-    return new Promise((resolve) => {
-      if (!videoRef.current || !cameraActive) {
-        resolve(null);
-        return;
-      }
-      const video = videoRef.current;
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        resolve(null);
-        return;
-      }
-      try {
-        const canvas = document.createElement("canvas");
-        const dim = 240;
-        canvas.width = dim;
-        canvas.height = dim;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          resolve(null);
-          return;
-        }
-        ctx.drawImage(video, 0, 0, dim, dim);
-        canvas.toBlob((blob) => {
-          resolve(blob);
-        }, "image/jpeg", 0.45);
-      } catch {
-        resolve(null);
-      }
-    });
-  };
-
-  // Continuous real-time facial expression perception loop (every 450ms)
-  useEffect(() => {
-    if (!cameraActive) {
-      const offState = { hasFace: false, expression: "off", emoji: "📷", label: "Camera Off" };
-      liveFaceRef.current = offState;
-      setLiveFace(offState);
-      return;
-    }
-
-    let isSubscribed = true;
-    loadFaceExpressionModels();
-
-    const intervalId = setInterval(async () => {
-      if (!isSubscribed || !videoRef.current || !cameraActive) return;
-      const video = videoRef.current;
-      if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) return;
-
-      try {
-        if (!faceModelsLoaded) {
-          const ok = await loadFaceExpressionModels();
-          if (!ok) return;
-        }
-
-        if (faceapi && faceModelsLoaded && isSubscribed) {
-          const detection = await faceapi
-            .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.35 }))
-            .withFaceExpressions();
-
-          if (!isSubscribed) return;
-
-          if (detection && detection.expressions) {
-            const exp = detection.expressions;
-            let dominant = "neutral";
-            let emoji = "🎯";
-            let label = "Focused & Attentive";
-
-            if (exp.happy > 0.28) {
-              dominant = "happy";
-              emoji = "😊";
-              label = "Warm Smile";
-            } else if (exp.surprised > 0.35) {
-              dominant = "surprised";
-              emoji = "😲";
-              label = "Expressive & Engaging";
-            } else if ((exp.sad || 0) + (exp.fearful || 0) > 0.32) {
-              dominant = "thoughtful";
-              emoji = "🤔";
-              label = "Thoughtful & Intent";
-            } else if (exp.neutral > 0.35) {
-              dominant = "neutral";
-              emoji = "🎯";
-              label = "Focused & Attentive";
-            }
-
-            const state: LiveFaceState = {
-              hasFace: true,
-              expression: dominant,
-              emoji,
-              label
-            };
-            liveFaceRef.current = state;
-            setLiveFace(state);
-          } else {
-            const state: LiveFaceState = {
-              hasFace: false,
-              expression: "searching",
-              emoji: "👀",
-              label: "Position Face in Frame"
-            };
-            liveFaceRef.current = state;
-            setLiveFace(state);
-          }
-        }
-      } catch {
-        // Fallback gracefully on individual frame glitch
-      }
-    }, 450);
-
-    return () => {
-      isSubscribed = false;
-      clearInterval(intervalId);
-    };
-  }, [cameraActive]);
-
-  // Parse feedback from coach response
-  const parseFeedback = (text: string, originalText: string) => {
-    const phrasingMatch = text.match(/✨?\s*\*?Better(?:\s+Phrasing)?\*?:\s*["“]?([^"”\n\r]+)["”]?/i);
-    const tipMatch = text.match(/💡?\s*\*?Tip\*?:\s*([^\n\r]+)/i);
-
-    if (phrasingMatch || tipMatch) {
-      const polished = (phrasingMatch?.[1] || "").replace(/^["“]|["”]$/g, "").trim();
-      const tip = (tipMatch?.[1] || "").trim();
-      if (polished || tip) {
-        setLatestFeedback({
-          originalText,
-          polishedPhrasing: polished || undefined,
-          pedagogicalTip: tip || undefined
-        });
-      }
-    }
-  };
-
-  // Ultra-Fast TTS Audio Player for Single Sentence with Race-Condition Guard
-  const playCoachAudio = useCallback((textToSpeak: string, onFinish?: () => void) => {
-    // If call is ended, immediately halt any audio playback
-    if (!isLiveActiveRef.current && !showTextKeyboard) {
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-      return;
-    }
-
-    if (soundMutedRef.current) {
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-      onFinish?.();
-      return;
-    }
-
-    if (currentAudioRef.current) {
-      currentAudioRef.current.onplay = null;
-      currentAudioRef.current.onended = null;
-      currentAudioRef.current.onerror = null;
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-    }
-
-    const cleanText = cleanForSpeech(textToSpeak);
-    if (!cleanText || cleanText.length < 2) {
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-      onFinish?.();
-      return;
-    }
-
-    setIsAiSpeaking(true);
-    isAiSpeakingRef.current = true;
-    stopListening(); // Pause mic while coach speaks
-
-    let hasHandledFinish = false;
-    const handleFinished = () => {
-      if (hasHandledFinish) return;
-      hasHandledFinish = true;
-
-      if (currentAudioRef.current) {
-        currentAudioRef.current.onplay = null;
-        currentAudioRef.current.onended = null;
-        currentAudioRef.current.onerror = null;
-        currentAudioRef.current = null;
-      }
-
-      if (!isLiveActiveRef.current && !showTextKeyboard) {
-        setIsAiSpeaking(false);
-        isAiSpeakingRef.current = false;
-        return;
-      }
-
-      if (onFinish) {
-        onFinish();
-      } else {
-        setIsAiSpeaking(false);
-        isAiSpeakingRef.current = false;
-        // Automatic hands-free listening resume once AI finishes speaking
-        if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => {
-            if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-              startListening();
-            }
-          }, 300);
-        }
-      }
-    };
-
-    try {
-      // Instant Gemini Live Speech: use native device Web Speech API for immediate zero-latency playback
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        fallbackSpeechSynthesis(cleanText, handleFinished);
-        return;
-      }
-
-      const isDevanagari = /[\u0900-\u097F]/.test(cleanText);
-      const isHindiTarget = languageMode === "hindi" || isDevanagari;
-
-      // Smart Accent Routing: ensure native Hindi Neural voice is always used for Hindi/Devanagari
-      let voiceToUse = selectedVoice;
-      if (isHindiTarget && !voiceToUse.startsWith("hi-")) {
-        const isMale = voiceToUse.includes("Guy") || voiceToUse.includes("Prabhat") || voiceToUse.includes("Madhur");
-        voiceToUse = isMale ? "hi-IN-MadhurNeural" : "hi-IN-SwaraNeural";
-      }
-
-      const rateParam = isHindiTarget ? "%2B5%25" : "%2B8%25";
-      const streamUrl = `${getApiBase()}/tts/speak?voice=${encodeURIComponent(voiceToUse)}&text=${encodeURIComponent(cleanText)}&rate=${rateParam}`;
-      const audio = new Audio(streamUrl);
-      currentAudioRef.current = audio;
-
-      audio.onplay = () => {
-        setIsAiSpeaking(true);
-        isAiSpeakingRef.current = true;
-      };
-
-      audio.onended = () => {
-        handleFinished();
-      };
-
-      audio.onerror = () => {
-        if (!hasHandledFinish) {
-          fallbackSpeechSynthesis(cleanText, handleFinished);
-        }
-      };
-
-      audio.play().catch(() => {
-        if (!hasHandledFinish) {
-          fallbackSpeechSynthesis(cleanText, handleFinished);
-        }
-      });
-    } catch {
-      fallbackSpeechSynthesis(cleanText, handleFinished);
-    }
-  }, [selectedVoice, languageMode]);
-
-  const fallbackSpeechSynthesis = (text: string, onFinish?: () => void) => {
-    if (!isLiveActiveRef.current && !showTextKeyboard) {
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-      return;
-    }
-
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      const isDevanagari = /[\u0900-\u097F]/.test(text);
-      const isHindi = languageMode === "hindi" || isDevanagari;
-
+      window.speechSynthesis.cancel();
       const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = isHindi ? "hi-IN" : selectedVoice.startsWith("en-GB") ? "en-GB" : selectedVoice.startsWith("en-US") ? "en-US" : "en-IN";
-      utt.rate = isHindi ? 0.95 : 1.0;
-      utt.pitch = isHindi ? 1.02 : 1.0;
+      utt.rate = 0.95;
+      utt.pitch = 1.0;
+      utt.lang = "en-IN";
+      const voices = window.speechSynthesis.getVoices();
+      const femaleVoice = voices.find(v => 
+        (v.lang.includes("en-IN") || v.lang.includes("en-GB") || v.lang.includes("en-US")) && 
+        (v.name.includes("Neerja") || v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Female"))
+      ) || voices.find(v => v.lang.startsWith("en"));
+      if (femaleVoice) utt.voice = femaleVoice;
 
-      const voices = cachedVoicesRef.current.length > 0 ? cachedVoicesRef.current : window.speechSynthesis.getVoices();
-      if (isHindi) {
-        // High quality authentic Indian Hindi voices
-        const hindiVoice = voices.find(v => 
-          (v.lang.startsWith("hi") || v.lang === "hi_IN" || v.lang === "hi-IN") && 
-          (v.name.includes("Swara") || v.name.includes("Madhur") || v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Kalpana"))
-        ) || voices.find(v => v.lang.startsWith("hi"));
-        if (hindiVoice) utt.voice = hindiVoice;
-      } else {
-        // High quality realistic English voices
-        const englishVoice = voices.find(v => 
-          (v.lang.startsWith("en") || v.lang.includes("IN") || v.lang.includes("US") || v.lang.includes("GB")) && 
-          (v.name.includes("Neerja") || v.name.includes("Prabhat") || v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Jenny") || v.name.includes("Guy") || v.name.includes("Online"))
-        ) || voices.find(v => v.lang.startsWith("en"));
-        if (englishVoice) utt.voice = englishVoice;
-      }
-
-      let called = false;
-      const done = () => {
-        if (called) return;
-        called = true;
-        activeUtteranceRef.current = null;
+      utt.onstart = () => setIsAiSpeaking(true);
+      utt.onend = () => {
         setIsAiSpeaking(false);
-        isAiSpeakingRef.current = false;
-        if (isLiveActiveRef.current || showTextKeyboard) {
-          onFinish?.();
-        }
+        onDone?.();
       };
-
-      utt.onend = done;
-      utt.onerror = done;
-      activeUtteranceRef.current = utt;
-      if (isLiveActiveRef.current || showTextKeyboard) {
-        try { window.speechSynthesis.resume(); } catch {}
-        window.speechSynthesis.speak(utt);
-      }
-    } else {
+      utt.onerror = () => {
+        setIsAiSpeaking(false);
+        onDone?.();
+      };
+      window.speechSynthesis.speak(utt);
+    } catch {
       setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-      if (isLiveActiveRef.current || showTextKeyboard) {
-        onFinish?.();
-      }
+      onDone?.();
     }
   };
 
-  // 0-DELAY SEAMLESS AUDIO QUEUE ENGINE (Plays sentence-by-sentence without mic thrashing)
-  const playNextInQueue = useCallback(() => {
-    // If call is ended or page switched, drop entire queue immediately
-    if (!isLiveActiveRef.current && !showTextKeyboard) {
-      audioQueueRef.current = [];
-      isPlayingQueueRef.current = false;
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-      return;
-    }
-
-    if (audioQueueRef.current.length === 0) {
-      isPlayingQueueRef.current = false;
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-      // Automatic hands-free listening resume ONLY after entire queue finishes
-      if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-        setTimeout(() => {
-          if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-            startListening();
-          }
-        }, 300);
-      }
-      return;
-    }
-
-    const nextSentence = audioQueueRef.current.shift();
-    if (!nextSentence) {
-      playNextInQueue();
-      return;
-    }
-
-    isPlayingQueueRef.current = true;
-    playCoachAudio(nextSentence, () => {
-      playNextInQueue();
-    });
-  }, [playCoachAudio, showTextKeyboard]);
-
-  const enqueueSentence = useCallback((sentence: string) => {
-    if (!isLiveActiveRef.current && !showTextKeyboard) return;
-    const clean = cleanForSpeech(sentence);
-    if (!clean || clean.length < 2) return;
-    audioQueueRef.current.push(clean);
-    if (!isPlayingQueueRef.current) {
-      playNextInQueue();
-    }
-  }, [playNextInQueue, showTextKeyboard]);
-
-  // Interrupt AI Speaking (Like Gemini Live: tap to interrupt)
-  const handleInterruptAi = () => {
-    if (abortControllerRef.current) {
-      try { abortControllerRef.current.abort(); } catch {}
-      abortControllerRef.current = null;
-    }
-    if (currentAudioRef.current) {
-      currentAudioRef.current.onplay = null;
-      currentAudioRef.current.onended = null;
-      currentAudioRef.current.onerror = null;
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-    }
+  const stopSpeaking = () => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
-    audioQueueRef.current = [];
-    isPlayingQueueRef.current = false;
     setIsAiSpeaking(false);
-    isAiSpeakingRef.current = false;
-    setIsAiThinking(false);
-    isAiThinkingRef.current = false;
-    if (isLiveActiveRef.current) {
-      startListening();
+  };
+
+  // 1. Initial State Fetch from Supabase
+  const loadState = useCallback(async () => {
+    setLoading(true);
+    try {
+      const uId = user?.id || user?.email || "guest_user";
+      const uRole = user?.role || "student";
+      const res = await fetch(`${getApiBase()}/english-coach/state?user_id=${encodeURIComponent(uId)}&user_role=${encodeURIComponent(uRole)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTrack(data.track);
+        setModules(data.modules || []);
+
+        if (!data.track.diagnostic_completed || data.track.is_expired) {
+          // User must take the diagnostic test first
+          setActiveTab("diagnostic");
+          fetchDiagnosticQuestions();
+        } else if (data.track.mastery_report) {
+          setActiveTab("report");
+        } else {
+          setActiveTab("roadmap");
+          setActiveModuleIdx(data.track.unlocked_module_index || 0);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load coach state:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, user?.email, user?.role]);
+
+  const fetchDiagnosticQuestions = async () => {
+    try {
+      const res = await fetch(`${getApiBase()}/english-coach/diagnostic-questions`);
+      if (res.ok) {
+        const data = await res.json();
+        setDiagnosticQuestions(data.questions || []);
+      }
+    } catch (err) {
+      console.warn("Error fetching diagnostic questions:", err);
     }
   };
 
-  // Send message to Backend AI Coach with Camera Snapshot & Rapid Sentence Streaming
-  const handleSendMessage = useCallback(async (text: string) => {
-    const input = text.trim();
-    if (!input || isAiThinkingRef.current) return;
-
-    // Immediately stop listening and set thinking state
-    stopListening();
-    clearTimeout(silenceTimerRef.current);
-    accumulatedSpeechRef.current = "";
-    turnBaseSpeechRef.current = "";
-    setCurrentSpeechText("");
-    setIsAiThinking(true);
-    isAiThinkingRef.current = true;
-    setMicPermissionError(null);
-
-    // Reset audio queue for fresh response
-    audioQueueRef.current = [];
-    isPlayingQueueRef.current = false;
-
-    // Save clean teacher speech to conversation history
-    const userMsgItem = {
-      id: `usr-${Date.now()}`,
-      sender: "user" as const,
-      text: input,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  useEffect(() => {
+    loadState();
+    return () => {
+      stopSpeaking();
+      clearInterval(timerIntervalRef.current);
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+      }
     };
-    setConversationHistory(prev => [...prev, userMsgItem]);
+  }, [loadState]);
 
-    // Clear any previous turn's speech cleanly before initiating fresh turn
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      try { window.speechSynthesis.cancel(); } catch {}
+  // 2. Submit Diagnostic Test
+  const handleSelectOption = (qId: number, optIdx: number) => {
+    setSelectedAnswers(prev => ({ ...prev, [String(qId)]: optIdx }));
+  };
+
+  const handleSubmitDiagnostic = async () => {
+    if (Object.keys(selectedAnswers).length < diagnosticQuestions.length) {
+      alert("Please answer all 10 diagnostic questions to generate your personalized speaking path.");
+      return;
     }
 
+    setSubmittingTest(true);
     try {
-      const promptDirective = languageMode === "hindi"
-        ? `Scenario: ${activeScenario.title}. Teacher said: "${input}". शुद्ध हिंदी (देवनागरी) में 1 संक्षिप्त वाक्य में उत्तर दें। शुरुआत "शानदार!" या "बहुत बढ़िया!" से करें। ✨ Better: [English line] 💡 Tip: [Hindi tip]`
-        : cameraActive
-        ? `Scenario: ${activeScenario.title}. Face: ${liveFaceRef.current.label}. Teacher said: "${input}". Reply warmly in 1 short spoken sentence (max 15 words) starting with 1 energetic reaction word (e.g. "Awesome!", "Spot on!"). ✨ Better: [English phrase] 💡 Tip: [short tip]`
-        : `Scenario: ${activeScenario.title}. Teacher said: "${input}". Reply warmly in 1 short spoken sentence (max 15 words) starting with 1 energetic reaction word (e.g. "Awesome!", "Spot on!"). ✨ Better: [English phrase] 💡 Tip: [short tip]`;
-
-      const fd = new FormData();
-      fd.append("message", promptDirective);
-      fd.append("agent_code", "english_coach");
-      if (conversationId && conversationId.trim()) {
-        fd.append("conversation_id", conversationId.trim());
-      }
-      fd.append("user_id", user?.id || user?.email || "teacher-guest");
-      if (user?.email) fd.append("user_email", user.email);
-      fd.append("language", languageMode);
-
-      if (abortControllerRef.current) {
-        try { abortControllerRef.current.abort(); } catch {}
-      }
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      const res = await fetch(`${getApiBase()}/agents/chat`, {
+      const uId = user?.id || user?.email || "guest_user";
+      const uRole = user?.role || "student";
+      const res = await fetch(`${getApiBase()}/english-coach/diagnostic-submit`, {
         method: "POST",
-        body: fd,
-        signal: controller.signal
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: uId,
+          user_role: uRole,
+          answers: selectedAnswers
+        })
       });
 
-      if (!res.ok) {
-        setConversationId("");
-        const errText = await res.text().catch(() => "");
-        console.warn("Agents chat error status:", res.status, errText);
-        throw new Error(`Server returned status ${res.status}`);
-      }
-
-      const newConvId = res.headers.get("X-Conversation-Id");
-      if (newConvId && newConvId !== conversationId) {
-        setConversationId(newConvId);
-      }
-
-      if (res.body) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let fullAiText = "";
-        let sentenceBuffer = "";
-
-        while (true) {
-          // If user clicked End Call or navigated away, kill streaming immediately
-          if (!isLiveActiveRef.current && !showTextKeyboard) {
-            try { reader.cancel(); } catch {}
-            break;
-          }
-
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          fullAiText += chunk;
-          sentenceBuffer += chunk;
-          setLiveAiSpeech(fullAiText);
-
-          // As soon as first streaming tokens arrive, immediately turn off thinking spinner
-          if (isAiThinkingRef.current) {
-            setIsAiThinking(false);
-            isAiThinkingRef.current = false;
-          }
-
-          // Progressive sentence & initial clause streaming: play clause 1 as soon as punctuation arrives!
-          const match = sentenceBuffer.match(/^([\s\S]*?[\.\!\?\n]|[\s\S]{16,}?[\,\;\:\–\—])(\s+[\s\S]*|$)/);
-          if (match) {
-            const finishedSentence = match[1].trim();
-            sentenceBuffer = match[2] || "";
-            // Don't vocalize technical Better/Tip labels or speak if call ended
-            if (isLiveActiveRef.current && !finishedSentence.includes("✨") && !finishedSentence.includes("💡") && !/^(Better|Tip):/i.test(finishedSentence)) {
-              const cleanPart = cleanForSpeech(finishedSentence);
-              if (cleanPart && cleanPart.length >= 2) {
-                enqueueSentence(cleanPart);
-              }
-            }
-          }
-        }
-
-        // Check again if call ended while streaming
-        if (!isLiveActiveRef.current && !showTextKeyboard) {
-          return;
-        }
-
-        // Flush any remaining conversational text in sentenceBuffer
-        if (sentenceBuffer.trim()) {
-          const cleanTrailing = cleanForSpeech(sentenceBuffer.trim());
-          if (cleanTrailing && cleanTrailing.length >= 2) {
-            enqueueSentence(cleanTrailing);
-          }
-        }
-
-        try {
-          const parsed = JSON.parse(fullAiText);
-          fullAiText = parsed.response || fullAiText;
-        } catch {}
-
-        setLiveAiSpeech(fullAiText);
-        parseFeedback(fullAiText, input);
-
-        const aiMsgItem = {
-          id: `ai-${Date.now()}`,
-          sender: "ai" as const,
-          text: fullAiText,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        };
-        setConversationHistory(prev => [...prev, aiMsgItem]);
-        setIsAiThinking(false);
-        isAiThinkingRef.current = false;
-
-        // If nothing was enqueued yet, enqueue clean full text
-        if (audioQueueRef.current.length === 0 && !isPlayingQueueRef.current && (isLiveActiveRef.current || showTextKeyboard)) {
-          const speechToPlay = cleanForSpeech(fullAiText);
-          if (speechToPlay) {
-            enqueueSentence(speechToPlay);
-          } else {
-            setIsAiSpeaking(false);
-            if (isLiveActiveRef.current) {
-              startListening();
-            }
-          }
-        }
+      if (res.ok) {
+        const result = await res.json();
+        setDiagnosticResult(result);
+        setTrack(result.track);
+        setModules(result.modules);
       } else {
-        const data = await res.json();
-        const fullAiText = data.response || "Well said! I notice your enthusiasm. Let us practice the next line.";
-        setLiveAiSpeech(fullAiText);
-        parseFeedback(fullAiText, input);
-        setIsAiThinking(false);
-        isAiThinkingRef.current = false;
-        if (isLiveActiveRef.current || showTextKeyboard) {
-          playCoachAudio(cleanForSpeech(fullAiText));
-        }
+        alert("Failed to submit test. Please check connection.");
       }
-    } catch (err: any) {
-      if (err?.name === "AbortError" || (!isLiveActiveRef.current && !showTextKeyboard)) {
-        // Cleanly handle call termination/unmount without noisy errors or speech
-        setIsAiThinking(false);
-        isAiThinkingRef.current = false;
-        return;
-      }
-      console.error("Conversation error:", err);
-      setIsAiThinking(false);
-      isAiThinkingRef.current = false;
-      if (isLiveActiveRef.current || showTextKeyboard) {
-        const fallbackMsg = cameraActive
-          ? "Your facial expression looks very confident! Take a gentle breath, your pronunciation is coming along nicely. Shall we practice the next line?"
-          : "Your pronunciation is coming along nicely! Take a relaxed breath. Shall we practice the next line?";
-        setLiveAiSpeech(fallbackMsg);
-        playCoachAudio(fallbackMsg);
-      }
-    }
-  }, [languageMode, activeScenario, conversationId, user?.id, cameraActive, playCoachAudio]);
-
-  // Explicit Manual Send
-  const triggerManualSend = () => {
-    const candidate = accumulatedSpeechRef.current.trim() || currentSpeechText.trim();
-    if (candidate && candidate.length >= 2 && !isAiThinkingRef.current) {
-      handleSendMessage(candidate);
+    } catch (err) {
+      console.error("Test submission error:", err);
+    } finally {
+      setSubmittingTest(false);
     }
   };
 
-  // Continuous Speech Recognition (Gemini Live Mode)
-  const startListening = useCallback(() => {
-    setMicPermissionError(null);
-    if (typeof window === "undefined") return;
+  // 3. Complete Step & Strict Progression (No Skipping)
+  const handleCompleteStep = async (stepId: string) => {
+    const uId = user?.id || user?.email || "guest_user";
+    const uRole = user?.role || "student";
+    try {
+      const res = await fetch(`${getApiBase()}/english-coach/lecture-complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: uId,
+          user_role: uRole,
+          module_index: activeModuleIdx,
+          step_id: stepId
+        })
+      });
 
+      if (res.ok) {
+        const data = await res.json();
+        setTrack(data.track);
+        setStepCompleteNotice("Step Completed! Unlocked next step.");
+        setTimeout(() => setStepCompleteNotice(null), 3000);
+
+        // Advance to next step or next module
+        const currentMod = modules[activeModuleIdx];
+        if (currentMod && activeStepIdx < currentMod.steps.length - 1) {
+          setActiveStepIdx(prev => prev + 1);
+        } else if (activeModuleIdx < modules.length - 1) {
+          setActiveModuleIdx(prev => prev + 1);
+          setActiveStepIdx(0);
+        }
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Cannot skip steps!");
+      }
+    } catch (err) {
+      console.warn("Step progression error:", err);
+    }
+  };
+
+  // 4. Speech Recognition Engine for Repeating & Speaking
+  const startRecordingSpeech = (onResultCallback?: (text: string) => void) => {
+    if (typeof window === "undefined") return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setMicPermissionError("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari, or use text typing.");
+      alert("Speech recognition is supported in Chrome, Edge, or Safari.");
       return;
     }
 
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch {}
-      recognitionRef.current = null;
     }
 
     try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = languageMode === "hindi" ? "hi-IN" : languageMode === "hinglish" ? "hi-IN" : "en-IN";
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
+      const rec = new SpeechRecognition();
+      rec.lang = "en-IN";
+      rec.continuous = false;
+      rec.interimResults = true;
 
-      recognition.onstart = () => {
+      rec.onstart = () => {
         setIsListening(true);
-        isListeningRef.current = true;
+        setUserSpokenText("");
       };
 
-      recognition.onresult = (event: any) => {
-        if (isAiSpeakingRef.current || isAiThinkingRef.current) return;
-
-        let sessionTranscript = "";
+      rec.onresult = (event: any) => {
+        let transcript = "";
         for (let i = 0; i < event.results.length; i++) {
-          sessionTranscript += event.results[i][0].transcript + " ";
+          transcript += event.results[i][0].transcript + " ";
         }
-
-        const candidateText = cleanSpeechTranscript(sessionTranscript);
-
-        if (candidateText) {
-          accumulatedSpeechRef.current = candidateText;
-          setCurrentSpeechText(candidateText);
-
-          clearTimeout(silenceTimerRef.current);
-
-          // Natural conversational turn-taking:
-          // Do NOT interrupt immediately on browser's intermediate isFinal!
-          // Give user natural breathing and speaking room.
-          const isConnectorWord = /\b(and|because|so|but|or|that|to|if|when|in|with|um|uh|the|a|my|is|are|then|which|who|as|for|like|at|on|of)\s*$/i.test(candidateText);
-          const words = candidateText.split(/\s+/).filter(Boolean);
-
-          let silenceDelay = 850; // Standard natural conversational pause: 0.85s
-          if (isConnectorWord) {
-            silenceDelay = 1400; // Extra room (1.4s) when user hesitates or ends on conjunction/connector
-          } else if (words.length <= 2) {
-            silenceDelay = 1100; // Extra room (1.1s) on 1-2 words so user can complete their sentence
-          }
-
-          silenceTimerRef.current = setTimeout(() => {
-            const readyToSend = cleanSpeechTranscript(accumulatedSpeechRef.current.trim());
-            const readyWords = readyToSend.split(/\s+/).filter(Boolean);
-            // Require at least 2 words or a solid word (>= 3 chars) to avoid mic noise/pops triggering AI
-            if (readyToSend.length >= 2 && readyWords.length >= 1 && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-              handleSendMessage(readyToSend);
-            }
-          }, silenceDelay);
-        }
+        const cleaned = cleanTranscript(transcript);
+        setUserSpokenText(cleaned);
+        onResultCallback?.(cleaned);
       };
 
-      recognition.onerror = (e: any) => {
-        if (e.error !== "no-speech") {
-          console.warn("Speech recognition notice:", e.error);
-        }
+      rec.onerror = (e: any) => {
         setIsListening(false);
-        isListeningRef.current = false;
-        if (e.error === "not-allowed" || e.error === "permission-denied") {
-          setMicPermissionError("Microphone permission was denied. Please allow microphone access in your browser to practice speaking.");
-        }
       };
 
-      recognition.onend = () => {
-        if (!isLiveActiveRef.current || isAiSpeakingRef.current || isAiThinkingRef.current) {
-          setIsListening(false);
-          isListeningRef.current = false;
-          return;
-        }
-
-        // Auto-restart recognition cleanly by calling startListening() to instantiate a fresh object
-        clearTimeout(autoRestartTimerRef.current);
-        autoRestartTimerRef.current = setTimeout(() => {
-          if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-            startListening();
-          } else {
-            setIsListening(false);
-            isListeningRef.current = false;
-          }
-        }, 250);
+      rec.onend = () => {
+        setIsListening(false);
       };
 
-      recognitionRef.current = recognition;
-      recognition.start();
+      recognitionRef.current = rec;
+      rec.start();
     } catch (err) {
-      console.warn("Could not start recognition:", err);
+      console.warn("Speech start error:", err);
       setIsListening(false);
-      isListeningRef.current = false;
     }
-  }, [languageMode, handleSendMessage]);
+  };
 
-  const stopListening = useCallback(() => {
-    clearTimeout(silenceTimerRef.current);
-    clearTimeout(autoRestartTimerRef.current);
+  const stopRecordingSpeech = () => {
     if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
-      recognitionRef.current = null;
+      try { recognitionRef.current.stop(); } catch {}
     }
     setIsListening(false);
-    isListeningRef.current = false;
-  }, []);
-
-  // Universal Kill-Switch: Immediately halts all voice synthesis, HTML5 audio, background streams, and mic
-  const stopAllSpeechAndAudio = useCallback(() => {
-    // 1. Immediately deactivate session flags synchronously
-    isLiveActiveRef.current = false;
-
-    // 2. Abort in-flight network streaming request so no more chunks or sentences arrive
-    if (abortControllerRef.current) {
-      try { abortControllerRef.current.abort(); } catch {}
-      abortControllerRef.current = null;
-    }
-
-    // 3. Immediately silence native browser speech synthesis
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      try { window.speechSynthesis.cancel(); } catch {}
-    }
-
-    // 4. Immediately halt & destroy any active HTML5 audio element
-    if (currentAudioRef.current) {
-      try {
-        currentAudioRef.current.onplay = null;
-        currentAudioRef.current.onended = null;
-        currentAudioRef.current.onerror = null;
-        currentAudioRef.current.pause();
-        currentAudioRef.current.src = "";
-      } catch {}
-      currentAudioRef.current = null;
-    }
-
-    // 5. Purge queued sentences so no upcoming speech can play
-    audioQueueRef.current = [];
-    isPlayingQueueRef.current = false;
-
-    // 6. Stop speech recognition and clear timers
-    clearTimeout(silenceTimerRef.current);
-    clearTimeout(autoRestartTimerRef.current);
-    stopListening();
-
-    // 7. Reset all AI speaking and thinking states
-    isAiSpeakingRef.current = false;
-    setIsAiSpeaking(false);
-    isAiThinkingRef.current = false;
-    setIsAiThinking(false);
-    accumulatedSpeechRef.current = "";
-    turnBaseSpeechRef.current = "";
-    setCurrentSpeechText("");
-  }, [stopListening]);
-
-  // Start Live Session with a Selected Scenario (Modal callback)
-  const startCallWithScenario = (scenario: ScenarioTopic) => {
-    setActiveScenario(scenario);
-    setShowScenarioModal(false);
-    setIsLiveActive(true);
-    isLiveActiveRef.current = true;
-    startCamera();
-    const greeting = languageMode === "hindi"
-      ? `नमस्ते! मैं आपका देवज्ञ इंग्लिश स्पीकिंग कोच हूँ। आइए ${scenario.title} का अभ्यास करते हैं। जब भी आप तैयार हों, बोलना शुरू करें!`
-      : `Hello! I am Devgya English Coach. Let us practice ${scenario.title}. Speak whenever you are ready!`;
-    setLiveAiSpeech(greeting);
-    playCoachAudio(greeting, () => {
-      setIsAiSpeaking(false);
-      isAiSpeakingRef.current = false;
-      if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-        setTimeout(() => {
-          if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-            startListening();
-          }
-        }, 220);
-      }
-    });
   };
 
-  // Toggle Live Mode (Start / End Conversation)
-  const toggleLiveConversation = () => {
-    if (isLiveActive) {
-      // End conversation immediately: kill speech synthesis, stop stream, purge audio, and turn off camera
-      setIsLiveActive(false);
-      stopAllSpeechAndAudio();
-      stopCamera();
-    } else {
-      // Prompt user to select scenario before starting to talk with AI
-      setShowScenarioModal(true);
-    }
-  };
+  // 5. Public Speaking Timer & Critique
+  const handleStartPublicSpeaking = () => {
+    setSpeakingTimer(60);
+    setIsTimerActive(true);
+    setUserSpokenText("");
+    setSpeakingCritique(null);
 
-  // Reset conversation context
-  const handleResetConversation = () => {
-    setConversationId("");
-    setConversationHistory([]);
-    setLatestFeedback(null);
-    setCurrentSpeechText("");
-    accumulatedSpeechRef.current = "";
-    const resetGreeting = languageMode === "hindi"
-      ? `नमस्ते! मैं आपका देवज्ञ इंग्लिश स्पीकिंग कोच हूँ। हम ${activeScenario.title} का अभ्यास कर रहे हैं। जब भी तैयार हों, बोलिए!`
-      : `Hello! I am Devgya English Coach. We are practicing ${activeScenario.title}. Speak whenever you are ready!`;
-    setLiveAiSpeech(resetGreeting);
-    if (isLiveActive) {
-      playCoachAudio(resetGreeting, () => {
-        setIsAiSpeaking(false);
-        isAiSpeakingRef.current = false;
-        if (isLiveActiveRef.current && !isAiThinkingRef.current) {
-          setTimeout(() => {
-            if (isLiveActiveRef.current && !isAiSpeakingRef.current && !isAiThinkingRef.current) {
-              startListening();
-            }
-          }, 220);
+    startRecordingSpeech();
+
+    clearInterval(timerIntervalRef.current);
+    timerIntervalRef.current = setInterval(() => {
+      setSpeakingTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(timerIntervalRef.current);
+          setIsTimerActive(false);
+          stopRecordingSpeech();
+          return 0;
         }
+        return prev - 1;
       });
+    }, 1000);
+  };
+
+  const handleFinishPublicSpeaking = async () => {
+    clearInterval(timerIntervalRef.current);
+    setIsTimerActive(false);
+    stopRecordingSpeech();
+
+    if (!userSpokenText.trim()) {
+      alert("No speech was captured. Please speak into your microphone and try again.");
+      return;
+    }
+
+    setCritiqueLoading(true);
+    try {
+      const uId = user?.id || user?.email || "guest_user";
+      const currentMod = modules[activeModuleIdx];
+      const step = currentMod?.steps[activeStepIdx];
+      const topic = step?.topic || "Public Speaking Stage";
+
+      const res = await fetch(`${getApiBase()}/english-coach/public-speaking-critique`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: uId,
+          speech_text: userSpokenText,
+          topic: topic,
+          user_level: track?.fluency_level || "Intermediate"
+        })
+      });
+
+      if (res.ok) {
+        const critique = await res.json();
+        setSpeakingCritique(critique);
+        // Play AI live spoken correction
+        if (critique.live_correction) {
+          speakText(`Here is your polished delivery: ${critique.live_correction}`);
+        }
+      }
+    } catch (err) {
+      console.warn("Error getting critique:", err);
+    } finally {
+      setCritiqueLoading(false);
     }
   };
 
-  // Lifecycle management: Auto-start camera on mount, and ensure immediate silence on unmount or page change
-  useEffect(() => {
-    startCamera("user");
+  // 6. Interactive Spoken Dialogue (LRSI)
+  const handleSendDialogueTurn = async () => {
+    if (!userSpokenText.trim() || isCoachThinking) return;
 
-    const handleLeave = () => {
-      stopAllSpeechAndAudio();
-      stopCamera();
-    };
+    const userText = userSpokenText.trim();
+    setUserSpokenText("");
+    setDialogueMessages(prev => [...prev, { sender: "user", text: userText }]);
+    setIsCoachThinking(true);
 
-    window.addEventListener("pagehide", handleLeave);
-    window.addEventListener("beforeunload", handleLeave);
+    try {
+      const fd = new FormData();
+      fd.append("message", `Spoken English practice dialogue turn. User said: "${userText}". Reply warmly in 1 short spoken sentence (max 15 words) starting with 1 energetic feedback word.`);
+      fd.append("agent_code", "english_coach");
+      fd.append("user_id", user?.id || user?.email || "guest");
+      fd.append("language", "english");
 
-    return () => {
-      window.removeEventListener("pagehide", handleLeave);
-      window.removeEventListener("beforeunload", handleLeave);
-      stopAllSpeechAndAudio();
-      stopCamera();
-    };
-  }, [startCamera, stopCamera, stopAllSpeechAndAudio]);
+      const res = await fetch(`${getApiBase()}/agents/chat`, {
+        method: "POST",
+        body: fd
+      });
 
-  return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col space-y-4 p-3 sm:p-5 pb-28 md:pb-8">
-      
-      {/* 1. TOP CONTROL BAR */}
-      <div className="glass-panel p-3.5 md:p-4 rounded-3xl border border-slate-200/80 bg-white shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          
-          {/* Header & Status Indicator */}
-          <div className="flex items-center gap-2.5">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-sm shrink-0 transition-colors ${
-              isLiveActive ? "bg-gradient-to-tr from-emerald-500 to-teal-600" : "bg-gradient-to-tr from-rose-500 to-indigo-600"
-            }`}>
-              <Headphones className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-sm md:text-base font-black text-slate-900 leading-tight">
-                  English Speaking Coach
-                </h1>
-                {isLiveActive ? (
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    {cameraActive ? `${liveFace.emoji} Live Vision: ${liveFace.label}` : "Audio Session"}
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-600">
-                    {cameraActive ? `${liveFace.emoji} ${liveFace.label}` : "Ready"}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50/90 border border-indigo-200/80 text-[11px] font-bold text-indigo-900 shadow-2xs">
-                  <activeScenario.icon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                  <span className="truncate max-w-[130px] sm:max-w-[200px]">{activeScenario.title}</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowScenarioModal(true)}
-                    className="ml-1 text-[9.5px] uppercase font-black text-indigo-600 hover:text-indigo-800 bg-white px-1.5 py-0.5 rounded border border-indigo-200 cursor-pointer shadow-2xs transition-all hover:scale-105"
-                    title="Change practice scenario"
-                  >
-                    Change
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+      if (res.ok && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let coachReply = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          coachReply += decoder.decode(value, { stream: true });
+        }
+        const cleanReply = coachReply.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+        setDialogueMessages(prev => [...prev, { sender: "coach", text: cleanReply }]);
+        speakText(cleanReply);
+      }
+    } catch (err) {
+      console.warn("Dialogue turn error:", err);
+    } finally {
+      setIsCoachThinking(false);
+    }
+  };
 
-          {/* Controls */}
-          <div className="flex items-center flex-wrap gap-2">
-            {/* Camera Switcher Toggle */}
-            <button
-              onClick={() => cameraActive ? stopCamera() : startCamera()}
-              className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
-                cameraActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"
-              }`}
-              title={cameraActive ? "Turn Off Camera" : "Turn On Camera"}
-            >
-              {cameraActive ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-            </button>
+  // 7. Final Capstone & Report Generation
+  const handleFinalizeCapstone = async () => {
+    if (!userSpokenText.trim()) {
+      alert("Please deliver your capstone presentation before generating the final report.");
+      return;
+    }
 
-            {cameraActive && (
-              <button
-                onClick={switchCamera}
-                className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 cursor-pointer"
-                title="Switch Camera"
-              >
-                <SwitchCamera className="w-4 h-4" />
-              </button>
-            )}
+    setLoading(true);
+    try {
+      const uId = user?.id || user?.email || "guest_user";
+      const uRole = user?.role || "student";
+      const uName = user?.name || "Devgya Learner";
 
-            {/* Language Mode Selector (English / हिंदी / Hinglish) */}
-            <div className="flex items-center p-0.5 bg-slate-100 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => handleLanguageChange("english")}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                  languageMode === "english"
-                    ? "bg-white text-indigo-600 shadow-xs font-black"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="Practice in Pure English (Natural UK/US/Indian Accent)"
-              >
-                🇬🇧 English
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLanguageChange("hindi")}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                  languageMode === "hindi"
-                    ? "bg-white text-rose-600 shadow-xs font-black"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="हिंदी में अभ्यास करें (Authentic Hindi Accent & Devanagari Script)"
-              >
-                🇮🇳 हिंदी
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLanguageChange("hinglish")}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                  languageMode === "hinglish"
-                    ? "bg-white text-amber-700 shadow-xs font-black"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="Bilingual Hinglish Mode"
-              >
-                Hinglish
-              </button>
-            </div>
+      const res = await fetch(`${getApiBase()}/english-coach/finalize-report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: uId,
+          user_role: uRole,
+          student_name: uName,
+          capstone_transcript: userSpokenText
+        })
+      });
 
-            {/* Categorized Human & Indian Accent Voice Selector */}
-            <div className="relative">
-              <select
-                value={selectedVoice}
-                onChange={(e) => setSelectedVoice(e.target.value)}
-                className="appearance-none pl-7 pr-7 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/20 max-w-[170px] sm:max-w-[210px] truncate"
-              >
-                <optgroup label="🇮🇳 Authentic Hindi Voices (हिंदी उच्चारण)">
-                  {COACH_VOICES.filter(v => v.category === "hindi").map(v => (
-                    <option key={v.code} value={v.code}>
-                      {v.avatar} {v.name}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="🇮🇳 Realistic Indian English (Educator Accent)">
-                  {COACH_VOICES.filter(v => v.category === "indian-english").map(v => (
-                    <option key={v.code} value={v.code}>
-                      {v.avatar} {v.name}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="🌍 Global Fluent English Accents">
-                  {COACH_VOICES.filter(v => v.category === "global-english").map(v => (
-                    <option key={v.code} value={v.code}>
-                      {v.avatar} {v.name}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-              <Sparkles className="w-3 h-3 text-indigo-600 absolute left-2.5 top-2.5 pointer-events-none" />
-              <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
-            </div>
+      if (res.ok) {
+        const report = await res.json();
+        setTrack(prev => prev ? { ...prev, mastery_report: report } : null);
+        setActiveTab("report");
+      }
+    } catch (err) {
+      console.error("Error finalizing report:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            {/* History Drawer Toggle */}
-            <button
-              onClick={() => setShowHistoryModal(prev => !prev)}
-              className="p-1.5 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
-              title="View Conversation Log"
-            >
-              <History className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+  // 8. Reset Cycle (Retake diagnostic & restart 30-day program)
+  const handleResetCycle = async () => {
+    if (!confirm("Are you sure you want to reset your English speaking track and retake the 10-mark diagnostic test?")) return;
+    try {
+      const uId = user?.id || user?.email || "guest_user";
+      const uRole = user?.role || "student";
+      const res = await fetch(`${getApiBase()}/english-coach/reset-cycle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: uId, user_role: uRole })
+      });
+      if (res.ok) {
+        setSelectedAnswers({});
+        setDiagnosticResult(null);
+        setActiveTab("diagnostic");
+        fetchDiagnosticQuestions();
+        loadState();
+      }
+    } catch (err) {
+      console.warn("Reset error:", err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-4">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-bold text-slate-600">Connecting to Devgya Spoken English Mastery Engine...</p>
       </div>
+    );
+  }
 
-      {/* 2. GEMINI LIVE STAGE WITH LIVE CAMERA HUD & PULSING ORB */}
-      <div className="glass-panel p-4 sm:p-6 md:p-8 rounded-3xl border border-slate-200/80 bg-gradient-to-b from-white via-slate-50/50 to-white shadow-sm flex flex-col items-center justify-between text-center space-y-4 relative overflow-hidden flex-1 min-h-[420px]">
-        
-        {/* AMBIENT GLOW EFFECT */}
-        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl pointer-events-none transition-all duration-700 ${
-          isListening
-            ? "bg-emerald-400/25 scale-125"
-            : isAiSpeaking
-            ? "bg-rose-500/25 scale-125"
-            : isAiThinking
-            ? "bg-amber-400/25 scale-110"
-            : isLiveActive
-            ? "bg-indigo-400/20 scale-100"
-            : "bg-slate-200/40"
-        }`} />
+  // ===================================================================
+  // VIEW 1: 10-MARK DIAGNOSTIC ASSESSMENT
+  // ===================================================================
+  if (activeTab === "diagnostic") {
+    const q = diagnosticQuestions[currentQIndex];
+    const isAnswered = selectedAnswers[String(q?.id)] !== undefined;
+    const progressPercent = diagnosticQuestions.length > 0 
+      ? ((Object.keys(selectedAnswers).length) / diagnosticQuestions.length) * 100 
+      : 0;
 
-        {/* LIVE CAMERA VIEWFINDER (CENTERED, CLEAN BORDERS WITH REAL-TIME EMOTION HUD) */}
-        {cameraActive ? (
-          <div className="flex flex-col items-center z-10 w-full">
-            <div className="relative w-44 h-44 sm:w-60 sm:h-60 md:w-72 md:h-72 mx-auto rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-slate-950 ring-1 ring-slate-200/80">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover scale-x-[-1]"
-              />
-
-              {/* Real-time Facial Perception HUD Pill */}
-              <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md border border-white/20 text-white shadow-md pointer-events-none z-20">
-                <span className={`w-2 h-2 rounded-full ${liveFace.hasFace ? "bg-emerald-400 animate-ping" : "bg-amber-400"}`} />
-                <span className="text-[10.5px] font-black tracking-wide flex items-center gap-1">
-                  <span>{liveFace.emoji}</span>
-                  <span className="truncate max-w-[120px]">{liveFace.label}</span>
-                </span>
-              </div>
-
-              {/* Minimal translucent Camera Switch Button */}
-              <button
-                onClick={switchCamera}
-                className="absolute top-3 right-3 p-2 rounded-full bg-black/40 hover:bg-black/70 text-white/90 backdrop-blur-md transition-colors cursor-pointer z-20"
-                title="Switch Camera"
-              >
-                <SwitchCamera className="w-4 h-4" />
-              </button>
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300 py-6 px-4">
+        {/* HEADER */}
+        <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-indigo-800/40 relative overflow-hidden">
+          <div className="relative z-10 space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-500/30">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Diagnostic English Proficiency Benchmark</span>
             </div>
-          </div>
-        ) : (
-          <div className="w-44 h-40 sm:w-60 sm:h-52 md:w-72 md:h-60 mx-auto rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-4 text-center bg-slate-50/60 z-10">
-            <VideoOff className="w-8 h-8 text-slate-400 mb-2" />
-            <p className="text-xs font-bold text-slate-600">Camera is Off</p>
-            <button
-              onClick={() => startCamera()}
-              className="mt-2 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black cursor-pointer shadow-xs"
-            >
-              Turn Camera On
-            </button>
-          </div>
-        )}
-
-        {/* MIC PERMISSION ERROR NOTICE */}
-        {micPermissionError && (
-          <div className="w-full max-w-md mx-auto p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium text-left flex items-start gap-2 z-10">
-            <Lightbulb className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold">Microphone Access</p>
-              <p className="mt-0.5">{micPermissionError}</p>
-            </div>
-          </div>
-        )}
-
-        {/* COACH SUBTITLES CARD (PERFECTLY CENTERED) */}
-        <div className="w-full max-w-xl mx-auto z-10">
-          <div className="p-3.5 sm:p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-sm relative text-left">
-            <div className="flex items-center justify-between mb-2 text-[10px] font-black uppercase tracking-wider">
-              <span className="flex items-center gap-1.5 text-indigo-600">
-                <Sparkles className="w-3.5 h-3.5" />
-                Devgya English Coach • {COACH_VOICES.find(v => v.code === selectedVoice)?.name || "Female Voice (Girl)"}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => playCoachAudio(liveAiSpeech)}
-                  disabled={isAiSpeaking}
-                  className="text-slate-500 hover:text-indigo-600 flex items-center gap-1 text-[11px] font-bold cursor-pointer disabled:opacity-40"
-                  title="Replay Audio"
-                >
-                  <RotateCcw className="w-3 h-3" /> Replay
-                </button>
-                <button
-                  onClick={() => {
-                    setSoundMuted(prev => !prev);
-                    if (currentAudioRef.current) currentAudioRef.current.muted = !soundMuted;
-                  }}
-                  className="text-slate-500 hover:text-indigo-600 cursor-pointer"
-                  title={soundMuted ? "Unmute" : "Mute"}
-                >
-                  {soundMuted ? <VolumeX className="w-3.5 h-3.5 text-amber-600" /> : <Volume2 className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            <p className="text-xs sm:text-sm md:text-base font-semibold text-slate-800 leading-relaxed">
-              {liveAiSpeech}
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              10-Mark Baseline Spoken English Assessment
+            </h1>
+            <p className="text-xs sm:text-sm text-indigo-200 max-w-2xl leading-relaxed">
+              Complete these 10 curated questions. We pinpoint your specific weak points in grammar, tenses, prepositions, pronunciation awareness, and public speaking structure to build your step-by-step lecture roadmap.
             </p>
           </div>
         </div>
 
-        {/* 3. GEMINI LIVE CENTRAL PULSING ORB */}
-        <div className="relative flex flex-col items-center justify-center my-2 z-10 mx-auto">
-          
-          {/* Animated Wave Rings */}
-          {isAiSpeaking && (
-            <>
-              <div className="absolute w-40 h-40 rounded-full border-2 border-rose-400/50 animate-ping pointer-events-none" />
-              <div className="absolute w-48 h-48 rounded-full border border-indigo-400/40 animate-pulse pointer-events-none" />
-            </>
-          )}
-          {isListening && (
-            <>
-              <div className="absolute w-40 h-40 rounded-full border-2 border-emerald-400/60 animate-ping pointer-events-none" />
-              <div className="absolute w-48 h-48 rounded-full border border-teal-400/40 animate-pulse pointer-events-none" />
-            </>
-          )}
-
-          {/* Central Touch Orb (Tap to Interrupt / Send / Start) */}
-          <button
-            onClick={() => {
-              if (isAiSpeaking) {
-                handleInterruptAi();
-              } else if (!isLiveActive) {
-                toggleLiveConversation();
-              } else if (isListening) {
-                const candidate = accumulatedSpeechRef.current.trim() || currentSpeechText.trim();
-                if (candidate && candidate.length >= 2) {
-                  handleSendMessage(candidate);
-                } else {
-                  stopListening();
-                }
-              } else {
-                startListening();
-              }
-            }}
-            className={`w-24 h-24 md:w-28 md:h-28 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-2xl cursor-pointer select-none active:scale-95 ${
-              isAiSpeaking
-                ? "bg-gradient-to-tr from-rose-500 via-pink-500 to-indigo-600 scale-105 shadow-rose-500/40 ring-4 ring-rose-200"
-                : isListening
-                ? "bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-600 scale-105 shadow-emerald-500/40 ring-4 ring-emerald-200 animate-pulse"
-                : isAiThinking
-                ? "bg-gradient-to-tr from-amber-500 to-orange-500 shadow-amber-500/40 animate-spin"
-                : isLiveActive
-                ? "bg-gradient-to-tr from-indigo-600 to-purple-700 shadow-indigo-600/30"
-                : "bg-gradient-to-tr from-slate-800 to-slate-950 shadow-slate-900/30 hover:scale-102"
-            }`}
-          >
-            {isAiSpeaking ? (
-              <>
-                <Volume2 className="w-8 h-8 md:w-10 md:h-10 text-white animate-bounce" />
-                <span className="text-[9px] font-black uppercase tracking-wider text-rose-100 mt-0.5">Interrupt</span>
-              </>
-            ) : isListening ? (
-              <>
-                <Mic className="w-8 h-8 md:w-10 md:h-10 text-white animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-100 mt-0.5">Send Now</span>
-              </>
-            ) : isAiThinking ? (
-              <>
-                <RotateCcw className="w-8 h-8 md:w-10 md:h-10 text-white" />
-                <span className="text-[9px] font-black uppercase tracking-wider text-amber-100 mt-0.5">Thinking</span>
-              </>
-            ) : isLiveActive ? (
-              <>
-                <Mic className="w-8 h-8 md:w-10 md:h-10 text-white" />
-                <span className="text-[9px] font-black uppercase tracking-wider text-indigo-100 mt-0.5">Speak</span>
-              </>
-            ) : (
-              <>
-                <Phone className="w-8 h-8 md:w-10 md:h-10 text-white animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-wider text-slate-100 mt-0.5">Start Live</span>
-              </>
-            )}
-          </button>
-
-          {/* Status Indicator */}
-          <div className="mt-2.5 text-xs font-bold">
-            {isAiSpeaking ? (
-              <span className="text-rose-600 flex items-center justify-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-                Speaking... (tap orb to interrupt)
-              </span>
-            ) : isListening ? (
-              <span className="text-emerald-600 flex items-center justify-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
-                Listening to you...
-              </span>
-            ) : isAiThinking ? (
-              <span className="text-amber-600 flex items-center justify-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />
-                Coach thinking...
-              </span>
-            ) : isLiveActive ? (
-              <span className="text-indigo-600">
-                Connected. Speak whenever you are ready.
-              </span>
-            ) : (
-              <span className="text-slate-500">
-                Tap the orb to start conversation
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* LIVE USER TRANSCRIPT BUBBLE WITH INSTANT SEND */}
-        {currentSpeechText && (
-          <div className="w-full max-w-xl p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-950 text-left z-10 shadow-xs flex items-center justify-between gap-3">
-            <div className="flex-1">
-              <span className="font-extrabold uppercase text-[10px] text-indigo-600 block mb-0.5">
-                {isListening ? "Listening to you:" : "You said:"}
-              </span>
-              <p className="font-medium text-slate-800">
-                &ldquo;{currentSpeechText}&rdquo;
-              </p>
+        {/* RESULT MODAL / SCREEN */}
+        {diagnosticResult ? (
+          <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-xl space-y-6 text-center animate-in zoom-in-95">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
+              <Award className="w-8 h-8" />
             </div>
-            {isListening && (
-              <button
-                onClick={triggerManualSend}
-                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 shrink-0"
-              >
-                <span>Send</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* 4. POLISHED TEACHER ENGLISH FEEDBACK */}
-        {latestFeedback && (
-          <div className="w-full max-w-xl p-4 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50 to-white border border-indigo-200 text-left shadow-xs z-10">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-black text-indigo-900 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                ✨ Better Teacher English Phrasing
-              </span>
-              {latestFeedback.polishedPhrasing && (
-                <button
-                  onClick={() => playCoachAudio(latestFeedback.polishedPhrasing!)}
-                  className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shadow-2xs"
-                >
-                  <Volume2 className="w-3 h-3" /> Listen
-                </button>
-              )}
+            <div className="space-y-1">
+              <h2 className="text-2xl font-black text-slate-900">Assessment Completed!</h2>
+              <p className="text-sm font-semibold text-slate-500">Your Baseline Proficiency Result</p>
             </div>
 
-            {latestFeedback.polishedPhrasing && (
-              <p className="text-xs md:text-sm font-bold text-slate-900 mb-1.5">
-                &ldquo;{latestFeedback.polishedPhrasing}&rdquo;
-              </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-xl mx-auto text-left">
+              <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
+                <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Score</span>
+                <p className="text-2xl font-black text-indigo-900 mt-1">{diagnosticResult.score} / 10</p>
+              </div>
+              <div className="p-4 rounded-2xl bg-purple-50 border border-purple-100 sm:col-span-2">
+                <span className="text-xs font-bold text-purple-600 uppercase tracking-wider">Assigned Level</span>
+                <p className="text-sm font-extrabold text-purple-900 mt-1">{diagnosticResult.fluency_level}</p>
+              </div>
+            </div>
+
+            {diagnosticResult.weak_points && diagnosticResult.weak_points.length > 0 && (
+              <div className="max-w-xl mx-auto text-left p-4 rounded-2xl bg-amber-50 border border-amber-200">
+                <span className="text-xs font-extrabold text-amber-800 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                  Identified Weak Points To Focus On:
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {diagnosticResult.weak_points.map((w: string, i: number) => (
+                    <span key={i} className="px-2.5 py-1 rounded-lg bg-white text-amber-900 text-xs font-bold border border-amber-200 shadow-sm">
+                      {w}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
 
-            {latestFeedback.pedagogicalTip && (
-              <p className="text-[11px] text-slate-600 font-medium">
-                💡 <strong className="font-bold text-slate-700">Tip:</strong> {latestFeedback.pedagogicalTip}
-              </p>
-            )}
-          </div>
-        )}
-
-      </div>
-
-      {/* 5. LIVE CALL BOTTOM CONTROLS */}
-      <div className="glass-panel p-3 rounded-2xl border border-slate-200 bg-white shadow-xs flex items-center justify-between gap-3">
-        
-        {/* Toggle Live Conversation Call */}
-        <button
-          onClick={toggleLiveConversation}
-          className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer ${
-            isLiveActive
-              ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/20"
-              : "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-600/20 hover:opacity-95"
-          }`}
-        >
-          {isLiveActive ? (
-            <>
-              <PhoneOff className="w-4 h-4" />
-              <span>End Call</span>
-            </>
-          ) : (
-            <>
-              <Phone className="w-4 h-4" />
-              <span>Start Live Conversation</span>
-            </>
-          )}
-        </button>
-
-        {/* Quick Starters Inspiration */}
-        <div className="hidden md:flex items-center gap-2 overflow-x-auto scrollbar-none flex-1 max-w-md">
-          {activeScenario.quickStarters.slice(0, 2).map((st, i) => (
             <button
-              key={i}
-              onClick={() => handleSendMessage(st)}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 text-[11px] font-medium border border-slate-200 truncate cursor-pointer"
+              onClick={() => {
+                setActiveTab("roadmap");
+                setDiagnosticResult(null);
+              }}
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm shadow-lg hover:shadow-indigo-500/25 transition-all active:scale-95"
             >
-              {st}
+              <span>Begin Your Sequential Lecture Roadmap</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
-          ))}
-        </div>
-
-        {/* Right Tools (Keyboard & Reset) */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowTextKeyboard(prev => !prev)}
-            className={`p-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-              showTextKeyboard
-                ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
-            }`}
-            title="Toggle Text Input"
-          >
-            <Keyboard className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={handleResetConversation}
-            className="p-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 transition-colors cursor-pointer"
-            title="Start Fresh Context"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* 6. EXPANDABLE TEXT INPUT */}
-      {showTextKeyboard && (
-        <div className="glass-panel p-2.5 rounded-2xl border border-slate-200 bg-white shadow-xs flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <input
-            type="text"
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && textInput.trim()) {
-                handleSendMessage(textInput);
-                setTextInput("");
-              }
-            }}
-            placeholder="Type your sentence or question to the coach..."
-            className="flex-1 bg-transparent px-3 py-2 text-xs md:text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
-          />
-          <button
-            onClick={() => {
-              if (textInput.trim()) {
-                handleSendMessage(textInput);
-                setTextInput("");
-              }
-            }}
-            disabled={!textInput.trim() || isAiThinking}
-            className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 active:scale-95 disabled:opacity-40 transition-all cursor-pointer shrink-0"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* 7. CONVERSATION HISTORY MODAL */}
-      {showHistoryModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-900">Conversation Transcript</h3>
-              </div>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-3 py-4 pr-1 text-xs">
-              {conversationHistory.length === 0 ? (
-                <p className="text-center text-slate-400 py-8">No conversation turns yet.</p>
-              ) : (
-                conversationHistory.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`p-3 rounded-2xl ${
-                      item.sender === "user"
-                        ? "bg-indigo-50/80 border border-indigo-100 text-indigo-950 ml-6"
-                        : "bg-slate-50 border border-slate-200/70 text-slate-800 mr-6"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                        {item.sender === "user" ? "You (Teacher)" : `Devgya English Coach (${COACH_VOICES.find(v => v.code === selectedVoice)?.name || "Female Voice"})`}
-                      </span>
-                      <span className="text-[9px] text-slate-400">{item.timestamp}</span>
-                    </div>
-                    <p className="text-xs font-medium leading-relaxed">{item.text}</p>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </div>
-      )}
-
-      {/* SCENARIO SELECTION MODAL (User selects topic BEFORE talking with AI) */}
-      {showScenarioModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-5 sm:p-6 overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-                  <Sparkles className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div>
-                  <h2 className="text-base font-black text-slate-900">Choose Practice Scenario</h2>
-                  <p className="text-xs text-slate-500 font-semibold">Select what you want to practice before starting conversation</p>
-                </div>
+        ) : q ? (
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+            {/* PROGRESS BAR */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-extrabold text-slate-500">
+                <span>Question {currentQIndex + 1} of {diagnosticQuestions.length}</span>
+                <span>{Object.keys(selectedAnswers).length} / {diagnosticQuestions.length} Answered</span>
               </div>
-              <button
-                onClick={() => setShowScenarioModal(false)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[60vh] overflow-y-auto p-0.5">
-              {PRACTICE_SCENARIOS.map((sc) => {
-                const Icon = sc.icon;
-                const isSelected = activeScenario.id === sc.id;
+            {/* QUESTION CARD */}
+            <div className="space-y-3 pt-2">
+              <div className="inline-block px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-100">
+                {q.category}
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
+                {q.question}
+              </h3>
+            </div>
+
+            {/* OPTIONS */}
+            <div className="space-y-2.5">
+              {q.options.map((opt, idx) => {
+                const isSelected = selectedAnswers[String(q.id)] === idx;
                 return (
                   <button
-                    key={sc.id}
-                    onClick={() => startCallWithScenario(sc)}
-                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer group flex flex-col justify-between gap-2 ${
+                    key={idx}
+                    onClick={() => handleSelectOption(q.id, idx)}
+                    className={`w-full text-left p-4 rounded-2xl border text-sm font-semibold transition-all flex items-center justify-between group ${
                       isSelected
-                        ? "bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-500/20 shadow-sm"
-                        : "bg-slate-50/70 hover:bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm"
+                        ? "bg-indigo-50 border-indigo-600 text-indigo-900 shadow-sm ring-1 ring-indigo-600"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-slate-50/80"
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                        isSelected ? "bg-indigo-600 text-white" : "bg-white text-slate-600 border border-slate-200 group-hover:text-indigo-600"
+                    <div className="flex items-center gap-3">
+                      <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-extrabold border transition-all ${
+                        isSelected 
+                          ? "bg-indigo-600 text-white border-indigo-600" 
+                          : "bg-slate-100 text-slate-600 border-slate-200 group-hover:border-indigo-300"
                       }`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-xs font-black text-slate-900 truncate">{sc.title}</h3>
-                        <span className="text-[10px] font-bold text-indigo-600 block">{sc.shortTitle}</span>
-                      </div>
+                        {String.fromCharCode(65 + idx)}
+                      </span>
+                      <span>{opt}</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-medium line-clamp-2 leading-relaxed">
-                      {sc.quickStarters[0]}
-                    </p>
+                    {isSelected && <CheckCircle2 className="w-4 h-4 text-indigo-600" />}
                   </button>
                 );
               })}
             </div>
 
-            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-bold">
-              <span>Selected: {activeScenario.title}</span>
+            {/* NAVIGATION FOOTER */}
+            <div className="pt-4 flex items-center justify-between border-t border-slate-100">
               <button
-                onClick={() => startCallWithScenario(activeScenario)}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+                disabled={currentQIndex === 0}
+                onClick={() => setCurrentQIndex(prev => Math.max(0, prev - 1))}
+                className="px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-all"
               >
-                <span>Start Speaking Now</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                Previous
+              </button>
+
+              {currentQIndex < diagnosticQuestions.length - 1 ? (
+                <button
+                  onClick={() => setCurrentQIndex(prev => prev + 1)}
+                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow-sm transition-all active:scale-95"
+                >
+                  Next Question
+                </button>
+              ) : (
+                <button
+                  disabled={submittingTest || Object.keys(selectedAnswers).length < diagnosticQuestions.length}
+                  onClick={handleSubmitDiagnostic}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-md transition-all active:scale-95 disabled:opacity-40"
+                >
+                  {submittingTest ? "Evaluating Weak Points..." : "Submit Diagnostic Test"}
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  // ===================================================================
+  // VIEW 2: SEQUENTIAL LECTURE ROADMAP (NO SKIPPING)
+  // ===================================================================
+  if (activeTab === "roadmap") {
+    const unlockedIndex = track?.unlocked_module_index || 0;
+
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 py-6 px-4 animate-in fade-in duration-300">
+        {/* TOP STATUS BANNER */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-indigo-800/40 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                Diagnostic Completed: {track?.diagnostic_score} / 10
+              </span>
+              <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-500/30">
+                {track?.fluency_level}
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Sequential Spoken Mastery Track
+            </h1>
+            <p className="text-xs sm:text-sm text-indigo-200 max-w-2xl leading-relaxed">
+              Master English through the certified <strong>LRSI</strong> (Listen, Repeat, Speak, Interact) and <strong>LRSP</strong> (Listen, Repeat, Speak, Present) frameworks. Step skipping is disabled to ensure genuine spoken fluency.
+            </p>
+          </div>
+
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20">
+              <Clock className="w-3.5 h-3.5" />
+              <span>30-Day Cycle Active</span>
+            </div>
+            <button
+              onClick={handleResetCycle}
+              className="text-xs font-semibold text-slate-400 hover:text-rose-300 flex items-center gap-1 transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Restart Cycle & Retake Test</span>
+            </button>
+          </div>
+        </div>
+
+        {/* WEAK POINTS SUMMARY */}
+        {track?.weak_points && track.weak_points.length > 0 && (
+          <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+              <Target className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Your Diagnostic Focus Areas:</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {track.weak_points.map((w, idx) => (
+                <span key={idx} className="px-2.5 py-0.5 rounded-md bg-white text-amber-800 text-xs font-bold border border-amber-200 shadow-xs">
+                  {w}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* MODULE CARDS */}
+        <div className="space-y-4">
+          {modules.map((mod, mIdx) => {
+            const isUnlocked = mIdx <= unlockedIndex;
+            const isCompleted = mIdx < unlockedIndex;
+            const isCurrent = mIdx === unlockedIndex;
+
+            return (
+              <div 
+                key={mod.id}
+                className={`p-6 rounded-3xl border transition-all ${
+                  isCurrent
+                    ? "bg-white border-indigo-400 shadow-md ring-1 ring-indigo-400"
+                    : isCompleted
+                    ? "bg-emerald-50/40 border-emerald-200"
+                    : "bg-slate-50/60 border-slate-200 opacity-60 pointer-events-none"
+                }`}
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded-lg text-xs font-extrabold uppercase tracking-wider ${
+                        isCompleted
+                          ? "bg-emerald-100 text-emerald-800"
+                          : isCurrent
+                          ? "bg-indigo-100 text-indigo-800"
+                          : "bg-slate-200 text-slate-600"
+                      }`}>
+                        {mod.methodology}
+                      </span>
+                      {isCompleted && (
+                        <span className="flex items-center gap-1 text-xs font-bold text-emerald-600">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Completed</span>
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                      {mod.title}
+                    </h3>
+                    <p className="text-xs text-slate-600 leading-relaxed max-w-2xl font-medium">
+                      {mod.description}
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {mod.focus_areas.map((f, i) => (
+                        <span key={i} className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                          • {f}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-3">
+                    {isUnlocked ? (
+                      <button
+                        onClick={() => {
+                          setActiveModuleIdx(mIdx);
+                          setActiveStepIdx(0);
+                          setActiveTab("player");
+                        }}
+                        className={`inline-flex items-center gap-2 px-6 py-3 rounded-2xl font-extrabold text-xs transition-all active:scale-95 ${
+                          isCurrent
+                            ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-indigo-500/20"
+                            : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>{isCompleted ? "Practice Again" : "Launch Lecture"}</span>
+                      </button>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 text-slate-400 text-xs font-bold border border-slate-200">
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Locked</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ===================================================================
+  // VIEW 3: LECTURE PLAYER (LRSI / LRSP STEPS & INTERACTIVE GAMES)
+  // ===================================================================
+  if (activeTab === "player") {
+    const currentMod = modules[activeModuleIdx];
+    const currentStep = currentMod?.steps[activeStepIdx];
+    const isLastStep = currentMod && activeStepIdx === currentMod.steps.length - 1;
+
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 py-6 px-4 animate-in fade-in duration-300">
+        {/* NAVIGATION TOP BAR */}
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+          <button
+            onClick={() => setActiveTab("roadmap")}
+            className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition-colors"
+          >
+            <ArrowRight className="w-4 h-4 rotate-180" />
+            <span>Back to Module Roadmap</span>
+          </button>
+
+          <span className="text-xs font-bold text-slate-500">
+            {currentMod?.title} • Step {activeStepIdx + 1} of {currentMod?.steps.length}
+          </span>
+        </div>
+
+        {stepCompleteNotice && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{stepCompleteNotice}</span>
+          </div>
+        )}
+
+        {/* STEP CARD */}
+        {currentStep && (
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="space-y-1">
+              <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-extrabold uppercase tracking-wider">
+                {currentStep.type.toUpperCase()} STAGE
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-2">
+                {currentStep.title}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium">
+                {currentStep.prompt}
+              </p>
+            </div>
+
+            {/* STEP 1: LISTEN */}
+            {currentStep.type === "listen" && currentStep.model_audio_text && (
+              <div className="p-6 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Volume2 className="w-4 h-4 text-indigo-600" />
+                    Model Spoken Pronunciation
+                  </span>
+                  <button
+                    onClick={() => speakText(currentStep.model_audio_text!)}
+                    disabled={isAiSpeaking}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-sm hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>{isAiSpeaking ? "Coach Speaking..." : "Play Native Audio"}</span>
+                  </button>
+                </div>
+                <p className="text-base sm:text-lg font-bold text-slate-800 leading-relaxed italic bg-white p-4 rounded-xl border border-indigo-100/60 shadow-xs">
+                  "{currentStep.model_audio_text}"
+                </p>
+              </div>
+            )}
+
+            {/* STEP 2: REPEAT */}
+            {currentStep.type === "repeat" && currentStep.target_phrase && (
+              <div className="p-6 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-4">
+                <span className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Mic className="w-4 h-4 text-purple-600" />
+                  Target Phrase To Echo
+                </span>
+                <p className="text-base sm:text-lg font-bold text-purple-950 bg-white p-4 rounded-xl border border-purple-100 shadow-xs">
+                  "{currentStep.target_phrase}"
+                </p>
+                <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                  <button
+                    onClick={() => speakText(currentStep.target_phrase!)}
+                    className="px-4 py-2 rounded-xl bg-white border border-purple-200 text-purple-700 font-bold text-xs hover:bg-purple-50 flex items-center gap-1.5 transition-colors"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>Listen Again</span>
+                  </button>
+                  <button
+                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
+                    className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
+                      isListening
+                        ? "bg-rose-600 text-white animate-pulse"
+                        : "bg-purple-600 text-white hover:bg-purple-700 shadow-sm"
+                    }`}
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>{isListening ? "Listening... Tap to Stop" : "Press & Repeat Aloud"}</span>
+                  </button>
+                </div>
+                {userSpokenText && (
+                  <div className="p-3 bg-white rounded-xl border border-purple-200 text-xs space-y-1">
+                    <span className="font-bold text-slate-400">Captured Voice:</span>
+                    <p className="font-semibold text-slate-800 font-mono">"{userSpokenText}"</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 3: SPEAK */}
+            {currentStep.type === "speak" && (
+              <div className="p-6 rounded-2xl bg-amber-50/50 border border-amber-100 space-y-4">
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <MessageSquare className="w-4 h-4 text-amber-600" />
+                  Your Speaking Challenge
+                </span>
+                {currentStep.sample_answer && (
+                  <div className="text-xs font-medium text-amber-900 bg-white p-3 rounded-xl border border-amber-200/60">
+                    <span className="font-bold">Suggested Reference:</span> "{currentStep.sample_answer}"
+                  </div>
+                )}
+                <div className="pt-2">
+                  <button
+                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
+                    className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
+                      isListening
+                        ? "bg-rose-600 text-white animate-pulse"
+                        : "bg-amber-600 text-white hover:bg-amber-700 shadow-sm"
+                    }`}
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>{isListening ? "Listening to your answer..." : "Speak Your Answer Aloud"}</span>
+                  </button>
+                </div>
+                {userSpokenText && (
+                  <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs space-y-1">
+                    <span className="font-bold text-slate-400">Your Answer:</span>
+                    <p className="font-semibold text-slate-800">"{userSpokenText}"</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 4: INTERACT (LRSI LIVE CHAT) */}
+            {currentStep.type === "interact" && (
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  Live Conversational Exchange with AI Coach
+                </span>
+
+                {currentStep.coach_starter && dialogueMessages.length === 0 && (
+                  <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-extrabold text-indigo-700 uppercase">Coach Question:</span>
+                      <p className="text-sm font-semibold text-indigo-950">"{currentStep.coach_starter}"</p>
+                    </div>
+                    <button
+                      onClick={() => speakText(currentStep.coach_starter!)}
+                      className="p-2 rounded-lg bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* DIALOGUE BUBBLES */}
+                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                  {dialogueMessages.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                      <div className={`p-3 rounded-2xl max-w-md text-xs font-semibold leading-relaxed ${
+                        msg.sender === "user"
+                          ? "bg-indigo-600 text-white rounded-tr-none shadow-sm"
+                          : "bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-xs"
+                      }`}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))}
+                  {isCoachThinking && (
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                      <div className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+                      <span>Coach is replying...</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
+                    className={`p-3 rounded-2xl font-bold text-xs flex items-center justify-center transition-all ${
+                      isListening ? "bg-rose-600 text-white animate-pulse" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                    }`}
+                  >
+                    <Mic className="w-5 h-5" />
+                  </button>
+                  <input
+                    type="text"
+                    value={userSpokenText}
+                    onChange={(e) => setUserSpokenText(e.target.value)}
+                    placeholder="Speak via mic or type your conversational reply..."
+                    className="flex-1 px-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-semibold focus:outline-hidden focus:border-indigo-500"
+                  />
+                  <button
+                    onClick={handleSendDialogueTurn}
+                    disabled={!userSpokenText.trim() || isCoachThinking}
+                    className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-sm transition-all disabled:opacity-40"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 5: PRESENT (LRSP 1-MINUTE PUBLIC SPEAKING STAGE) */}
+            {currentStep.type === "present" && (
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-indigo-800/40 space-y-6">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Trophy className="w-4 h-4 text-amber-400" />
+                    1-Minute Live Public Speaking Stage
+                  </span>
+                  <div className="flex items-center gap-1.5 text-xs font-mono font-bold bg-white/10 px-3 py-1.5 rounded-full border border-white/10">
+                    <Clock className="w-3.5 h-3.5 text-amber-300" />
+                    <span>{speakingTimer}s Remaining</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-xs text-indigo-200">Your Assigned Topic:</span>
+                  <h3 className="text-xl font-extrabold text-white">
+                    "{currentStep.topic || "Why Curiosity is the Greatest Teacher"}"
+                  </h3>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  {!isTimerActive ? (
+                    <button
+                      onClick={handleStartPublicSpeaking}
+                      className="px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      <span>Start 60s Speech Stage</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleFinishPublicSpeaking}
+                      className="px-6 py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-extrabold text-xs shadow-lg transition-all active:scale-95 flex items-center gap-2 animate-pulse"
+                    >
+                      <MicOff className="w-4 h-4" />
+                      <span>Finish & Request AI Critique</span>
+                    </button>
+                  )}
+                </div>
+
+                {userSpokenText && (
+                  <div className="p-4 rounded-xl bg-white/10 border border-white/10 text-xs space-y-1">
+                    <span className="text-indigo-200 font-bold">Captured Speech Transcript:</span>
+                    <p className="text-white font-medium leading-relaxed">"{userSpokenText}"</p>
+                  </div>
+                )}
+
+                {/* AI CRITIQUE REPORT */}
+                {critiqueLoading && (
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3 text-xs text-indigo-200 font-bold">
+                    <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                    <span>AI adjudicator is evaluating filler words, pacing, and grammatical poise...</span>
+                  </div>
+                )}
+
+                {speakingCritique && (
+                  <div className="p-6 rounded-2xl bg-white text-slate-900 border border-indigo-100 shadow-xl space-y-4 animate-in zoom-in-95">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <span className="text-xs font-black uppercase text-indigo-600 tracking-wider">
+                        Adjudicator Scorecard
+                      </span>
+                      <div className="flex items-center gap-3 text-xs font-bold">
+                        <span className="text-rose-600">Fillers: {speakingCritique.filler_count}</span>
+                        <span className="text-indigo-600">Grammar: {speakingCritique.grammar_score}%</span>
+                        <span className="text-emerald-600 font-black">Overall: {speakingCritique.overall_score}/100</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <span className="font-bold text-rose-700">What To Improve:</span>
+                        <p className="text-slate-600 mt-0.5">{speakingCritique.what_was_wrong}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100">
+                        <span className="font-extrabold text-indigo-900">Live Spoken Correction:</span>
+                        <p className="text-indigo-950 font-semibold mt-0.5 italic">"{speakingCritique.live_correction}"</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 6: CAPSTONE FINAL INTERACTION */}
+            {currentStep.type === "capstone" && (
+              <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-4">
+                <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-emerald-600" />
+                  Final Spoken Capstone Interaction
+                </span>
+                <p className="text-sm font-bold text-emerald-950 leading-relaxed">
+                  "{currentStep.coach_starter}"
+                </p>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
+                    className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all active:scale-95 ${
+                      isListening ? "bg-rose-600 text-white animate-pulse" : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                    }`}
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>{isListening ? "Listening to your Capstone..." : "Deliver Capstone Speech"}</span>
+                  </button>
+                </div>
+
+                {userSpokenText && (
+                  <div className="p-4 bg-white rounded-xl border border-emerald-200 text-xs space-y-2">
+                    <span className="font-bold text-slate-500">Your Capstone Transcript:</span>
+                    <p className="font-semibold text-slate-900">"{userSpokenText}"</p>
+                    <button
+                      onClick={handleFinalizeCapstone}
+                      className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md transition-all active:scale-95"
+                    >
+                      Generate Official Spoken Mastery Report Card
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* FOOTER BUTTONS */}
+            <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+              <button
+                disabled={activeStepIdx === 0}
+                onClick={() => setActiveStepIdx(prev => Math.max(0, prev - 1))}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                Previous Step
+              </button>
+
+              <button
+                onClick={() => handleCompleteStep(currentStep.step_id)}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <span>{isLastStep ? "Complete Module" : "Mark Step Complete & Advance"}</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    );
+  }
 
-    </div>
-  );
+  // ===================================================================
+  // VIEW 4: OFFICIAL SPOKEN MASTERY REPORT CARD
+  // ===================================================================
+  if (activeTab === "report" && track?.mastery_report) {
+    const rep = track.mastery_report;
+
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 py-6 px-4 animate-in fade-in duration-300">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+          <button
+            onClick={() => setActiveTab("roadmap")}
+            className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5"
+          >
+            <ArrowRight className="w-4 h-4 rotate-180" />
+            <span>Back to Module Roadmap</span>
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 flex items-center gap-1.5 shadow-xs"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Print Official Report</span>
+            </button>
+            <button
+              onClick={handleResetCycle}
+              className="px-4 py-2 rounded-xl bg-rose-50 text-rose-700 font-bold text-xs hover:bg-rose-100 flex items-center gap-1.5 border border-rose-200"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restart Cycle</span>
+            </button>
+          </div>
+        </div>
+
+        {/* CERTIFICATE / REPORT CARD */}
+        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-xl space-y-8 relative overflow-hidden">
+          {/* TOP EMBLEM */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center font-black text-xl shadow-md">
+                D
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-slate-900">Devgya Global Education</h2>
+                <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Spoken English Mastery Evaluation Report</p>
+              </div>
+            </div>
+            <div className="text-left sm:text-right">
+              <span className="text-[11px] font-bold text-slate-400 uppercase">Certificate ID</span>
+              <p className="font-mono font-extrabold text-xs text-slate-800">{rep.certificate_id || "DEVGYA-ENG-2026"}</p>
+            </div>
+          </div>
+
+          {/* STUDENT HERO */}
+          <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 p-6 rounded-2xl border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-indigo-600 uppercase">Learner Profile</span>
+              <h3 className="text-2xl font-black text-slate-900">{rep.student_name}</h3>
+              <p className="text-xs text-slate-500 font-semibold">Assessed Role: {rep.user_role?.toUpperCase()}</p>
+            </div>
+            <div className="px-4 py-2.5 rounded-xl bg-white text-indigo-900 font-extrabold text-sm border border-indigo-200 shadow-sm text-center">
+              <span className="text-[10px] uppercase text-indigo-500 block font-bold">Fluency Band</span>
+              {rep.fluency_band}
+            </div>
+          </div>
+
+          {/* METRIC GRIDS */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+              <span className="text-xs font-bold text-slate-500 uppercase">Diagnostic Score</span>
+              <p className="text-2xl font-black text-slate-900 mt-1">{rep.diagnostic_score} / 10</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-center">
+              <span className="text-xs font-bold text-emerald-600 uppercase">Pronunciation</span>
+              <p className="text-2xl font-black text-emerald-900 mt-1">{rep.pronunciation_rating}%</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-center">
+              <span className="text-xs font-bold text-indigo-600 uppercase">Grammar Accuracy</span>
+              <p className="text-2xl font-black text-indigo-900 mt-1">{rep.grammar_accuracy}%</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-purple-50 border border-purple-100 text-center">
+              <span className="text-xs font-bold text-purple-600 uppercase">Public Speaking</span>
+              <p className="text-2xl font-black text-purple-900 mt-1">{rep.public_speaking_confidence}%</p>
+            </div>
+          </div>
+
+          {/* STRENGTHS & WEAKNESSES RESOLVED */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <span className="text-xs font-extrabold uppercase text-emerald-700 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Demonstrated Strengths
+              </span>
+              <ul className="space-y-1.5">
+                {(rep.strengths || []).map((s: string, i: number) => (
+                  <li key={i} className="text-xs text-slate-700 font-medium bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100/60">
+                    • {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-extrabold uppercase text-indigo-700 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+                Weaknesses Resolved Through Lectures
+              </span>
+              <ul className="space-y-1.5">
+                {(rep.weaknesses_resolved || []).map((w: string, i: number) => (
+                  <li key={i} className="text-xs text-slate-700 font-medium bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/60">
+                    • {w}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* PARENT & TEACHER RECOMMENDATIONS */}
+          <div className="space-y-3 pt-2">
+            <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-100">
+              <span className="text-xs font-extrabold text-rose-800 uppercase flex items-center gap-1.5 mb-1">
+                <HeartHandshake className="w-4 h-4 text-rose-600" />
+                Coach Recommendation For Parents:
+              </span>
+              <p className="text-xs text-rose-950 font-medium leading-relaxed">
+                {rep.coach_recommendation_for_parents}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100">
+              <span className="text-xs font-extrabold text-indigo-800 uppercase flex items-center gap-1.5 mb-1">
+                <GraduationCap className="w-4 h-4 text-indigo-600" />
+                Coach Recommendation For Teachers:
+              </span>
+              <p className="text-xs text-indigo-950 font-medium leading-relaxed">
+                {rep.coach_recommendation_for_teachers}
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-4 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 font-semibold gap-2">
+            <span>Generated on {new Date(rep.generated_at).toLocaleDateString()}</span>
+            <span>Course Cycle Valid Until: {new Date(rep.cycle_valid_until).toLocaleDateString()}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
