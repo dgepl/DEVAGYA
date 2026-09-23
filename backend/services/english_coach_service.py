@@ -1110,10 +1110,10 @@ Analyze their spoken English and return a JSON object with EXACTLY these keys:
 2. "negative_points": A list of 1-2 concise bullet points pointing out grammar slips, awkward Indianisms (e.g., 'revert back', 'since 5 years', 'today morning'), misplaced prepositions, or hesitation.
 3. "how_to_improve": 1-2 actionable sentences telling the student how to fix the issue and sound more natural.
 4. "polished_version": A beautifully natural, native-sounding 1-2 sentence version of what they intended to say.
-5. "spoken_feedback": A warm, encouraging 2-sentence summary (max 30 words) that the AI coach will speak aloud to the student.
+5. "spoken_feedback": A spoken coaching message (max 35 words) that MUST clearly tell the student: 1) How they are doing (e.g., "You are doing great with your vocal clarity!" or "Good attempt!"), 2) What they should enhance (e.g., "To enhance your delivery, avoid..."), and 3) An encouraging finish.
 """
         messages = [
-            {"role": "system", "content": "You are an expert spoken English evaluator. You help Indian learners master spoken English. Return ONLY valid JSON."},
+            {"role": "system", "content": "You are an expert spoken English coach. You give live spoken feedback telling the student whether they are doing great and what to enhance. Return ONLY valid JSON."},
             {"role": "user", "content": eval_prompt}
         ]
 
@@ -1125,7 +1125,7 @@ Analyze their spoken English and return a JSON object with EXACTLY these keys:
                 "negative_points": data.get("negative_points", ["Check sentence connector and verb agreement"]),
                 "how_to_improve": data.get("how_to_improve", "Focus on speaking in complete phrases without rushing."),
                 "polished_version": data.get("polished_version", sample_answer or clean_speech),
-                "spoken_feedback": data.get("spoken_feedback", "Great effort! Your ideas are very clear. Work on your verb tenses to sound even more natural.")
+                "spoken_feedback": data.get("spoken_feedback", "You are doing great with your vocabulary! To enhance your fluency, practice connecting sentences smoothly.")
             }
         except Exception as e:
             logger.warning(f"Speak stage AI critique error: {e}")
@@ -1134,7 +1134,7 @@ Analyze their spoken English and return a JSON object with EXACTLY these keys:
                 "negative_points": ["Minor grammatical agreement or phrasing slip"],
                 "how_to_improve": "Practice pausing slightly at commas to give your sentence natural breathing room.",
                 "polished_version": sample_answer or clean_speech,
-                "spoken_feedback": "Well done on expressing your thoughts! Listen to the polished version to refine your phrasing."
+                "spoken_feedback": "You are doing great with your ideas! To enhance your speech, listen to the native model and refine your phrasing."
             }
 
     # ------------------------------------------------------------------
@@ -1151,7 +1151,8 @@ Analyze their spoken English and return a JSON object with EXACTLY these keys:
                 "overall_score": 50,
                 "what_was_wrong": "Speech was too brief (under 15 words). Give a fuller answer with at least 3-4 sentences.",
                 "live_correction": "Try starting with: 'Curiosity is the engine that drives all human discovery...'",
-                "praise": "Good attempt stepping up to the microphone!"
+                "praise": "Good attempt stepping up to the microphone!",
+                "spoken_feedback": "Good attempt! To enhance your public speaking, speak for at least 3 complete sentences so we can evaluate your pacing."
             }
 
         # Deterministic filler word counter
@@ -1173,6 +1174,7 @@ Evaluate strictly and return JSON with keys:
 4. "what_was_wrong": 1-2 concise bullet points explaining grammatical slips, awkward pauses, or lack of structure.
 5. "live_correction": Rephrase the student's speech into a polished, powerful 2-3 sentence speech version they can read aloud.
 6. "praise": 1 energetic sentence praising their best point.
+7. "spoken_feedback": A warm spoken message (max 35 words) telling the student: 1) Whether they are doing great or need improvement, 2) Exactly what they should enhance (e.g. reduce fillers, pause more), and 3) A short encouraging sentence.
 """
         messages = [
             {"role": "system", "content": "You are a professional spoken English and public speaking adjudicator. Return ONLY a valid JSON object."},
@@ -1183,6 +1185,8 @@ Evaluate strictly and return JSON with keys:
             raw = await ai_provider.chat_completion(messages, temperature=0.3, response_format_json=True)
             data = json.loads(raw)
             data["filler_count"] = filler_count
+            if not data.get("spoken_feedback"):
+                data["spoken_feedback"] = f"You are doing great with your presence! To enhance your presentation, focus on: {data.get('what_was_wrong', 'pacing')}."
             return data
         except Exception as ex:
             logger.warning(f"Public speaking AI critique notice: {ex}")
@@ -1193,7 +1197,8 @@ Evaluate strictly and return JSON with keys:
                 "overall_score": 82,
                 "what_was_wrong": "Good enthusiasm, but make sure to use transition words like 'Furthermore' and 'In conclusion'.",
                 "live_correction": "Curiosity sparks discovery. When students ask 'why', they begin to truly learn. That is why curiosity is our greatest mentor.",
-                "praise": "Great passion and clear voice projection!"
+                "praise": "Great passion and clear voice projection!",
+                "spoken_feedback": "You did great on projection and vocal energy! To enhance your speech, cut down on filler pauses."
             }
 
     # ------------------------------------------------------------------

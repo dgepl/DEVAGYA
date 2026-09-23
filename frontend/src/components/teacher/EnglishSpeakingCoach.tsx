@@ -168,6 +168,15 @@ export function EnglishSpeakingCoach() {
   } | null>(null);
   const [speakCritiqueLoading, setSpeakCritiqueLoading] = useState<boolean>(false);
 
+  // Live Step AI Feedback (How it's going, what went well, what to enhance)
+  const [coachStepFeedback, setCoachStepFeedback] = useState<{
+    status: "great" | "good" | "enhance";
+    title: string;
+    whatWentWell: string;
+    whatToEnhance: string;
+    spokenAudio: string;
+  } | null>(null);
+
   // Interactive Live Chat (LRSI) & Hands-Free Conversational Voice Loop
   const [dialogueMessages, setDialogueMessages] = useState<Array<{ sender: "coach" | "user"; text: string; correction?: string | null }>>([]);
   const [isCoachThinking, setIsCoachThinking] = useState<boolean>(false);
@@ -176,6 +185,7 @@ export function EnglishSpeakingCoach() {
   // Audio / Speech Recognition & Hands-Free Loop Refs
   const recognitionRef = useRef<any>(null);
   const isUserActivelyRecordingRef = useRef<boolean>(false);
+  const accumulatedFinalTextRef = useRef<string>("");
   const timerIntervalRef = useRef<any>(null);
   const gameIntervalRef = useRef<any>(null);
   const cachedVoiceRef = useRef<any>(null);
@@ -183,6 +193,44 @@ export function EnglishSpeakingCoach() {
   const activeStepTypeRef = useRef<string>("");
   const silenceTimerRef = useRef<any>(null);
   const isCoachThinkingRef = useRef<boolean>(false);
+
+  // Speech stream stutter & cumulative prefix deduplication
+  const deduplicateSpeechStream = (text: string): string => {
+    if (!text) return "";
+    const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+    if (words.length <= 2) return words.join(" ");
+
+    // 1. Clean consecutive single word stutters ('it it it' -> 'it')
+    const cleanWords: string[] = [];
+    for (const w of words) {
+      if (cleanWords.length === 0 || cleanWords[cleanWords.length - 1].toLowerCase() !== w.toLowerCase()) {
+        cleanWords.push(w);
+      }
+    }
+
+    if (cleanWords.length <= 3) return cleanWords.join(" ");
+
+    // 2. Check for cumulative prefix restart from browser speech recognition (e.g. "it is a it is a genuine..."):
+    const prefixLen = cleanWords.length >= 4 ? 2 : 1;
+    const prefix = cleanWords.slice(0, prefixLen).map(w => w.toLowerCase());
+
+    const matchIndices: number[] = [0];
+    for (let idx = 1; idx <= cleanWords.length - prefixLen; idx++) {
+      const slice = cleanWords.slice(idx, idx + prefixLen).map(w => w.toLowerCase());
+      if (slice.every((w, i) => w === prefix[i])) {
+        matchIndices.push(idx);
+      }
+    }
+
+    if (matchIndices.length >= 2) {
+      const lastIdx = matchIndices[matchIndices.length - 1];
+      if (cleanWords.length - lastIdx >= 3) {
+        return cleanWords.slice(lastIdx).join(" ");
+      }
+    }
+
+    return cleanWords.join(" ");
+  };
 
   // Clean transcript utility
   const cleanTranscript = (t: string) => {
@@ -308,6 +356,8 @@ export function EnglishSpeakingCoach() {
     setGameTimer(30);
     setCollectedKeywords([]);
     setSentenceFixResult(null);
+    setCoachStepFeedback(null);
+    accumulatedFinalTextRef.current = "";
     setGameCompleted(false);
     stopSpeaking();
     clearInterval(timerIntervalRef.current);
@@ -491,8 +541,71 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // 4. Speech Recognition Engine (Desktop & Mobile Optimized)
-  const startRecordingSpeech = (options?: { continuous?: boolean; onResult?: (text: string) => void }) => {
+  // 4. Spoken Coaching Engine for Repeat Stage
+  const evaluateRepeatPerformance = (target: string, captured: string) => {
+    const { score, matches } = calculateWordMatch(target, captured);
+    setRepeatMatchScore(score);
+    setRepeatWordMatches(matches);
+
+    const missed = matches.filter(m => !m.matched).map(m => m.word);
+    let spokenReply = "";
+    let status: "great" | "good" | "enhance" = "good";
+    let whatWentWell = "";
+    let whatToEnhance = "";
+
+    if (score >= 75) {
+      status = "great";
+      whatWentWell = `You scored ${score}%! Crisp diction, accurate syllable stress, and confident volume.`;
+      whatToEnhance = missed.length > 0
+        ? `To enhance even further, polish enunciation on: "${missed.join(", ")}".`
+        : "You are doing great! Keep this exact natural cadence and steady pacing.";
+      spokenReply = `You are doing great! That was an excellent echo with a ${score} percent score. ${whatToEnhance}`;
+      markCurrentDrillDone();
+    } else if (score >= 45) {
+      status = "good";
+      whatWentWell = `Solid attempt with a ${score}% score. Good speech tempo and courage to speak without hesitation.`;
+      whatToEnhance = `To enhance your delivery, make sure to clearly enunciate: "${missed.slice(0, 4).join(", ")}". Repeat once more to master it!`;
+      spokenReply = `Good effort! You scored ${score} percent. To enhance your speech, make sure to clearly enunciate ${missed.slice(0, 4).join(", ")}.`;
+      markCurrentDrillDone();
+    } else {
+      status = "enhance";
+      whatWentWell = "Good vocal effort and participation.";
+      whatToEnhance = `Slow down and pronounce each word clearly, especially: "${missed.slice(0, 4).join(", ")}". Give it another try!`;
+      spokenReply = `Good try! You scored ${score} percent. Here is what you should enhance: speak a little slower and pronounce each word clearly, especially ${missed.slice(0, 4).join(", ")}.`;
+    }
+
+    setCoachStepFeedback({
+      status,
+      title: status === "great" ? `Pronunciation Mastery: ${score}% (Doing Great!)` : status === "good" ? `Good Progress: ${score}%` : `Pronunciation Focus: ${score}%`,
+      whatWentWell,
+      whatToEnhance,
+      spokenAudio: spokenReply
+    });
+
+    speakText(spokenReply);
+  };
+
+  // Model audio player with spoken coaching advice
+  const handleListenToModel = (modelText: string) => {
+    setHasListened(true);
+    markCurrentDrillDone();
+    speakText(modelText, () => {
+      setTimeout(() => {
+        const spokenGuidance = "Great job tuning your ear! Notice the rhythm and clear pauses. To enhance your speech, echo this exact rhythm in the repeat step.";
+        setCoachStepFeedback({
+          status: "great",
+          title: "Native Model Audio (Listening Stage)",
+          whatWentWell: "Engaged with native intonation, accent, and cadence.",
+          whatToEnhance: "Focus on syllable stress and where the breath naturally pauses before you speak.",
+          spokenAudio: spokenGuidance
+        });
+        speakText(spokenGuidance);
+      }, 400);
+    });
+  };
+
+  // 5. Speech Recognition Engine (Desktop & Mobile Optimized, Deduplicated)
+  const startRecordingSpeech = (options?: { continuous?: boolean; onResult?: (text: string) => void; preserveText?: boolean }) => {
     if (typeof window === "undefined") return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -508,7 +621,7 @@ export function EnglishSpeakingCoach() {
       setIsAiSpeaking(false);
     }
 
-    // Explicitly unbind all event handlers from the previous recognition instance to prevent phantom onend triggers
+    // Explicitly unbind all event handlers from previous recognition instance to prevent phantom onend triggers
     if (recognitionRef.current) {
       try {
         recognitionRef.current.onstart = null;
@@ -521,11 +634,13 @@ export function EnglishSpeakingCoach() {
     }
 
     isUserActivelyRecordingRef.current = true;
+    if (!options?.preserveText) {
+      accumulatedFinalTextRef.current = "";
+    }
 
     try {
       const rec = new SpeechRecognition();
       rec.lang = "en-IN";
-      // ALWAYS continuous: true on Desktop Chrome so it doesn't shut off after 1 second of pause!
       rec.continuous = true;
       rec.interimResults = true;
 
@@ -534,11 +649,20 @@ export function EnglishSpeakingCoach() {
       };
 
       rec.onresult = (event: any) => {
-        let transcript = "";
-        for (let i = 0; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript + " ";
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const item = event.results[i];
+          if (item && item[0]) {
+            if (item.isFinal) {
+              accumulatedFinalTextRef.current += " " + item[0].transcript;
+            } else {
+              interim += " " + item[0].transcript;
+            }
+          }
         }
-        const cleaned = cleanTranscript(transcript);
+
+        const fullRaw = (accumulatedFinalTextRef.current + " " + interim).trim();
+        const cleaned = deduplicateSpeechStream(cleanTranscript(fullRaw));
         setUserSpokenText(cleaned);
         options?.onResult?.(cleaned);
 
@@ -560,8 +684,6 @@ export function EnglishSpeakingCoach() {
       };
 
       rec.onerror = (event: any) => {
-        // Desktop Chrome triggers 'no-speech' if the user hesitates for 1 second.
-        // DO NOT shut down the microphone on 'no-speech' or 'aborted'!
         if (event?.error === "no-speech" || event?.error === "aborted") {
           return;
         }
@@ -573,15 +695,14 @@ export function EnglishSpeakingCoach() {
       };
 
       rec.onend = () => {
-        // If the user is still actively recording (e.g., Desktop Chrome closed after a pause),
-        // restart smoothly if AI is not speaking and coach is not thinking
+        // In Chrome Desktop, when recognition stops after a pause, spin up a clean instance with preserved final text
         if (isUserActivelyRecordingRef.current && !isCoachThinkingRef.current) {
-          try {
-            rec.start();
-            return;
-          } catch {
-            // If restart fails, clean up
-          }
+          setTimeout(() => {
+            if (isUserActivelyRecordingRef.current && !isCoachThinkingRef.current) {
+              startRecordingSpeech({ ...options, preserveText: true });
+            }
+          }, 150);
+          return;
         }
         setIsListening(false);
       };
@@ -597,6 +718,7 @@ export function EnglishSpeakingCoach() {
 
   const stopRecordingSpeech = () => {
     isUserActivelyRecordingRef.current = false;
+    accumulatedFinalTextRef.current = "";
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
@@ -616,33 +738,41 @@ export function EnglishSpeakingCoach() {
 
   // Repeat step voice recorder & validator
   const handleRepeatVoiceCapture = () => {
-    if (isListening) {
-      stopRecordingSpeech();
-      return;
-    }
     const currentMod = modules[activeModuleIdx];
     const currentStep = currentMod?.steps[activeStepIdx];
     const target = (currentStep?.practice_items && currentStep.practice_items[activeDrillIdx]?.target_phrase) || currentStep?.target_phrase || "";
 
+    if (isListening) {
+      stopRecordingSpeech();
+      if (userSpokenText.trim() && target) {
+        evaluateRepeatPerformance(target, userSpokenText);
+      }
+      return;
+    }
+
     startRecordingSpeech({
       continuous: true,
       onResult: (text: string) => {
-        if (target) {
-          const { score, matches } = calculateWordMatch(target, text);
-          setRepeatMatchScore(score);
-          setRepeatWordMatches(matches);
-          if (score >= 45) {
-            markCurrentDrillDone();
-          }
-          if (score >= 65) {
-            speakText("Great pronunciation! Clean match.");
-          }
+        if (!target) return;
+        const { score, matches } = calculateWordMatch(target, text);
+        setRepeatMatchScore(score);
+        setRepeatWordMatches(matches);
+
+        // Auto-evaluate when user achieves high match or after adequate speech length
+        const targetWords = target.trim().split(/\s+/).filter(Boolean);
+        const spokenWords = text.trim().split(/\s+/).filter(Boolean);
+        if (score >= 65 || (spokenWords.length >= targetWords.length && spokenWords.length >= 3)) {
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = setTimeout(() => {
+            stopRecordingSpeech();
+            evaluateRepeatPerformance(target, text);
+          }, 900);
         }
       }
     });
   };
 
-  // 5. Speak Stage AI Critique (Positives, Negatives, Improvements)
+  // 6. Speak Stage AI Critique (Positives, Negatives, Improvements & Spoken Reply)
   const handleEvaluateSpeakStage = async (explicitText?: string) => {
     const textToEvaluate = (explicitText || userSpokenText).trim();
     if (!textToEvaluate) {
@@ -677,6 +807,20 @@ export function EnglishSpeakingCoach() {
         const data = await res.json();
         setSpeakCritique(data);
         markCurrentDrillDone();
+
+        const isDoingGreat = (data.positive_points?.length || 0) >= (data.negative_points?.length || 0);
+        const status = isDoingGreat ? "great" : "enhance";
+        const whatWentWell = (data.positive_points || []).join(". ") || "Clear intent and spontaneous expression.";
+        const whatToEnhance = `${(data.negative_points || []).join(". ")} — ${data.how_to_improve || "Refine syntax and vocabulary."}`;
+
+        setCoachStepFeedback({
+          status,
+          title: isDoingGreat ? "AI Spoken Critique: You're Doing Great!" : "AI Spoken Critique: Key Areas to Enhance",
+          whatWentWell,
+          whatToEnhance,
+          spokenAudio: data.spoken_feedback
+        });
+
         if (data.spoken_feedback) {
           speakText(data.spoken_feedback);
         }
@@ -690,7 +834,7 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // 6. Public Speaking Stage (LRSP 60s Timer & Evaluation)
+  // 7. Public Speaking Stage (LRSP 60s Timer & Spoken Evaluation)
   const handleStartPublicSpeaking = () => {
     setSpeakingTimer(60);
     setIsTimerActive(true);
@@ -745,9 +889,23 @@ export function EnglishSpeakingCoach() {
         const critique = await res.json();
         setSpeakingCritique(critique);
         markCurrentDrillDone();
-        if (critique.live_correction) {
-          speakText(`Here is your polished delivery: ${critique.live_correction}`);
-        }
+
+        const isGreat = (critique.overall_score || 70) >= 70;
+        const spokenFeedback = critique.spoken_feedback || (
+          isGreat
+            ? `You are doing great! Your overall score is ${critique.overall_score || 75} out of 100. What you did well: you maintained continuous speech with strong confidence. To enhance your delivery: ${critique.what_was_wrong || critique.live_correction || "reduce filler words and pause strategically between key ideas"}.`
+            : `Good effort! Your score is ${critique.overall_score || 55} out of 100. Here is what you should enhance: ${critique.what_was_wrong || critique.live_correction}. Practice this polished version to boost your poise.`
+        );
+
+        setCoachStepFeedback({
+          status: isGreat ? "great" : "enhance",
+          title: `Public Speaking Adjudication (${critique.overall_score || 70}/100)`,
+          whatWentWell: critique.praise || "Spoke continuously under timed pressure with clear voice volume.",
+          whatToEnhance: critique.what_was_wrong || critique.live_correction || "Eliminate filler hesitations and refine pacing.",
+          spokenAudio: spokenFeedback
+        });
+
+        speakText(spokenFeedback);
       }
     } catch (err) {
       console.warn("Error getting critique:", err);
@@ -756,7 +914,7 @@ export function EnglishSpeakingCoach() {
     }
   };
 
-  // 7. Interactive Spoken Dialogue (Dedicated Sub-Second LRSI Endpoint + Hands-Free Loop)
+  // 8. Interactive Spoken Dialogue (Dedicated Sub-Second LRSI Endpoint + Hands-Free Loop)
   const handleSendDialogueTurn = async (overrideText?: string) => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -798,8 +956,20 @@ export function EnglishSpeakingCoach() {
         }]);
         markCurrentDrillDone();
 
+        const spokenFull = data.correction 
+          ? `${replyText}. You are doing great! Here is a tip to enhance your English: ${data.correction}`
+          : `${replyText}. You are doing great! Keep replying naturally.`;
+
+        setCoachStepFeedback({
+          status: data.correction ? "good" : "great",
+          title: "Live Dialogue Spoken Coaching",
+          whatWentWell: "Engaged actively in back-and-forth conversation with prompt response time.",
+          whatToEnhance: data.correction || "Continue speaking in complete descriptive sentences.",
+          spokenAudio: spokenFull
+        });
+
         // Speak coach response aloud; upon completion, auto-resume listening if hands-free is active!
-        speakText(replyText, () => {
+        speakText(spokenFull, () => {
           if (isHandsFreeRef.current && activeStepTypeRef.current === "interact") {
             setTimeout(() => {
               startRecordingSpeech({ continuous: true });
@@ -836,6 +1006,15 @@ export function EnglishSpeakingCoach() {
         if (found.length >= 2) {
           setGameCompleted(true);
           markCurrentDrillDone();
+          const spokenReply = "You are doing great! You hit the target vocabulary keywords with swift recall. To enhance further, use each of these words in a complete compound sentence!";
+          setCoachStepFeedback({
+            status: "great",
+            title: "Word Sprint High Score!",
+            whatWentWell: "Rapid vocabulary retrieval and confident articulation under time pressure.",
+            whatToEnhance: "Form full complex sentences with these newly retrieved adjectives.",
+            spokenAudio: spokenReply
+          });
+          speakText(spokenReply);
         }
       }
     });
@@ -849,6 +1028,15 @@ export function EnglishSpeakingCoach() {
           stopRecordingSpeech();
           setGameCompleted(true);
           markCurrentDrillDone();
+          const spokenReply = "You did great on this speed drill! Your word recall and vocal agility were fast and crisp. To enhance your fluency further, keep your vowels open and maintain a relaxed jaw.";
+          setCoachStepFeedback({
+            status: "great",
+            title: "Sprint Drill Completed",
+            whatWentWell: "Vocal agility and stamina under timed challenge.",
+            whatToEnhance: "Maintain relaxed jaw and open vowel shapes at high velocity.",
+            spokenAudio: spokenReply
+          });
+          speakText(spokenReply);
           return 0;
         }
         return prev - 1;
@@ -871,18 +1059,41 @@ export function EnglishSpeakingCoach() {
         if (!targetCorrect) return;
         const { score } = calculateWordMatch(targetCorrect, text);
         if (score >= 45) {
+          stopRecordingSpeech();
           setSentenceFixResult({
             success: true,
             message: `Spot on! "${targetCorrect}" is grammatically accurate! 🌟`
           });
           setGameCompleted(true);
           markCurrentDrillDone();
-          speakText("Spot on! That is grammatically accurate.");
-        } else {
-          setSentenceFixResult({
-            success: false,
-            message: `Notice the target structure: "${targetCorrect}". Keep practicing!`
+
+          const spokenReply = "You are doing great! Spot on! That was grammatically accurate and well articulated. To enhance further, practice using this correct structure naturally in conversation.";
+          setCoachStepFeedback({
+            status: "great",
+            title: "Grammar Clinic: Doing Great!",
+            whatWentWell: "Identified the grammatical flaw and delivered the corrected sentence cleanly.",
+            whatToEnhance: "Integrate this accurate structure into your spontaneous daily speech.",
+            spokenAudio: spokenReply
           });
+          speakText(spokenReply);
+        } else if (text.trim().split(/\s+/).length >= 4) {
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = setTimeout(() => {
+            stopRecordingSpeech();
+            const spokenReply = `Good attempt! You are close, but here is what you should enhance: the target correct sentence is "${targetCorrect}". Notice the verb agreement and try saying it once more!`;
+            setSentenceFixResult({
+              success: false,
+              message: `Notice the target structure: "${targetCorrect}". Keep practicing!`
+            });
+            setCoachStepFeedback({
+              status: "enhance",
+              title: "Grammar Clinic: Needs Adjustment",
+              whatWentWell: "Recognized the need for modification and attempted correction.",
+              whatToEnhance: `Target phrase: "${targetCorrect}". Watch the verb tense and word order.`,
+              spokenAudio: spokenReply
+            });
+            speakText(spokenReply);
+          }, 1000);
         }
       }
     });
@@ -1341,10 +1552,12 @@ export function EnglishSpeakingCoach() {
     const switchDrill = (idx: number) => {
       setActiveDrillIdx(idx);
       setUserSpokenText("");
+      accumulatedFinalTextRef.current = "";
       setRepeatMatchScore(null);
       setRepeatWordMatches([]);
       setSpeakCritique(null);
       setSentenceFixResult(null);
+      setCoachStepFeedback(null);
       stopRecordingSpeech();
       if (currentStep?.type === "interact") {
         const starter = practiceItems[idx]?.coach_starter || currentStep?.coach_starter;
@@ -1441,6 +1654,70 @@ export function EnglishSpeakingCoach() {
               </div>
             )}
 
+            {/* DEVGYA AI SPOKEN COACH STEP FEEDBACK CARD */}
+            {coachStepFeedback && (
+              <div className={`p-4 sm:p-5 rounded-2xl border transition-all animate-in fade-in slide-in-from-top-2 ${
+                coachStepFeedback.status === "great"
+                  ? "bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white border-emerald-300 text-emerald-950 shadow-xs"
+                  : coachStepFeedback.status === "good"
+                  ? "bg-gradient-to-r from-indigo-50/90 via-blue-50/50 to-white border-indigo-300 text-indigo-950 shadow-xs"
+                  : "bg-gradient-to-r from-amber-50/90 via-orange-50/50 to-white border-amber-300 text-amber-950 shadow-xs"
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-black/5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className={`p-2 rounded-xl text-white shadow-xs ${
+                      coachStepFeedback.status === "great"
+                        ? "bg-emerald-600"
+                        : coachStepFeedback.status === "good"
+                        ? "bg-indigo-600"
+                        : "bg-amber-600"
+                    }`}>
+                      <Sparkles className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+                        Devgya AI Spoken Coach • Step Verdict
+                      </span>
+                      <h4 className="text-sm sm:text-base font-black text-slate-900">
+                        {coachStepFeedback.title}
+                      </h4>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => coachStepFeedback.spokenAudio && speakText(coachStepFeedback.spokenAudio)}
+                    disabled={isAiSpeaking}
+                    className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-800 font-extrabold text-xs shadow-xs hover:bg-slate-50 flex items-center gap-1.5 shrink-0 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>{isAiSpeaking ? "Coach Speaking..." : "Hear AI Coach Voice"}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 text-xs">
+                  <div className="p-3.5 rounded-xl bg-white/90 border border-emerald-100/80 space-y-1 shadow-2xs">
+                    <span className="font-black text-emerald-800 uppercase tracking-wide flex items-center gap-1 text-[11px]">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      How You're Doing / What Went Well:
+                    </span>
+                    <p className="font-semibold text-slate-700 leading-relaxed">
+                      {coachStepFeedback.whatWentWell}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-white/90 border border-amber-100/80 space-y-1 shadow-2xs">
+                    <span className="font-black text-amber-800 uppercase tracking-wide flex items-center gap-1 text-[11px]">
+                      <Flame className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      What You Should Enhance:
+                    </span>
+                    <p className="font-semibold text-slate-700 leading-relaxed">
+                      {coachStepFeedback.whatToEnhance}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* STEP 1: LISTEN */}
             {currentStep.type === "listen" && currentModelAudio && (
               <div className="p-6 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-4">
@@ -1451,9 +1728,7 @@ export function EnglishSpeakingCoach() {
                   </span>
                   <button
                     onClick={() => {
-                      setHasListened(true);
-                      markCurrentDrillDone();
-                      speakText(currentModelAudio);
+                      if (currentModelAudio) handleListenToModel(currentModelAudio);
                     }}
                     disabled={isAiSpeaking}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-sm hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
