@@ -74,6 +74,71 @@ except Exception as e:
     pass
 
 
+def _create_school_crest(school_name: str) -> Optional[RLImage]:
+    """Generates an authentic, high-resolution official School Crest / Seal image for paper header."""
+    try:
+        from PIL import Image as PILImage, ImageDraw as PILImageDraw, ImageFont as PILImageFont
+        size = 180
+        img = PILImage.new("RGBA", (size, size), (255, 255, 255, 0))
+        draw = PILImageDraw.Draw(img)
+        
+        # Outer academic crest circle (Deep Royal Navy #1E1B4B)
+        draw.ellipse([6, 6, size - 6, size - 6], fill=(30, 27, 75, 255), outline=(79, 70, 229, 255), width=3)
+        # Inner ornamental ring (Gold #EAB308)
+        draw.ellipse([14, 14, size - 14, size - 14], outline=(234, 179, 8, 255), width=2)
+        
+        # Extract meaningful initials from school name (e.g. "Apex International School" -> "AIS")
+        words = [w for w in re.sub(r'[^a-zA-Z\s]', '', school_name).split() if w.lower() not in ('of', 'the', 'and', '&', 'a', 'an')]
+        if len(words) >= 3:
+            initials = f"{words[0][0]}{words[1][0]}{words[2][0]}".upper()
+        elif len(words) == 2:
+            initials = f"{words[0][0]}{words[1][0]}".upper()
+        elif len(words) == 1 and len(words[0]) >= 2:
+            initials = words[0][:2].upper()
+        else:
+            initials = "SCH"
+            
+        font = None
+        for font_candidate in ["C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/arial.ttf", "arial.ttf"]:
+            if os.path.exists(font_candidate):
+                try:
+                    font = PILImageFont.truetype(font_candidate, 42)
+                    break
+                except Exception:
+                    pass
+        if not font:
+            try:
+                font = PILImageFont.load_default()
+            except Exception:
+                pass
+                
+        if font:
+            bbox = draw.textbbox((0, 0), initials, font=font)
+            text_w = bbox[2] - bbox[0]
+            text_h = bbox[3] - bbox[1]
+            text_x = (size - text_w) / 2
+            text_y = (size - text_h) / 2 - 8
+            draw.text((text_x, text_y), initials, fill=(255, 255, 255, 255), font=font)
+            
+        # Golden academic star below initials
+        cx, cy = size / 2, size - 36
+        star_points = [
+            (cx, cy - 8), (cx + 2.5, cy - 2.5), (cx + 8, cy - 2.5),
+            (cx + 3.5, cy + 1.5), (cx + 5.5, cy + 7.5), (cx, cy + 3.5),
+            (cx - 5.5, cy + 7.5), (cx - 3.5, cy + 1.5), (cx - 8, cy - 2.5),
+            (cx - 2.5, cy - 2.5)
+        ]
+        draw.polygon(star_points, fill=(234, 179, 8, 255))
+        
+        bio = io.BytesIO()
+        img.save(bio, format="PNG")
+        bio.seek(0)
+        return RLImage(bio, width=48, height=48)
+    except Exception as e:
+        logger.warning(f"Failed to generate dynamic school crest: {e}")
+        return None
+
+
 def extract_pdf_content(file_bytes: bytes, max_pages: int = 30):
     """Extract text from a PDF file using PyMuPDF (pymupdf), falling back to rendering page images if scanned."""
     extracted_text = ""
@@ -808,14 +873,18 @@ class PDFGeneratorService:
             except Exception as e:
                 pass
 
-        # Fallback to DEVGYA official logo if available
+        # Fallback to authentic school crest if school name is present (never force Devgya logo on school paper)
         if not logo_element:
-            default_logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "logo.png"))
-            if os.path.exists(default_logo_path):
-                try:
-                    logo_element = RLImage(default_logo_path, width=48, height=48)
-                except Exception:
-                    pass
+            school_n = getattr(paper, "school_name", "")
+            if school_n and "devgya" not in school_n.lower():
+                logo_element = _create_school_crest(school_n)
+            else:
+                default_logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "logo.png"))
+                if os.path.exists(default_logo_path):
+                    try:
+                        logo_element = RLImage(default_logo_path, width=48, height=48)
+                    except Exception:
+                        pass
 
         # Header Block
         header_title = f"{paper.title} (TEACHER ANSWER KEY)" if include_answers else paper.title
@@ -2383,7 +2452,6 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
         doc_fb.build(fallback_story, canvasmaker=NumberedCanvas)
         pdf_bytes = fallback_buffer.getvalue()
         fallback_buffer.close()
-        return pdf_bytes
 
 def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = False) -> bytes:
     """
@@ -2525,28 +2593,29 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
     difficulty = str(p.get("difficulty") or "balanced").capitalize()
     raw_logo = p.get("school_logo")
 
-    # Logo resolution
+    # School Logo resolution (Never fall back to DEVGYA company logo for school papers)
     logo_elem = None
     if raw_logo:
         try:
             if str(raw_logo).startswith(("http://", "https://")):
-                with httpx.Client(timeout=4.0) as client:
-                    r = client.get(raw_logo)
+                with httpx.Client(timeout=5.0) as client:
+                    r = client.get(str(raw_logo))
                     if r.status_code == 200:
-                        logo_elem = RLImage(io.BytesIO(r.content), width=44, height=44)
+                        logo_elem = RLImage(io.BytesIO(r.content), width=48, height=48)
             elif "base64," in str(raw_logo):
                 b64 = str(raw_logo).split("base64,")[1]
-                logo_elem = RLImage(io.BytesIO(base64.b64decode(b64)), width=44, height=44)
-        except Exception:
+                logo_elem = RLImage(io.BytesIO(base64.b64decode(b64)), width=48, height=48)
+            elif os.path.exists(str(raw_logo)):
+                logo_elem = RLImage(str(raw_logo), width=48, height=48)
+            elif len(str(raw_logo).strip()) > 100:
+                logo_elem = RLImage(io.BytesIO(base64.b64decode(str(raw_logo).strip())), width=48, height=48)
+        except Exception as e:
+            logger.warning(f"Error loading school logo: {e}")
             logo_elem = None
 
+    # If no custom school logo provided, generate an authentic School Crest with school's own name/initials
     if not logo_elem:
-        default_logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "logo.png"))
-        if os.path.exists(default_logo_path):
-            try:
-                logo_elem = RLImage(default_logo_path, width=44, height=44)
-            except Exception:
-                pass
+        logo_elem = _create_school_crest(school_name)
 
     # Header
     edition_label = "TEACHER ANSWER KEY & COUNSELING RUBRIC" if include_answers else "STUDENT QUESTION PAPER"
@@ -2634,19 +2703,8 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
     shorts = [q for q in raw_qs if q.get("question_type") == "short"]
     longs = [q for q in raw_qs if q.get("question_type") == "long"]
 
-    def _get_stream_badge(stream_val: str) -> str:
-        s = (stream_val or "science").lower()
-        if s == "commerce":
-            return "<font color='#047857'><b>[COMMERCE STREAM]</b></font>"
-        elif s == "humanities":
-            return "<font color='#7E22CE'><b>[HUMANITIES STREAM]</b></font>"
-        return "<font color='#1D4ED8'><b>[SCIENCE STREAM]</b></font>"
-
     def _render_question(q: dict, idx: int):
         q_elems = []
-        stream_badge = _get_stream_badge(q.get("stream", "science"))
-        comp = q.get("competency")
-        comp_tag = f" &bull; <i>{html.escape(str(comp))}</i>" if comp else ""
         marks = q.get("marks", 1)
         marks_tag = f"<b>[{marks} Mark{'s' if marks > 1 else ''}]</b>"
 
@@ -2662,9 +2720,13 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
             q_elems.append(p_table)
             q_elems.append(Spacer(1, 3))
 
-        # Question prompt
-        q_text = html.escape(str(q.get("question_text", ""))).replace("\n", "<br/>")
-        stem_str = f"<b>Q{idx}.</b> {stream_badge}{comp_tag} &nbsp; {q_text} &nbsp; {marks_tag}"
+        # Question prompt: starts directly with Question Number and question text (never starts with stream or topic)
+        raw_q_text = str(q.get("question_text", "")).strip()
+        cleaned_q_text = re.sub(r'^(?:\[?(?:science|commerce|humanities)\]?[\s:\-–—|•]+)+', '', raw_q_text, flags=re.IGNORECASE).strip()
+        cleaned_q_text = re.sub(r'^(?:topic|competency)[\s:\-–—|•]+[^:\n]+[:\-–—]+', '', cleaned_q_text, flags=re.IGNORECASE).strip()
+        q_text = html.escape(cleaned_q_text or raw_q_text).replace("\n", "<br/>")
+        
+        stem_str = f"<b>Q{idx}.</b> {q_text} &nbsp;&nbsp;{marks_tag}"
         q_elems.append(Paragraph(stem_str, q_stem_style))
         q_elems.append(Spacer(1, 2))
 
@@ -2704,9 +2766,13 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
             q_elems.append(Spacer(1, 2))
             ans_text = html.escape(str(q.get("answer", "Refer to standard solution."))).replace("\n", "<br/>")
             expl_text = html.escape(str(q.get("explanation", ""))).replace("\n", "<br/>")
+            stream_name = str(q.get("stream", "Science")).capitalize()
+            comp_name = str(q.get("competency") or f"{stream_name} Aptitude")
             
             box_content = [
-                Paragraph(f"<b>&check; Model Solution / Marking Key:</b> {ans_text}", ans_box_style)
+                Paragraph(f"<b>&check; Model Solution / Marking Key:</b> {ans_text}", ans_box_style),
+                Spacer(1, 1),
+                Paragraph(f"<b>Stream Evaluated:</b> {stream_name} &bull; <b>Competency Tested:</b> {comp_name}", expl_box_style)
             ]
             if expl_text:
                 box_content.append(Spacer(1, 1))

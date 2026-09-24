@@ -40,6 +40,7 @@ export default function SchoolStreamAssessmentPage() {
 
   // Form State — Class is fixed internally as Class 11-12 without asking the user
   const [schoolName, setSchoolName] = useState(user.schoolName || "Apex International School");
+  const [schoolLogo, setSchoolLogo] = useState(user.schoolLogo || "");
   const className = "Class 11-12";
   const [title, setTitle] = useState("Class 11-12 Stream Selection & Aptitude Diagnostic Assessment");
   const [timeAllowedMins, setTimeAllowedMins] = useState<number>(90);
@@ -48,6 +49,16 @@ export default function SchoolStreamAssessmentPage() {
   const [numShortPerStream, setNumShortPerStream] = useState<number>(2);
   const [numLongPerStream, setNumLongPerStream] = useState<number>(1);
   const [customInstructions, setCustomInstructions] = useState("");
+
+  // Sync state if user profile is loaded asynchronously
+  useEffect(() => {
+    if (user.schoolLogo && !schoolLogo) {
+      setSchoolLogo(user.schoolLogo);
+    }
+    if (user.schoolName && schoolName === "Apex International School") {
+      setSchoolName(user.schoolName);
+    }
+  }, [user.schoolLogo, user.schoolName]);
 
   // Generation & View State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -108,7 +119,7 @@ export default function SchoolStreamAssessmentPage() {
         title,
         class_name: className,
         school_name: schoolName,
-        school_logo: user.schoolLogo,
+        school_logo: schoolLogo || user.schoolLogo || "",
         time_allowed_mins: Number(timeAllowedMins),
         difficulty,
         num_mcqs_per_stream: Number(numMcqsPerStream),
@@ -119,6 +130,9 @@ export default function SchoolStreamAssessmentPage() {
       };
 
       const result = await generateStreamAssessment(payload);
+      if (result && !result.school_logo && (schoolLogo || user.schoolLogo)) {
+        result.school_logo = schoolLogo || user.schoolLogo;
+      }
       setAssessmentPaper(result);
       setViewMode("generator");
       setActiveTab("paper");
@@ -138,7 +152,11 @@ export default function SchoolStreamAssessmentPage() {
     else setDownloadingStudentPdf(true);
 
     try {
-      await downloadStreamAssessmentPDF(paperObj, includeAnswers);
+      const paperWithLogo = {
+        ...paperObj,
+        school_logo: paperObj.school_logo || schoolLogo || user.schoolLogo || ""
+      };
+      await downloadStreamAssessmentPDF(paperWithLogo, includeAnswers);
     } catch (e: any) {
       alert(`Download failed: ${e.message}`);
     } finally {
@@ -413,16 +431,73 @@ export default function SchoolStreamAssessmentPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* School Name */}
+                  {/* School Name & Logo Branding */}
                   <div className="space-y-1.5 sm:col-span-2">
-                    <label className="text-xs font-bold text-slate-700">School / Institution Name</label>
-                    <input
-                      type="text"
-                      value={schoolName}
-                      onChange={(e) => setSchoolName(e.target.value)}
-                      placeholder="Enter official school name"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
-                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>School / Institution Name</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={schoolName}
+                          onChange={(e) => setSchoolName(e.target.value)}
+                          placeholder="e.g. Delhi Public School / Apex International School"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700">School Logo</label>
+                          {schoolLogo && (
+                            <button
+                              type="button"
+                              onClick={() => setSchoolLogo("")}
+                              className="text-[10px] text-rose-500 hover:text-rose-700 font-bold cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {schoolLogo ? (
+                            <div className="w-10 h-10 rounded-xl border border-slate-200 bg-white p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={schoolLogo} alt="School Logo" className="w-full h-full object-contain" />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center shrink-0 text-slate-400">
+                              <Building2 className="w-4 h-4" />
+                            </div>
+                          )}
+                          <label className="flex-1 cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = () => {
+                                    if (typeof reader.result === "string") {
+                                      setSchoolLogo(reader.result);
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                            <div className="px-3 py-2 rounded-xl border border-slate-200 hover:border-indigo-300 bg-white hover:bg-indigo-50/50 text-slate-700 hover:text-indigo-600 text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1.5 shadow-2xs">
+                              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>{schoolLogo ? "Change" : "Upload Logo"}</span>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Assessment Title (Full width) */}
@@ -846,6 +921,16 @@ export default function SchoolStreamAssessmentPage() {
                 
                 {/* Paper Top Branding */}
                 <div className="text-center space-y-1.5 border-b border-slate-200 pb-5">
+                  {(assessmentPaper.school_logo || schoolLogo || user.schoolLogo) && (
+                    <div className="flex justify-center mb-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={assessmentPaper.school_logo || schoolLogo || user.schoolLogo}
+                        alt="School Logo"
+                        className="w-14 h-14 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-2xs"
+                      />
+                    </div>
+                  )}
                   <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
                     {assessmentPaper.school_name}
                   </div>
@@ -931,7 +1016,10 @@ export default function SchoolStreamAssessmentPage() {
 
                         {/* Question Text */}
                         <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
-                          {q.question_text}
+                          {(q.question_text || "")
+                            .replace(/^(?:\[?(?:science|commerce|humanities)\]?[\s:\-–—|•]+)+/i, "")
+                            .replace(/^(?:topic|competency)[\s:\-–—|•]+[^:\n]+[:\-–—]+/i, "")
+                            .trim() || q.question_text}
                         </p>
 
                         {/* MCQ Options */}
