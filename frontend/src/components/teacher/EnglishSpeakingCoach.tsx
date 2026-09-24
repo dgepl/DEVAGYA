@@ -73,7 +73,7 @@ interface PracticeItem {
 
 interface StepItem {
   step_id: string;
-  type: "coach_masterclass" | "vocal_mimicry" | "sentence_doctor" | "conversational_sparring" | "spoken_capstone" | "listen" | "repeat" | "speak" | "interact" | "present" | "capstone" | "game" | "error_fix" | "hook_delivery" | "star_method";
+  type: "coach_masterclass" | "vocal_mimicry" | "sentence_doctor" | "conversational_sparring" | "spoken_capstone" | "listen" | "repeat" | "speak" | "interact" | "present" | "capstone" | "game" | "error_fix" | "hook_delivery" | "star_method" | "daily_chitchat" | "polite_request" | "live_lounge" | "mastery_graduation";
   title: string;
   prompt: string;
   model_audio_text?: string;
@@ -343,7 +343,10 @@ export function EnglishSpeakingCoach() {
   // Interactive Live Chat (LRSI) & Hands-Free Conversational Voice Loop
   const [dialogueMessages, setDialogueMessages] = useState<Array<{ sender: "coach" | "user"; text: string; correction?: string | null }>>([]);
   const [isCoachThinking, setIsCoachThinking] = useState<boolean>(false);
-  const [isHandsFreeMode, setIsHandsFreeMode] = useState<boolean>(true);
+  const [isHandsFreeMode, setIsHandsFreeMode] = useState<boolean>(false);
+  const [liveLoungeTopic, setLiveLoungeTopic] = useState<string>("🚀 My Career & Aspirations");
+  const [isRepeatEvaluating, setIsRepeatEvaluating] = useState<boolean>(false);
+  const [isDoctorEvaluating, setIsDoctorEvaluating] = useState<boolean>(false);
 
   // Studio Neural Coach Voice Settings (Edge-TTS)
   const [coachVoice, setCoachVoice] = useState<string>("en-IN-NeerjaNeural");
@@ -816,8 +819,23 @@ export function EnglishSpeakingCoach() {
     };
   };
 
-  // Mandatory Vocal Warmup Speech Capture & Evaluation (Masterclass Step 1)
-  const handleWarmupVoiceCapture = async () => {
+  // 3-STEP MANUAL TACTILE MIC CONTROLS (ZERO EARLY CUT-OFFS)
+  const handleToggleWarmupMic = () => {
+    if (isListening) {
+      stopRecordingSpeech();
+      return;
+    }
+    speechStartTimeRef.current = Date.now();
+    setUserSpokenText("");
+    setWarmupAccuracyScore(null);
+    setWarmupWordMatches([]);
+    setWarmupPacing(null);
+    setWarmupFillers([]);
+    startRecordingSpeech({ continuous: true });
+  };
+
+  const handleEvaluateWarmup = async () => {
+    stopRecordingSpeech();
     const currentMod = modules[activeModuleIdx];
     const currentStep = currentMod?.steps[activeStepIdx];
     const warmupPhrase = currentStep?.vocal_warmup_phrase ||
@@ -825,101 +843,95 @@ export function EnglishSpeakingCoach() {
       currentStep?.masterclass_lecture?.model_audio_text ||
       "Good morning everyone! It is a genuine pleasure to connect with all of you today.";
 
-    if (isListening) {
-      stopRecordingSpeech();
-      const durationSec = speechStartTimeRef.current ? Math.max(1, (Date.now() - speechStartTimeRef.current) / 1000) : 4;
-      speechStartTimeRef.current = null;
-      if (userSpokenText.trim()) {
-        setIsWarmupEvaluating(true);
-        const evalResult = await evaluateSpeechBackend(warmupPhrase, userSpokenText, durationSec);
-        setIsWarmupEvaluating(false);
-        setWarmupAccuracyScore(evalResult.accuracy_score);
-        setWarmupWordMatches(evalResult.word_matches);
-        setWarmupPacing({ wpm: evalResult.wpm, pace_status: evalResult.pace_status });
-        setWarmupFillers(evalResult.filler_words || []);
-
-        setCoachStepFeedback({
-          status: evalResult.accuracy_score >= 75 ? "great" : evalResult.accuracy_score >= 50 ? "good" : "enhance",
-          title: `Vocal Warmup Complete • Score: ${evalResult.accuracy_score}%`,
-          whatWentWell: `Delivered speech at ${evalResult.wpm} WPM (${evalResult.pace_status}) with strong vocal intent.`,
-          whatToEnhance: evalResult.total_fillers > 0 ? `Detected ${evalResult.total_fillers} filler word(s). Maintain silent breathing pauses.` : "Maintain grounded terminal inflection.",
-          spokenAudio: evalResult.spoken_coach_critique
-        });
-
-        if (evalResult.spoken_coach_critique) {
-          speakText(evalResult.spoken_coach_critique);
-        }
-      }
+    const textToEval = userSpokenText.trim();
+    if (!textToEval) {
+      alert("Please record your speech into the microphone before requesting AI Review.");
       return;
     }
 
-    speechStartTimeRef.current = Date.now();
-    setUserSpokenText("");
-    setWarmupAccuracyScore(null);
-    setWarmupWordMatches([]);
-    setWarmupPacing(null);
-    setWarmupFillers([]);
+    const durationSec = speechStartTimeRef.current ? Math.max(1, (Date.now() - speechStartTimeRef.current) / 1000) : 4;
+    speechStartTimeRef.current = null;
+    setIsWarmupEvaluating(true);
 
-    startRecordingSpeech({
-      continuous: true,
-      onResult: (text: string) => {
-        const words = text.trim().split(/\s+/).filter(Boolean);
-        const targetWords = warmupPhrase.trim().split(/\s+/).filter(Boolean);
-        if (words.length >= targetWords.length && words.length >= 4) {
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = setTimeout(async () => {
-            stopRecordingSpeech();
-            const durationSec = speechStartTimeRef.current ? Math.max(1, (Date.now() - speechStartTimeRef.current) / 1000) : 4;
-            speechStartTimeRef.current = null;
-            setIsWarmupEvaluating(true);
-            const evalResult = await evaluateSpeechBackend(warmupPhrase, text, durationSec);
-            setIsWarmupEvaluating(false);
-            setWarmupAccuracyScore(evalResult.accuracy_score);
-            setWarmupWordMatches(evalResult.word_matches);
-            setWarmupPacing({ wpm: evalResult.wpm, pace_status: evalResult.pace_status });
-            setWarmupFillers(evalResult.filler_words || []);
+    try {
+      const evalResult = await evaluateSpeechBackend(warmupPhrase, textToEval, durationSec);
+      setWarmupAccuracyScore(evalResult.accuracy_score);
+      setWarmupWordMatches(evalResult.word_matches);
+      setWarmupPacing({ wpm: evalResult.wpm, pace_status: evalResult.pace_status });
+      setWarmupFillers(evalResult.filler_words || []);
 
-            setCoachStepFeedback({
-              status: evalResult.accuracy_score >= 75 ? "great" : evalResult.accuracy_score >= 50 ? "good" : "enhance",
-              title: `Vocal Warmup Complete • Score: ${evalResult.accuracy_score}%`,
-              whatWentWell: `Delivered speech at ${evalResult.wpm} WPM with strong vocal projection.`,
-              whatToEnhance: evalResult.total_fillers > 0 ? `Detected ${evalResult.total_fillers} filler word(s).` : "Maintain grounded terminal cadence.",
-              spokenAudio: evalResult.spoken_coach_critique
-            });
+      setCoachStepFeedback({
+        status: evalResult.accuracy_score >= 70 ? "great" : evalResult.accuracy_score >= 45 ? "good" : "enhance",
+        title: `Vocal Warmup Complete • Score: ${evalResult.accuracy_score}%`,
+        whatWentWell: `Delivered speech at ${evalResult.wpm} WPM (${evalResult.pace_status}) with clear vocal intent.`,
+        whatToEnhance: evalResult.total_fillers > 0 ? `Detected ${evalResult.total_fillers} filler word(s). Maintain silent breathing pauses.` : "Maintain grounded terminal inflection.",
+        spokenAudio: evalResult.spoken_coach_critique
+      });
 
-            if (evalResult.spoken_coach_critique) {
-              speakText(evalResult.spoken_coach_critique);
-            }
-          }, 1000);
-        }
+      if (evalResult.spoken_coach_critique) {
+        speakText(evalResult.spoken_coach_critique);
       }
-    });
+    } finally {
+      setIsWarmupEvaluating(false);
+    }
   };
 
-  // 4. Spoken Coaching Engine for Repeat Stage
-  const evaluateRepeatPerformance = async (target: string, captured: string, durationSec: number = 4) => {
-    const evalResult = await evaluateSpeechBackend(target, captured, durationSec);
-    setRepeatMatchScore(evalResult.accuracy_score);
-    setRepeatWordMatches(evalResult.word_matches.map((m: any) => ({ word: m.word, matched: m.status === "correct" })));
-    setSpeechAlignmentResult(evalResult);
+  // Repeat Stage Manual Controls
+  const handleToggleRepeatMic = () => {
+    if (isListening) {
+      stopRecordingSpeech();
+      return;
+    }
+    speechStartTimeRef.current = Date.now();
+    setUserSpokenText("");
+    setRepeatMatchScore(null);
+    setRepeatWordMatches([]);
+    setSpeechAlignmentResult(null);
+    startRecordingSpeech({ continuous: true });
+  };
 
-    const missed = evalResult.word_matches.filter((m: any) => m.status === "missed").map((m: any) => m.word);
-    let status: "great" | "good" | "enhance" = evalResult.accuracy_score >= 75 ? "great" : evalResult.accuracy_score >= 45 ? "good" : "enhance";
-    let whatWentWell = `You scored ${evalResult.accuracy_score}% at ${evalResult.wpm} WPM (${evalResult.pace_status}). Crisp diction and steady volume.`;
-    let whatToEnhance = missed.length > 0
-      ? `To enhance even further, polish enunciation on: "${missed.slice(0, 4).join(", ")}".`
-      : "You are doing great! Keep this exact natural cadence and steady pacing.";
+  const handleEvaluateRepeat = async () => {
+    stopRecordingSpeech();
+    const currentMod = modules[activeModuleIdx];
+    const currentStep = currentMod?.steps[activeStepIdx];
+    const target = currentStep?.target_phrase || currentStep?.prompt || "";
+    const textToEval = userSpokenText.trim();
 
-    setCoachStepFeedback({
-      status,
-      title: status === "great" ? `Pronunciation Mastery: ${evalResult.accuracy_score}% (Doing Great!)` : status === "good" ? `Good Progress: ${evalResult.accuracy_score}%` : `Pronunciation Focus: ${evalResult.accuracy_score}%`,
-      whatWentWell,
-      whatToEnhance,
-      spokenAudio: evalResult.spoken_coach_critique
-    });
+    if (!textToEval) {
+      alert("Please speak into the microphone before requesting AI Review.");
+      return;
+    }
 
-    if (evalResult.spoken_coach_critique) {
-      speakText(evalResult.spoken_coach_critique);
+    const durationSec = speechStartTimeRef.current ? Math.max(1, (Date.now() - speechStartTimeRef.current) / 1000) : 4;
+    speechStartTimeRef.current = null;
+    setIsRepeatEvaluating(true);
+
+    try {
+      const evalResult = await evaluateSpeechBackend(target, textToEval, durationSec);
+      setRepeatMatchScore(evalResult.accuracy_score);
+      setRepeatWordMatches(evalResult.word_matches.map((m: any) => ({ word: m.word, matched: m.status === "correct" })));
+      setSpeechAlignmentResult(evalResult);
+
+      const missed = evalResult.word_matches.filter((m: any) => m.status === "missed").map((m: any) => m.word);
+      let status: "great" | "good" | "enhance" = evalResult.accuracy_score >= 70 ? "great" : evalResult.accuracy_score >= 45 ? "good" : "enhance";
+      let whatWentWell = `You scored ${evalResult.accuracy_score}% at ${evalResult.wpm} WPM (${evalResult.pace_status}). Crisp diction and steady volume.`;
+      let whatToEnhance = missed.length > 0
+        ? `To enhance even further, polish enunciation on: "${missed.slice(0, 4).join(", ")}".`
+        : "You are doing great! Keep this exact natural cadence and steady pacing.";
+
+      setCoachStepFeedback({
+        status,
+        title: status === "great" ? `Pronunciation Mastery: ${evalResult.accuracy_score}%` : `Pronunciation Progress: ${evalResult.accuracy_score}%`,
+        whatWentWell,
+        whatToEnhance,
+        spokenAudio: evalResult.spoken_coach_critique
+      });
+
+      if (evalResult.spoken_coach_critique) {
+        speakText(evalResult.spoken_coach_critique);
+      }
+    } finally {
+      setIsRepeatEvaluating(false);
     }
   };
 
@@ -1073,45 +1085,15 @@ export function EnglishSpeakingCoach() {
     setIsListening(false);
   };
 
-  // Repeat step voice recorder & validator
-  const handleRepeatVoiceCapture = () => {
-    const currentMod = modules[activeModuleIdx];
-    const currentStep = currentMod?.steps[activeStepIdx];
-    const target = currentStep?.target_phrase || "";
-
+  // Speak Stage Manual Mic Toggle
+  const handleToggleSpeakMic = () => {
     if (isListening) {
       stopRecordingSpeech();
-      const durationSec = speechStartTimeRef.current ? Math.max(1, (Date.now() - speechStartTimeRef.current) / 1000) : 4;
-      speechStartTimeRef.current = null;
-      if (userSpokenText.trim() && target) {
-        evaluateRepeatPerformance(target, userSpokenText, durationSec);
-      }
       return;
     }
-
-    speechStartTimeRef.current = Date.now();
-    startRecordingSpeech({
-      continuous: true,
-      onResult: (text: string) => {
-        if (!target) return;
-        const { score, matches } = calculateWordMatch(target, text);
-        setRepeatMatchScore(score);
-        setRepeatWordMatches(matches);
-
-        // Auto-evaluate when user achieves high match or after adequate speech length
-        const targetWords = target.trim().split(/\s+/).filter(Boolean);
-        const spokenWords = text.trim().split(/\s+/).filter(Boolean);
-        if (score >= 65 || (spokenWords.length >= targetWords.length && spokenWords.length >= 3)) {
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = setTimeout(() => {
-            stopRecordingSpeech();
-            const durationSec = speechStartTimeRef.current ? Math.max(1, (Date.now() - speechStartTimeRef.current) / 1000) : 4;
-            speechStartTimeRef.current = null;
-            evaluateRepeatPerformance(target, text, durationSec);
-          }, 900);
-        }
-      }
-    });
+    setUserSpokenText("");
+    setSpeakCritique(null);
+    startRecordingSpeech({ continuous: true });
   };
 
   // 6. Speak Stage AI Critique (Positives, Negatives, Improvements & Spoken Reply)
@@ -1379,58 +1361,66 @@ export function EnglishSpeakingCoach() {
     }, 1000);
   };
 
-  const handleSentenceFixVoiceCheck = () => {
+  // Sentence Doctor Manual Tactile Controls
+  const handleToggleDoctorMic = () => {
     if (isListening) {
       stopRecordingSpeech();
       return;
     }
+    setUserSpokenText("");
+    setSentenceFixResult(null);
+    startRecordingSpeech({ continuous: true });
+  };
+
+  const handleEvaluateDoctor = () => {
+    stopRecordingSpeech();
     const currentMod = modules[activeModuleIdx];
     const currentStep = currentMod?.steps[activeStepIdx];
     const targetCorrect = currentStep?.corrected_sentence || "";
+    const textToEval = userSpokenText.trim();
 
-    startRecordingSpeech({
-      continuous: true,
-      onResult: (text: string) => {
-        if (!targetCorrect) return;
-        const { score } = calculateWordMatch(targetCorrect, text);
-        if (score >= 45) {
-          stopRecordingSpeech();
-          setSentenceFixResult({
-            success: true,
-            message: `Spot on! "${targetCorrect}" is grammatically accurate! 🌟`
-          });
-          setGameCompleted(true);
+    if (!textToEval) {
+      alert("Please speak your corrected sentence into the microphone first.");
+      return;
+    }
 
-          const spokenReply = "You are doing great! Spot on! That was grammatically accurate and well articulated. To enhance further, practice using this correct structure naturally in conversation.";
-          setCoachStepFeedback({
-            status: "great",
-            title: "Grammar Clinic: Doing Great!",
-            whatWentWell: "Identified the grammatical flaw and delivered the corrected sentence cleanly.",
-            whatToEnhance: "Integrate this accurate structure into your spontaneous daily speech.",
-            spokenAudio: spokenReply
-          });
-          speakText(spokenReply);
-        } else if (text.trim().split(/\s+/).length >= 4) {
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = setTimeout(() => {
-            stopRecordingSpeech();
-            const spokenReply = `Good attempt! You are close, but here is what you should enhance: the target correct sentence is "${targetCorrect}". Notice the verb agreement and try saying it once more!`;
-            setSentenceFixResult({
-              success: false,
-              message: `Notice the target structure: "${targetCorrect}". Keep practicing!`
-            });
-            setCoachStepFeedback({
-              status: "enhance",
-              title: "Grammar Clinic: Needs Adjustment",
-              whatWentWell: "Recognized the need for modification and attempted correction.",
-              whatToEnhance: `Target phrase: "${targetCorrect}". Watch the verb tense and word order.`,
-              spokenAudio: spokenReply
-            });
-            speakText(spokenReply);
-          }, 1000);
-        }
+    setIsDoctorEvaluating(true);
+    try {
+      const { score } = calculateWordMatch(targetCorrect, textToEval);
+      if (score >= 40) {
+        setSentenceFixResult({
+          success: true,
+          message: `Spot on! "${targetCorrect}" is grammatically pristine! 🌟`
+        });
+        setGameCompleted(true);
+
+        const spokenReply = "You are doing great! Spot on! That was grammatically accurate and well articulated. Keep this exact natural structure in your spontaneous speech.";
+        setCoachStepFeedback({
+          status: "great",
+          title: "Grammar Doctor: Pristine Execution!",
+          whatWentWell: "Identified the Indian English slip and delivered the corrected sentence cleanly.",
+          whatToEnhance: "Integrate this accurate structure into your spontaneous daily speech.",
+          spokenAudio: spokenReply
+        });
+        speakText(spokenReply);
+      } else {
+        const spokenReply = `Good attempt! Here is what you should enhance: the target structure is "${targetCorrect}". Notice the verb tense and word order.`;
+        setSentenceFixResult({
+          success: false,
+          message: `Notice the target structure: "${targetCorrect}". Give it another attempt!`
+        });
+        setCoachStepFeedback({
+          status: "enhance",
+          title: "Grammar Doctor: Needs Polish",
+          whatWentWell: "Attempted spoken sentence reconstruction with vocal confidence.",
+          whatToEnhance: `Target phrase: "${targetCorrect}". Watch the verb agreement.`,
+          spokenAudio: spokenReply
+        });
+        speakText(spokenReply);
       }
-    });
+    } finally {
+      setIsDoctorEvaluating(false);
+    }
   };
 
   // Anti-skip prerequisite check: Speech-gated progression (Zero skipping, zero passive listening)
@@ -1440,20 +1430,20 @@ export function EnglishSpeakingCoach() {
     if (!currentStep) return false;
 
     if (currentStep.type === "coach_masterclass" || currentStep.type === "listen") {
-      return (warmupAccuracyScore !== null && warmupAccuracyScore >= 40) || userSpokenText.trim().split(/\s+/).length >= 4;
-    } else if (currentStep.type === "vocal_mimicry" || currentStep.type === "repeat") {
-      return (repeatMatchScore !== null && repeatMatchScore >= 40) || (warmupAccuracyScore !== null && warmupAccuracyScore >= 40);
+      return (warmupAccuracyScore !== null && warmupAccuracyScore >= 35) || userSpokenText.trim().split(/\s+/).length >= 3;
+    } else if (currentStep.type === "vocal_mimicry" || currentStep.type === "repeat" || currentStep.type === "star_method") {
+      return (repeatMatchScore !== null && repeatMatchScore >= 35) || (warmupAccuracyScore !== null && warmupAccuracyScore >= 35) || userSpokenText.trim().split(/\s+/).length >= 3;
     } else if (currentStep.type === "sentence_doctor" || currentStep.type === "error_fix") {
       return Boolean(sentenceFixResult?.success) || userSpokenText.trim().split(/\s+/).length >= 3;
-    } else if (currentStep.type === "conversational_sparring" || currentStep.type === "interact") {
+    } else if (currentStep.type === "daily_chitchat" || currentStep.type === "polite_request" || currentStep.type === "speak") {
+      return speakCritique !== null || userSpokenText.trim().split(/\s+/).length >= 3;
+    } else if (currentStep.type === "live_lounge" || currentStep.type === "conversational_sparring" || currentStep.type === "interact") {
       const userTurns = dialogueMessages.filter(m => m.sender === "user").length;
       return userTurns >= 1;
-    } else if (currentStep.type === "spoken_capstone" || currentStep.type === "present" || currentStep.type === "capstone") {
-      return speakingCritique !== null || userSpokenText.trim().split(/\s+/).length >= 8;
-    } else if (currentStep.type === "speak" || currentStep.type === "star_method") {
-      return speakCritique !== null || userSpokenText.trim().split(/\s+/).length >= 4;
+    } else if (currentStep.type === "spoken_capstone" || currentStep.type === "present" || currentStep.type === "capstone" || currentStep.type === "mastery_graduation") {
+      return speakingCritique !== null || userSpokenText.trim().split(/\s+/).length >= 5;
     } else if (currentStep.type === "hook_delivery") {
-      return repeatMatchScore !== null && repeatMatchScore >= 45;
+      return (repeatMatchScore !== null && repeatMatchScore >= 35) || userSpokenText.trim().split(/\s+/).length >= 3;
     } else if (currentStep.type === "game") {
       return gameCompleted;
     }
@@ -1920,30 +1910,42 @@ export function EnglishSpeakingCoach() {
           </div>
         )}
 
-        {/* 5-STAGE PROGRESS TABS (ZERO 3-DRILLS, SINGLE FOCUSED STAGE) */}
+        {/* DYNAMIC PROGRESS TABS (TAILORED TO EACH MODULE ARCHETYPE) */}
         {currentMod && (
-          <div className="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 backdrop-blur-md shadow-lg">
-            <div className="flex items-center justify-between px-2 pb-2 border-b border-slate-800/80 mb-2">
-              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="bg-slate-900/90 p-3 rounded-2xl border border-slate-800 backdrop-blur-md shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 pb-2.5 border-b border-slate-800/80 mb-2.5 gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-indigo-400" />
                 {currentMod.title}
               </span>
-              <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-950/80 px-2 py-0.5 rounded-md border border-indigo-500/30">
+              <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-500/30 w-fit">
                 {currentMod.methodology}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+            <div className={`grid gap-2 ${
+              currentMod.steps.length === 2 
+                ? "grid-cols-2" 
+                : currentMod.steps.length === 3 
+                ? "grid-cols-1 sm:grid-cols-3" 
+                : "grid-cols-2 sm:grid-cols-4"
+            }`}>
               {currentMod.steps.map((st, idx) => {
                 const isCurrent = activeStepIdx === idx;
                 const isDone = track?.completed_steps?.includes(st.step_id) || activeStepIdx > idx;
-                const stageNames = [
-                  "1. Masterclass",
-                  "2. Mimicry",
-                  "3. Doctor Fix",
-                  "4. 1-on-1 Sparring",
-                  "5. Capstone"
-                ];
+
+                const getShortStageTitle = (step: StepItem, index: number) => {
+                  if (step.type === "coach_masterclass") return `${index + 1}. Cadence Warmup`;
+                  if (step.type === "vocal_mimicry") return `${index + 1}. Mimicry Echo`;
+                  if (step.type === "daily_chitchat") return `${index + 1}. Daily Chitchat`;
+                  if (step.type === "sentence_doctor") return `${index + 1}. Flaw Detective`;
+                  if (step.type === "polite_request") return `${index + 1}. Polite Request`;
+                  if (step.type === "star_method") return `${index + 1}. STAR Method`;
+                  if (step.type === "spoken_capstone") return `${index + 1}. Keynote Scorecard`;
+                  if (step.type === "live_lounge") return `${index + 1}. Live AI Lounge`;
+                  if (step.type === "mastery_graduation") return `${index + 1}. Official Graduation`;
+                  return `${index + 1}. ${step.title.split(":")[1]?.trim() || step.title}`;
+                };
 
                 return (
                   <button
@@ -1953,21 +1955,21 @@ export function EnglishSpeakingCoach() {
                         setActiveStepIdx(idx);
                       }
                     }}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between text-left shrink-0 ${
+                    className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between text-left shrink-0 ${
                       isCurrent
-                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-indigo-400 font-black"
+                        ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400 font-black"
                         : isDone
                         ? "bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-950/70"
                         : "bg-slate-950/40 text-slate-500 border border-slate-800/60 cursor-not-allowed opacity-70"
                     }`}
                   >
-                    <span className="truncate">{stageNames[idx] || `Stage ${idx + 1}`}</span>
+                    <span className="truncate">{getShortStageTitle(st, idx)}</span>
                     {isDone ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-1" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-1.5" />
                     ) : isCurrent ? (
-                      <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0 ml-1" />
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0 ml-1.5" />
                     ) : (
-                      <Lock className="w-3 h-3 text-slate-600 shrink-0 ml-1" />
+                      <Lock className="w-3 h-3 text-slate-600 shrink-0 ml-1.5" />
                     )}
                   </button>
                 );
@@ -2043,7 +2045,7 @@ export function EnglishSpeakingCoach() {
               </div>
             )}
 
-            {/* STAGE 1: EXECUTIVE MASTERCLASS & MANDATORY VOCAL WARMUP (SPEECH-GATED) */}
+            {/* STAGE: MASTERCLASS & MANDATORY VOCAL WARMUP (MODULE 1 & 2 & 3 STAGE 1) */}
             {(currentStep.type === "coach_masterclass" || currentStep.type === "listen") && (
               <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-indigo-500/30 text-white rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
@@ -2055,10 +2057,10 @@ export function EnglishSpeakingCoach() {
                     <div className="flex items-center gap-2">
                       <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-widest border border-indigo-500/30 flex items-center gap-1.5">
                         <Sparkles className="w-3 h-3 text-indigo-400" />
-                        Stage 1 • Executive Masterclass Lecture
+                        Executive Masterclass & Warmup
                       </span>
                       <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-extrabold border border-slate-700">
-                        {currentStep.masterclass_lecture?.duration || "10-Min Masterclass"}
+                        {currentStep.masterclass_lecture?.duration || "10-Min Focus"}
                       </span>
                     </div>
                     <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-1">
@@ -2092,63 +2094,37 @@ export function EnglishSpeakingCoach() {
                   </div>
                 </div>
 
-                {/* MASTERCLASS CORE SYNOPSIS & VOCAL MECHANICS */}
-                <div className="space-y-4">
-                  <p className="text-xs sm:text-sm text-indigo-100/90 leading-relaxed font-medium bg-slate-900/60 p-4 rounded-2xl border border-slate-800 backdrop-blur-sm">
-                    {currentStep.masterclass_lecture?.summary || "Master speakers do not rush. They master diaphragmatic breathing, ground their terminal inflection, and link clauses smoothly without abrupt glottal stops."}
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* VOCAL MECHANICS */}
-                    <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
-                      <span className="text-[11px] font-black text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <Flame className="w-3.5 h-3.5 text-indigo-400" />
-                        Vocal Mechanics & Cadence Physics
-                      </span>
-                      <p className="text-xs text-slate-300 leading-relaxed font-mono whitespace-pre-line">
-                        {currentStep.masterclass_lecture?.vocal_mechanics || "1. Diaphragmatic Breath: Inhale from the abdomen.\n2. Terminal Inflection: Ground sentence ends downward.\n3. Syllable Bridges: Link vowels smoothly."}
-                      </p>
-                    </div>
-
-                    {/* KEY FORMULAS */}
-                    <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
-                      <span className="text-[11px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <Target className="w-3.5 h-3.5 text-emerald-400" />
-                        Executive Spoken Formulas
-                      </span>
-                      <div className="space-y-1.5">
-                        {(currentStep.masterclass_lecture?.key_formulas || [
-                          "The Warmth Opener: [Warm Greeting] + [Sincere Emotion] + [Purpose]",
-                          "The Momentum Transition: [Context Bridge] + [Conjunctive Pause] + [Action]",
-                          "The Group Magnet: [Acknowledging Question] + [Shared Reflection]"
-                        ]).map((f, idx) => (
-                          <div key={idx} className="text-xs font-semibold text-emerald-200/90 bg-emerald-950/40 px-2.5 py-1.5 rounded-lg border border-emerald-500/20">
-                            • {f}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                {/* 2-CARD MASTERCLASS SYNOPSIS (CLEAN, NO CLUTTER) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
+                    <span className="text-[11px] font-black text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Flame className="w-3.5 h-3.5 text-indigo-400" />
+                      Vocal Mechanics & Cadence
+                    </span>
+                    <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line font-medium">
+                      {currentStep.masterclass_lecture?.vocal_mechanics || "1. Diaphragmatic Breath: Inhale from the abdomen before your opening clause.\n2. Terminal Downward Inflection: Ground statements authoritatively.\n3. Syllable Bridges: Link vowels smoothly without abrupt stops."}
+                    </p>
                   </div>
 
-                  {/* COMMON TRAPS VS GLOBAL STANDARD */}
-                  {currentStep.masterclass_lecture?.common_traps && currentStep.masterclass_lecture.common_traps.length > 0 && (
-                    <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
-                      <span className="text-[11px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                        Indian English Traps vs Global Standard English
-                      </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {currentStep.masterclass_lecture.common_traps.map((trap, idx) => (
-                          <div key={idx} className="text-xs text-slate-300 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 leading-relaxed font-medium">
-                            {trap}
-                          </div>
-                        ))}
-                      </div>
+                  <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
+                    <span className="text-[11px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5 text-emerald-400" />
+                      Executive Spoken Formula
+                    </span>
+                    <div className="space-y-1.5">
+                      {(currentStep.masterclass_lecture?.key_formulas || [
+                        "The Warmth Opener: [Warm Greeting] + [Sincere Emotion] + [Purpose]",
+                        "The Momentum Transition: [Context Bridge] + [Conjunctive Pause] + [Action Step]"
+                      ]).map((f, idx) => (
+                        <div key={idx} className="text-xs font-semibold text-emerald-200/90 bg-emerald-950/40 px-2.5 py-1.5 rounded-lg border border-emerald-500/20">
+                          • {f}
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </div>
                 </div>
 
-                {/* MANDATORY VOCAL WARMUP STUDIO (SPEECH-GATED) */}
+                {/* MANDATORY VOCAL WARMUP STUDIO (MANUAL TACTILE MIC CONTROLS) */}
                 <div className="pt-4 border-t border-slate-800 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
@@ -2157,7 +2133,7 @@ export function EnglishSpeakingCoach() {
                         Mandatory Spoken Vocal Warmup (Speech-Gated)
                       </span>
                       <p className="text-xs text-slate-400 font-medium">
-                        You must speak this sentence into your microphone to verify vocal placement and unlock Stage 2.
+                        Speak the phrase aloud, stop the mic when done, then click AI Review to evaluate your speech.
                       </p>
                     </div>
 
@@ -2168,7 +2144,7 @@ export function EnglishSpeakingCoach() {
                           : "bg-amber-500/20 text-amber-300 border-amber-500/30"
                       }`}>
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        Warmup Verified: {warmupAccuracyScore}%
+                        Warmup Score: {warmupAccuracyScore}%
                       </span>
                     )}
                   </div>
@@ -2195,22 +2171,38 @@ export function EnglishSpeakingCoach() {
                     </div>
                   )}
 
-                  {/* INTERACTIVE CONTROLS */}
+                  {/* 3-STEP MANUAL TACTILE CONTROLS */}
                   <div className="flex flex-wrap items-center gap-3 pt-2">
-                    <button
-                      onClick={handleWarmupVoiceCapture}
-                      disabled={isWarmupEvaluating}
-                      className={`px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2.5 transition-all active:scale-95 shadow-lg ${
-                        isListening
-                          ? "bg-rose-600 text-white animate-pulse shadow-rose-600/40"
-                          : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/30"
-                      }`}
-                    >
-                      <Mic className="w-4 h-4" />
-                      <span>{isListening ? "Listening... Speak Warmup Phrase Aloud" : "Click Mic & Record Vocal Warmup"}</span>
-                    </button>
+                    {!isListening ? (
+                      <button
+                        onClick={handleToggleWarmupMic}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/25 flex items-center gap-2 active:scale-95 transition-all"
+                      >
+                        <Mic className="w-4 h-4" />
+                        <span>{userSpokenText ? "Record Warmup Again" : "Click to Start Speaking"}</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleToggleWarmupMic}
+                        className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-lg shadow-rose-600/30 flex items-center gap-2 animate-pulse active:scale-95 transition-all"
+                      >
+                        <MicOff className="w-4 h-4" />
+                        <span>Done Speaking (Stop Mic)</span>
+                      </button>
+                    )}
 
                     {isListening && <AudioWaveVisualizer isActive={true} color="rose" />}
+
+                    {userSpokenText && !isListening && (
+                      <button
+                        onClick={handleEvaluateWarmup}
+                        disabled={isWarmupEvaluating}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs shadow-lg shadow-indigo-600/30 flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <span>{isWarmupEvaluating ? "Analyzing Warmup..." : "⚡ AI Review & Coaching"}</span>
+                      </button>
+                    )}
 
                     {isWarmupEvaluating && (
                       <span className="text-xs text-indigo-300 font-bold flex items-center gap-2">
@@ -2230,8 +2222,8 @@ export function EnglishSpeakingCoach() {
               </div>
             )}
 
-            {/* STAGE 2: VOCAL MIMICRY & CADENCE SCULPTOR */}
-            {(currentStep.type === "vocal_mimicry" || currentStep.type === "repeat") && (
+            {/* STAGE: VOCAL MIMICRY ECHO & STAR METHOD DELIVERY */}
+            {(currentStep.type === "vocal_mimicry" || currentStep.type === "repeat" || currentStep.type === "star_method") && (
               <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-purple-500/30 text-white rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
 
@@ -2239,13 +2231,13 @@ export function EnglishSpeakingCoach() {
                   <div className="space-y-1">
                     <span className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-black uppercase tracking-widest border border-purple-500/30 flex items-center gap-1.5 w-fit">
                       <Mic className="w-3 h-3 text-purple-400" />
-                      Stage 2 • Vocal Mimicry Gym
+                      {currentStep.type === "star_method" ? "Executive STAR Method Delivery" : "Vocal Mimicry Gym"}
                     </span>
                     <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
-                      Shadowing Cadence & Intonation Echo
+                      {currentStep.title}
                     </h3>
                     <p className="text-xs text-slate-400 font-medium">
-                      Listen to the coach's cadence, then echo the phrase aloud. AI scores your accuracy, WPM, and cadence.
+                      Listen to the coach's cadence, click to speak and echo the phrase, then click AI Review to get your score.
                     </p>
                   </div>
 
@@ -2278,7 +2270,7 @@ export function EnglishSpeakingCoach() {
                   </div>
                 )}
 
-                {/* CONTROLS */}
+                {/* 3-STEP MANUAL TACTILE CONTROLS */}
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <button
                     onClick={() => speakText(currentTargetPhrase || currentStep.prompt)}
@@ -2289,19 +2281,36 @@ export function EnglishSpeakingCoach() {
                     <span>Listen to Native Coach</span>
                   </button>
 
-                  <button
-                    onClick={handleRepeatVoiceCapture}
-                    className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2.5 transition-all active:scale-95 shadow-md ${
-                      isListening
-                        ? "bg-rose-600 text-white animate-pulse"
-                        : "bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/30"
-                    }`}
-                  >
-                    <Mic className="w-4 h-4" />
-                    <span>{isListening ? "Listening... Echo Phrase Now" : "Press & Echo Target Phrase"}</span>
-                  </button>
+                  {!isListening ? (
+                    <button
+                      onClick={handleToggleRepeatMic}
+                      className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-md shadow-purple-600/30 flex items-center gap-2 transition-all active:scale-95"
+                    >
+                      <Mic className="w-4 h-4" />
+                      <span>{userSpokenText ? "Echo Again" : "Click to Start Speaking"}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleToggleRepeatMic}
+                      className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-md shadow-rose-600/30 flex items-center gap-2 animate-pulse active:scale-95 transition-all"
+                    >
+                      <MicOff className="w-4 h-4" />
+                      <span>Done Speaking (Stop Mic)</span>
+                    </button>
+                  )}
 
                   {isListening && <AudioWaveVisualizer isActive={true} color="rose" />}
+
+                  {userSpokenText && !isListening && (
+                    <button
+                      onClick={handleEvaluateRepeat}
+                      disabled={isRepeatEvaluating}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs shadow-md shadow-indigo-600/30 flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>{isRepeatEvaluating ? "Analyzing..." : "⚡ AI Review & Coaching"}</span>
+                    </button>
+                  )}
                 </div>
 
                 {userSpokenText && (
@@ -2313,14 +2322,14 @@ export function EnglishSpeakingCoach() {
               </div>
             )}
 
-            {/* STAGE 3: REAL-TIME SENTENCE DOCTOR (SPOT & SPEAK THE FIX) */}
+            {/* STAGE: FLAW DETECTIVE (SENTENCE DOCTOR / INDIANISM FIX) */}
             {(currentStep.type === "sentence_doctor" || currentStep.type === "error_fix") && (
               <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-rose-500/30 text-white rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
                   <div className="space-y-1">
                     <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-black uppercase tracking-widest border border-rose-500/30 flex items-center gap-1.5 w-fit">
                       <RotateCcw className="w-3 h-3 text-rose-400" />
-                      Stage 3 • Real-Time Sentence Doctor
+                      Flaw Detective: Spot & Speak The Fix
                     </span>
                     <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
                       Indian English Clinic: Spot & Speak The Correction
@@ -2346,7 +2355,7 @@ export function EnglishSpeakingCoach() {
                     Flawed Indian English Phrasing:
                   </span>
                   <p className="text-base sm:text-lg font-bold text-rose-200">
-                    "{currentFlawedSentence || "Myself Amit and today morning I reached the school."}"
+                    "{currentFlawedSentence || "I am working here since five years and I will revert back tomorrow."}"
                   </p>
                 </div>
 
@@ -2363,25 +2372,42 @@ export function EnglishSpeakingCoach() {
                   </div>
                 )}
 
-                {/* SPOKEN CHALLENGE CONTROLS */}
+                {/* 3-STEP MANUAL TACTILE CONTROLS */}
                 <div className="space-y-3 pt-2">
                   <span className="text-xs text-slate-300 font-bold block">
                     Speak the grammatically accurate sentence aloud into your microphone:
                   </span>
                   <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      onClick={handleSentenceFixVoiceCheck}
-                      className={`px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2.5 transition-all active:scale-95 shadow-lg ${
-                        isListening
-                          ? "bg-rose-600 text-white animate-pulse shadow-rose-600/40"
-                          : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30"
-                      }`}
-                    >
-                      <Mic className="w-4 h-4" />
-                      <span>{isListening ? "Listening... Speak the corrected sentence" : "Speak The Corrected Sentence"}</span>
-                    </button>
+                    {!isListening ? (
+                      <button
+                        onClick={handleToggleDoctorMic}
+                        className="px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2.5 transition-all active:scale-95 shadow-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30"
+                      >
+                        <Mic className="w-4 h-4" />
+                        <span>{userSpokenText ? "Speak Correction Again" : "Click to Speak Correction"}</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleToggleDoctorMic}
+                        className="px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2.5 transition-all active:scale-95 shadow-lg bg-rose-600 hover:bg-rose-500 text-white animate-pulse shadow-rose-600/30"
+                      >
+                        <MicOff className="w-4 h-4" />
+                        <span>Done Speaking (Stop Mic)</span>
+                      </button>
+                    )}
 
                     {isListening && <AudioWaveVisualizer isActive={true} color="rose" />}
+
+                    {userSpokenText && !isListening && (
+                      <button
+                        onClick={handleEvaluateDoctor}
+                        disabled={isDoctorEvaluating}
+                        className="px-5 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs shadow-lg shadow-indigo-600/30 flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <span>{isDoctorEvaluating ? "Verifying..." : "⚡ Check Correction With AI"}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -2404,181 +2430,122 @@ export function EnglishSpeakingCoach() {
               </div>
             )}
 
-            {/* STAGE 4: 1-ON-1 CONVERSATIONAL SPARRING (LIVE HANDS-FREE VOICE DIALOGUE) */}
-            {(currentStep.type === "conversational_sparring" || currentStep.type === "interact") && (
-              <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-800/40 space-y-6 shadow-2xl relative overflow-hidden">
-                {/* HEADER & HANDS-FREE TOGGLE */}
+            {/* STAGE: DAILY CHITCHAT & POLITE REQUEST & SPEAK */}
+            {(currentStep.type === "daily_chitchat" || currentStep.type === "polite_request" || currentStep.type === "speak") && (
+              <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-500/30 space-y-6 shadow-2xl relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
-                  <div className="flex items-center gap-2.5">
-                    <span className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                      <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <div className="space-y-1">
+                    <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-widest border border-indigo-500/30 flex items-center gap-1.5 w-fit">
+                      <MessageSquare className="w-3 h-3 text-indigo-400" />
+                      {currentStep.type === "daily_chitchat" ? "Daily Chitchat Spontaneous Response" : "Diplomatic Workplace Request"}
                     </span>
-                    <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 block">
-                        Stage 4 • Live Voice Dialogue
-                      </span>
-                      <h4 className="text-base sm:text-lg font-black text-white">1-on-1 Conversational Sparring</h4>
-                    </div>
+                    <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
+                      {currentStep.title}
+                    </h3>
                   </div>
 
-                  {/* HANDS-FREE STATUS & TOGGLE */}
-                  <div className="flex items-center gap-2">
+                  {currentSampleAnswer && (
                     <button
-                      onClick={() => {
-                        const next = !isHandsFreeMode;
-                        setIsHandsFreeMode(next);
-                        if (!next) {
-                          stopRecordingSpeech();
-                        }
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black border flex items-center gap-1.5 transition-all ${
-                        isHandsFreeMode
-                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs"
-                          : "bg-white/10 text-slate-300 border-white/10 hover:bg-white/15"
-                      }`}
+                      onClick={() => speakText(currentSampleAnswer)}
+                      disabled={isAiSpeaking}
+                      className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 transition-all border border-slate-700 shrink-0"
                     >
-                      <Zap className="w-3.5 h-3.5 text-amber-400 fill-current" />
-                      <span>Hands-Free Auto-Voice: {isHandsFreeMode ? "ACTIVE" : "PAUSED"}</span>
+                      <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Hear Sample Answer</span>
                     </button>
-                  </div>
-                </div>
-
-                {/* DYNAMIC HANDS-FREE STATUS BAR */}
-                <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between text-xs font-bold">
-                  <div className="flex items-center gap-2.5">
-                    {isAiSpeaking ? (
-                      <>
-                        <div className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-ping" />
-                        <span className="text-indigo-300">🔊 Coach is speaking aloud...</span>
-                      </>
-                    ) : isCoachThinking ? (
-                      <>
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-                        <span className="text-amber-300">⚡ Coach is formulating response...</span>
-                      </>
-                    ) : isListening ? (
-                      <>
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-emerald-300">🎙️ Listening to you... Speak freely (auto-sends on pause)</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                        <span className="text-slate-300">Microphone standby. Speak freely or click mic below!</span>
-                      </>
-                    )}
-                  </div>
-
-                  {isHandsFreeMode && (
-                    <span className="text-[11px] text-indigo-300/80 font-normal hidden sm:inline">
-                      Auto-detects sentence pauses (1.2s)
-                    </span>
                   )}
                 </div>
 
-                {currentCoachStarter && dialogueMessages.length === 0 && (
-                  <div className="p-4 rounded-2xl bg-white/10 border border-white/10 flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-extrabold text-amber-300 uppercase">Coach Opening Prompt:</span>
-                      <p className="text-sm font-semibold text-white">"{currentCoachStarter}"</p>
-                    </div>
+                <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-1">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-indigo-400">Speaking Prompt:</span>
+                  <p className="text-sm sm:text-base font-semibold text-white leading-relaxed">
+                    {currentPrompt || currentStep.topic}
+                  </p>
+                </div>
+
+                {/* 3-STEP MANUAL TACTILE CONTROLS */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  {!isListening ? (
                     <button
-                      onClick={() => speakText(currentCoachStarter)}
-                      disabled={isAiSpeaking}
-                      className="p-2.5 rounded-xl bg-white/15 text-white hover:bg-white/25 border border-white/10 transition-all"
+                      onClick={handleToggleSpeakMic}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/25 flex items-center gap-2 active:scale-95 transition-all"
                     >
-                      <Volume2 className="w-4 h-4" />
+                      <Mic className="w-4 h-4" />
+                      <span>{userSpokenText ? "Record Again" : "Click to Start Speaking"}</span>
                     </button>
+                  ) : (
+                    <button
+                      onClick={handleToggleSpeakMic}
+                      className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-lg shadow-rose-600/30 flex items-center gap-2 animate-pulse active:scale-95 transition-all"
+                    >
+                      <MicOff className="w-4 h-4" />
+                      <span>Done Speaking (Stop Mic)</span>
+                    </button>
+                  )}
+
+                  {isListening && <AudioWaveVisualizer isActive={true} color="rose" />}
+
+                  {userSpokenText && !isListening && (
+                    <button
+                      onClick={() => handleEvaluateSpeakStage()}
+                      disabled={speakCritiqueLoading}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs shadow-lg shadow-indigo-600/30 flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>{speakCritiqueLoading ? "Analyzing Speech..." : "⚡ AI Review & Coaching"}</span>
+                    </button>
+                  )}
+                </div>
+
+                {userSpokenText && (
+                  <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-300 font-mono">
+                    <span className="text-slate-500 font-sans block text-[10px] uppercase font-bold">Your Spoken Answer:</span>
+                    "{userSpokenText}"
                   </div>
                 )}
 
-                {/* DIALOGUE BUBBLES */}
-                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                  {dialogueMessages.map((msg, i) => (
-                    <div key={i} className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}>
-                      {msg.correction && (
-                        <div className="mb-1 text-[11px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/40 px-3 py-1 rounded-xl shadow-xs">
-                          💡 Spoken Tip: {msg.correction}
-                        </div>
-                      )}
-                      <div className={`p-3.5 rounded-2xl max-w-md text-xs font-semibold leading-relaxed ${
-                        msg.sender === "user"
-                          ? "bg-indigo-600 text-white rounded-tr-none shadow-md"
-                          : "bg-white/10 border border-white/15 text-white rounded-tl-none shadow-xs"
-                      }`}>
-                        {msg.text}
+                {/* DETAILED SPEAK CRITIQUE */}
+                {speakCritique && (
+                  <div className="p-5 rounded-2xl bg-slate-950 border border-indigo-500/30 space-y-3 text-xs animate-in zoom-in-95">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/20 space-y-1">
+                        <span className="font-black text-emerald-400 uppercase tracking-wide">Demonstrated Strengths:</span>
+                        <ul className="space-y-1 text-slate-300">
+                          {speakCritique.positive_points.map((p, i) => (
+                            <li key={i}>• {p}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/20 space-y-1">
+                        <span className="font-black text-amber-400 uppercase tracking-wide">Areas to Enhance:</span>
+                        <ul className="space-y-1 text-slate-300">
+                          {speakCritique.negative_points.map((n, i) => (
+                            <li key={i}>• {n}</li>
+                          ))}
+                        </ul>
                       </div>
                     </div>
-                  ))}
-                  {isCoachThinking && (
-                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-300">
-                      <div className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
-                      <span>Coach is replying...</span>
-                    </div>
-                  )}
-                </div>
 
-                {/* LIVE SPEECH TRANSCRIPTION PREVIEW */}
-                {userSpokenText && (
-                  <div className="p-3 bg-white/10 rounded-xl border border-white/15 text-xs flex items-center justify-between gap-2">
-                    <span className="text-slate-300 truncate">
-                      <strong className="text-emerald-300">You: </strong>"{userSpokenText}"
-                    </span>
-                    {isHandsFreeMode && (
-                      <span className="text-[10px] text-amber-300 shrink-0 font-bold animate-pulse">
-                        Auto-sending on pause...
-                      </span>
-                    )}
+                    <div className="p-3.5 rounded-xl bg-indigo-950/60 border border-indigo-500/30 space-y-1">
+                      <span className="font-black text-indigo-300 uppercase">Polished Native Version:</span>
+                      <p className="text-white italic leading-relaxed">"{speakCritique.polished_version}"</p>
+                    </div>
                   </div>
                 )}
-
-                {/* CONTROLS (VOICE + TEXT FALLBACK) */}
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech({ continuous: true })}
-                    className={`p-3 rounded-2xl font-bold text-xs flex items-center justify-center transition-all ${
-                      isListening
-                        ? "bg-rose-500 text-white animate-pulse"
-                        : "bg-indigo-600 text-white hover:bg-indigo-500"
-                    }`}
-                    title={isListening ? "Pause Listening" : "Start Speaking"}
-                  >
-                    <Mic className="w-5 h-5" />
-                  </button>
-                  <input
-                    type="text"
-                    value={userSpokenText}
-                    onChange={(e) => setUserSpokenText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && userSpokenText.trim()) {
-                        handleSendDialogueTurn();
-                      }
-                    }}
-                    placeholder="Speak freely via microphone or type your message here..."
-                    className="flex-1 px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-xs text-white placeholder-slate-400 font-semibold focus:outline-hidden focus:border-indigo-400"
-                  />
-                  <button
-                    onClick={() => handleSendDialogueTurn()}
-                    disabled={!userSpokenText.trim() || isCoachThinking}
-                    className="px-5 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold text-xs shadow-sm transition-all disabled:opacity-30"
-                  >
-                    Send
-                  </button>
-                </div>
               </div>
             )}
 
-            {/* STAGE 5: 60-SECOND SPOKEN CAPSTONE (LIVE ADJUDICATOR SCORECARD) */}
+            {/* STAGE: 60-SECOND KEYNOTE ADJUDICATION SCORECARD (MODULE 3 STAGE 3) */}
             {(currentStep.type === "spoken_capstone" || currentStep.type === "present" || currentStep.type === "capstone") && (
               <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white border border-emerald-500/30 space-y-6 shadow-2xl relative overflow-hidden">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                   <div className="space-y-1">
                     <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Trophy className="w-4 h-4 text-amber-400" />
-                      Stage 5 • 60-Second Spoken Capstone
+                      Keynote Public Speaking Adjudication
                     </span>
                     <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
-                      Live Public Speaking Stage
+                      {currentStep.title}
                     </h3>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs font-mono font-bold bg-white/10 px-3.5 py-1.5 rounded-full border border-white/10">
@@ -2590,11 +2557,10 @@ export function EnglishSpeakingCoach() {
                 <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
                   <span className="text-[11px] font-black uppercase tracking-wider text-indigo-400">Your Assigned Keynote Topic:</span>
                   <p className="text-base sm:text-lg font-black text-white">
-                    "{currentStep.topic || "Why Curiosity is the Greatest Teacher"}"
+                    "{currentStep.topic || "Why Failure is the Best Stepping Stone to Mastery"}"
                   </p>
                 </div>
 
-                {/* ANIMATED PODIUM WAVE VISUALIZER */}
                 {isTimerActive && (
                   <div className="flex items-center justify-center gap-1.5 py-4 bg-slate-950/60 rounded-2xl border border-slate-800">
                     <div className="w-1.5 h-6 bg-emerald-400 rounded-full animate-bounce" />
@@ -2602,7 +2568,7 @@ export function EnglishSpeakingCoach() {
                     <div className="w-1.5 h-14 bg-emerald-400 rounded-full animate-bounce" />
                     <div className="w-1.5 h-8 bg-emerald-300 rounded-full animate-pulse" />
                     <div className="w-1.5 h-5 bg-emerald-400 rounded-full animate-bounce" />
-                    <span className="text-xs font-bold text-emerald-300 ml-3">Live On Stage — Continuous Speech Recording</span>
+                    <span className="text-xs font-bold text-emerald-300 ml-3">Live On Stage — Speak Continuous Speech into Mic</span>
                   </div>
                 )}
 
@@ -2613,7 +2579,7 @@ export function EnglishSpeakingCoach() {
                       className="px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs shadow-lg transition-all active:scale-95 flex items-center gap-2"
                     >
                       <Play className="w-4 h-4 fill-current" />
-                      <span>Start 60s Speech Stage</span>
+                      <span>Start 60s Keynote Stage</span>
                     </button>
                   ) : (
                     <button
@@ -2633,7 +2599,6 @@ export function EnglishSpeakingCoach() {
                   </div>
                 )}
 
-                {/* AI CRITIQUE REPORT */}
                 {critiqueLoading && (
                   <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3 text-xs text-indigo-200 font-bold">
                     <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
@@ -2663,47 +2628,292 @@ export function EnglishSpeakingCoach() {
                         <span className="font-extrabold text-indigo-300">Live Spoken Correction:</span>
                         <p className="text-indigo-100 font-semibold mt-0.5 italic">"{speakingCritique.live_correction}"</p>
                       </div>
-
-                      {/* REPORT CARD CALL TO ACTION */}
-                      <button
-                        onClick={handleFinalizeCapstone}
-                        className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 mt-2"
-                      >
-                        <Award className="w-4 h-4" />
-                        <span>Generate Official Spoken Mastery Report Card</span>
-                      </button>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* LEGACY STEP TYPE COMPATIBILITY (SPEAK / GAME) */}
-            {(currentStep.type === "speak" || currentStep.type === "star_method") && (
-              <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-white space-y-4">
-                <span className="text-xs font-bold text-indigo-400 uppercase">Spoken Challenge</span>
-                <p className="text-sm font-semibold">{currentPrompt}</p>
-                <div className="flex items-center gap-3">
+            {/* STAGE: THE LIVE AI LOUNGE (MODULE 4 STAGE 1 - UNRESTRICTED RAPID VOICE SPARRING) */}
+            {(currentStep.type === "live_lounge" || currentStep.type === "conversational_sparring" || currentStep.type === "interact") && (
+              <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-500/30 space-y-6 shadow-2xl relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <span className="p-2.5 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/30">
+                      <Sparkles className="w-5 h-5 text-amber-300" />
+                    </span>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-300 block">
+                        Module 4 • Live Voice Lounge
+                      </span>
+                      <h4 className="text-base sm:text-xl font-black text-white">Unrestricted Rapid Voice Sparring</h4>
+                    </div>
+                  </div>
+
+                  {/* HANDS-FREE TOGGLE */}
                   <button
-                    onClick={() => isListening ? stopRecordingSpeech() : startRecordingSpeech()}
-                    className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs"
+                    onClick={() => {
+                      const next = !isHandsFreeMode;
+                      setIsHandsFreeMode(next);
+                      if (!next) {
+                        stopRecordingSpeech();
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black border flex items-center gap-1.5 transition-all ${
+                      isHandsFreeMode
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs"
+                        : "bg-white/10 text-slate-300 border-white/10 hover:bg-white/15"
+                    }`}
                   >
-                    <Mic className="w-4 h-4 inline mr-1" />
-                    <span>{isListening ? "Listening..." : "Click Mic & Speak"}</span>
+                    <Zap className="w-3.5 h-3.5 text-amber-400 fill-current" />
+                    <span>Hands-Free Auto-Voice: {isHandsFreeMode ? "ACTIVE" : "OFF"}</span>
                   </button>
-                  {userSpokenText && (
+                </div>
+
+                {/* TOPIC SELECTOR PILLS */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Choose A Discussion Topic Or Talk About Anything:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { title: "🚀 Career & Ambition", starter: "Welcome to the Live AI Lounge! What are your biggest career or educational aspirations for the next three years?" },
+                      { title: "🎓 AI in Classrooms", starter: "How do you think artificial intelligence will transform Indian schools and students in the near future?" },
+                      { title: "🎬 Books & Stories", starter: "Tell me about an inspiring book, character, or movie that left a deep impression on you." },
+                      { title: "⚖️ Hard Work vs Talent", starter: "In your experience, do you believe consistent daily practice matters more than raw talent?" },
+                      { title: "💬 Open Conversation", starter: "Welcome! You can speak with me about absolutely anything on your mind today. What would you like to share?" }
+                    ].map((top, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setLiveLoungeTopic(top.title);
+                          setDialogueMessages([]);
+                          setUserSpokenText("");
+                          speakText(top.starter, () => {
+                            if (isHandsFreeRef.current) {
+                              startRecordingSpeech({ continuous: true });
+                            }
+                          });
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                          liveLoungeTopic === top.title
+                            ? "bg-indigo-600 text-white border-indigo-400 shadow-sm"
+                            : "bg-slate-900 text-slate-300 border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800"
+                        }`}
+                      >
+                        {top.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* STATUS BAR */}
+                <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between text-xs font-bold">
+                  <div className="flex items-center gap-2.5">
+                    {isAiSpeaking ? (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-ping" />
+                        <span className="text-indigo-300">🔊 Coach is speaking aloud...</span>
+                      </>
+                    ) : isCoachThinking ? (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                        <span className="text-amber-300">⚡ Coach is replying in sub-second...</span>
+                      </>
+                    ) : isListening ? (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-emerald-300">🎙️ Listening to you... Speak comfortably</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                        <span className="text-slate-300">Microphone standby. Speak freely or click mic below!</span>
+                      </>
+                    )}
+                  </div>
+
+                  <span className="text-[11px] text-indigo-300/80 font-normal hidden sm:inline">
+                    Unlimited Sparring • No Restrictions
+                  </span>
+                </div>
+
+                {/* DIALOGUE BUBBLES */}
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {dialogueMessages.length === 0 && currentCoachStarter && (
+                    <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 text-xs text-white flex items-center justify-between gap-3">
+                      <span>"{currentCoachStarter}"</span>
+                      <button
+                        onClick={() => speakText(currentCoachStarter)}
+                        disabled={isAiSpeaking}
+                        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+                      >
+                        <Volume2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {dialogueMessages.map((msg, i) => (
+                    <div key={i} className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}>
+                      {msg.correction && (
+                        <div className="mb-1 text-[11px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/40 px-3 py-1 rounded-xl shadow-xs">
+                          💡 Coach Tip: {msg.correction}
+                        </div>
+                      )}
+                      <div className={`p-3.5 rounded-2xl max-w-md text-xs font-semibold leading-relaxed flex items-start gap-2 ${
+                        msg.sender === "user"
+                          ? "bg-indigo-600 text-white rounded-tr-none shadow-md"
+                          : "bg-white/10 border border-white/15 text-white rounded-tl-none shadow-xs"
+                      }`}>
+                        <span className="flex-1">{msg.text}</span>
+                        {msg.sender === "coach" && (
+                          <button
+                            onClick={() => speakText(msg.text)}
+                            disabled={isAiSpeaking}
+                            className="p-1 rounded text-slate-300 hover:text-white"
+                          >
+                            <Volume2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {isCoachThinking && (
+                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-300">
+                      <div className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
+                      <span>Coach is replying...</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* USER SPEECH PREVIEW */}
+                {userSpokenText && (
+                  <div className="p-3 bg-white/10 rounded-xl border border-white/15 text-xs flex items-center justify-between gap-2">
+                    <span className="text-slate-300 truncate">
+                      <strong className="text-emerald-300">You: </strong>"{userSpokenText}"
+                    </span>
                     <button
-                      onClick={() => handleEvaluateSpeakStage()}
-                      className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs"
+                      onClick={() => handleSendDialogueTurn()}
+                      className="px-3 py-1 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold shrink-0"
                     >
-                      Get AI Feedback
+                      Send Spoken Turn
+                    </button>
+                  </div>
+                )}
+
+                {/* CONTROLS (MANUAL MIC TOGGLE + INPUT FALLBACK) */}
+                <div className="flex items-center gap-2 pt-1">
+                  {!isListening ? (
+                    <button
+                      onClick={() => startRecordingSpeech({ continuous: true })}
+                      className="px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-md shrink-0"
+                    >
+                      <Mic className="w-4 h-4" />
+                      <span>Click to Speak</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        stopRecordingSpeech();
+                        if (userSpokenText.trim()) {
+                          handleSendDialogueTurn(userSpokenText.trim());
+                        }
+                      }}
+                      className="px-4 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-md shrink-0 animate-pulse"
+                    >
+                      <MicOff className="w-4 h-4" />
+                      <span>Done & Send Turn</span>
                     </button>
                   )}
+
+                  <input
+                    type="text"
+                    value={userSpokenText}
+                    onChange={(e) => setUserSpokenText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && userSpokenText.trim()) {
+                        handleSendDialogueTurn();
+                      }
+                    }}
+                    placeholder="Speak freely via microphone or type your message here..."
+                    className="flex-1 px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-xs text-white placeholder-slate-400 font-semibold focus:outline-hidden focus:border-indigo-400"
+                  />
+
+                  <button
+                    onClick={() => handleSendDialogueTurn()}
+                    disabled={!userSpokenText.trim() || isCoachThinking}
+                    className="px-5 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold text-xs shadow-sm transition-all disabled:opacity-30 shrink-0"
+                  >
+                    Send
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* FOOTER BUTTONS WITH ANTI-SKIP SPEECH-GATING ENFORCEMENT */}
+            {/* STAGE: OFFICIAL SPOKEN MASTERY CERTIFICATION (MODULE 4 STAGE 2) */}
+            {currentStep.type === "mastery_graduation" && (
+              <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-950 to-indigo-950 text-white border border-amber-500/40 space-y-6 shadow-2xl relative overflow-hidden">
+                <div className="space-y-2 text-center max-w-xl mx-auto">
+                  <div className="w-16 h-16 rounded-3xl bg-amber-500/20 text-amber-300 border border-amber-400/40 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
+                    <Trophy className="w-8 h-8 text-amber-400" />
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-white">
+                    Official Spoken English Mastery Certification
+                  </h3>
+                  <p className="text-xs sm:text-sm text-indigo-200 leading-relaxed font-medium">
+                    You have successfully progressed through the foundational cadence, grammar reconstruction, keynote delivery, and unrestricted live sparring stages.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">Final Graduation Speech Reflection:</span>
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-semibold">
+                    Speak a 1-2 sentence final reflection into your microphone summarizing your transformation and future goals, then click Generate Certificate.
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    {!isListening ? (
+                      <button
+                        onClick={handleToggleSpeakMic}
+                        className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md flex items-center gap-2"
+                      >
+                        <Mic className="w-4 h-4" />
+                        <span>{userSpokenText ? "Record Reflection Again" : "Speak Graduation Reflection"}</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleToggleSpeakMic}
+                        className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-md flex items-center gap-2 animate-pulse"
+                      >
+                        <MicOff className="w-4 h-4" />
+                        <span>Done Speaking</span>
+                      </button>
+                    )}
+
+                    {isListening && <AudioWaveVisualizer isActive={true} color="rose" />}
+                  </div>
+
+                  {userSpokenText && (
+                    <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-300 font-mono mt-2">
+                      <span className="text-slate-500 font-sans block text-[10px] uppercase font-bold">Your Graduation Reflection:</span>
+                      "{userSpokenText}"
+                    </div>
+                  )}
+                </div>
+
+                {/* CERTIFICATE CALL TO ACTION */}
+                <button
+                  onClick={handleFinalizeCapstone}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-indigo-600 to-purple-600 hover:from-amber-400 hover:to-purple-500 text-white font-black text-sm shadow-xl shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Award className="w-5 h-5 text-amber-200" />
+                  <span>Finalize & Issue Official Spoken Mastery Certificate</span>
+                </button>
+              </div>
+            )}
+
+            {/* FOOTER BUTTONS WITH ANTI-SKIP PROGRESSION */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-between border-t border-slate-200 gap-3">
               <button
                 disabled={activeStepIdx === 0}
@@ -2716,10 +2926,11 @@ export function EnglishSpeakingCoach() {
               <div className="flex flex-wrap items-center gap-3">
                 {!canAdvanceStep() && (
                   <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
-                    {(currentStep.type === "coach_masterclass" || currentStep.type === "listen") && "🎙️ Record the mandatory vocal warmup into mic to unlock next stage"}
-                    {(currentStep.type === "vocal_mimicry" || currentStep.type === "repeat") && "🎙️ Echo the target phrase with >= 40% accuracy to unlock"}
-                    {(currentStep.type === "sentence_doctor" || currentStep.type === "error_fix") && "🛠️ Speak the corrected sentence aloud into mic to unlock"}
-                    {(currentStep.type === "conversational_sparring" || currentStep.type === "interact") && "🤝 Complete at least 1 spoken exchange with the coach"}
+                    {(currentStep.type === "coach_masterclass" || currentStep.type === "listen") && "🎙️ Record the vocal warmup into mic to unlock"}
+                    {(currentStep.type === "vocal_mimicry" || currentStep.type === "repeat" || currentStep.type === "star_method") && "🎙️ Echo the phrase into mic to unlock"}
+                    {(currentStep.type === "sentence_doctor" || currentStep.type === "error_fix") && "🛠️ Speak the corrected sentence into mic to unlock"}
+                    {(currentStep.type === "daily_chitchat" || currentStep.type === "polite_request" || currentStep.type === "speak") && "💬 Speak your response into mic to unlock"}
+                    {(currentStep.type === "live_lounge" || currentStep.type === "conversational_sparring" || currentStep.type === "interact") && "🤝 Complete at least 1 turn with the AI coach"}
                     {(currentStep.type === "spoken_capstone" || currentStep.type === "present" || currentStep.type === "capstone") && "🎤 Deliver your speech and request AI critique"}
                   </span>
                 )}

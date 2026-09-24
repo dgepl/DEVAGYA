@@ -267,24 +267,31 @@ def evaluate_speech_alignment(target_phrase: str, spoken_text: str, duration_sec
     }
 
 # =====================================================================
-# 3. CLEAN FALLBACK MODULE GENERATOR (ZERO 3-DRILLS, ZERO PASSIVE STEPS)
+# =====================================================================
+# 3. CLEAN FALLBACK MODULE GENERATOR (4 DISTINCT PEDAGOGICAL ARCHETYPES)
 # =====================================================================
 def get_clean_curriculum_fallback(level: str, weak_points: List[str]) -> List[Dict[str, Any]]:
-    """Clean fallback if AI service is temporarily offline. Zero 3-drill tabs, zero passive listening steps."""
+    """
+    4 DISTINCT MODULE ARCHETYPES:
+    - Module 1: Vocal Cadence, Diction & Accent Sculpting (Warmup -> Mimicry -> Chitchat)
+    - Module 2: The Grammar Doctor & Indianism Eradicator (Doctor Masterclass -> Flaw Detective -> Polite Request)
+    - Module 3: Executive Public Speaking & Persuasion (30s Hook -> STAR Delivery -> Keynote Scorecard)
+    - Module 4: The Live AI Lounge (Unrestricted Rapid Voice Sparring on ANY topic + Graduation)
+    """
     weak_str = ', '.join(weak_points[:3]) if weak_points else 'Tense consistency and natural cadence'
     return [
         {
             "id": "module_1",
-            "title": "Module 1: Everyday Conversational Fluency & Confidence",
-            "methodology": "Conversational Psychology & Vocal Cadence",
-            "description": "Overcome vocal hesitation, master executive conversation openers, and eliminate filler pauses.",
-            "focus_areas": ["Natural Cadence & Inflection", "Instant Sentence Formation", "Zero-Filler Delivery"],
+            "title": "Module 1: Vocal Cadence, Diction & Accent Sculpting",
+            "methodology": "Acoustic Cadence & Diaphragmatic Breath",
+            "description": "Overcome vocal hesitation, master diaphragmatic breath placement, and eliminate trailing murmurs.",
+            "focus_areas": ["Diaphragmatic Breath Placement", "Downward Terminal Inflection", "Daily Conversational Flow"],
             "steps": [
                 {
                     "step_id": "m1_s1",
                     "type": "coach_masterclass",
-                    "title": "Stage 1: Executive Masterclass & Mandatory Vocal Warmup",
-                    "prompt": "Study the coach's vocal breakdown below, then press the microphone and speak the mandatory Vocal Warmup phrase to unlock the next stage!",
+                    "title": "Stage 1: Vocal Cadence & Breath Placement Warmup",
+                    "prompt": "Study the coach's vocal breakdown, then record the mandatory Vocal Warmup phrase to unlock the next stage.",
                     "masterclass_lecture": {
                         "topic": "The Physics of Confident Spoken Cadence",
                         "duration": "Executive 10-Minute Deep Dive",
@@ -292,12 +299,10 @@ def get_clean_curriculum_fallback(level: str, weak_points: List[str]) -> List[Di
                         "vocal_mechanics": "1. Diaphragmatic Breath: Inhale deeply before speaking your initial clause.\n2. Downward Terminal Inflection: Avoid turning statements into questions by ending with a grounded tone.\n3. Syllable Bridges: Link vowel sounds smoothly.",
                         "key_formulas": [
                             "The Warmth Opener: [Warm Greeting] + [Sincere Emotion] + [Purpose Statement]",
-                            "The Momentum Transition: [Context Bridge] + [Conjunctive Pause] + [Action Step]",
-                            "The Group Magnet: [Acknowledging Question] + [Shared Reflection]"
+                            "The Momentum Transition: [Context Bridge] + [Conjunctive Pause] + [Action Step]"
                         ],
                         "common_traps": [
                             "Trap: Saying 'Myself Rahul' -> Correction: 'I am Rahul' or 'My name is Rahul'",
-                            "Trap: Saying 'Today morning I reached' -> Correction: 'This morning I arrived'",
                             "Trap: Trailing off weakly at sentence ends -> Correction: Crisp closure on final consonant"
                         ],
                         "model_audio_text": "Good morning everyone! It is a genuine pleasure to connect with all of you today. Let us get started on our discussion."
@@ -307,110 +312,81 @@ def get_clean_curriculum_fallback(level: str, weak_points: List[str]) -> List[Di
                 {
                     "step_id": "m1_s2",
                     "type": "vocal_mimicry",
-                    "title": "Stage 2: Vocal Mimicry & Cadence Sculptor",
-                    "prompt": "Listen to the coach's natural inflection, then press the microphone and echo the phrase aloud. AI scores your accuracy, WPM, and cadence.",
+                    "title": "Stage 2: Vocal Mimicry Echo (Cadence & Intonation)",
+                    "prompt": "Listen to the coach's natural inflection, then speak the phrase into your microphone. AI evaluates your accuracy, WPM, and cadence.",
                     "target_phrase": "It is a genuine pleasure to connect with all of you today."
                 },
                 {
                     "step_id": "m1_s3",
-                    "type": "sentence_doctor",
-                    "title": "Stage 3: Real-Time Sentence Doctor (Spot & Speak the Fix)",
-                    "prompt": "Spot the common Indian English flaw below. Speak the grammatically pristine correction aloud into your microphone!",
-                    "flawed_sentence": "Myself Amit and today morning I reached the school.",
-                    "corrected_sentence": "My name is Amit and I arrived at school this morning.",
-                    "explanation": "Avoid starting with 'Myself' and replace 'today morning' with 'this morning'."
-                },
-                {
-                    "step_id": "m1_s4",
-                    "type": "conversational_sparring",
-                    "title": "Stage 4: 1-on-1 Conversational Sparring (Live Voice Dialogue)",
-                    "prompt": "Hands-Free Voice Mode: The AI coach speaks and listens. Answer naturally—the coach provides immediate spoken corrections if needed.",
-                    "coach_starter": "Hello there! Tell me one exciting milestone or project you worked on recently."
-                },
-                {
-                    "step_id": "m1_s5",
-                    "type": "spoken_capstone",
-                    "title": "Stage 5: 60-Second Spoken Capstone (Live Scorecard)",
-                    "prompt": "Deliver a 60-second public speech on: 'Why Curiosity is the Greatest Teacher'. DEVGYA AI evaluates your filler words, cadence, and grammar!",
-                    "topic": "Why Curiosity is the Greatest Teacher"
+                    "type": "daily_chitchat",
+                    "title": "Stage 3: Daily Chitchat Spontaneous Response",
+                    "prompt": "Answer spontaneously in 2-3 sentences: 'Tell me about an interesting place in your town or what you did yesterday.' Click mic, speak, then click AI Review.",
+                    "sample_answer": "Yesterday was quite productive. I spent the afternoon reading an inspiring book at a local coffee shop, and then connected with an old friend.",
+                    "topic": "An interesting place in your town or your activities yesterday"
                 }
             ]
         },
         {
             "id": "module_2",
-            "title": "Module 2: Grammar in Spoken Action & Sentence Reconstruction",
-            "methodology": "Sentence Clinic & Diplomatic Negotiation",
-            "description": f"Targeted corrections for your specific diagnostic gaps: {weak_str}.",
-            "focus_areas": ["Accurate Verb Tenses", "Eliminating Indianisms", "Polite Negotiation Phrasing"],
+            "title": "Module 2: The Grammar Doctor & Indianism Eradicator",
+            "methodology": "Syntax Clinic & Polite Workplace Diplomacy",
+            "description": f"Targeted corrections for common Indian English slips and your diagnostic gaps: {weak_str}.",
+            "focus_areas": ["Preposition Precision", "Duration & Tenses", "Polite Negotiation Phrasing"],
             "steps": [
                 {
                     "step_id": "m2_s1",
                     "type": "coach_masterclass",
-                    "title": "Stage 1: Grammar Clinic Masterclass & Vocal Warmup",
-                    "prompt": "Absorb the coach's grammar formulas, then record the mandatory Vocal Warmup phrase to unlock the stage!",
+                    "title": "Stage 1: Indianism Doctor & Tense Accuracy Masterclass",
+                    "prompt": "Absorb the grammar rules below, then record the mandatory Vocal Warmup phrase to unlock the Flaw Detective.",
                     "masterclass_lecture": {
-                        "topic": "Mastering Tense Bridges & Eliminating Literal Hindi-to-English Translations",
+                        "topic": "Tense Bridges & Eliminating Literal Hindi-to-English Translations",
                         "duration": "Executive 10-Minute Deep Dive",
                         "summary": "In Indian languages, present continuous is often used for ongoing past duration. Translating this literally as 'I am working here since 5 years' is the #1 grammatical slip in Indian spoken English.",
                         "vocal_mechanics": "1. Perfect Continuous Arc: Use 'have been + [verb]-ing' with 'for' (duration) or 'since' (starting point).\n2. Diplomatic Softeners: Use modal cushions ('Could we consider...', 'Would it be possible...').\n3. Preposition Accuracy: Use 'at' for precise clock times and 'on' for calendar days.",
                         "key_formulas": [
                             "The Duration Formula: [Subject] + [have/has been] + [verb-ing] + [for + duration]",
-                            "The Diplomatic Suggestion: 'Would you be open to...' + [verb-ing / noun]?",
-                            "The Clarification Bridge: 'May I confirm my understanding on...' + [topic]?"
+                            "The Diplomatic Suggestion: 'Would you be open to...' + [verb-ing / noun]?"
                         ],
                         "common_traps": [
                             "Trap: 'I am working here since 5 years' -> Correction: 'I have been working here for 5 years'",
                             "Trap: 'Please revert back' -> Correction: 'Please reply' or 'Please get back to me'",
                             "Trap: 'Can we prepone the meeting?' -> Correction: 'Can we move the meeting forward?'"
                         ],
-                        "model_audio_text": "Over the past several weeks, our students have demonstrated significant improvement in mathematical reasoning."
+                        "model_audio_text": "I have been working on this educational research for the past six months, and the results are remarkable."
                     },
                     "vocal_warmup_phrase": "I have been working on this educational research for the past six months, and the results are remarkable."
                 },
                 {
                     "step_id": "m2_s2",
-                    "type": "vocal_mimicry",
-                    "title": "Stage 2: Vocal Mimicry & Cadence Sculptor",
-                    "prompt": "Echo this phrase emphasizing continuing duration and crisp connector flow.",
-                    "target_phrase": "I have been working on this educational research for the past six months, and the results are remarkable."
+                    "type": "sentence_doctor",
+                    "title": "Stage 2: Flaw Detective: Spot & Speak The Correction",
+                    "prompt": "Notice the common Indian English flaw below. Speak the grammatically pristine version aloud into your microphone!",
+                    "flawed_sentence": "I am working here since five years and I will revert back tomorrow.",
+                    "corrected_sentence": "I have been working here for five years and I will reply tomorrow.",
+                    "explanation": "Use 'have been working ... for five years' for duration, and say 'reply' instead of the redundant 'revert back'."
                 },
                 {
                     "step_id": "m2_s3",
-                    "type": "sentence_doctor",
-                    "title": "Stage 3: Real-Time Sentence Doctor (Spot & Speak the Fix)",
-                    "prompt": "Listen to the flawed Indian English sentence. Speak the corrected version aloud into your microphone!",
-                    "flawed_sentence": "I am working here since five years and I will revert back tomorrow.",
-                    "corrected_sentence": "I have been working here for five years and I will reply tomorrow.",
-                    "explanation": "Use 'have been working ... for five years' and say 'reply' instead of 'revert back'."
-                },
-                {
-                    "step_id": "m2_s4",
-                    "type": "conversational_sparring",
-                    "title": "Stage 4: 1-on-1 Conversational Sparring (Live Voice Dialogue)",
-                    "prompt": "Hands-Free Voice Mode: A colleague asks for an urgent deadline extension. Negotiate politely, explain your schedule, and propose a solution.",
-                    "coach_starter": "Hi! We encountered unexpected technical delays on the report. Could we get a four-day deadline extension?"
-                },
-                {
-                    "step_id": "m2_s5",
-                    "type": "spoken_capstone",
-                    "title": "Stage 5: 60-Second Spoken Capstone (Live Scorecard)",
-                    "prompt": "Deliver a 60-second speech on: 'How to Resolve Disagreements Diplomatically in a Professional Setting'.",
-                    "topic": "How to Resolve Disagreements Diplomatically in a Professional Setting"
+                    "type": "polite_request",
+                    "title": "Stage 3: Situational Polite Request (Workplace Diplomacy)",
+                    "prompt": "Spoken Challenge: You need an urgent 2-day leave or deadline extension from your senior. Speak a polite, professional request into the mic, then click AI Review.",
+                    "sample_answer": "Good afternoon Mr. Sharma. Due to an unforeseen personal matter, would it be possible for me to request two days of leave next week? I have ensured all my urgent tasks are completed.",
+                    "topic": "Requesting a polite leave or deadline extension from your senior"
                 }
             ]
         },
         {
             "id": "module_3",
-            "title": "Module 3: Persuasive Keynote & Public Speaking Mastery",
-            "methodology": "TED-Style Keynote & Stage Gravitas",
-            "description": "Master stage presence, opening hooks, transition connectors, and impromptu speech delivery.",
-            "focus_areas": ["The 3-Part Speech Formula", "Impromptu Audience Defense", "Power Pauses & Modulation"],
+            "title": "Module 3: Executive Public Speaking & Persuasion",
+            "methodology": "TED-Style Keynote & STAR Storytelling",
+            "description": "Master stage gravitas, 30-second opening hooks, structured STAR delivery, and impromptu poise.",
+            "focus_areas": ["The 30-Second Attention Hook", "The STAR Method", "Keynote Scorecard & Zero-Fillers"],
             "steps": [
                 {
                     "step_id": "m3_s1",
                     "type": "coach_masterclass",
-                    "title": "Stage 1: TED-Style Keynote Masterclass & Vocal Warmup",
-                    "prompt": "Study the TED-style speech blueprint, then record the mandatory Vocal Warmup phrase to unlock the stage!",
+                    "title": "Stage 1: The 30-Second Attention Hook & Power Pause",
+                    "prompt": "Study the TED-style hook formula, then record the mandatory Vocal Warmup phrase to unlock STAR delivery.",
                     "masterclass_lecture": {
                         "topic": "The 3-Part Architecture of High-Impact Public Speaking",
                         "duration": "Executive 10-Minute Deep Dive",
@@ -418,13 +394,11 @@ def get_clean_curriculum_fallback(level: str, weak_points: List[str]) -> List[Di
                         "vocal_mechanics": "1. The Power Pause: Pause for a full two seconds immediately after your opening hook.\n2. Pitch Modulation: Use resonant low frequencies for authoritative proof and higher inflection for calls to action.\n3. Eliminating Verbal Fillers: Replace 'um' and 'you know' with silent breath pauses.",
                         "key_formulas": [
                             "The Visionary Grabber: 'Imagine a world where...' + [compelling counter-intuitive reality]",
-                            "The Proof Contrast: 'Our evidence shows that when...' + [contrasting metrics]",
-                            "The Resonant Call: 'Let us not wait for...' + [bold collective directive]"
+                            "The Proof Contrast: 'Our evidence shows that when...' + [contrasting metrics]"
                         ],
                         "common_traps": [
                             "Trap: Opening with 'Today my topic is...' -> Correction: Open with a provocative question or story",
-                            "Trap: Speaking in a monotone flat frequency -> Correction: Inflect upward on key adjectives",
-                            "Trap: Pacing rapidly without breathing -> Correction: Breathe at every comma and full stop"
+                            "Trap: Speaking in a monotone flat frequency -> Correction: Inflect upward on key adjectives"
                         ],
                         "model_audio_text": "Imagine a world where learning is not about memorizing answers, but about discovering questions that change lives."
                     },
@@ -432,96 +406,40 @@ def get_clean_curriculum_fallback(level: str, weak_points: List[str]) -> List[Di
                 },
                 {
                     "step_id": "m3_s2",
-                    "type": "vocal_mimicry",
-                    "title": "Stage 2: Vocal Mimicry & Cadence Sculptor",
-                    "prompt": "Deliver this opening hook emphasizing the power pause immediately after 'unstoppable'.",
-                    "target_phrase": "Have you ever wondered what makes a great mind truly unstoppable? It begins with a single teacher who believes."
+                    "type": "star_method",
+                    "title": "Stage 2: STAR Framework Executive Delivery",
+                    "prompt": "Listen to the executive STAR response, then echo it into your microphone with crisp metrics and downward inflection.",
+                    "target_phrase": "When faced with tight project deadlines, I reorganized our milestones, communicated daily updates, and delivered two days ahead of schedule."
                 },
                 {
                     "step_id": "m3_s3",
-                    "type": "sentence_doctor",
-                    "title": "Stage 3: Real-Time Sentence Doctor (Spot & Speak the Fix)",
-                    "prompt": "Spot the clumsy opening phrase below. Speak the powerful, engaging version into your microphone!",
-                    "flawed_sentence": "Good morning all, today my presentation is about technology in education.",
-                    "corrected_sentence": "What if artificial intelligence could give every single student a personal mentor? Today, that future is within our reach.",
-                    "explanation": "Replace dry topic announcements with an electrifying question that grabs attention."
-                },
-                {
-                    "step_id": "m3_s4",
-                    "type": "conversational_sparring",
-                    "title": "Stage 4: 1-on-1 Conversational Sparring (Impromptu Q&A Defense)",
-                    "prompt": "The audience asks a tough impromptu question about your presentation! Defend your stance clearly and diplomatically.",
-                    "coach_starter": "You argued that curiosity is greater than discipline. But isn't discipline what actually gets exams cleared?"
-                },
-                {
-                    "step_id": "m3_s5",
                     "type": "spoken_capstone",
-                    "title": "Stage 5: 60-Second Spoken Capstone (Live Scorecard)",
-                    "prompt": "Deliver a 60-second speech on: 'Why Failure is the Best Stepping Stone to Mastery'.",
+                    "title": "Stage 3: 60-Second Keynote Adjudication Scorecard",
+                    "prompt": "Deliver a 60-second speech on: 'Why Failure is the Best Stepping Stone to Mastery'. DEVGYA AI evaluates your filler words, cadence, and grammar!",
                     "topic": "Why Failure is the Best Stepping Stone to Mastery"
                 }
             ]
         },
         {
             "id": "module_4",
-            "title": "Module 4: Executive Interview & Mastery Capstone",
-            "methodology": "STAR Technique & Official Graduation",
-            "description": "The culminating spoken masterclass. Demonstrate your professional fluency to generate your official report card and certificate.",
-            "focus_areas": ["STAR Method Framing", "Executive Presence", "Mastery Certification"],
+            "title": "Module 4: The Live AI Lounge & Official Graduation",
+            "methodology": "Unrestricted Rapid Voice Sparring & Certification",
+            "description": "Engage in unrestricted live voice conversation with your AI coach on ANY topic. Fast sub-second replies, then generate your official certificate.",
+            "focus_areas": ["Unrestricted Live Voice Dialogue", "Sub-Second Conversational Flow", "Spoken English Mastery Certification"],
             "steps": [
                 {
                     "step_id": "m4_s1",
-                    "type": "coach_masterclass",
-                    "title": "Stage 1: Executive Presence Masterclass & Vocal Warmup",
-                    "prompt": "Review the executive STAR framework, then record the mandatory Vocal Warmup phrase to unlock the Senior Mock Interview!",
-                    "masterclass_lecture": {
-                        "topic": "The STAR Behavioral Framework for High-Stakes Spoken Interviews",
-                        "duration": "Executive 10-Minute Deep Dive",
-                        "summary": "In senior leadership, corporate panels, and academic interviews, rambling answers are lethal. The STAR method forces structured, metric-backed impact in under 90 seconds.",
-                        "vocal_mechanics": "1. Situation & Task (25%): Set the stage succinctly without excessive background detail.\n2. Action (50%): Use strong dynamic action verbs ('I spearheaded', 'I orchestrated', 'I synthesized') instead of passive verbs ('Work was done').\n3. Result (25%): Close with quantifiable impact and long-term value.",
-                        "key_formulas": [
-                            "The Action Metric Anchor: 'I mobilized our team of four, resulting in a thirty percent boost in efficiency.'",
-                            "The Conflict Resolution Bridge: 'Rather than debating assumptions, I introduced an empirical benchmark.'",
-                            "The Visionary Closer: 'My objective was to build a sustainable system that outlasted the immediate crisis.'"
-                        ],
-                        "common_traps": [
-                            "Trap: Saying 'We did this and we did that' -> Correction: Specify YOUR distinct contribution with 'I'",
-                            "Trap: Skipping the measurable result -> Correction: Always state the positive outcome or learning",
-                            "Trap: Speaking with apologetic timid volume -> Correction: Project from the chest with steady eye contact"
-                        ],
-                        "model_audio_text": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a forty percent boost in exam performance."
-                    },
-                    "vocal_warmup_phrase": "When faced with tight project deadlines, I reorganized our milestones, communicated daily updates, and delivered two days ahead of schedule."
+                    "type": "live_lounge",
+                    "title": "Stage 1: The Live AI Lounge (Unrestricted Rapid Voice Sparring)",
+                    "prompt": "Talk to your AI coach freely on ANY topic: career goals, Indian education, technology, daily life, or debate. Speak via microphone—the coach responds in seconds with voice and tips!",
+                    "coach_starter": "Welcome to the Live AI Lounge! You can talk with me about absolutely anything. What is on your mind today?"
                 },
                 {
                     "step_id": "m4_s2",
-                    "type": "vocal_mimicry",
-                    "title": "Stage 2: Vocal Mimicry & Cadence Sculptor",
-                    "prompt": "Deliver this executive STAR response with crisp metrics and authoritative downward terminal inflection.",
-                    "target_phrase": "When faced with tight project deadlines, I reorganized our milestones, communicated daily updates, and delivered two days ahead of schedule."
-                },
-                {
-                    "step_id": "m4_s3",
-                    "type": "sentence_doctor",
-                    "title": "Stage 3: Real-Time Sentence Doctor (Spot & Speak the Fix)",
-                    "prompt": "Spot the passive, vague interview answer below. Speak the metric-driven STAR correction into your microphone!",
-                    "flawed_sentence": "In our team project, some work was done by us and we managed to finish it somehow.",
-                    "corrected_sentence": "I organized our project into four weekly milestones, leading our team to complete all deliverables two days ahead of schedule.",
-                    "explanation": "Replace passive voice ('work was done by us') with active leadership verbs ('I organized', 'leading our team') and measurable results."
-                },
-                {
-                    "step_id": "m4_s4",
-                    "type": "conversational_sparring",
-                    "title": "Stage 4: 1-on-1 Conversational Sparring (Senior Panel Interview)",
-                    "prompt": "Hands-Free Voice Mode: You are in an executive interview. Answer spontaneous questions from the hiring director with authority.",
-                    "coach_starter": "Welcome to the final interview panel. How do you handle high-pressure conflicts or differing opinions in your team?"
-                },
-                {
-                    "step_id": "m4_s5",
-                    "type": "spoken_capstone",
-                    "title": "Stage 5: Official Graduation Spoken Capstone & Certificate",
-                    "prompt": "Deliver your final spoken graduation speech summarizing your learning journey and your vision. DEVGYA AI will award your official Spoken English Mastery Certificate!",
-                    "topic": "My Spoken English Transformation & Long-Term Communication Vision"
+                    "type": "mastery_graduation",
+                    "title": "Stage 2: Official Spoken English Mastery Certification",
+                    "prompt": "Deliver your final spoken graduation statement summarizing your learning journey and communication vision to receive your verified Devgya certificate.",
+                    "topic": "My Spoken English Transformation & Communication Vision"
                 }
             ]
         }
@@ -543,8 +461,12 @@ async def generate_pure_ai_curriculum(
 ) -> List[Dict[str, Any]]:
     """
     Calls Groq LLM to synthesize a 100% bespoke, personalized 4-module spoken English curriculum.
-    NO HARDCODED SENTENCES, NO 3-DRILLS TABS.
-    Every step is an active speaking stage tailored to the learner's exact gaps.
+    NO HARDCODED SENTENCES, NO REPETITIVE 5-DRILLS TEMPLATE.
+    Every module has its OWN DISTINCT, progressive pedagogical archetype tailored to the learner's gaps:
+    - Module 1: Vocal Cadence, Diction & Accent Sculpting (Warmup -> Mimicry -> Daily Chitchat)
+    - Module 2: The Grammar Doctor & Indianism Eradicator (Doctor Masterclass -> Flaw Detective -> Polite Request)
+    - Module 3: Executive Public Speaking & Persuasion (30s Hook -> STAR Delivery -> Keynote Scorecard)
+    - Module 4: The Live AI Lounge & Official Graduation (Unrestricted Rapid Voice Sparring -> Certification)
     """
     weak_summary = ", ".join(weak_points) if weak_points else "Natural sentence cadence and verb tenses"
     failed_summary = ", ".join(failed_topics) if failed_topics else "General conversational polish and preposition precision"
@@ -559,54 +481,32 @@ Synthesize a 100% personalized, premium 4-module Spoken English Curriculum for:
 
 ABSOLUTE ARCHITECTURAL RULES (CRITICAL):
 1. ZERO PASSIVE LISTENING STEPS. The learner MUST speak in every single stage.
-2. DO NOT use "Drill 1, Drill 2, Drill 3" or practice item arrays! Each step is a SINGLE, high-stakes, focused coaching experience.
-3. Every module MUST have EXACTLY 5 progressive stages:
-   - Stage 1: "coach_masterclass"
-     - "title": "Stage 1: Executive Masterclass & Mandatory Vocal Warmup"
-     - "prompt": "Study the coach's vocal breakdown below, then press the microphone and speak the mandatory Vocal Warmup phrase to unlock the next stage!"
-     - "masterclass_lecture": {{
-         "topic": "...",
-         "duration": "Executive 10-Minute Deep Dive",
-         "summary": "In-depth explanation (2-3 paragraphs) diagnosing the exact psychology and vocal habits of Indian speakers on these weak points ({failed_summary}).",
-         "vocal_mechanics": "1. Diaphragmatic Breath: ...\\n2. Downward Terminal Inflection: ...\\n3. Syllable Bridges: ...",
-         "key_formulas": ["Formula 1", "Formula 2", "Formula 3"],
-         "common_traps": ["Trap 1 -> Correction", "Trap 2 -> Correction", "Trap 3 -> Correction"],
-         "model_audio_text": "A pristine model sentence demonstrating the lesson."
-       }}
-     - "vocal_warmup_phrase": "A bespoke 1-2 sentence phrase the user MUST speak into the mic to complete the warmup."
+2. DO NOT use "Drill 1, Drill 2, Drill 3" or practice item arrays! Each step is a focused, high-stakes coaching experience.
+3. Every module MUST have its OWN UNIQUE, DISTINCT pedagogical steps (DO NOT repeat the same 5 steps across all modules!):
 
-   - Stage 2: "vocal_mimicry"
-     - "title": "Stage 2: Vocal Mimicry & Cadence Sculptor"
-     - "prompt": "Listen to the coach's natural inflection, then press the microphone and echo the phrase aloud. AI scores your accuracy, WPM, and cadence."
-     - "target_phrase": "A challenging, natural spoken English sentence designed to rewire the user's specific weak points."
+- Module 1: "Vocal Cadence, Diction & Accent Sculpting"
+  - Step 1 ("coach_masterclass"): Cadence Masterclass & Breath Placement Warmup. Must include "masterclass_lecture" and "vocal_warmup_phrase".
+  - Step 2 ("vocal_mimicry"): Vocal Mimicry Echo (target_phrase designed to rewire learner's specific weak points).
+  - Step 3 ("daily_chitchat"): Daily Chitchat Spontaneous Response. Provocative everyday prompt asking the user to answer in 2-3 sentences.
 
-   - Stage 3: "sentence_doctor"
-     - "title": "Stage 3: Real-Time Sentence Doctor (Spot & Speak the Fix)"
-     - "prompt": "Spot the common Indian English flaw below. Speak the grammatically pristine correction aloud into your microphone!"
-     - "flawed_sentence": "A flawed spoken Indian English sentence directly targeting: {failed_summary}."
-     - "corrected_sentence": "The pristine, natural global English version."
-     - "explanation": "Why the original is flawed and how the correction works."
+- Module 2: "The Grammar Doctor & Indianism Eradicator"
+  - Step 1 ("coach_masterclass"): Indianism Doctor Masterclass targeting {failed_summary}. Must include "masterclass_lecture" and "vocal_warmup_phrase".
+  - Step 2 ("sentence_doctor"): Flaw Detective: Spot & Speak The Correction. Must include "flawed_sentence", "corrected_sentence", and "explanation".
+  - Step 3 ("polite_request"): Situational Polite Request (workplace or academic diplomacy, e.g. asking boss for leave or deadline extension).
 
-   - Stage 4: "conversational_sparring"
-     - "title": "Stage 4: 1-on-1 Conversational Sparring (Live Voice Dialogue)"
-     - "prompt": "Hands-Free Voice Mode: The AI coach speaks and listens. Answer naturally—the coach provides immediate spoken corrections if needed."
-     - "coach_starter": "A provocative, engaging opening question tailored to a {user_role} to trigger spontaneous speech."
+- Module 3: "Executive Public Speaking & Persuasion"
+  - Step 1 ("coach_masterclass"): The 30-Second Attention Hook. Must include "masterclass_lecture" and "vocal_warmup_phrase".
+  - Step 2 ("star_method"): STAR Framework Executive Delivery (Situation, Task, Action, Result model sentence for the user to echo).
+  - Step 3 ("spoken_capstone"): 60-Second Keynote Adjudication Scorecard on a deep challenge topic.
 
-   - Stage 5: "spoken_capstone"
-     - "title": "Stage 5: 60-Second Spoken Capstone (Live Scorecard)"
-     - "prompt": "Deliver a 60-second speech on the challenge topic. DEVGYA AI evaluates your filler words, cadence, and grammar!"
-     - "topic": "An engaging, deep public speaking topic suited for a {user_role}."
+- Module 4: "The Live AI Lounge & Official Graduation"
+  - Step 1 ("live_lounge"): Unrestricted Rapid Voice Sparring on ANY topic. Include an engaging "coach_starter" prompt.
+  - Step 2 ("mastery_graduation"): Official Spoken English Mastery Certification statement.
 
-4. Generate 4 modules:
-   - Module 1: Everyday Conversational Fluency & Confidence (overcoming hesitation & fillers)
-   - Module 2: Grammar in Spoken Action & Sentence Reconstruction (directly targeting: {failed_summary})
-   - Module 3: Persuasive Keynote & Public Speaking Mastery (TED-style hooks & gravitas)
-   - Module 4: Executive Interview & Mastery Capstone (STAR framework & leadership presence)
-
-5. Return ONLY a valid JSON array of 4 module objects. No markdown backticks, no preamble.
+4. Return ONLY a valid JSON array of 4 module objects. No markdown backticks, no preamble.
 """
     messages = [
-        {"role": "system", "content": "You are Devgya Chief Speech Pathologist. Return ONLY a valid JSON array of 4 bespoke module objects. Do NOT use drill arrays or hardcoded boilerplate."},
+        {"role": "system", "content": "You are Devgya Chief Speech Pathologist. Return ONLY a valid JSON array of 4 bespoke module objects with the 4 distinct pedagogical archetypes."},
         {"role": "user", "content": prompt}
     ]
 
