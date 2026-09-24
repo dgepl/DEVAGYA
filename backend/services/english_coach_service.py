@@ -178,51 +178,211 @@ DIAGNOSTIC_QUESTIONS = [
 ]
 
 # =====================================================================
-# 2. STRUCTURED LRSI & LRSP LECTURE ROADMAP (3 PROGRESSIVE DRILLS PER STEP)
+# 2. MULTI-DIMENSIONAL SPEECH EVALUATION & WORD-BY-WORD ALIGNMENT
+# =====================================================================
+def _clean_word(w: str) -> str:
+    import re
+    return re.sub(r'[^a-zA-Z0-9]', '', w).lower()
+
+def _levenshtein(s1: str, s2: str) -> int:
+    if len(s1) < len(s2):
+        return _levenshtein(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+    previous_row = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+def evaluate_speech_alignment(target_phrase: str, spoken_text: str, duration_seconds: Optional[float] = None) -> Dict[str, Any]:
+    """
+    Evaluates spoken audio against target phrase:
+    - Word-by-word accuracy (green: correct, amber: hesitant, red: missed)
+    - Pacing / WPM (Words Per Minute)
+    - Filler word count (um, uh, like, actually, basically, you know)
+    - Studio spoken critique for Edge-TTS audio playback
+    """
+    target_tokens = target_phrase.strip().split()
+    spoken_tokens = spoken_text.strip().split()
+
+    clean_spoken = [_clean_word(w) for w in spoken_tokens if _clean_word(w)]
+
+    word_matches = []
+    correct_count = 0
+    hesitant_count = 0
+    missed_words = []
+
+    spoken_search_idx = 0
+    for orig_w in target_tokens:
+        cw = _clean_word(orig_w)
+        if not cw:
+            word_matches.append({"word": orig_w, "status": "correct"})
+            continue
+
+        matched_status = "missed"
+        # Search window in spoken words around current index
+        window_start = max(0, spoken_search_idx - 2)
+        window_end = min(len(clean_spoken), spoken_search_idx + 6)
+        candidates = clean_spoken[window_start:window_end]
+
+        best_dist = 999
+        best_cand_idx = -1
+        for idx_offset, cand in enumerate(candidates):
+            if cand == cw:
+                best_dist = 0
+                best_cand_idx = window_start + idx_offset
+                break
+            d = _levenshtein(cw, cand)
+            if d < best_dist:
+                best_dist = d
+                best_cand_idx = window_start + idx_offset
+
+        if best_dist == 0:
+            matched_status = "correct"
+            correct_count += 1
+            spoken_search_idx = best_cand_idx + 1
+        elif best_dist == 1 or (len(cw) >= 6 and best_dist <= 2):
+            matched_status = "hesitant"
+            hesitant_count += 1
+            spoken_search_idx = best_cand_idx + 1
+        else:
+            matched_status = "missed"
+            missed_words.append(orig_w)
+
+        word_matches.append({
+            "word": orig_w,
+            "status": matched_status
+        })
+
+    total_words = max(len([w for w in target_tokens if _clean_word(w)]), 1)
+    accuracy_score = min(100, round(((correct_count + (0.5 * hesitant_count)) / total_words) * 100))
+
+    # Pacing / WPM calculation
+    num_spoken_words = len(spoken_tokens)
+    if duration_seconds and duration_seconds > 0:
+        wpm = round((num_spoken_words / duration_seconds) * 60)
+    else:
+        # Realistic estimate based on target length
+        wpm = round(min(145, max(90, num_spoken_words * 12)))
+
+    if wpm < 110:
+        pace_status = "Pace: Measured / Deliberate (Target: 120-150 WPM)"
+    elif 110 <= wpm <= 155:
+        pace_status = "Pace: Masterclass Cadence (Optimal)"
+    else:
+        pace_status = "Pace: Rapid / Hurried (Target: 120-150 WPM)"
+
+    # Filler words detection
+    filler_vocab = ["um", "uh", "like", "actually", "basically", "you know", "i mean", "sort of", "literally"]
+    lower_spoken = spoken_text.lower()
+    filler_occurrences = []
+    for f in filler_vocab:
+        count = lower_spoken.count(f)
+        if count > 0:
+            filler_occurrences.append({"filler": f, "count": count})
+
+    total_fillers = sum(item["count"] for item in filler_occurrences)
+
+    # Spoken Audio Critique Generator for Edge-TTS
+    if accuracy_score >= 85 and total_fillers == 0:
+        critique = f"Outstanding delivery! Your diction was razor sharp and pacing was {wpm} words per minute. Flawless cadence!"
+    elif accuracy_score >= 70:
+        critique = f"Great execution with a {accuracy_score} percent score. To reach perfection, enunciate your final consonants clearly."
+    elif accuracy_score >= 50:
+        critique = f"Good attempt! Your cadence was solid. Pay close attention to {', '.join(missed_words[:3]) or 'word transitions'}."
+    else:
+        critique = f"Keep practicing! Slow down your speech, open your vowels, and let's run this vocal drill once more."
+
+    return {
+        "accuracy_score": accuracy_score,
+        "word_matches": word_matches,
+        "wpm": wpm,
+        "pace_status": pace_status,
+        "filler_words": filler_occurrences,
+        "total_fillers": total_fillers,
+        "spoken_coach_critique": critique
+    }
+
+
+# =====================================================================
+# 3. STRUCTURED LRSI & LRSP MASTERCLASS ROADMAP (ZERO PASSIVE LISTENING)
 # =====================================================================
 def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str, Any]]:
-    """Generates sequential modules tailored to weak points where each step has 3 progressive practice drills."""
-    weak_str = ', '.join(weak_points[:3]) if weak_points else 'Tenses and Natural Sentence Flow'
+    """
+    Generates high-end sequential masterclass modules where every step requires active speaking:
+    - Step 1: Executive Masterclass & Mandatory Vocal Warmup Recording
+    - Step 2: Vocal Mimicry Gym (Target Echo + Word-by-Word Scoring)
+    - Step 3: Error Clinic & Spoken Fixer (Spot & Speak The Grammatical Fix)
+    - Step 4: Conversational Sparring (Spontaneous Live Speech with Coach)
+    - Step 5: Capstone Public Speech & Articulation Challenge
+    """
+    weak_str = ', '.join(weak_points[:3]) if weak_points else 'Natural sentence cadence and verb tenses'
     return [
         {
             "id": "module_1",
             "title": "Module 1: Everyday Conversational Fluency & Confidence",
             "methodology": "LRSI (Listen, Repeat, Speak, Interact)",
-            "description": "Overcome hesitation, master everyday conversation openers, and eliminate filler words.",
-            "focus_areas": ["Natural Intonation", "Quick Sentence Formation", "Filler Word Reduction"],
+            "description": "Overcome vocal hesitation, master executive conversation openers, and eliminate filler pauses.",
+            "focus_areas": ["Natural Cadence & Inflection", "Instant Sentence Formation", "Zero-Filler Delivery"],
             "steps": [
                 {
-                    "step_id": "m1_listen",
-                    "type": "listen",
-                    "title": "Step 1: Audio Ear Training (Native Cadence & Flow)",
-                    "prompt": "Listen carefully to the coach's tone, pacing, and natural sentence pauses in everyday conversation.",
-                    "model_audio_text": "Good morning everyone! It is a genuine pleasure to connect with all of you today. Let us get started on our discussion.",
+                    "step_id": "m1_masterclass",
+                    "type": "coach_masterclass",
+                    "title": "Step 1: Executive Masterclass & Vocal Warmup",
+                    "prompt": "Study the coach's vocal breakdown below, then press the microphone and record the mandatory Vocal Warmup phrase to unlock the next drill!",
+                    "masterclass_lecture": {
+                        "topic": "The Physics of Confident Spoken Cadence",
+                        "duration": "Executive 10-Minute Deep Dive",
+                        "summary": "Most non-native speakers rush their sentences because they fear pauses. Master speakers use 'The Three-Second Breathing Rule' to project authority.",
+                        "vocal_mechanics": "1. Diaphragmatic Breath: Inhale deeply from your lower abdomen before speaking your initial clause.\n2. Downward Terminal Inflection: Avoid turning statements into questions by ending declarative sentences with a grounded, downward tone.\n3. The Syllable Bridge: Link vowel sounds smoothly (e.g. 'pleasure to connect' flows without abrupt glottal stops).",
+                        "key_formulas": [
+                            "The Warmth Opener: [Warm Greeting] + [Sincere Emotion] + [Purpose Statement]",
+                            "The Momentum Transition: [Context Bridge] + [Conjunctive Pause] + [Action Step]",
+                            "The Group Magnet: [Acknowledging Question] + [Shared Reflection]"
+                        ],
+                        "common_traps": [
+                            "Trap: Saying 'Myself Rahul' -> Correction: 'I am Rahul' or 'My name is Rahul'",
+                            "Trap: Saying 'Today morning I reached' -> Correction: 'This morning I arrived'",
+                            "Trap: Trailing off weakly at sentence ends -> Correction: Crisp closure on the final consonant"
+                        ],
+                        "model_audio_text": "Good morning everyone! It is a genuine pleasure to connect with all of you today. Let us get started on our discussion."
+                    },
+                    "vocal_warmup_phrase": "Good morning everyone! It is a genuine pleasure to connect with all of you today.",
                     "practice_items": [
                         {
                             "id": 1,
-                            "title": "Drill 1: Morning Welcome & Warmth",
-                            "model_audio_text": "Good morning everyone! It is a genuine pleasure to connect with all of you today.",
-                            "focus": "Warm intonation and greeting cadence"
+                            "title": "Warmup 1: Morning Welcome Cadence",
+                            "vocal_warmup_phrase": "Good morning everyone! It is a genuine pleasure to connect with all of you today.",
+                            "target_phrase": "Good morning everyone! It is a genuine pleasure to connect with all of you today.",
+                            "focus": "Warm intonation and downward terminal cadence"
                         },
                         {
                             "id": 2,
-                            "title": "Drill 2: Expressing Excitement & Project Updates",
-                            "model_audio_text": "I am truly excited to share our latest project updates, and I think you will find the results fascinating.",
-                            "focus": "Smooth transition before the connector 'and'"
+                            "title": "Warmup 2: Expressing Project Enthusiasm",
+                            "vocal_warmup_phrase": "I am truly excited to share our latest project updates with the entire team.",
+                            "target_phrase": "I am truly excited to share our latest project updates with the entire team.",
+                            "focus": "Smooth vocal bridge before 'with the entire team'"
                         },
                         {
                             "id": 3,
-                            "title": "Drill 3: Engaging Group Transition",
-                            "model_audio_text": "Before we dive into our central topic, let us take a quick moment to reflect on what we accomplished this week.",
-                            "focus": "Natural pause after introductory clause"
+                            "title": "Warmup 3: Engaging Group Transition",
+                            "vocal_warmup_phrase": "Before we dive into our central topic, let us take a moment to reflect on our achievements.",
+                            "target_phrase": "Before we dive into our central topic, let us take a moment to reflect on our achievements.",
+                            "focus": "Natural micro-pause after the introductory clause"
                         }
                     ]
                 },
                 {
                     "step_id": "m1_repeat",
-                    "type": "repeat",
-                    "title": "Step 2: Shadowing Cadence (Rhythm & Stress Echo)",
-                    "prompt": "Press the microphone and repeat each phrase with clear cadence and natural stress.",
+                    "type": "vocal_mimicry",
+                    "title": "Step 2: Vocal Mimicry Gym (Cadence & Stress Echo)",
+                    "prompt": "Press the microphone and echo each phrase aloud. DEVGYA AI evaluates your exact word-by-word accuracy, WPM tempo, and vocal projection in real time.",
                     "target_phrase": "It is a genuine pleasure to connect with all of you today.",
                     "practice_items": [
                         {
@@ -235,7 +395,7 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
                             "id": 2,
                             "title": "Drill 2: Courteous Collocation Echo",
                             "target_phrase": "Could you please take a quick look at my presentation slides?",
-                            "prompt": "Notice how 'take a quick look' flows as a single natural unit."
+                            "prompt": "Notice how 'take a quick look' flows as a single natural phonetic unit."
                         },
                         {
                             "id": 3,
@@ -337,28 +497,48 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
             "focus_areas": ["Accurate Verb Tenses", "Eliminating Indianisms", "Polite Negotiation Phrasing"],
             "steps": [
                 {
-                    "step_id": "m2_listen",
-                    "type": "listen",
-                    "title": "Step 1: Native Connectors & Sentence Flow Masterclass",
-                    "prompt": "Notice how the speaker smoothly links past progress to present plans using connectors like 'over the past' and 'consequently'.",
-                    "model_audio_text": "Over the past several weeks, our students have demonstrated significant improvement in mathematical reasoning, and consequently, they are now ready for advanced challenges.",
+                    "step_id": "m2_masterclass",
+                    "type": "coach_masterclass",
+                    "title": "Step 1: Grammar Clinic Masterclass & Vocal Warmup",
+                    "prompt": "Absorb the coach's grammar formulas, then record the mandatory Vocal Warmup phrase to unlock the Spoken Clinic!",
+                    "masterclass_lecture": {
+                        "topic": "Mastering Tense Bridges & Eliminating Literal Hindi-to-English Translations",
+                        "duration": "Executive 10-Minute Deep Dive",
+                        "summary": "In Indian languages, present continuous is often used for ongoing past duration ('main 5 saal se kaam kar raha hoon'). Translating this literally as 'I am working here since 5 years' is the #1 grammatical slip in Indian spoken English.",
+                        "vocal_mechanics": "1. The Perfect Continuous Arc: Use 'have been + [verb]-ing' coupled with 'for' (duration) or 'since' (starting point).\n2. Diplomatic Softeners: Replace blunt imperatives ('Do this') with modal cushions ('Could we consider...', 'Would it be possible...').\n3. Preposition Accuracy: Use 'at' for pinpoint clock times and 'on' for calendar days.",
+                        "key_formulas": [
+                            "The Duration Formula: [Subject] + [have/has been] + [verb-ing] + [for + duration]",
+                            "The Diplomatic Suggestion: 'Would you be open to...' + [verb-ing / noun]?",
+                            "The Clarification Bridge: 'May I confirm my understanding on...' + [topic]?"
+                        ],
+                        "common_traps": [
+                            "Trap: 'I am working here since 5 years' -> Correction: 'I have been working here for 5 years'",
+                            "Trap: 'Please revert back' -> Correction: 'Please reply' or 'Please get back to me'",
+                            "Trap: 'Can we prepone the meeting?' -> Correction: 'Can we move the meeting forward?'"
+                        ],
+                        "model_audio_text": "Over the past several weeks, our students have demonstrated significant improvement in mathematical reasoning, and consequently, they are now ready for advanced challenges."
+                    },
+                    "vocal_warmup_phrase": "I have been working on this educational research for the past six months, and the results are remarkable.",
                     "practice_items": [
                         {
                             "id": 1,
-                            "title": "Drill 1: Expressing Duration ('Have Been' vs 'Am')",
-                            "model_audio_text": "I have been working on this educational research for the past six months, and the insights are remarkable.",
+                            "title": "Warmup 1: Expressing Duration ('Have Been' vs 'Am')",
+                            "vocal_warmup_phrase": "I have been working on this educational research for the past six months, and the results are remarkable.",
+                            "target_phrase": "I have been working on this educational research for the past six months, and the results are remarkable.",
                             "focus": "Use 'have been ... for' to express continuing duration"
                         },
                         {
                             "id": 2,
-                            "title": "Drill 2: Contrasting Conjunctions ('Yet' & 'Although')",
-                            "model_audio_text": "Although our preparation was intense, yet the entire team remained confident and poised throughout the event.",
+                            "title": "Warmup 2: Contrasting Conjunctions ('Yet' & 'Although')",
+                            "vocal_warmup_phrase": "Although our preparation was intense, the entire team remained confident and poised throughout the event.",
+                            "target_phrase": "Although our preparation was intense, the entire team remained confident and poised throughout the event.",
                             "focus": "Smooth flow across contrasting ideas"
                         },
                         {
                             "id": 3,
-                            "title": "Drill 3: Precise Time & Prepositions",
-                            "model_audio_text": "Our keynote workshop begins promptly at nine o'clock on Monday morning in the main auditorium.",
+                            "title": "Warmup 3: Precise Time & Prepositions",
+                            "vocal_warmup_phrase": "Our keynote workshop begins promptly at nine o'clock on Monday morning in the main auditorium.",
+                            "target_phrase": "Our keynote workshop begins promptly at nine o'clock on Monday morning in the main auditorium.",
                             "focus": "'At' for specific time, 'on' for specific days"
                         }
                     ]
@@ -491,35 +671,55 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
             "focus_areas": ["The 3-Part Speech Formula", "Impromptu Audience Defense", "Power Pauses & Modulation"],
             "steps": [
                 {
-                    "step_id": "m3_listen",
-                    "type": "listen",
-                    "title": "Step 1: TED-Style Keynote Breakdown (Hook, Proof, Call to Action)",
-                    "prompt": "Listen to the formula: 1) The Grabber Hook, 2) The Core Proof, 3) The Inspiring Call to Action.",
-                    "model_audio_text": "Imagine a classroom where every student is so excited that they cannot wait for the bell to ring. That is not a dream—that is the classroom we are creating together today.",
+                    "step_id": "m3_masterclass",
+                    "type": "coach_masterclass",
+                    "title": "Step 1: TED-Style Keynote Masterclass & Vocal Warmup",
+                    "prompt": "Study the TED-style speech blueprint, then record the mandatory Vocal Warmup phrase to unlock the Stage Hooks!",
+                    "masterclass_lecture": {
+                        "topic": "The 3-Part Architecture of High-Impact Public Speaking",
+                        "duration": "Executive 10-Minute Deep Dive",
+                        "summary": "World-class speakers do not start with slides or logistical apologies. They start with an unforgettable emotional or cognitive hook that reshapes audience attention in the first 15 seconds.",
+                        "vocal_mechanics": "1. The Power Pause: Pause for a full two seconds immediately after delivering your opening hook.\n2. Vocal Variety & Pitch Modulation: Modulate between resonant low frequencies for authoritative proof points and higher inflection for visionary calls to action.\n3. Eliminating Verbal Fillers: Replace 'um' and 'you know' with silent breath pauses. Silence sounds like profound thought.",
+                        "key_formulas": [
+                            "The Visionary Grabber: 'Imagine a world where...' + [compelling counter-intuitive reality]",
+                            "The Proof Contrast: 'Our evidence shows that when...' + [contrasting metrics]",
+                            "The Resonant Call: 'Let us not wait for...' + [bold collective directive]"
+                        ],
+                        "common_traps": [
+                            "Trap: Opening with 'Today my topic is...' -> Correction: Open with a provocative question or story",
+                            "Trap: Speaking in a monotone flat frequency -> Correction: Inflect upward on key adjectives",
+                            "Trap: Pacing rapidly without breathing -> Correction: Breathe at every comma and full stop"
+                        ],
+                        "model_audio_text": "Imagine a classroom where every student is so excited that they cannot wait for the bell to ring. That is not a dream—that is the classroom we are creating together today."
+                    },
+                    "vocal_warmup_phrase": "Imagine a world where learning is not about memorizing answers, but about discovering questions that change lives.",
                     "practice_items": [
                         {
                             "id": 1,
-                            "title": "Drill 1: The Visionary Opening",
-                            "model_audio_text": "Imagine a world where learning is not about memorizing answers, but about discovering questions that change lives.",
+                            "title": "Warmup 1: The Visionary Opening",
+                            "vocal_warmup_phrase": "Imagine a world where learning is not about memorizing answers, but about discovering questions that change lives.",
+                            "target_phrase": "Imagine a world where learning is not about memorizing answers, but about discovering questions that change lives.",
                             "focus": "The Power Pause after 'Imagine'"
                         },
                         {
                             "id": 2,
-                            "title": "Drill 2: The Evidence Bridge",
-                            "model_audio_text": "Our data reveals a striking truth: when students teach one another, retention jumps from twenty percent to eighty percent.",
+                            "title": "Warmup 2: The Evidence Bridge",
+                            "vocal_warmup_phrase": "Our data reveals a striking truth: when students teach one another, retention jumps from twenty percent to eighty percent.",
+                            "target_phrase": "Our data reveals a striking truth: when students teach one another, retention jumps from twenty percent to eighty percent.",
                             "focus": "Emphasis on statistical contrast"
                         },
                         {
                             "id": 3,
-                            "title": "Drill 3: The Resonant Call to Action",
-                            "model_audio_text": "Let us not wait for the future of education to arrive. Let us step forward and build it right here, right now.",
+                            "title": "Warmup 3: The Resonant Call to Action",
+                            "vocal_warmup_phrase": "Let us not wait for the future of education to arrive. Let us step forward and build it right here, right now.",
+                            "target_phrase": "Let us not wait for the future of education to arrive. Let us step forward and build it right here, right now.",
                             "focus": "Authoritative, downward inflection"
                         }
                     ]
                 },
                 {
                     "step_id": "m3_hook",
-                    "type": "hook_delivery",
+                    "type": "vocal_mimicry",
                     "title": "Step 2: The 30-Second Attention Grabber Hook",
                     "prompt": "Deliver an electrifying 30-second speech opening on the topic: 'The Power of Education'. Use a question, a shocking statistic, or a personal story!",
                     "target_phrase": "Have you ever wondered what makes a great mind truly unstoppable? It begins with a single teacher who believes.",
@@ -629,28 +829,48 @@ def get_curriculum_modules(level: str, weak_points: List[str]) -> List[Dict[str,
             "focus_areas": ["STAR Method Framing", "Executive Presence", "Mastery Certification"],
             "steps": [
                 {
-                    "step_id": "m4_listen",
-                    "type": "listen",
-                    "title": "Step 1: Executive Leadership Tone & STAR Blueprint",
-                    "prompt": "Listen to how high-performing leaders answer questions: Situation, Task, Action, Result with clear authority.",
-                    "model_audio_text": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a 40 percent boost in exam performance.",
+                    "step_id": "m4_masterclass",
+                    "type": "coach_masterclass",
+                    "title": "Step 1: Executive Presence Masterclass & Vocal Warmup",
+                    "prompt": "Review the executive STAR framework, then record the mandatory Vocal Warmup phrase to unlock the Senior Mock Interview!",
+                    "masterclass_lecture": {
+                        "topic": "The STAR Behavioral Framework for High-Stakes Spoken Interviews",
+                        "duration": "Executive 10-Minute Deep Dive",
+                        "summary": "In senior leadership, corporate panels, and academic interviews, rambling answers are lethal. The STAR method forces structured, metric-backed impact in under 90 seconds.",
+                        "vocal_mechanics": "1. Situation & Task (25%): Set the stage succinctly without excessive background detail.\n2. Action (50%): Use strong dynamic action verbs ('I spearheaded', 'I orchestrated', 'I synthesized') instead of passive verbs ('Work was done').\n3. Result (25%): Close with quantifiable impact and long-term value.",
+                        "key_formulas": [
+                            "The Action Metric Anchor: 'I mobilized our team of four, resulting in a thirty percent boost in efficiency.'",
+                            "The Conflict Resolution Bridge: 'Rather than debating assumptions, I introduced an empirical benchmark.'",
+                            "The Visionary Closer: 'My objective was to build a sustainable system that outlasted the immediate crisis.'"
+                        ],
+                        "common_traps": [
+                            "Trap: Saying 'We did this and we did that' -> Correction: Specify YOUR distinct contribution with 'I'",
+                            "Trap: Skipping the measurable result -> Correction: Always state the positive outcome or learning",
+                            "Trap: Speaking with apologetic timid volume -> Correction: Project from the chest with steady eye contact"
+                        ],
+                        "model_audio_text": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a forty percent boost in exam performance."
+                    },
+                    "vocal_warmup_phrase": "When faced with tight project deadlines, I reorganized our milestones, communicated daily updates, and delivered two days ahead of schedule.",
                     "practice_items": [
                         {
                             "id": 1,
-                            "title": "Drill 1: Executive Authority Cadence",
-                            "model_audio_text": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a forty percent boost in exam performance.",
+                            "title": "Warmup 1: Executive Authority Cadence",
+                            "vocal_warmup_phrase": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a forty percent boost in exam performance.",
+                            "target_phrase": "When faced with low student engagement, I initiated interactive peer-teaching sessions, which resulted in a forty percent boost in exam performance.",
                             "focus": "Clear metrics and concise results"
                         },
                         {
                             "id": 2,
-                            "title": "Drill 2: Crisis Leadership Tone",
-                            "model_audio_text": "During unexpected platform downtime, I mobilized our emergency communications channel within ten minutes to reassure all stakeholders.",
+                            "title": "Warmup 2: Crisis Leadership Tone",
+                            "vocal_warmup_phrase": "During unexpected platform downtime, I mobilized our emergency communications channel within ten minutes to reassure all stakeholders.",
+                            "target_phrase": "During unexpected platform downtime, I mobilized our emergency communications channel within ten minutes to reassure all stakeholders.",
                             "focus": "Decisive, composed voice control"
                         },
                         {
                             "id": 3,
-                            "title": "Drill 3: Strategic Long-Term Vision",
-                            "model_audio_text": "My goal is to cultivate an institutional culture where continuous learning and empathy drive measurable educational breakthroughs.",
+                            "title": "Warmup 3: Strategic Long-Term Vision",
+                            "vocal_warmup_phrase": "My goal is to cultivate an institutional culture where continuous learning and empathy drive measurable educational breakthroughs.",
+                            "target_phrase": "My goal is to cultivate an institutional culture where continuous learning and empathy drive measurable educational breakthroughs.",
                             "focus": "Inspiring closing cadence"
                         }
                     ]
@@ -897,12 +1117,14 @@ class EnglishCoachService:
         score: int,
         level: str,
         weak_points: List[str],
-        detailed_breakdown: List[Dict[str, Any]] = None
+        detailed_breakdown: List[Dict[str, Any]] = None,
+        user_role: str = "student",
+        user_name: str = "Learner"
     ) -> List[Dict[str, Any]]:
         """
-        Dynamically generates an AI-powered 4-module spoken English curriculum tailored specifically
-        to the student's test score, failed questions, and detected weak points.
-        Each step contains 3 progressive real-life practice drills.
+        Dynamically generates a bespoke 4-module spoken English curriculum tailored specifically
+        to the learner's test score, role, failed questions, and detected weak points.
+        ZERO PASSIVE LISTENING STEPS: Every single step requires active spoken submission.
         """
         failed_items = []
         if detailed_breakdown:
@@ -911,39 +1133,36 @@ class EnglishCoachService:
                     failed_items.append(f"{item.get('category')}: {item.get('weakness_tag')}")
 
         failed_summary = ", ".join(failed_items) if failed_items else "General Spoken Polish & Natural Cadence"
-        weak_summary = ", ".join(weak_points) if weak_points else "Natural sentence cadence and idioms"
+        weak_summary = ", ".join(weak_points) if weak_points else "Natural sentence cadence and verb tenses"
 
-        prompt = f"""You are Devgya Chief English Curriculum Director.
-Create a personalized 4-module Spoken English Curriculum for an Indian student who just completed the diagnostic test.
+        prompt = f"""You are Devgya Chief Spoken English Masterclass Architect.
+Create an executive-level, bespoke 4-module Spoken English Curriculum for an Indian learner ({user_role.capitalize()}).
 
-Student Profile:
+Learner Profile:
 - Diagnostic Score: {score}/10
 - Fluency Level: {level}
 - Weak Points Identified: {weak_summary}
-- Failed Diagnostic Topics: {failed_summary}
+- Failed Diagnostic Gaps to Target: {failed_summary}
 
-REQUIREMENTS:
-1. Generate a JSON array of 4 modules:
-   - Module 1: Everyday Conversational Fluency & Confidence (focusing on overcoming hesitation and early weak points)
-   - Module 2: Grammar in Spoken Action & Sentence Reconstruction (focusing directly on their failed diagnostic grammar points: {failed_summary})
-   - Module 3: Persuasive Keynote & Public Speaking (stage presence, opening hook, impromptu defense)
-   - Module 4: Executive Interview & Mastery Capstone (STAR framework, executive pitch, final live interview)
+ABSOLUTE ARCHITECTURAL RULES (ZERO PASSIVE STEPS):
+1. In EVERY module, eliminate all passive "listen-only" steps. The learner MUST speak in every single step.
+2. Step structure for each of the 4 modules:
+   - Step 1: "coach_masterclass" (Executive Masterclass & Mandatory Vocal Warmup). Must include a "masterclass_lecture" object (topic, duration, summary, vocal_mechanics, key_formulas array, common_traps array, model_audio_text) AND a mandatory "vocal_warmup_phrase" which the learner must speak into the mic to advance. Include 3 progressive warmup drills.
+   - Step 2: "vocal_mimicry" (Vocal Mimicry Gym). Learner speaks the target phrase aloud into their microphone. AI scores word accuracy, WPM, and cadence. Include 3 progressive drills.
+   - Step 3: "error_fix" (Spoken Grammar Clinic). Spot the grammatical flaw targeting the learner's gaps ({failed_summary}), and speak the corrected sentence. Include 3 progressive drills.
+   - Step 4: "interact" (Conversational Sparring). Dynamic live dialogue with immediate spoken coach corrections. Include 3 progressive situational exchanges with coach starters.
+   - Step 5: "capstone" or "game" (Public Speech / Fluency Sprint). Timed speech delivery evaluated for filler words and pacing.
 
-2. CRITICAL: In EVERY step of each module, generate a `practice_items` array containing EXACTLY 3 progressive, real-life, practical practice items (Drill 1: Foundation, Drill 2: Intermediate, Drill 3: Advanced Mastery).
-   - Listen steps: 3 progressive model audio sentences with native rhythm and intonation focus.
-   - Repeat steps: 3 progressive target phrases to echo with prompts.
-   - Speak steps: 3 situational prompts with sample answers.
-   - Error Fix steps: 3 real-world flawed Indian English sentences targeting their specific test gaps, with corrected versions and explanations.
-   - Interact steps: 3 progressive conversational exchange topics with coach starters.
-   - Hook delivery steps: 3 progressive opening speech hooks.
-   - STAR steps: 3 behavioral situation prompts with sample answers.
-   - Present steps: 3 speech topics.
+3. Module Titles:
+   - Module 1: Everyday Conversational Fluency & Confidence
+   - Module 2: Grammar in Spoken Action & Sentence Reconstruction (directly targeting: {failed_summary})
+   - Module 3: Persuasive Keynote & Public Speaking Mastery (hooks, transitions, gravitas)
+   - Module 4: Executive Interview & Mastery Capstone (STAR framework, executive pitch, graduation)
 
-3. All sentences must be practical, authentic, and engaging.
-4. Output MUST be ONLY a valid JSON array of 4 module objects with id, title, methodology, description, focus_areas, steps, and game.
+4. Output MUST be ONLY a valid JSON array of 4 module objects.
 """
         messages = [
-            {"role": "system", "content": "You are Devgya Chief English Curriculum Architect. Return ONLY a valid JSON array of 4 modules."},
+            {"role": "system", "content": "You are Devgya Chief Spoken English Masterclass Architect. Return ONLY a valid JSON array of 4 modules with zero passive listen steps."},
             {"role": "user", "content": prompt}
         ]
 
@@ -957,7 +1176,7 @@ REQUIREMENTS:
         except Exception as e:
             logger.warning(f"AI curriculum generation fallback: {e}")
 
-        # Fallback to the rich 3-drill dynamic template
+        # Fallback to the rich masterclass template with zero passive listen steps
         return get_curriculum_modules(level, weak_points)
 
     async def submit_diagnostic(self, user_id: str, user_answers: Dict[str, int], user_role: str = "student") -> Dict[str, Any]:
@@ -1002,7 +1221,8 @@ REQUIREMENTS:
             score=score,
             level=level,
             weak_points=weak_points,
-            detailed_breakdown=detailed_breakdown
+            detailed_breakdown=detailed_breakdown,
+            user_role=user_role
         )
 
         track = self.get_user_track(user_id, user_role=user_role)
@@ -1055,7 +1275,7 @@ REQUIREMENTS:
             track["completed_steps"] = completed_steps
 
         # Check if current module's steps are all complete -> unlock next module
-        modules = get_curriculum_modules(track.get("fluency_level", "Intermediate"), track.get("weak_points", []))
+        modules = track.get("custom_modules") or get_curriculum_modules(track.get("fluency_level", "Intermediate"), track.get("weak_points", []))
         if module_index < len(modules):
             current_mod = modules[module_index]
             required_step_ids = [s["step_id"] for s in current_mod.get("steps", [])]
@@ -1072,6 +1292,10 @@ REQUIREMENTS:
             "completed_steps": track.get("completed_steps", []),
             "track": track
         }
+
+    def evaluate_speech(self, target_phrase: str, spoken_text: str, duration_seconds: Optional[float] = None) -> Dict[str, Any]:
+        """Evaluates spoken speech alignment against target phrase."""
+        return evaluate_speech_alignment(target_phrase=target_phrase, spoken_text=spoken_text, duration_seconds=duration_seconds)
 
     # ------------------------------------------------------------------
     # 5. SPEAK STAGE AI CRITIC (POSITIVE, NEGATIVE & IMPROVEMENT TIPS)

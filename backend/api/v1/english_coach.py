@@ -62,6 +62,13 @@ class RegenerateCurriculumRequest(BaseModel):
     user_role: str = "student"
 
 
+class EvaluateSpeechRequest(BaseModel):
+    user_id: Optional[str] = "guest_user"
+    target_phrase: str
+    spoken_text: str
+    duration_seconds: Optional[float] = None
+
+
 @router.get("/diagnostic-questions")
 async def get_diagnostic_questions():
     """Returns the 10 fixed questions without the answer key for the user's initial test."""
@@ -113,13 +120,29 @@ async def regenerate_curriculum(payload: RegenerateCurriculumRequest):
             score=score,
             level=level,
             weak_points=weak_points,
-            detailed_breakdown=[]
+            detailed_breakdown=[],
+            user_role=payload.user_role
         )
         track["custom_modules"] = modules
         english_coach_service.save_user_track(payload.user_id, track, user_role=payload.user_role)
         return {"status": "success", "modules": modules, "track": track}
     except Exception as e:
         logger.error(f"Error regenerating curriculum: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/evaluate-speech")
+async def evaluate_speech(payload: EvaluateSpeechRequest):
+    """Evaluates user's spoken audio against target phrase with word alignment, pacing WPM, and filler detection."""
+    try:
+        result = english_coach_service.evaluate_speech(
+            target_phrase=payload.target_phrase,
+            spoken_text=payload.spoken_text,
+            duration_seconds=payload.duration_seconds
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error evaluating speech: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
