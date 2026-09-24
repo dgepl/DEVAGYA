@@ -46,10 +46,10 @@ export function MobileTeacherDashboard() {
     { name: "School Recruitment", sub: "Apply with PDF Resume", href: "/dashboard/recruitment", icon: Briefcase, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Recruitment" },
   ];
 
-  // Only allowed tools according to admin permissions
+  // All tools remain visible; disabled ones display Coming Soon on click
   const allowedTools = useMemo(() => {
-    return allTools.filter(t => isFeatureAllowed(t.href));
-  }, [allTools, isFeatureAllowed]);
+    return allTools;
+  }, [allTools]);
 
   // Dynamic search matching
   const matchingTools = useMemo(() => {
@@ -124,25 +124,21 @@ export function MobileTeacherDashboard() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 pt-1 relative z-10">
-          {isFeatureAllowed("/dashboard/generator") && (
-            <Link
-              href="/dashboard/generator"
-              className="px-4 py-2.5 bg-white text-indigo-900 font-extrabold text-xs rounded-2xl shadow-lg flex items-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-purple-600 fill-purple-500" />
-              <span>Generate Paper</span>
-            </Link>
-          )}
+          <Link
+            href="/dashboard/generator"
+            className="px-4 py-2.5 bg-white text-indigo-900 font-extrabold text-xs rounded-2xl shadow-lg flex items-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 text-purple-600 fill-purple-500" />
+            <span>Generate Paper</span>
+          </Link>
           
-          {isFeatureAllowed("/dashboard/agents?agent=teacher_mentor") && (
-            <Link
-              href="/dashboard/agents?agent=teacher_mentor"
-              className="p-2.5 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer"
-              title="Teacher Mentor AI"
-            >
-              <GraduationCap className="w-5 h-5 text-indigo-200" />
-            </Link>
-          )}
+          <Link
+            href="/dashboard/agents?agent=teacher_mentor"
+            className="p-2.5 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer"
+            title="Teacher Mentor AI"
+          >
+            <GraduationCap className="w-5 h-5 text-indigo-200" />
+          </Link>
         </div>
       </div>
 
@@ -291,14 +287,22 @@ export function MobileTeacherDashboard() {
             <div className="grid grid-cols-3 gap-2">
               {allowedTools.map((tool, idx) => {
                 const IconComp = tool.icon;
+                const isAllowed = isFeatureAllowed(tool.href);
                 return (
                   <Link
                     key={idx}
                     href={tool.href}
-                    className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-indigo-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
+                    className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:border-indigo-200 hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer relative"
                   >
-                    <div className={`w-9 h-9 rounded-xl ${tool.bg} ${tool.border} border flex items-center justify-center ${tool.color}`}>
-                      <IconComp className="w-5 h-5" />
+                    <div className="flex items-center justify-between">
+                      <div className={`w-9 h-9 rounded-xl ${tool.bg} ${tool.border} border flex items-center justify-center ${tool.color}`}>
+                        <IconComp className="w-5 h-5" />
+                      </div>
+                      {!isAllowed && (
+                        <span className="text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                          Soon
+                        </span>
+                      )}
                     </div>
                     <div>
                       <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight line-clamp-2">{tool.name}</h3>

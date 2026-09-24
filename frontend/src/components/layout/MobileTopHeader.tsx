@@ -200,12 +200,15 @@ export function MobileTopHeader() {
     navItems.push({ label: "Super Admin", href: "/admin", icon: ShieldCheck });
   }
 
-  // Filter out any features disabled by Admin from the mobile drawer
-  navItems = navItems.filter((item) => {
-    if (role === "super_admin") return true;
+  // Keep all items visible in mobile drawer; disabled ones display Coming Soon page on tap
+  const mobileNavItems = navItems.map((item) => {
     const itemUrl = new URL(item.href, "http://x");
     const itemAgent = item.href.includes("agent=") ? item.href.split("agent=")[1] : undefined;
-    return isFeatureAllowed(itemUrl.pathname, itemAgent);
+    const isAllowed = role === "super_admin" ? true : isFeatureAllowed(itemUrl.pathname, itemAgent);
+    return {
+      ...item,
+      isComingSoon: !isAllowed
+    };
   });
 
   const filteredNotifs = activeFilter === "all" 
@@ -436,10 +439,10 @@ export function MobileTopHeader() {
               {/* ROLE-BASED SIDEBAR MENU ITEMS (EXACT MATCH TO DESKTOP SIDEBAR) */}
               <div className="space-y-1">
                 <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2 mb-2">
-                  Navigation & Tools ({navItems.length})
+                  Navigation & Tools ({mobileNavItems.length})
                 </p>
 
-                {navItems.map((item) => {
+                {mobileNavItems.map((item) => {
                   const IconComp = item.icon;
                   const itemUrl = new URL(item.href, "http://x");
                   const isActive = item.href.includes("?") 
@@ -461,7 +464,14 @@ export function MobileTopHeader() {
                         <IconComp className={`w-4 h-4 ${isActive ? "text-indigo-600" : "text-slate-500"}`} />
                         <span>{item.label}</span>
                       </span>
-                      <ChevronRight className={`w-4 h-4 ${isActive ? "text-indigo-600" : "text-slate-300"}`} />
+                      <div className="flex items-center gap-2">
+                        {item.isComingSoon && (
+                          <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                            Soon
+                          </span>
+                        )}
+                        <ChevronRight className={`w-4 h-4 ${isActive ? "text-indigo-600" : "text-slate-300"}`} />
+                      </div>
                     </Link>
                   );
                 })}

@@ -32,9 +32,10 @@ export function MobileStudentDashboard() {
     { name: "Pomodoro Timer", sub: "25m Focus & Rest Cycles", href: "/dashboard/student/timer", icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Focus Timer" },
   ];
 
+  // All tools remain visible; disabled ones display Coming Soon on click
   const allowedStudentTools = useMemo(() => {
-    return studentTools.filter(t => isFeatureAllowed(t.href));
-  }, [studentTools, isFeatureAllowed]);
+    return studentTools;
+  }, [studentTools]);
 
   // Dynamic search matching
   const matchingTools = useMemo(() => {
@@ -101,26 +102,22 @@ export function MobileStudentDashboard() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 pt-1 relative z-10">
-          {isFeatureAllowed("/dashboard/agents?agent=student_tutor") && (
-            <Link
-              href="/dashboard/agents?agent=student_tutor"
-              className="flex-1 py-2.5 bg-white text-indigo-950 font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-purple-600 fill-purple-500" />
-              <span>Ask Socratic Tutor AI</span>
-            </Link>
-          )}
+          <Link
+            href="/dashboard/agents?agent=student_tutor"
+            className="flex-1 py-2.5 bg-white text-indigo-950 font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 text-purple-600 fill-purple-500" />
+            <span>Ask Socratic Tutor AI</span>
+          </Link>
           
-          {isFeatureAllowed("/dashboard/student/practice") && (
-            <Link
-              href="/dashboard/student/practice"
-              className="p-2.5 px-3 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer text-xs font-bold gap-1.5"
-              title="Practice Quizzes"
-            >
-              <Target className="w-4 h-4 text-emerald-300" />
-              <span>Quiz</span>
-            </Link>
-          )}
+          <Link
+            href="/dashboard/student/practice"
+            className="p-2.5 px-3 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer text-xs font-bold gap-1.5"
+            title="Practice Quizzes"
+          >
+            <Target className="w-4 h-4 text-emerald-300" />
+            <span>Quiz</span>
+          </Link>
         </div>
       </div>
 
@@ -200,14 +197,22 @@ export function MobileStudentDashboard() {
             <div className="grid grid-cols-3 gap-2">
               {allowedStudentTools.map((tool, idx) => {
                 const IconComp = tool.icon;
+                const isAllowed = isFeatureAllowed(tool.href);
                 return (
                   <Link
                     key={idx}
                     href={tool.href}
-                    className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
+                    className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer relative"
                   >
-                    <div className={`w-9 h-9 rounded-xl ${tool.bg} border ${tool.border} flex items-center justify-center ${tool.color}`}>
-                      <IconComp className="w-5 h-5" />
+                    <div className="flex items-center justify-between">
+                      <div className={`w-9 h-9 rounded-xl ${tool.bg} border ${tool.border} flex items-center justify-center ${tool.color}`}>
+                        <IconComp className="w-5 h-5" />
+                      </div>
+                      {!isAllowed && (
+                        <span className="text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                          Soon
+                        </span>
+                      )}
                     </div>
                     <div>
                       <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">{tool.name}</h3>
@@ -225,35 +230,33 @@ export function MobileStudentDashboard() {
           </div>
 
           {/* 5. QUICK SOCRATIC PROMPT STARTERS */}
-          {isFeatureAllowed("/dashboard/agents?agent=student_tutor") && (
-            <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                  <h3 className="text-xs font-black text-slate-900">Instant AI Tutor Queries</h3>
-                </div>
-                <span className="text-[10px] font-bold text-slate-400">1-Tap Prompts</span>
+          <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                <h3 className="text-xs font-black text-slate-900">Instant AI Tutor Queries</h3>
               </div>
-
-              <div className="flex flex-col gap-1.5 text-xs">
-                {[
-                  "Explain the Quadratic Formula derivation step-by-step",
-                  "How does Photosynthesis work in C3 and C4 plants?",
-                  "Give me 3 HOTS questions on Chemical Reactions",
-                  "Explain Newton's Third Law with everyday examples"
-                ].map((query, qIdx) => (
-                  <Link
-                    key={qIdx}
-                    href={`/dashboard/agents?agent=student_tutor&prompt=${encodeURIComponent(query)}`}
-                    className="p-2.5 rounded-xl bg-indigo-50/60 hover:bg-indigo-100/70 border border-indigo-100/80 text-indigo-950 font-bold flex items-center justify-between transition active:scale-98"
-                  >
-                    <span className="truncate pr-2">{query}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                  </Link>
-                ))}
-              </div>
+              <span className="text-[10px] font-bold text-slate-400">1-Tap Prompts</span>
             </div>
-          )}
+
+            <div className="flex flex-col gap-1.5 text-xs">
+              {[
+                "Explain the Quadratic Formula derivation step-by-step",
+                "How does Photosynthesis work in C3 and C4 plants?",
+                "Give me 3 HOTS questions on Chemical Reactions",
+                "Explain Newton's Third Law with everyday examples"
+              ].map((query, qIdx) => (
+                <Link
+                  key={qIdx}
+                  href={`/dashboard/agents?agent=student_tutor&prompt=${encodeURIComponent(query)}`}
+                  className="p-2.5 rounded-xl bg-indigo-50/60 hover:bg-indigo-100/70 border border-indigo-100/80 text-indigo-950 font-bold flex items-center justify-between transition active:scale-98"
+                >
+                  <span className="truncate pr-2">{query}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                </Link>
+              ))}
+            </div>
+          </div>
         </>
       )}
 

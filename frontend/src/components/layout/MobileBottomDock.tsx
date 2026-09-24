@@ -82,11 +82,7 @@ export function MobileBottomDock() {
     ];
   };
 
-  const rawTabs = getTabs();
-  const tabs = rawTabs.filter((tab) => {
-    const tabBase = tab.href.split("?")[0];
-    return isFeatureAllowed(tabBase, tab.agentCode);
-  });
+  const tabs = getTabs();
 
   return (
     <nav className="fixed bottom-3 left-3 right-3 z-50 bg-white/95 backdrop-blur-2xl border border-slate-200/90 py-1.5 px-1 shadow-[0_12px_36px_rgba(0,0,0,0.14)] rounded-2xl md:hidden">

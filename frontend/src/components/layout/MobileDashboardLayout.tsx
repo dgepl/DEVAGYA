@@ -135,72 +135,57 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
 
                 {role === "teacher" && (
                   <>
-                    {isFeatureAllowed("/dashboard") && (
-                      <Link href="/dashboard" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                        <span className="flex items-center gap-2.5"><LayoutDashboard className="w-4 h-4 text-indigo-600" /> Teacher Dashboard</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </Link>
-                    )}
-                    {isFeatureAllowed("/dashboard/generator") && (
-                      <Link href="/dashboard/generator" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                        <span className="flex items-center gap-2.5"><Sparkles className="w-4 h-4 text-amber-500" /> Question Generator</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </Link>
-                    )}
-                    {isFeatureAllowed("/dashboard/assignments") && (
-                      <Link href="/dashboard/assignments" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                        <span className="flex items-center gap-2.5"><FileText className="w-4 h-4 text-cyan-600" /> AI Assignment Maker</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </Link>
-                    )}
+                    <Link href="/dashboard" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><LayoutDashboard className="w-4 h-4 text-indigo-600" /> Teacher Dashboard</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
+                    <Link href="/dashboard/ppt-generator" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><Sparkles className="w-4 h-4 text-blue-500" /> AI PPT Generator</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
+                    <Link href="/dashboard/generator" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><Sparkles className="w-4 h-4 text-amber-500" /> Question Generator</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
+                    <Link href="/dashboard/assignments" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><FileText className="w-4 h-4 text-cyan-600" /> AI Assignment Maker</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
+                    <Link href="/dashboard/video-consultation" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><Video className="w-4 h-4 text-red-500" /> Video Mentoring</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
                   </>
                 )}
 
                 {role === "student" && (
                   <>
-                    {isFeatureAllowed("/dashboard/student") && (
-                      <Link href="/dashboard/student" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                        <span className="flex items-center gap-2.5"><LayoutDashboard className="w-4 h-4 text-indigo-600" /> Student Home</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </Link>
-                    )}
-                    {isFeatureAllowed("/dashboard/agents?agent=student_tutor") && (
-                      <Link href="/dashboard/agents?agent=student_tutor" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                        <span className="flex items-center gap-2.5"><Brain className="w-4 h-4 text-purple-600" /> AI Student Tutor</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </Link>
-                    )}
-                    {isFeatureAllowed("/dashboard/student/flashcards") && (
-                      <Link href="/dashboard/student/flashcards" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                        <span className="flex items-center gap-2.5"><BookOpen className="w-4 h-4 text-emerald-600" /> AI Flashcards</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </Link>
-                    )}
+                    <Link href="/dashboard/student" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><LayoutDashboard className="w-4 h-4 text-indigo-600" /> Student Home</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
+                    <Link href="/dashboard/agents?agent=student_tutor" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><Brain className="w-4 h-4 text-purple-600" /> AI Student Tutor</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
+                    <Link href="/dashboard/student/flashcards" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><BookOpen className="w-4 h-4 text-emerald-600" /> AI Flashcards</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
                   </>
                 )}
 
                 {role === "parent" && (
                   <>
-                    {isFeatureAllowed("/dashboard/parent") && (
-                      <Link href="/dashboard/parent" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                        <span className="flex items-center gap-2.5"><LayoutDashboard className="w-4 h-4 text-indigo-600" /> Parent Dashboard</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </Link>
-                    )}
-                    {isFeatureAllowed("/dashboard/agents?agent=parent_coach") && (
-                      <Link href="/dashboard/agents?agent=parent_coach" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                        <span className="flex items-center gap-2.5"><HeartHandshake className="w-4 h-4 text-pink-600" /> Parenting Coach</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </Link>
-                    )}
+                    <Link href="/dashboard/parent" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><LayoutDashboard className="w-4 h-4 text-indigo-600" /> Parent Dashboard</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
+                    <Link href="/dashboard/agents?agent=parent_coach" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
+                      <span className="flex items-center gap-2.5"><HeartHandshake className="w-4 h-4 text-pink-600" /> Parenting Coach</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
                   </>
-                )}
-
-                {role === "teacher" && isFeatureAllowed("/dashboard/video-consultation") && (
-                  <Link href="/dashboard/video-consultation" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
-                    <span className="flex items-center gap-2.5"><Video className="w-4 h-4 text-red-500" /> Video Mentoring</span>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                  </Link>
                 )}
               </div>
             </div>

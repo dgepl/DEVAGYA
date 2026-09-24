@@ -187,7 +187,6 @@ export default function TeacherDashboardOverviewPage() {
   });
 
   const filteredTools = teacherTools.filter(t => {
-    if (!isFeatureAllowed(t.href)) return false;
     if (desktopFilter === "generator" && t.code !== "generator") return false;
     if (desktopFilter === "olympiad" && !t.code.includes("olympiad")) return false;
     if (desktopFilter === "ai" && !["teacher_mentor", "video-consultation", "english-coach"].includes(t.code)) return false;
@@ -553,6 +552,7 @@ export default function TeacherDashboardOverviewPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredTools.map((tool) => {
               const IconComp = tool.icon;
+              const isAllowed = isFeatureAllowed(tool.href);
               return (
                 <div
                   key={tool.code}
@@ -563,9 +563,16 @@ export default function TeacherDashboardOverviewPage() {
                       <div className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${tool.color} text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
                         <IconComp className="w-5 h-5" />
                       </div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-full">
-                        {tool.badge}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {!isAllowed && (
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full">
+                            Soon
+                          </span>
+                        )}
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-full">
+                          {tool.badge}
+                        </span>
+                      </div>
                     </div>
 
                     <div>
@@ -582,7 +589,7 @@ export default function TeacherDashboardOverviewPage() {
                     href={tool.href}
                     className="w-full py-2.5 px-4 bg-slate-50 group-hover:bg-indigo-600 text-slate-700 group-hover:text-white font-bold text-xs rounded-xl border border-slate-200 group-hover:border-indigo-600 transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer"
                   >
-                    Open Tool
+                    {isAllowed ? "Open Tool" : "Coming Soon"}
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>

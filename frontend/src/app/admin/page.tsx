@@ -2446,7 +2446,7 @@ export default function SuperAdminPage() {
                   </div>
                   <h3 className="text-lg font-black text-slate-900">Feature Access & Section Permissions</h3>
                   <p className="text-xs text-slate-500 font-medium">
-                    Toggle which sections are available to users. When disabled by Admin, a feature is immediately hidden from both the desktop slidebar and mobile views, and direct URL routing is blocked.
+                    Toggle which sections are available to users. When disabled by Admin, options remain visible across the site with a "Coming Soon" indicator, and accessing them displays a dedicated, high-converting Coming Soon page.
                   </p>
                 </div>
 

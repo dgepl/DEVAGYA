@@ -26,9 +26,10 @@ export function MobileParentDashboard() {
     { name: "Research Assistant", sub: "Stream & Exam Pathways", href: "/dashboard/agents?agent=research_assistant", icon: Search, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", type: "Research" },
   ];
 
+  // All tools remain visible; disabled ones display Coming Soon on click
   const parentTools = useMemo(() => {
-    return rawParentTools.filter(t => isFeatureAllowed(t.href));
-  }, [isFeatureAllowed]);
+    return rawParentTools;
+  }, [rawParentTools]);
 
   // Dynamic search matching
   const matchingTools = useMemo(() => {
@@ -90,26 +91,22 @@ export function MobileParentDashboard() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 pt-1 relative z-10">
-          {isFeatureAllowed("/dashboard/agents?agent=parent_coach") && (
-            <Link
-              href="/dashboard/agents?agent=parent_coach"
-              className="flex-1 py-2.5 bg-white text-rose-950 font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-rose-600 fill-rose-500" />
-              <span>Ask Parenting Coach</span>
-            </Link>
-          )}
+          <Link
+            href="/dashboard/agents?agent=parent_coach"
+            className="flex-1 py-2.5 bg-white text-rose-950 font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 text-rose-600 fill-rose-500" />
+            <span>Ask Parenting Coach</span>
+          </Link>
           
-          {isFeatureAllowed("/dashboard/agents?agent=career_counselor") && (
-            <Link
-              href="/dashboard/agents?agent=career_counselor"
-              className="p-2.5 px-3 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer text-xs font-bold gap-1.5"
-              title="Career Counselor"
-            >
-              <GraduationCap className="w-4 h-4 text-pink-200" />
-              <span>Career</span>
-            </Link>
-          )}
+          <Link
+            href="/dashboard/agents?agent=career_counselor"
+            className="p-2.5 px-3 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer text-xs font-bold gap-1.5"
+            title="Career Counselor"
+          >
+            <GraduationCap className="w-4 h-4 text-pink-200" />
+            <span>Career</span>
+          </Link>
         </div>
       </div>
 
@@ -192,14 +189,22 @@ export function MobileParentDashboard() {
             <div className="grid grid-cols-2 gap-2.5">
               {parentTools.map((tool, idx) => {
                 const IconComp = tool.icon;
+                const isAllowed = isFeatureAllowed(tool.href);
                 return (
                   <Link
                     key={idx}
                     href={tool.href}
-                    className="p-3.5 bg-white rounded-2xl border border-slate-100 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer"
+                    className="p-3.5 bg-white rounded-2xl border border-slate-100 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-2 active:scale-95 cursor-pointer relative"
                   >
-                    <div className={`w-10 h-10 rounded-xl ${tool.bg} border ${tool.border} flex items-center justify-center ${tool.color}`}>
-                      <IconComp className="w-5 h-5" />
+                    <div className="flex items-center justify-between">
+                      <div className={`w-10 h-10 rounded-xl ${tool.bg} border ${tool.border} flex items-center justify-center ${tool.color}`}>
+                        <IconComp className="w-5 h-5" />
+                      </div>
+                      {!isAllowed && (
+                        <span className="text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                          Soon
+                        </span>
+                      )}
                     </div>
                     <div>
                       <h3 className="text-xs font-extrabold text-slate-900 leading-tight">{tool.name}</h3>

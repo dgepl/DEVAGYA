@@ -55,6 +55,7 @@ import { PageTransition } from "@/components/ui/PageTransition";
 import { MobileTopHeader } from "@/components/layout/MobileTopHeader";
 import { MobileBottomDock } from "@/components/layout/MobileBottomDock";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
+import FeatureComingSoon from "@/components/common/FeatureComingSoon";
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -175,17 +176,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Admin Feature Permission Route Guard
-    if (user.role !== "super_admin") {
-      const isAllowedByAdmin = isFeatureAllowed(pathname, agentParam || undefined);
-      if (!isAllowedByAdmin) {
-        if (user.role === "student") router.replace("/dashboard/student");
-        else if (user.role === "parent") router.replace("/dashboard/parent");
-        else if (user.role === "school") router.replace("/dashboard/school");
-        else router.replace("/dashboard");
-        return;
-      }
-    }
+    // Note: If a feature is disabled by Admin, instead of redirecting away,
+    // the dashboard renders the Coming Soon experience in-place.
 
     if (user.role === "student") {
       const isStudentAllowed = 
@@ -300,13 +292,19 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     navItems.push({ label: "Super Admin", href: "/admin", icon: ShieldCheck });
   }
 
-  // Filter out any features disabled by the Admin from the Desktop Sidebar
-  const visibleNavItems = navItems.filter((item) => {
-    if (user.role === "super_admin") return true;
+  // Retain all navigation items so users can see available features; disabled ones display a Coming Soon page
+  const visibleNavItems = navItems.map((item) => {
     const itemUrl = new URL(item.href, "http://x");
     const itemAgent = item.href.includes("agent=") ? item.href.split("agent=")[1] : undefined;
-    return isFeatureAllowed(itemUrl.pathname, itemAgent);
+    const isAllowed = user.role === "super_admin" ? true : isFeatureAllowed(itemUrl.pathname, itemAgent);
+    return {
+      ...item,
+      isComingSoon: !isAllowed
+    };
   });
+
+  // Check if current active route / agent is disabled by admin
+  const isCurrentFeatureDisabled = user.role !== "super_admin" && !isFeatureAllowed(pathname, agentParam || undefined);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row">
@@ -338,6 +336,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                   <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-500'}`} />
                   <span className="truncate">{item.label}</span>
                 </div>
+                {item.isComingSoon && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                    Soon
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -417,7 +420,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               : "p-3 sm:p-6 lg:p-8 flex-1 w-full max-w-full overflow-x-hidden"
         }`}>
           <PageTransition className={isAIChatPage ? "h-full flex-1 flex flex-col min-h-0 w-full" : "w-full"}>
-            {children}
+            {isCurrentFeatureDisabled ? (
+              <FeatureComingSoon path={pathname} agentCode={agentParam || undefined} />
+            ) : (
+              children
+            )}
           </PageTransition>
         </main>
 

@@ -53,7 +53,7 @@ export function StudentDashboard() {
     { label: "Pomodoro Timer", href: "/dashboard/student/timer", icon: Clock, color: "from-amber-500 to-orange-600", desc: "Focus & Retain" },
   ];
 
-  const QUICK_TOOLS = rawQuickTools.filter(t => isFeatureAllowed(t.href));
+  const QUICK_TOOLS = rawQuickTools;
 
   const RANK_COLORS = ["from-amber-400 to-yellow-500", "from-slate-300 to-slate-400", "from-amber-600 to-orange-700"];
 
@@ -129,17 +129,29 @@ export function StudentDashboard() {
 
       {/* ── QUICK LAUNCH TILES ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        {QUICK_TOOLS.map((t, i) => (
-          <Link key={i} href={t.href}
-            className="group relative p-5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all overflow-hidden">
-            <div className={`absolute inset-0 bg-gradient-to-br ${t.color} opacity-0 group-hover:opacity-5 transition-opacity`} />
-            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${t.color} text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-lg`}>
-              <t.icon className="w-6 h-6" />
-            </div>
-            <span className="text-sm font-bold text-slate-800 block">{t.label}</span>
-            <span className="text-[11px] text-slate-400 font-medium">{t.desc}</span>
-          </Link>
-        ))}
+        {QUICK_TOOLS.map((t, i) => {
+          const isAllowed = isFeatureAllowed(t.href);
+          return (
+            <Link key={i} href={t.href}
+              className="group relative p-5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all overflow-hidden flex flex-col justify-between">
+              <div className={`absolute inset-0 bg-gradient-to-br ${t.color} opacity-0 group-hover:opacity-5 transition-opacity`} />
+              <div>
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${t.color} text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg`}>
+                    <t.icon className="w-6 h-6" />
+                  </div>
+                  {!isAllowed && (
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                      Soon
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm font-bold text-slate-800 block">{t.label}</span>
+                <span className="text-[11px] text-slate-400 font-medium">{t.desc}</span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
       {/* ── TWO-COLUMN LAYOUT ── */}
