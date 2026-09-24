@@ -81,6 +81,13 @@ export default function SchoolProfilePage() {
           setState(s.state || "");
           setAddress(s.address || "");
           setLogoUrl(s.logo_url || "");
+          if (s.logo_url && s.logo_url !== user?.schoolLogo) {
+            setUser({
+              ...user,
+              schoolLogo: s.logo_url,
+              schoolName: s.school_name || user?.schoolName || ""
+            });
+          }
         }
       }
     } catch (e) {
@@ -149,6 +156,7 @@ export default function SchoolProfilePage() {
         setUser({
           ...user,
           schoolName: data.school.school_name,
+          schoolLogo: data.school.logo_url || logoUrl || "",
           affiliationBoard: data.school.affiliation_board,
           schoolCity: data.school.city,
           schoolState: data.school.state,

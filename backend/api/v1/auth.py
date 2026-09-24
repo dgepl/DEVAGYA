@@ -377,6 +377,7 @@ async def login_user(payload: LoginPayload):
         user_data["schoolCity"] = school_rec.get("city", "")
         user_data["schoolState"] = school_rec.get("state", "")
         user_data["schoolName"] = school_rec.get("school_name", "") or profile.get("school_name", "")
+        user_data["schoolLogo"] = school_rec.get("logo_url", "") or profile.get("school_logo", "")
 
     try:
         from services.activity_service import activity_service
@@ -459,6 +460,8 @@ async def get_profile(email: str):
         user_data["schoolCity"] = school_rec.get("city", "")
         user_data["schoolState"] = school_rec.get("state", "")
         user_data["contactPerson"] = school_rec.get("contact_person", "")
+        user_data["schoolName"] = school_rec.get("school_name", "") or profile.get("school_name", "")
+        user_data["schoolLogo"] = school_rec.get("logo_url", "") or profile.get("school_logo", "")
 
 
 

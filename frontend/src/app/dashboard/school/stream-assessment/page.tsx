@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { 
+  getApiBase,
   generateStreamAssessment, 
   downloadStreamAssessmentPDF, 
   fetchPaperHistory,
@@ -36,11 +37,15 @@ import {
 } from "@/lib/api";
 
 export default function SchoolStreamAssessmentPage() {
-  const { user } = useAppStore();
+  const { user, schoolProfile, setSchoolProfile, setUser } = useAppStore();
 
   // Form State — Class is fixed internally as Class 11-12 without asking the user
-  const [schoolName, setSchoolName] = useState(user.schoolName || "Apex International School");
-  const [schoolLogo, setSchoolLogo] = useState(user.schoolLogo || "");
+  const [schoolName, setSchoolName] = useState(
+    schoolProfile?.school_name || user?.schoolName || "Apex International School"
+  );
+  const [schoolLogo, setSchoolLogo] = useState(
+    schoolProfile?.logo_url || user?.schoolLogo || ""
+  );
   const className = "Class 11-12";
   const [title, setTitle] = useState("Class 11-12 Stream Selection & Aptitude Diagnostic Assessment");
   const [timeAllowedMins, setTimeAllowedMins] = useState<number>(90);
@@ -50,15 +55,43 @@ export default function SchoolStreamAssessmentPage() {
   const [numLongPerStream, setNumLongPerStream] = useState<number>(1);
   const [customInstructions, setCustomInstructions] = useState("");
 
-  // Sync state if user profile is loaded asynchronously
+  // Sync state from profile or pre-fetch school details from backend
   useEffect(() => {
-    if (user.schoolLogo && !schoolLogo) {
-      setSchoolLogo(user.schoolLogo);
+    const activeLogo = schoolProfile?.logo_url || user?.schoolLogo;
+    if (activeLogo && !schoolLogo) {
+      setSchoolLogo(activeLogo);
     }
-    if (user.schoolName && schoolName === "Apex International School") {
-      setSchoolName(user.schoolName);
+    const activeName = schoolProfile?.school_name || user?.schoolName;
+    if (activeName && (schoolName === "Apex International School" || !schoolName)) {
+      setSchoolName(activeName);
     }
-  }, [user.schoolLogo, user.schoolName]);
+
+    // Pre-fetch fresh institutional profile from backend to ensure latest school logo is loaded
+    if (user?.email) {
+      const email = user.email.trim().toLowerCase();
+      fetch(`${getApiBase()}/recruitment/schools/me?email=${encodeURIComponent(email)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.school) {
+            setSchoolProfile(data.school);
+            if (data.school.logo_url) {
+              setSchoolLogo(data.school.logo_url);
+              if (user && data.school.logo_url !== user.schoolLogo) {
+                setUser({
+                  ...user,
+                  schoolLogo: data.school.logo_url,
+                  schoolName: data.school.school_name || user.schoolName
+                });
+              }
+            }
+            if (data.school.school_name) {
+              setSchoolName(data.school.school_name);
+            }
+          }
+        })
+        .catch((e) => console.warn("Could not pre-fetch school profile:", e));
+    }
+  }, [user?.email, user?.schoolLogo, schoolProfile?.logo_url]);
 
   // Generation & View State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -152,9 +185,13 @@ export default function SchoolStreamAssessmentPage() {
     else setDownloadingStudentPdf(true);
 
     try {
+      const logoToUse = paperObj.school_logo || schoolLogo || schoolProfile?.logo_url || user?.schoolLogo || "";
+      const nameToUse = paperObj.school_name || schoolName || schoolProfile?.school_name || user?.schoolName || "";
       const paperWithLogo = {
         ...paperObj,
-        school_logo: paperObj.school_logo || schoolLogo || user.schoolLogo || ""
+        school_logo: logoToUse,
+        school_name: nameToUse,
+        user_email: user?.email || ""
       };
       await downloadStreamAssessmentPDF(paperWithLogo, includeAnswers);
     } catch (e: any) {

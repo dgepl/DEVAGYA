@@ -2594,21 +2594,54 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
     raw_logo = p.get("school_logo")
 
     # School Logo resolution (Never fall back to DEVGYA company logo for school papers)
+    if not raw_logo:
+        # Check if we can look up logo from recruitment_schools by email or name
+        user_email = p.get("user_email")
+        if user_email:
+            try:
+                from services.recruitment_service import recruitment_service
+                sch = recruitment_service.get_school_by_email(str(user_email).strip().lower())
+                if sch and sch.get("logo_url"):
+                    raw_logo = sch.get("logo_url")
+            except Exception:
+                pass
+        if not raw_logo and school_name:
+            try:
+                from services.recruitment_service import recruitment_service
+                for s_data in recruitment_service.schools.values():
+                    if s_data.get("school_name", "").strip().lower() == school_name.strip().lower() and s_data.get("logo_url"):
+                        raw_logo = s_data.get("logo_url")
+                        break
+            except Exception:
+                pass
+
     logo_elem = None
     if raw_logo:
         try:
+            img_bytes = None
             if str(raw_logo).startswith(("http://", "https://")):
-                with httpx.Client(timeout=5.0) as client:
+                with httpx.Client(timeout=6.0, follow_redirects=True) as client:
                     r = client.get(str(raw_logo))
                     if r.status_code == 200:
-                        logo_elem = RLImage(io.BytesIO(r.content), width=48, height=48)
+                        img_bytes = r.content
             elif "base64," in str(raw_logo):
                 b64 = str(raw_logo).split("base64,")[1]
-                logo_elem = RLImage(io.BytesIO(base64.b64decode(b64)), width=48, height=48)
+                img_bytes = base64.b64decode(b64)
             elif os.path.exists(str(raw_logo)):
-                logo_elem = RLImage(str(raw_logo), width=48, height=48)
+                with open(str(raw_logo), "rb") as f:
+                    img_bytes = f.read()
             elif len(str(raw_logo).strip()) > 100:
-                logo_elem = RLImage(io.BytesIO(base64.b64decode(str(raw_logo).strip())), width=48, height=48)
+                img_bytes = base64.b64decode(str(raw_logo).strip())
+
+            if img_bytes:
+                from PIL import Image as PILImage
+                im = PILImage.open(io.BytesIO(img_bytes))
+                if im.mode not in ("RGB", "RGBA"):
+                    im = im.convert("RGBA")
+                out_bio = io.BytesIO()
+                im.save(out_bio, format="PNG")
+                out_bio.seek(0)
+                logo_elem = RLImage(out_bio, width=48, height=48)
         except Exception as e:
             logger.warning(f"Error loading school logo: {e}")
             logo_elem = None

@@ -128,6 +128,28 @@ async def generate_worksheet(payload: Dict[str, Any] = Body(...)):
 async def generate_stream_assessment_pdf_endpoint(payload: Dict[str, Any] = Body(...), include_answers: bool = False):
     """Generate Class 11-12 Stream Selection Assessment PDF (Science, Commerce, Humanities) with counseling matrix and marking rubric."""
     try:
+        # Auto-resolve school_logo if missing from payload
+        if not payload.get("school_logo"):
+            user_email = payload.get("user_email")
+            if user_email:
+                try:
+                    from services.recruitment_service import recruitment_service
+                    sch = recruitment_service.get_school_by_email(str(user_email).strip().lower())
+                    if sch and sch.get("logo_url"):
+                        payload["school_logo"] = sch.get("logo_url")
+                except Exception:
+                    pass
+            if not payload.get("school_logo") and payload.get("school_name"):
+                try:
+                    from services.recruitment_service import recruitment_service
+                    target_name = str(payload.get("school_name")).strip().lower()
+                    for s_data in recruitment_service.schools.values():
+                        if s_data.get("school_name", "").strip().lower() == target_name and s_data.get("logo_url"):
+                            payload["school_logo"] = s_data.get("logo_url")
+                            break
+                except Exception:
+                    pass
+
         pdf_bytes = pdf_generator_service.generate_stream_assessment_pdf(payload, include_answers=include_answers)
         school_name = str(payload.get("school_name") or "School").replace(" ", "_")
         class_name = str(payload.get("class_name") or "Class_11").replace(" ", "_")
