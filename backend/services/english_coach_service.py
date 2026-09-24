@@ -512,11 +512,17 @@ ABSOLUTE ARCHITECTURAL RULES (CRITICAL):
 
     try:
         raw = await ai_provider.chat_completion(messages, temperature=0.35, response_format_json=True)
-        data = json.loads(raw)
+        mods = None
         if isinstance(data, list) and len(data) >= 4:
-            return data
+            mods = data
         elif isinstance(data, dict) and "modules" in data and isinstance(data["modules"], list) and len(data["modules"]) >= 4:
-            return data["modules"]
+            mods = data["modules"]
+
+        if mods:
+            for mod in mods:
+                if isinstance(mod, dict) and ("focus_areas" not in mod or not isinstance(mod.get("focus_areas"), list)):
+                    mod["focus_areas"] = ["Cadence & Diction", "Spoken Accuracy", "Fluency & Poise"]
+            return mods
     except Exception as e:
         logger.warning(f"Groq pure AI curriculum generation fallback: {e}")
 

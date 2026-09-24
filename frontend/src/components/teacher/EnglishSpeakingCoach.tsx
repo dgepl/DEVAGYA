@@ -244,7 +244,7 @@ const WordAlignmentDisplay = ({
 
   return (
     <div className="flex flex-wrap items-center gap-2 p-4 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-inner">
-      {wordMatches.map((m, idx) => {
+      {(wordMatches || []).map((m, idx) => {
         const isCorrect = m.status === "correct";
         const isHesitant = m.status === "hesitant";
         return (
@@ -909,10 +909,10 @@ export function EnglishSpeakingCoach() {
     try {
       const evalResult = await evaluateSpeechBackend(target, textToEval, durationSec);
       setRepeatMatchScore(evalResult.accuracy_score);
-      setRepeatWordMatches(evalResult.word_matches.map((m: any) => ({ word: m.word, matched: m.status === "correct" })));
+      setRepeatWordMatches((evalResult?.word_matches || []).map((m: any) => ({ word: m.word, matched: m.status === "correct" })));
       setSpeechAlignmentResult(evalResult);
 
-      const missed = evalResult.word_matches.filter((m: any) => m.status === "missed").map((m: any) => m.word);
+      const missed = (evalResult?.word_matches || []).filter((m: any) => m.status === "missed").map((m: any) => m.word);
       let status: "great" | "good" | "enhance" = evalResult.accuracy_score >= 70 ? "great" : evalResult.accuracy_score >= 45 ? "good" : "enhance";
       let whatWentWell = `You scored ${evalResult.accuracy_score}% at ${evalResult.wpm} WPM (${evalResult.pace_status}). Crisp diction and steady volume.`;
       let whatToEnhance = missed.length > 0
@@ -1575,7 +1575,7 @@ export function EnglishSpeakingCoach() {
                   Identified Weak Points To Focus On:
                 </span>
                 <div className="flex flex-wrap gap-2">
-                  {diagnosticResult.weak_points.map((w: string, i: number) => (
+                  {(diagnosticResult?.weak_points || []).map((w: string, i: number) => (
                     <span key={i} className="px-2.5 py-1 rounded-lg bg-white text-amber-900 text-xs font-bold border border-amber-200 shadow-sm">
                       {w}
                     </span>
@@ -1623,7 +1623,7 @@ export function EnglishSpeakingCoach() {
 
             {/* OPTIONS */}
             <div className="space-y-2.5">
-              {q.options.map((opt, idx) => {
+              {(q?.options || []).map((opt, idx) => {
                 const isSelected = selectedAnswers[String(q.id)] === idx;
                 return (
                   <button
@@ -1743,7 +1743,7 @@ export function EnglishSpeakingCoach() {
               <span>Your Diagnostic Focus Areas:</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {track.weak_points.map((w, idx) => (
+              {(track?.weak_points || []).map((w, idx) => (
                 <span key={idx} className="px-2.5 py-0.5 rounded-md bg-white text-amber-800 text-xs font-bold border border-amber-200 shadow-xs">
                   {w}
                 </span>
@@ -1754,14 +1754,14 @@ export function EnglishSpeakingCoach() {
 
         {/* MODULE CARDS */}
         <div className="space-y-4">
-          {modules.map((mod, mIdx) => {
+          {(modules || []).map((mod, mIdx) => {
             const isUnlocked = mIdx <= unlockedIndex;
             const isCompleted = mIdx < unlockedIndex;
             const isCurrent = mIdx === unlockedIndex;
 
             return (
               <div 
-                key={mod.id}
+                key={mod.id || mIdx}
                 className={`p-6 rounded-3xl border transition-all ${
                   isCurrent
                     ? "bg-white border-indigo-400 shadow-md ring-1 ring-indigo-400"
@@ -1796,7 +1796,7 @@ export function EnglishSpeakingCoach() {
                       {mod.description}
                     </p>
                     <div className="flex flex-wrap gap-2 pt-1">
-                      {mod.focus_areas.map((f, i) => (
+                      {(mod?.focus_areas || []).map((f, i) => (
                         <span key={i} className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
                           • {f}
                         </span>
@@ -1924,13 +1924,13 @@ export function EnglishSpeakingCoach() {
             </div>
 
             <div className={`grid gap-2 ${
-              currentMod.steps.length === 2 
+              (currentMod?.steps || []).length === 2 
                 ? "grid-cols-2" 
-                : currentMod.steps.length === 3 
+                : (currentMod?.steps || []).length === 3 
                 ? "grid-cols-1 sm:grid-cols-3" 
                 : "grid-cols-2 sm:grid-cols-4"
             }`}>
-              {currentMod.steps.map((st, idx) => {
+              {(currentMod?.steps || []).map((st, idx) => {
                 const isCurrent = activeStepIdx === idx;
                 const isDone = track?.completed_steps?.includes(st.step_id) || activeStepIdx > idx;
 
@@ -2255,7 +2255,7 @@ export function EnglishSpeakingCoach() {
 
                 {/* TARGET PHRASE DISPLAY & WORD ALIGNMENT */}
                 <WordAlignmentDisplay
-                  wordMatches={speechAlignmentResult?.word_matches || repeatWordMatches.map(m => ({ word: m.word, status: m.matched ? "correct" : "missed" }))}
+                  wordMatches={speechAlignmentResult?.word_matches || (repeatWordMatches || []).map(m => ({ word: m.word, status: m.matched ? "correct" : "missed" }))}
                   rawTarget={currentTargetPhrase || currentStep.prompt}
                 />
 
@@ -2511,7 +2511,7 @@ export function EnglishSpeakingCoach() {
                       <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/20 space-y-1">
                         <span className="font-black text-emerald-400 uppercase tracking-wide">Demonstrated Strengths:</span>
                         <ul className="space-y-1 text-slate-300">
-                          {speakCritique.positive_points.map((p, i) => (
+                          {(speakCritique?.positive_points || []).map((p, i) => (
                             <li key={i}>• {p}</li>
                           ))}
                         </ul>
@@ -2519,7 +2519,7 @@ export function EnglishSpeakingCoach() {
                       <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/20 space-y-1">
                         <span className="font-black text-amber-400 uppercase tracking-wide">Areas to Enhance:</span>
                         <ul className="space-y-1 text-slate-300">
-                          {speakCritique.negative_points.map((n, i) => (
+                          {(speakCritique?.negative_points || []).map((n, i) => (
                             <li key={i}>• {n}</li>
                           ))}
                         </ul>
@@ -2753,7 +2753,7 @@ export function EnglishSpeakingCoach() {
                     </div>
                   )}
 
-                  {dialogueMessages.map((msg, i) => (
+                  {(dialogueMessages || []).map((msg, i) => (
                     <div key={i} className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}>
                       {msg.correction && (
                         <div className="mb-1 text-[11px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/40 px-3 py-1 rounded-xl shadow-xs">

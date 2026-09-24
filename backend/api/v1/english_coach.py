@@ -81,11 +81,36 @@ async def get_coach_state(user_id: str, user_role: str = "student"):
     """Fetches user's current progress, diagnostic status, unlocked lectures, and 30-day expiry timer."""
     track = english_coach_service.get_user_track(user_id, user_role=user_role)
     modules = track.get("custom_modules")
-    if not modules:
+
+    # Migrate legacy modules or missing focus_areas
+    is_legacy = False
+    if modules and isinstance(modules, list):
+        for mod in modules:
+            if not isinstance(mod, dict):
+                is_legacy = True
+                break
+            if "focus_areas" not in mod or not isinstance(mod.get("focus_areas"), list):
+                mod["focus_areas"] = ["Cadence & Diction", "Spoken Accuracy", "Fluency & Poise"]
+            steps = mod.get("steps", [])
+            # If old 5-step format with deprecated types
+            if len(steps) == 5 and any(s.get("type") in ["listen", "repeat", "game", "present"] for s in steps):
+                is_legacy = True
+                break
+
+    if not modules or is_legacy:
         modules = get_curriculum_modules(
             track.get("fluency_level", "Intermediate"),
             track.get("weak_points", [])
         )
+        if track.get("diagnostic_completed"):
+            track["custom_modules"] = modules
+            english_coach_service.save_user_track(user_id, track, user_role=user_role)
+
+    # Ensure every module has focus_areas
+    for mod in modules:
+        if isinstance(mod, dict) and ("focus_areas" not in mod or not isinstance(mod.get("focus_areas"), list)):
+            mod["focus_areas"] = ["Cadence & Diction", "Spoken Accuracy", "Fluency & Poise"]
+
     return {
         "track": track,
         "modules": modules
