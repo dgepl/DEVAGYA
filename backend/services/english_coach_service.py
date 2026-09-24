@@ -527,6 +527,9 @@ def get_clean_curriculum_fallback(level: str, weak_points: List[str]) -> List[Di
         }
     ]
 
+# Alias for backward compatibility
+get_curriculum_modules = get_clean_curriculum_fallback
+
 # =====================================================================
 # 4. 100% PURE AI CURRICULUM GENERATOR (ZERO MANUAL WRITTEN DRILLS)
 # =====================================================================
