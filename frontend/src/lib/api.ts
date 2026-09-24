@@ -389,6 +389,7 @@ export interface StreamAssessmentResponse {
   id?: string;
   title: string;
   class_name: string;
+  nep_stage?: string;
   subject: string;
   school_name: string;
   school_logo?: string;
@@ -412,6 +413,8 @@ export interface StreamAssessmentResponse {
 export interface StreamAssessmentPayload {
   title: string;
   class_name: string;
+  nep_stage?: string;
+  subject?: string;
   school_name: string;
   school_logo?: string;
   time_allowed_mins: number;

@@ -58,8 +58,10 @@ class GeneratedPaperResponse(BaseModel):
     created_at: Optional[str] = None
 
 class StreamAssessmentRequest(BaseModel):
-    title: str = Field(default="Class 11-12 Stream Selection & Aptitude Diagnostic Assessment")
-    class_name: str = Field(default="Class 11", example="Class 11")
+    title: str = Field(default="NEP Stage-Wise Assessment Paper")
+    class_name: str = Field(default="Class 11", example="Class 10")
+    subject: Optional[str] = Field(default="Comprehensive Diagnostic")
+    nep_stage: Optional[str] = None # 'foundational', 'preparatory', 'middle', 'secondary', 'senior_secondary'
     school_name: str = Field(default="Apex International Academy")
     school_logo: Optional[str] = None
     time_allowed_mins: int = Field(default=90)
@@ -71,7 +73,7 @@ class StreamAssessmentRequest(BaseModel):
     user_email: Optional[str] = None
 
 class StreamBreakdown(BaseModel):
-    stream: str # 'science', 'commerce', 'humanities'
+    stream: str # 'science', 'commerce', 'humanities' or domain
     stream_name: str
     mcq_count: int
     short_count: int
@@ -83,7 +85,8 @@ class StreamAssessmentResponse(BaseModel):
     id: Optional[str] = None
     title: str
     class_name: str
-    subject: str = "Stream Aptitude Evaluation (Science • Commerce • Humanities)"
+    nep_stage: Optional[str] = "senior_secondary"
+    subject: str = "NEP Curriculum Assessment"
     school_name: str
     school_logo: Optional[str] = None
     total_marks: int

@@ -2652,12 +2652,22 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
 
     # Header
     edition_label = "TEACHER ANSWER KEY & COUNSELING RUBRIC" if include_answers else "STUDENT QUESTION PAPER"
+    
+    # NEP Stage Context
+    from services.stream_assessment_service import detect_nep_stage, NEP_STAGES_CONFIG
+    nep_stage_key = p.get("nep_stage") or detect_nep_stage(class_name)
+    stage_info = NEP_STAGES_CONFIG.get(nep_stage_key, NEP_STAGES_CONFIG["senior_secondary"])
+    stage_name = stage_info.get("name", "NEP 2020 Assessment")
+    stage_focus = stage_info.get("focus", "Competency & Diagnostic Assessment")
+
+    subtitle_domains = " &bull; ".join(stage_info.get("domains", ["Science", "Commerce", "Humanities"]))
+
     header_title_p = [
         Paragraph(school_name.upper(), school_title_style),
         Spacer(1, 2),
         Paragraph(f"{title.upper()}", doc_title_style),
         Spacer(1, 1),
-        Paragraph(f"Science (STEM) &bull; Commerce & Finance &bull; Humanities & Social Sciences &mdash; <b>[{edition_label}]</b>", sub_title_style)
+        Paragraph(f"{subtitle_domains} &mdash; <b>[{edition_label}]</b>", sub_title_style)
     ]
 
     if logo_elem:
@@ -2694,27 +2704,52 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
     story.append(cand_table)
     story.append(Spacer(1, 6))
 
-    # Stream Breakdown Overview Box
+    # NEP Stage Domain Breakdown Overview Box
     breakdowns = p.get("stream_breakdown") or []
-    sci_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "science"), int(total_marks/3))
-    com_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "commerce"), int(total_marks/3))
-    hum_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "humanities"), int(total_marks/3))
+    domain_colors = [
+        ("#1E40AF", "#EFF6FF"), # Indigo/Blue
+        ("#065F46", "#ECFDF5"), # Emerald/Green
+        ("#6B21A8", "#FAF5FF")  # Purple
+    ]
 
-    stream_bar_data = [[
-        Paragraph("<font color='#1E40AF'><b>SCIENCE (STEM):</b></font> Empirical & Quantitative Logic &bull; <b>" + str(sci_m) + " Marks</b>", meta_label_style),
-        Paragraph("<font color='#065F46'><b>COMMERCE:</b></font> Economic & Financial Acumen &bull; <b>" + str(com_m) + " Marks</b>", meta_label_style),
-        Paragraph("<font color='#6B21A8'><b>HUMANITIES:</b></font> Critical Reasoning & Policy &bull; <b>" + str(hum_m) + " Marks</b>", meta_label_style),
-    ]]
-    stream_bar_table = Table(stream_bar_data, colWidths=[174, 174, 174])
-    stream_bar_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (0,0), colors.HexColor("#EFF6FF")),
-        ('BACKGROUND', (1,0), (1,0), colors.HexColor("#ECFDF5")),
-        ('BACKGROUND', (2,0), (2,0), colors.HexColor("#FAF5FF")),
+    bar_cells = []
+    col_w = 522 / max(1, min(3, len(breakdowns) if breakdowns else 3))
+    col_widths = []
+    table_styles = [
         ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#CBD5E1")),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1")),
         ('PADDING', (0,0), (-1,-1), 4),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-    ]))
+    ]
+
+    if breakdowns and len(breakdowns) >= 3:
+        for idx in range(min(3, len(breakdowns))):
+            b = breakdowns[idx]
+            b_name = b.get("stream_name") or b.get("stream", "").upper()
+            b_marks = b.get("total_marks", 0)
+            txt_color, bg_color = domain_colors[idx % len(domain_colors)]
+            cell_p = Paragraph(f"<font color='{txt_color}'><b>{b_name.upper()}:</b></font> <b>{b_marks} Marks</b>", meta_label_style)
+            bar_cells.append(cell_p)
+            col_widths.append(col_w)
+            table_styles.append(('BACKGROUND', (idx, 0), (idx, 0), colors.HexColor(bg_color)))
+    else:
+        sci_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "science"), int(total_marks/3))
+        com_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "commerce"), int(total_marks/3))
+        hum_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "humanities"), int(total_marks/3))
+        bar_cells = [
+            Paragraph("<font color='#1E40AF'><b>SCIENCE (STEM):</b></font> <b>" + str(sci_m) + " Marks</b>", meta_label_style),
+            Paragraph("<font color='#065F46'><b>COMMERCE:</b></font> <b>" + str(com_m) + " Marks</b>", meta_label_style),
+            Paragraph("<font color='#6B21A8'><b>HUMANITIES:</b></font> <b>" + str(hum_m) + " Marks</b>", meta_label_style),
+        ]
+        col_widths = [174, 174, 174]
+        table_styles.extend([
+            ('BACKGROUND', (0,0), (0,0), colors.HexColor("#EFF6FF")),
+            ('BACKGROUND', (1,0), (1,0), colors.HexColor("#ECFDF5")),
+            ('BACKGROUND', (2,0), (2,0), colors.HexColor("#FAF5FF")),
+        ])
+
+    stream_bar_table = Table([bar_cells], colWidths=col_widths)
+    stream_bar_table.setStyle(TableStyle(table_styles))
     story.append(stream_bar_table)
     story.append(Spacer(1, 6))
 
@@ -2883,32 +2918,52 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
         story.append(Spacer(1, 4))
 
         c_matrix = p.get("diagnostic_matrix") or {}
-        sci_note = c_matrix.get("science_indicators", "Score >= 75%: High suitability for PCM/PCB, Engineering, Medicine, Pure Sciences, and AI.")
-        com_note = c_matrix.get("commerce_indicators", "Score >= 75%: Exceptional acumen for CA, Corporate Finance, Economics, CFA, and Management.")
-        hum_note = c_matrix.get("humanities_indicators", "Score >= 75%: Outstanding suitability for Law (CLAT), Civil Services (UPSC), Public Policy, and Journalism.")
-
         matrix_table_data = [
             [
-                Paragraph("<b>STREAM</b>", q_stem_style),
+                Paragraph("<b>DOMAIN / STREAM</b>", q_stem_style),
                 Paragraph("<b>MARKS WEIGHT</b>", q_stem_style),
-                Paragraph("<b>DIAGNOSTIC CRITERIA & RECOMMENDED PATHWAYS</b>", q_stem_style)
-            ],
-            [
-                Paragraph("<font color='#1E40AF'><b>SCIENCE (STEM)</b></font>", meta_label_style),
-                Paragraph(f"<b>{sci_m} Marks</b>", meta_label_style),
-                Paragraph(html.escape(sci_note), inst_style)
-            ],
-            [
-                Paragraph("<font color='#065F46'><b>COMMERCE & FINANCE</b></font>", meta_label_style),
-                Paragraph(f"<b>{com_m} Marks</b>", meta_label_style),
-                Paragraph(html.escape(com_note), inst_style)
-            ],
-            [
-                Paragraph("<font color='#6B21A8'><b>HUMANITIES & SOCIAL</b></font>", meta_label_style),
-                Paragraph(f"<b>{hum_m} Marks</b>", meta_label_style),
-                Paragraph(html.escape(hum_note), inst_style)
+                Paragraph("<b>DIAGNOSTIC CRITERIA & EVALUATION GUIDANCE</b>", q_stem_style)
             ]
         ]
+
+        if breakdowns and len(breakdowns) >= 3:
+            for idx in range(min(3, len(breakdowns))):
+                b = breakdowns[idx]
+                b_name = b.get("stream_name") or b.get("stream", "").upper()
+                b_marks = b.get("total_marks", 0)
+                txt_color = domain_colors[idx % len(domain_colors)][0]
+                d_key = f"domain_{idx+1}_indicators"
+                d_note = c_matrix.get(d_key) or c_matrix.get(f"{b.get('stream')}_indicators") or f"Score >= 75%: High proficiency in {b_name} foundational competencies and reasoning."
+                matrix_table_data.append([
+                    Paragraph(f"<font color='{txt_color}'><b>{b_name.upper()}</b></font>", meta_label_style),
+                    Paragraph(f"<b>{b_marks} Marks</b>", meta_label_style),
+                    Paragraph(html.escape(str(d_note)), inst_style)
+                ])
+        else:
+            sci_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "science"), int(total_marks/3))
+            com_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "commerce"), int(total_marks/3))
+            hum_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "humanities"), int(total_marks/3))
+            sci_note = c_matrix.get("science_indicators", "Score >= 75%: High suitability for PCM/PCB, Engineering, Medicine, Pure Sciences, and AI.")
+            com_note = c_matrix.get("commerce_indicators", "Score >= 75%: Exceptional acumen for CA, Corporate Finance, Economics, CFA, and Management.")
+            hum_note = c_matrix.get("humanities_indicators", "Score >= 75%: Outstanding suitability for Law (CLAT), Civil Services (UPSC), Public Policy, and Journalism.")
+            matrix_table_data.extend([
+                [
+                    Paragraph("<font color='#1E40AF'><b>SCIENCE (STEM)</b></font>", meta_label_style),
+                    Paragraph(f"<b>{sci_m} Marks</b>", meta_label_style),
+                    Paragraph(html.escape(sci_note), inst_style)
+                ],
+                [
+                    Paragraph("<font color='#065F46'><b>COMMERCE & FINANCE</b></font>", meta_label_style),
+                    Paragraph(f"<b>{com_m} Marks</b>", meta_label_style),
+                    Paragraph(html.escape(com_note), inst_style)
+                ],
+                [
+                    Paragraph("<font color='#6B21A8'><b>HUMANITIES & SOCIAL</b></font>", meta_label_style),
+                    Paragraph(f"<b>{hum_m} Marks</b>", meta_label_style),
+                    Paragraph(html.escape(hum_note), inst_style)
+                ]
+            ])
+
         matrix_table = Table(matrix_table_data, colWidths=[120, 80, 322])
         matrix_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#F1F5F9")),
@@ -2922,8 +2977,8 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
         # Sign-off & Counselor Endorsement Box
         sig_data = [
             [
-                Paragraph("<b>Candidate Final Stream Recommendation:</b><br/>[&nbsp;] Science (PCM / PCB)&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Commerce (with/without Math)&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Humanities / Arts", meta_label_style),
-                Paragraph("<b>Counselor Signature:</b> ____________________<br/><br/><b>Principal Seal:</b> ___________________________", meta_label_style)
+                Paragraph(f"<b>Learner Assessment Outcome ({class_name}):</b><br/>[&nbsp;] Advanced Mastery&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Proficient (Target Met)&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Developing", meta_label_style),
+                Paragraph("<b>Evaluator Signature:</b> ____________________<br/><br/><b>Principal Seal:</b> ___________________________", meta_label_style)
             ]
         ]
         sig_table = Table(sig_data, colWidths=[330, 192])
