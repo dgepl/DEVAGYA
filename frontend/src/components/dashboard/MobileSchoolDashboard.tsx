@@ -345,28 +345,6 @@ export function MobileSchoolDashboard({
       {/* DEFAULT SECTIONS (WHEN NOT SEARCHING) */}
       {!hasSearch && (
         <>
-          {/* FEATURED: AI STREAM SELECTION & APTITUDE ASSESSMENT (CLASS 11-12) */}
-          <div className="relative overflow-hidden rounded-3xl p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-950 text-white shadow-md border border-indigo-500/20 space-y-3">
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/10 text-cyan-300 w-fit border border-white/15">
-              <Sparkles className="w-3 h-3 text-cyan-300" />
-              <span>Class 11-12 &bull; New</span>
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-white">Stream Selection Assessment AI</h3>
-              <p className="text-[11px] text-slate-300 leading-snug mt-0.5">
-                Generate papers across Science, Commerce & Humanities. Download printable PDF with answers & counseling rubric.
-              </p>
-            </div>
-            <Link
-              href="/dashboard/school/stream-assessment"
-              className="w-full py-2.5 px-4 rounded-xl bg-white text-slate-900 font-extrabold text-xs flex items-center justify-center gap-2 active:scale-98 transition-all"
-            >
-              <Compass className="w-4 h-4 text-indigo-600" />
-              <span>Generate Stream Assessment</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
           {/* 4. KPI STATS OVERVIEW (MATCHING QUICK STATS GRID) */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">

@@ -469,6 +469,37 @@ export async function downloadStreamAssessmentPDF(
   a.remove();
 }
 
+export async function fetchPaperHistory(email: string): Promise<any[]> {
+  try {
+    const res = await fetch(`${getApiBase()}/generator/history?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.papers || [];
+  } catch (e) {
+    console.warn("Failed to fetch paper history:", e);
+    return [];
+  }
+}
+
+export async function deletePaperFromHistory(
+  email: string,
+  paper: { id?: string; title: string; class_name?: string }
+): Promise<boolean> {
+  try {
+    let url = `${getApiBase()}/generator/history?email=${encodeURIComponent(email.trim().toLowerCase())}`;
+    if (paper.id) url += `&id=${encodeURIComponent(paper.id)}`;
+    if (paper.title) url += `&title=${encodeURIComponent(paper.title)}`;
+    if (paper.class_name) url += `&class_name=${encodeURIComponent(paper.class_name)}`;
+
+    const res = await fetch(url, { method: "DELETE" });
+    return res.ok;
+  } catch (e) {
+    console.error("Failed to delete paper from history:", e);
+    return false;
+  }
+}
+
+
 export interface GenerateWorksheetPdfPayload {
   title: string;
   subject: string;

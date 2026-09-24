@@ -2573,31 +2573,21 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
             story.append(hp)
     story.append(Spacer(1, 6))
 
-    # Candidate & Exam Information Block
+    # Candidate & Exam Information Block (Only Name of Student, Max Marks, Max Time)
     cand_data = [
         [
-            Paragraph("<b>Candidate Name:</b> _________________________________", meta_label_style),
-            Paragraph("<b>Roll / Scholar ID:</b> _____________", meta_label_style),
-            Paragraph(f"<b>Cohort / Class:</b> {class_name}", meta_label_style)
-        ],
-        [
-            Paragraph("<b>Date of Exam:</b> ____________________", meta_label_style),
-            Paragraph(f"<b>Max Marks:</b> {total_marks} Marks", meta_label_style),
-            Paragraph(f"<b>Time Allowed:</b> {time_mins} Minutes", meta_label_style)
-        ],
-        [
-            Paragraph("<b>Preliminary Student Preference:</b>&nbsp;&nbsp;[&nbsp;] Science&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Commerce&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Humanities&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Undecided", meta_label_style),
-            "",
-            Paragraph(f"<b>Assessment Standard:</b> {difficulty}", meta_label_style)
+            Paragraph("<b>Name of Student:</b> ____________________________________________________", meta_label_style),
+            Paragraph(f"<b>Max Marks:</b> {total_marks}", meta_label_style),
+            Paragraph(f"<b>Max Time:</b> {time_mins} Minutes", meta_label_style)
         ]
     ]
-    cand_table = Table(cand_data, colWidths=[230, 140, 152])
+    cand_table = Table(cand_data, colWidths=[292, 115, 115])
     cand_table.setStyle(TableStyle([
-        ('SPAN', (0, 2), (1, 2)),
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8FAFC")),
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E1")),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
-        ('PADDING', (0,0), (-1,-1), 4.5),
+        ('PADDING', (0,0), (-1,-1), 6),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
     story.append(cand_table)
     story.append(Spacer(1, 6))

@@ -209,33 +209,6 @@ export default function SchoolDashboardHomePage() {
         </div>
       </div>
 
-      {/* FEATURED: AI STREAM SELECTION & APTITUDE ASSESSMENT (CLASS 11-12) */}
-      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-950 text-white shadow-md border border-indigo-500/20">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5 max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-cyan-300 border border-white/15">
-              <Sparkles className="w-3 h-3 text-cyan-300" />
-              <span>New Academic Feature &bull; Class 11-12</span>
-            </div>
-            <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
-              AI Stream Selection & Aptitude Assessment Paper
-            </h2>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Generate curriculum-accurate diagnostic papers balanced across <span className="text-cyan-300 font-bold">Science</span>, <span className="text-emerald-300 font-bold">Commerce</span>, and <span className="text-purple-300 font-bold">Humanities</span> (MCQs, Short & Long questions). Download print-ready student PDFs and career counseling evaluation keys.
-            </p>
-          </div>
-
-          <Link
-            href="/dashboard/school/stream-assessment"
-            className="px-5 py-3 rounded-2xl bg-white text-slate-900 hover:bg-slate-100 font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 shrink-0 group active:scale-98"
-          >
-            <Compass className="w-4 h-4 text-indigo-600 group-hover:rotate-45 transition-transform" />
-            <span>Generate Stream Paper</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      </div>
-
       {/* 2. QUICK OVERVIEW */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">

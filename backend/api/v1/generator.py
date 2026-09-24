@@ -623,24 +623,27 @@ def _save_papers_store(data: dict):
 
 @router.get("/history")
 async def get_saved_papers_history(email: str = "guest@devgya.com"):
-    """Retrieve saved question papers history for educator from Supabase Cloud."""
+    """Retrieve saved question papers history for educator/school from Supabase Cloud and local persistence."""
     email_clean = email.strip().lower()
-    # 1. Fetch from Supabase Cloud
     cloud_papers = await supabase_service.get_question_papers_from_cloud(email_clean)
-    if cloud_papers:
-        return {
-            "status": "success",
-            "email": email_clean,
-            "papers": cloud_papers
-        }
-
-    # 2. Fallback to local store
     store = _load_papers_store()
     user_papers = store.get(email_clean, [])
+
+    # Merge papers by ID or title, prioritizing cloud then local
+    merged_dict = {}
+    for p in (cloud_papers or []):
+        key = str(p.get("id") or p.get("title"))
+        merged_dict[key] = p
+    for p in user_papers:
+        key = str(p.get("id") or p.get("title"))
+        if key not in merged_dict:
+            merged_dict[key] = p
+
+    merged_list = list(merged_dict.values())
     return {
         "status": "success",
         "email": email_clean,
-        "papers": user_papers
+        "papers": merged_list
     }
 
 @router.post("/history")
