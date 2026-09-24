@@ -142,19 +142,15 @@ export default function LoginClient() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* BACKGROUND IMAGE WITH SUBTLE FOCUS-OPTIMIZED OVERLAY */}
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* EXACT ORIGINAL BACKGROUND IMAGE */}
       <div 
-        className="fixed inset-0 bg-cover bg-center bg-no-repeat pointer-events-none scale-105 filter blur-[1px] opacity-40 sm:opacity-45 transition-opacity"
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
         style={{ backgroundImage: "url('/images/auth_background.jpeg')" }}
       />
-      <div className="fixed inset-0 bg-gradient-to-tr from-slate-950/85 via-indigo-950/75 to-slate-950/85 pointer-events-none" />
-
-      {/* AMBIENT GLOW */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-indigo-500/10 blur-[130px] rounded-full pointer-events-none" />
 
       {/* LOGIN CARD WITH PRIMARY FOCUS */}
-      <div className="w-full max-w-md bg-white/95 sm:bg-white backdrop-blur-xl p-7 sm:p-10 rounded-3xl border border-white/60 sm:border-slate-200/90 shadow-2xl relative z-10 space-y-6">
+      <div className="w-full max-w-md bg-white/95 sm:bg-white backdrop-blur-xl p-7 sm:p-10 rounded-3xl border border-white/80 sm:border-slate-200/90 shadow-2xl relative z-10 space-y-6">
         
         {/* TOP HOME REDIRECT BAR */}
         <div className="flex items-center justify-between pb-1 -mt-2">
