@@ -19,6 +19,7 @@ import {
   Award,
   Plus,
   Eye,
+  EyeOff,
   CheckSquare,
   Globe,
   Settings,
@@ -122,6 +123,17 @@ export default function SuperAdminPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loadingLogin, setLoadingLogin] = useState(false);
   const [sessionRevokedNotice, setSessionRevokedNotice] = useState<string | null>(null);
+
+  // Super Admin Password Management State
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showOldPass, setShowOldPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [pwdChanging, setPwdChanging] = useState(false);
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [pwdSuccess, setPwdSuccess] = useState<string | null>(null);
 
   const getLocalISOString = (offsetMs = 0) => {
     const d = new Date(Date.now() + offsetMs);
@@ -411,6 +423,66 @@ export default function SuperAdminPage() {
       setLoginError("Failed to reach server. Ensure FastAPI backend is running on port 8000.");
     } finally {
       setLoadingLogin(false);
+    }
+  };
+
+  const handleChangeAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError(null);
+    setPwdSuccess(null);
+
+    const oldP = oldPassword.trim();
+    const newP = newPassword.trim();
+    const confP = confirmPassword.trim();
+
+    if (!oldP) {
+      setPwdError("Please enter your current (old) password.");
+      return;
+    }
+    if (!newP) {
+      setPwdError("Please enter your new password.");
+      return;
+    }
+    if (newP.length < 6) {
+      setPwdError("New password must be at least 6 characters long.");
+      return;
+    }
+    if (newP !== confP) {
+      setPwdError("New password and Confirm Password do not match.");
+      return;
+    }
+    if (newP === oldP) {
+      setPwdError("New password must be different from current password.");
+      return;
+    }
+
+    setPwdChanging(true);
+    try {
+      const baseUrl = getApiBase();
+      const res = await fetch(`${baseUrl}/admin/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: currentAdminUser || adminUser,
+          old_password: oldP,
+          new_password: newP,
+          confirm_password: confP,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setPwdSuccess(data.message || "Admin password changed successfully! Use your new password on next login.");
+        setOldPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        setPwdError(data.detail || data.message || "Failed to update admin password.");
+      }
+    } catch (err: any) {
+      setPwdError(err.message || "Network error while changing password.");
+    } finally {
+      setPwdChanging(false);
     }
   };
 
@@ -3204,10 +3276,149 @@ export default function SuperAdminPage() {
                 </div>
                 <button
                   onClick={handleAdminLogout}
-                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-colors"
                 >
-                  End Active Session & Sign Out
+                  End Active Session &amp; Sign Out
                 </button>
+              </div>
+
+              {/* CHANGE ADMIN PASSWORD FORM CARD */}
+              <div className="pt-6 border-t border-slate-200">
+                <div className="bg-slate-50/90 p-6 sm:p-7 rounded-2xl border border-slate-200 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                    <div className="space-y-0.5">
+                      <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-indigo-600" />
+                        <span>Change Super Admin Password</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Update the administrative access password for <span className="font-bold text-slate-800">{currentAdminUser || adminUser}</span>
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg w-fit">
+                      Encrypted Persistence
+                    </span>
+                  </div>
+
+                  {pwdError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>{pwdError}</span>
+                    </div>
+                  )}
+
+                  {pwdSuccess && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{pwdSuccess}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleChangeAdminPassword} className="space-y-4 max-w-xl">
+                    {/* Old Password */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Current (Old) Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showOldPass ? "text" : "password"}
+                          value={oldPassword}
+                          onChange={(e) => setOldPassword(e.target.value)}
+                          placeholder="Enter your current admin password"
+                          required
+                          className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowOldPass(!showOldPass)}
+                          className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700"
+                        >
+                          {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* New Password */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                          New Password
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showNewPass ? "text" : "password"}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="At least 6 characters"
+                            required
+                            minLength={6}
+                            className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPass(!showNewPass)}
+                            className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700"
+                          >
+                            {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Confirm Password */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Confirm New Password
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPass ? "text" : "password"}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Re-enter new password"
+                            required
+                            minLength={6}
+                            className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPass(!showConfirmPass)}
+                            className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700"
+                          >
+                            {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center gap-3">
+                      <button
+                        type="submit"
+                        disabled={pwdChanging}
+                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer"
+                      >
+                        {pwdChanging ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                        <span>Update Admin Password</span>
+                      </button>
+
+                      {(oldPassword || newPassword || confirmPassword) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOldPassword("");
+                            setNewPassword("");
+                            setConfirmPassword("");
+                            setPwdError(null);
+                            setPwdSuccess(null);
+                          }}
+                          className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
               </div>
 
             </div>

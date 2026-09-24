@@ -5,42 +5,53 @@ Part-B carries 40% weightage (40 MCQs total):
 - Module 4: Core Subject Knowledge (20 MCQs)
 - Module 5: Subject Pedagogical Knowledge & TLM (10 MCQs)
 - Module 6: Common Misconceptions & HOTS (10 MCQs)
+
+Supported Dedicated Tracks (40 Questions each):
+1. Mathematics
+2. Social Science
+3. English Language & Literature
+4. Hindi Language & Pedagogy
+5. Computer Science & AI
+6. Physics (Mechanics, Optics, Thermodynamics, Modern Physics, TLM, HOTS)
+7. Chemistry (Stoichiometry, Bonding, Periodic Trends, Organic, TLM, HOTS)
+8. Biology (Cell Biology, Genetics, Physiology, Ecology, Microscopy, HOTS)
+9. General Science (Interdisciplinary)
 """
 
 from typing import List, Dict, Any
 
-# ============================================================================
+
 # 1. MATHEMATICS (40 MCQs)
 # ============================================================================
 def get_math_part_b_questions() -> List[Dict[str, Any]]:
     return [
-        {"id": "math-core-1", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Algebra: If the roots of the quadratic equation ax^2 + bx + c = 0 are in the ratio m : n, which relationship between coefficients is strictly true?", "options": ["(A) m n b^2 = (m + n)^2 a c", "(B) (m + n) b^2 = m n a c", "(C) m n (b^2 - 4ac) = 0", "(D) (m^2 + n^2) b = 2 a c"], "correct_answer": 0, "explanation": "Let roots be mk and nk. Sum = (m+n)k = -b/a => k = -b/[a(m+n)]. Product = mn k^2 = c/a. Substituting k gives mn b^2 = (m+n)^2 ac."},
+        {"id": "math-core-1", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Algebra: If the roots of the quadratic equation $ax^2 + bx + c = 0$ are in the ratio m : n, which relationship between coefficients is strictly true?", "options": ["(A) $mn b^2 = (m+n)^2 ac$", "(B) (m + n) b^2 = m n a c", "(C) m n (b^2 - 4ac) = 0", "(D) (m^2 + n^2) b = 2 a c"], "correct_answer": 0, "explanation": "Let roots be mk and nk. Sum = (m+n)k = -b/a => k = -b/[a(m+n)]. Product = mn k^2 = c/a. Substituting k gives mn b^2 = (m+n)^2 ac."},
         {"id": "math-core-2", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Coordinate Geometry: The coordinates of the circumcenter of a right-angled triangle with vertices at (0, 0), (6, 0), and (0, 8) are:", "options": ["(A) (3, 4)", "(B) (2, 2.67)", "(C) (0, 0)", "(D) (6, 8)"], "correct_answer": 0, "explanation": "In any right-angled triangle, the circumcenter lies precisely at the midpoint of the hypotenuse: ((6+0)/2, (0+8)/2) = (3, 4)."},
-        {"id": "math-core-3", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Trigonometry: If sec θ + tan θ = p, what is the exact value of sin θ in terms of p?", "options": ["(A) (p^2 - 1) / (p^2 + 1)", "(B) (p^2 + 1) / (p^2 - 1)", "(C) 2p / (p^2 + 1)", "(D) (p^2 - 1) / 2p"], "correct_answer": 0, "explanation": "sec θ + tan θ = p => sec θ - tan θ = 1/p. 2 sec θ = (p^2+1)/p, 2 tan θ = (p^2-1)/p. sin θ = tan θ / sec θ = (p^2-1)/(p^2+1)."},
+        {"id": "math-core-3", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Trigonometry: If $\\sec \theta + \tan \theta = p$, what is the exact value of $\\sin \theta$ in terms of p?", "options": ["(A) $\frac{p^2 - 1}{p^2 + 1}$", "(B) (p^2 + 1) / (p^2 - 1)", "(C) 2p / (p^2 + 1)", "(D) (p^2 - 1) / 2p"], "correct_answer": 0, "explanation": "$\\sec \theta + \tan \theta = p$ => sec θ - tan θ = 1/p. 2 sec θ = (p^2+1)/p, 2 tan θ = (p^2-1)/p. $\\sin \theta$ = tan θ / sec θ = (p^2-1)/(p^2+1)."},
         {"id": "math-core-4", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Number Theory: According to the Fundamental Theorem of Arithmetic, every composite number can be factorized uniquely into a product of primes, except for:", "options": ["(A) The order in which the prime factors occur", "(B) The magnitude of the composite number", "(C) The parity (even/odd) of the factors", "(D) The base numeral system chosen"], "correct_answer": 0, "explanation": "Prime factorization of any composite integer is unique up to the order of factors."},
-        {"id": "math-core-5", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Calculus / Limits: What is the exact value of lim (x -> 0) (e^(3x) - 1) / (sin 2x)?", "options": ["(A) 3/2", "(B) 2/3", "(C) 1", "(D) 0"], "correct_answer": 0, "explanation": "By L'Hopital's rule: lim = 3e^0 / (2 cos 0) = 3/2."},
+        {"id": "math-core-5", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Calculus / Limits: What is the exact value of $\\lim_{x \to 0} \frac{e^{3x} - 1}{\\sin 2x}$?", "options": ["(A) 3/2", "(B) 2/3", "(C) 1", "(D) 0"], "correct_answer": 0, "explanation": "By L'Hopital's rule: lim = 3e^0 / (2 cos 0) = 3/2."},
         {"id": "math-core-6", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Probability: A fair pair of standard dice is rolled. What is the conditional probability that the sum is at least 10, given that at least one die shows a 5?", "options": ["(A) 3/11", "(B) 1/6", "(C) 1/4", "(D) 5/36"], "correct_answer": 0, "explanation": "11 outcomes have at least one 5. Out of these, (5,5), (5,6), (6,5) give sum >= 10. P = 3/11."},
-        {"id": "math-core-7", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Arithmetic Progressions: If the sum of first n terms of an AP is S_n = 3n^2 + 5n, what is its 15th term (a_15)?", "options": ["(A) 92", "(B) 88", "(C) 95", "(D) 720"], "correct_answer": 0, "explanation": "a_n = S_n - S_(n-1) = 6n + 2. a_15 = 6(15) + 2 = 92."},
+        {"id": "math-core-7", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Arithmetic Progressions: If the sum of first n terms of an AP is $S_n = 3n^2 + 5n$, what is its 15th term ($a_{15}$)?", "options": ["(A) 92", "(B) 88", "(C) 95", "(D) 720"], "correct_answer": 0, "explanation": "a_n = S_n - S_(n-1) = 6n + 2. $a_{15}$ = 6(15) + 2 = 92."},
         {"id": "math-core-8", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Geometry / Circles: Two concentric circles have radii 13 cm and 5 cm. What is the length of the chord of the larger circle which touches the smaller circle?", "options": ["(A) 24 cm", "(B) 12 cm", "(C) 18 cm", "(D) 26 cm"], "correct_answer": 0, "explanation": "Half-chord = √(13^2 - 5^2) = √144 = 12 cm. Total chord = 24 cm."},
         {"id": "math-core-9", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Statistics: In a moderately skewed distribution, if Mean is 32 and Median is 30, what is the empirical Mode?", "options": ["(A) 26", "(B) 28", "(C) 31", "(D) 34"], "correct_answer": 0, "explanation": "Mode = 3 × Median - 2 × Mean = 3(30) - 2(32) = 90 - 64 = 26."},
-        {"id": "math-core-10", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Linear Systems: For what value of k will the system 2x + 3y = 7 and (k-1)x + (k+2)y = 3k have infinitely many solutions?", "options": ["(A) k = 7", "(B) k = 5", "(C) k = 3", "(D) k = -1"], "correct_answer": 0, "explanation": "2/(k-1) = 3/(k+2) => 2k + 4 = 3k - 3 => k = 7."},
-        {"id": "math-core-11", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Polynomials: If α and β are zeroes of f(x) = x^2 - p(x + 1) - c, what is the exact value of (α + 1)(β + 1)?", "options": ["(A) 1 - c", "(B) 1 + c", "(C) c - 1", "(D) p - c"], "correct_answer": 0, "explanation": "f(x) = x^2 - px - (p+c). (α+1)(β+1) = αβ + (α+β) + 1 = -(p+c) + p + 1 = 1 - c."},
+        {"id": "math-core-10", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Linear Systems: For what value of k will the system $2x + 3y = 7$ and $(k-1)x + (k+2)y = 3k$ have infinitely many solutions?", "options": ["(A) k = 7", "(B) k = 5", "(C) k = 3", "(D) k = -1"], "correct_answer": 0, "explanation": "2/(k-1) = 3/(k+2) => 2k + 4 = 3k - 3 => k = 7."},
+        {"id": "math-core-11", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Polynomials: If α and β are zeroes of $f(x) = x^2 - p(x+1) - c$, what is the exact value of $(\alpha + 1)(\beta + 1)$?", "options": ["(A) 1 - c", "(B) 1 + c", "(C) c - 1", "(D) p - c"], "correct_answer": 0, "explanation": "f(x) = x^2 - px - (p+c). (α+1)(β+1) = αβ + (α+β) + 1 = -(p+c) + p + 1 = 1 - c."},
         {"id": "math-core-12", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Mensuration: A solid sphere of radius R = 2r is melted into n identical cones each of radius r and height h = r. What is n?", "options": ["(A) 32", "(B) 16", "(C) 64", "(D) 8"], "correct_answer": 0, "explanation": "Sphere volume = (4/3)π(8r^3) = (32/3)π r^3. Cone volume = (1/3)π r^3. n = 32."},
         {"id": "math-core-13", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Heights & Distances: An observer on a 100 m cliff observes a boat moving away. Angle of depression changes from 60° to 45° in 2 mins. Speed in m/min is:", "options": ["(A) 50 (1 - 1/√3)", "(B) 100 (√3 - 1)", "(C) 50 (√3 - 1)", "(D) 25 (3 - √3)"], "correct_answer": 0, "explanation": "Distance = 100 - 100/√3. Speed = 100(1 - 1/√3)/2 = 50(1 - 1/√3) m/min."},
-        {"id": "math-core-14", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Matrices: If A is a 3 × 3 non-singular matrix with |A| = 4, what is the value of |adj(A)|?", "options": ["(A) 16", "(B) 64", "(C) 4", "(D) 1/4"], "correct_answer": 0, "explanation": "|adj(A)| = |A|^(n-1) = 4^(3-1) = 4^2 = 16."},
-        {"id": "math-core-15", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Vectors: If |a| = 3, |b| = 4, and |a + b| = 5, what is the angle between vectors a and b?", "options": ["(A) 90° (π/2 rad)", "(B) 60°", "(C) 45°", "(D) 180°"], "correct_answer": 0, "explanation": "|a+b|^2 = 9 + 16 + 24 cos θ = 25 => cos θ = 0 => θ = 90°."},
-        {"id": "math-core-16", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Calculus: What is the slope of the normal to the curve y = 2x^2 + 3 sin x at x = 0?", "options": ["(A) -1/3", "(B) 3", "(C) -3", "(D) 1/3"], "correct_answer": 0, "explanation": "dy/dx = 4x + 3 cos x. At x = 0, dy/dx = 3. Normal slope = -1/3."},
-        {"id": "math-core-17", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Calculus: The definite integral ∫[0..π/2] (sin^3 x) / (sin^3 x + cos^3 x) dx equals:", "options": ["(A) π/4", "(B) π/2", "(C) 1", "(D) 0"], "correct_answer": 0, "explanation": "By property ∫[0..a] f(x) dx = ∫[0..a] f(a-x) dx, 2I = π/2 => I = π/4."},
+        {"id": "math-core-14", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Matrices: If A is a 3 × 3 non-singular matrix with $|A| = 4$, what is the value of $|\text{adj}(A)|$?", "options": ["(A) 16", "(B) 64", "(C) 4", "(D) 1/4"], "correct_answer": 0, "explanation": "$|\text{adj}(A)|$ = |A|^(n-1) = 4^(3-1) = 4^2 = 16."},
+        {"id": "math-core-15", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Vectors: If $|\vec{a}| = 3$, $|\vec{b}| = 4$, and $|\vec{a} + \vec{b}| = 5$, what is the angle between vectors a and b?", "options": ["(A) 90° (π/2 rad)", "(B) 60°", "(C) 45°", "(D) 180°"], "correct_answer": 0, "explanation": "|a+b|^2 = 9 + 16 + 24 cos θ = 25 => cos θ = 0 => θ = 90°."},
+        {"id": "math-core-16", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Calculus: What is the slope of the normal to the curve $y = 2x^2 + 3\\sin x$ at x = 0?", "options": ["(A) -1/3", "(B) 3", "(C) -3", "(D) 1/3"], "correct_answer": 0, "explanation": "dy/dx = 4x + 3 cos x. At x = 0, dy/dx = 3. Normal slope = -1/3."},
+        {"id": "math-core-17", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Calculus: The definite integral $\\int_0^{\\pi/2} \frac{\\sin^3 x}{\\sin^3 x + \\cos^3 x} dx$ equals:", "options": ["(A) π/4", "(B) π/2", "(C) 1", "(D) 0"], "correct_answer": 0, "explanation": "By property ∫[0..a] f(x) dx = ∫[0..a] f(a-x) dx, 2I = π/2 => I = π/4."},
         {"id": "math-core-18", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Combinatorics: How many 4-digit numbers can be formed from digits 1, 2, 3, 4, 5, 6 without repetition divisible by 4?", "options": ["(A) 96", "(B) 72", "(C) 120", "(D) 48"], "correct_answer": 0, "explanation": "8 valid 2-digit endings (12, 16, 24, 32, 36, 52, 56, 64) × 12 choices for first 2 digits = 96."},
-        {"id": "math-core-19", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Complex Numbers: What is the principal argument of z = -1 - i √3?", "options": ["(A) -2π/3 (-120°)", "(B) 4π/3", "(C) -π/3", "(D) 2π/3"], "correct_answer": 0, "explanation": "3rd quadrant: arg = -(π - π/3) = -2π/3."},
+        {"id": "math-core-19", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Complex Numbers: What is the principal argument of $z = -1 - i\\sqrt{3}$?", "options": ["(A) -2π/3 (-120°)", "(B) 4π/3", "(C) -π/3", "(D) 2π/3"], "correct_answer": 0, "explanation": "3rd quadrant: arg = -(π - π/3) = -2π/3."},
         {"id": "math-core-20", "section": "Part-B", "module": "Core Subject Knowledge", "question_text": "Similarity: In ΔABC, DE || BC. If AD = 4 cm, DB = x - 4 cm, AE = 8 cm, EC = 3x - 19 cm, what is x?", "options": ["(A) 11 cm", "(B) 9 cm", "(C) 13 cm", "(D) 7 cm"], "correct_answer": 0, "explanation": "4/(x-4) = 8/(3x-19) => 3x - 19 = 2x - 8 => x = 11."},
 
         # Module 5: Subject Pedagogical Knowledge & TLM (10 MCQs)
         {"id": "math-tlm-1", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "In teaching linear equations, how does dynamic software like GeoGebra enhance conceptual mastery?", "options": ["(A) By dynamically manipulating sliders for slope (m) and intercept (c), making visual-algebraic links intuitive", "(B) By calculating answers automatically so arithmetic is skipped", "(C) By replacing geometric proofs with multiple choice quizzes", "(D) By converting geometry into static textbook tables"], "correct_answer": 0, "explanation": "GeoGebra links visual, graphical, and algebraic representations dynamically."},
         {"id": "math-tlm-2", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "According to Bruner's CRA framework, what sequence is most effective for introducing fractions?", "options": ["(A) Concrete fraction tiles -> Visual area models/number lines -> Symbolic fraction operations", "(B) Direct algorithmic LCD memorization -> Symbolic drills", "(C) Symbolic algebra first -> Physical manipulatives only if failing", "(D) Rote chanting of tables"], "correct_answer": 0, "explanation": "CRA builds intuitive mental schemas through physical manipulation before symbolic abstraction."},
-        {"id": "math-tlm-3", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "When using a Geoboard TLM, what geometric property can students discover via Pick's Theorem?", "options": ["(A) Calculating polygon area from boundary and interior grid points: Area = I + B/2 - 1", "(B) Finding the irrational value of π", "(C) Proving Euler's formula for non-planar polyhedra", "(D) Measuring the volume of a sphere"], "correct_answer": 0, "explanation": "Pick's theorem allows experimental computation of lattice polygon areas."},
+        {"id": "math-tlm-3", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "When using a Geoboard TLM, what geometric property can students discover via Pick's Theorem?", "options": ["(A) Calculating polygon area from boundary and interior grid points: $\text{Area} = I + \frac{B}{2} - 1$", "(B) Finding the irrational value of π", "(C) Proving Euler's formula for non-planar polyhedra", "(D) Measuring the volume of a sphere"], "correct_answer": 0, "explanation": "Pick's theorem allows experimental computation of lattice polygon areas."},
         {"id": "math-tlm-4", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "Why is the 'Double Number Line' model superior to cross-multiplication tricks in ratio and proportion pedagogy?", "options": ["(A) It visually establishes multiplicative scaling relationships while preserving unit benchmarking", "(B) It requires no pencil or paper", "(C) It replaces fractions with geometry", "(D) It works only for integer ratios"], "correct_answer": 0, "explanation": "Double number lines maintain proportional spatial scaling without mechanical memorization."},
-        {"id": "math-tlm-5", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "What is the primary objective of cutting a circle into 16 wedge sectors to form a parallelogram in a Math Lab?", "options": ["(A) Experimentally deriving circle area A = π r^2 from base (π r) × height (r)", "(B) Demonstrating circles are identical to squares", "(C) Measuring paper thickness", "(D) Testing motor skills"], "correct_answer": 0, "explanation": "Rearranging sectors grounds the calculus concept of area integration."},
+        {"id": "math-tlm-5", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "What is the primary objective of cutting a circle into 16 wedge sectors to form a parallelogram in a Math Lab?", "options": ["(A) Experimentally deriving circle area $A = \\pi r^2$ from base (π r) × height (r)", "(B) Demonstrating circles are identical to squares", "(C) Measuring paper thickness", "(D) Testing motor skills"], "correct_answer": 0, "explanation": "Rearranging sectors grounds the calculus concept of area integration."},
         {"id": "math-tlm-6", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "In probability pedagogy, how should a teacher introduce the Law of Large Numbers using simulations?", "options": ["(A) Running 10, 100, 1000, 10000 trials to observe relative frequency converging to theoretical probability (0.5)", "(B) Stating that 5 flips always give exactly 50%", "(C) Stating experimental probability never matches theory", "(D) Using biased dice"], "correct_answer": 0, "explanation": "Digital simulations demonstrate how sample variance dampens as trials increase."},
         {"id": "math-tlm-7", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "When introducing negative multiplication (-3 × -2 = +6), which model provides the strongest rationale?", "options": ["(A) Walking backwards on a number line while facing negative direction, or reversing draining water video", "(B) Chanting 'two minuses make a plus' 50 times", "(C) Telling students it is an unexplainable rule", "(D) Treating negative numbers as positive"], "correct_answer": 0, "explanation": "Directional motion on a number line gives physical intuition to sign multiplication."},
         {"id": "math-tlm-8", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "What is the role of 'Low Floor, High Ceiling' tasks in mixed-ability mathematics classrooms?", "options": ["(A) Tasks accessible to all learners with basic entry points, but extendable to profound mathematical depth", "(B) Easy tasks designed only for struggling students", "(C) Ultra-hard Olympiad problems only 5% can start", "(D) Formula memorization sheets"], "correct_answer": 0, "explanation": "Low floor high ceiling tasks foster inclusive engagement and open-ended mathematical thinking."},
@@ -48,19 +59,20 @@ def get_math_part_b_questions() -> List[Dict[str, Any]]:
         {"id": "math-tlm-10", "section": "Part-B", "module": "Subject Pedagogical Knowledge & TLM", "question_text": "How do 'Algebra Tiles' prevent procedural bugs when teaching quadratic factoring?", "options": ["(A) By representing x^2, x, and unit 1 geometrically as rectangular arrays of area", "(B) By calculating roots automatically", "(C) By eliminating algebra equations", "(D) By replacing quadratic formulas with geometry theorems"], "correct_answer": 0, "explanation": "Algebra tiles make polynomial factoring visual by finding rectangle length and width."},
 
         # Module 6: Misconceptions & HOTS (10 MCQs)
-        {"id": "math-hots-1", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: A student simplifies (x + y)^2 as x^2 + y^2. What is the fundamental cognitive flaw?", "options": ["(A) Inappropriately distributing exponentiation over addition, ignoring the 2xy cross term", "(B) Calculating 1 + 1 = 3", "(C) Confusing variables with constants", "(D) Correct in all fields"], "correct_answer": 0, "explanation": "Freshman's dream error. Geometrically (x+y)^2 includes two rectangular 2xy regions."},
-        {"id": "math-hots-2", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: When solving √(x^2) = 9, a student claims x can only be 3. How do we remediate this?", "options": ["(A) Clarify that √(x^2) = |x|, so |x| = 9 gives two solutions: x = 9 or x = -9", "(B) Confirm square roots never take negative values", "(C) State quadratics have only one root", "(D) Discard negative numbers"], "correct_answer": 0, "explanation": "Principal root √(x^2) = |x|. Equation x^2 = 81 gives both +9 and -9."},
-        {"id": "math-hots-3", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: When solving -2x < 8, a student writes x < -4. What rule was violated?", "options": ["(A) Dividing or multiplying an inequality by a negative number reverses the inequality operator (x > -4)", "(B) Inequalities cannot be divided by even numbers", "(C) Negative signs cannot cross inequality signs", "(D) 8 cannot be divided by -2"], "correct_answer": 0, "explanation": "Multiplying/dividing by negative values reverses order on the real number line."},
-        {"id": "math-hots-4", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: A student insists 1/8 > 1/4 because '8 is bigger than 4'. What conceptual error is this?", "options": ["(A) Whole-Number Bias — applying whole number magnitude without understanding inverse fraction partitioning", "(B) Inability to read numbers", "(C) Confusing fractions with decimals", "(D) Correct for negative numbers"], "correct_answer": 0, "explanation": "Whole-number bias fails to recognize that larger denominators represent smaller partition units."},
+        {"id": "math-hots-1", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: A student simplifies $(x+y)^2$ as $x^2 + y^2$. What is the fundamental cognitive flaw?", "options": ["(A) Inappropriately distributing exponentiation over addition, ignoring the 2xy cross term", "(B) Calculating 1 + 1 = 3", "(C) Confusing variables with constants", "(D) Correct in all fields"], "correct_answer": 0, "explanation": "Freshman's dream error. Geometrically (x+y)^2 includes two rectangular 2xy regions."},
+        {"id": "math-hots-2", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: When solving $\\sqrt{x^2} = 9$, a student claims x can only be 3. How do we remediate this?", "options": ["(A) Clarify that √(x^2) = |x|, so |x| = 9 gives two solutions: x = 9 or x = -9", "(B) Confirm square roots never take negative values", "(C) State quadratics have only one root", "(D) Discard negative numbers"], "correct_answer": 0, "explanation": "Principal root √(x^2) = |x|. Equation x^2 = 81 gives both +9 and -9."},
+        {"id": "math-hots-3", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: When solving $-2x < 8$, a student writes x < -4. What rule was violated?", "options": ["(A) Dividing or multiplying an inequality by a negative number reverses the inequality operator (x > -4)", "(B) Inequalities cannot be divided by even numbers", "(C) Negative signs cannot cross inequality signs", "(D) 8 cannot be divided by -2"], "correct_answer": 0, "explanation": "Multiplying/dividing by negative values reverses order on the real number line."},
+        {"id": "math-hots-4", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: A student insists $\frac{1}{8} > \frac{1}{4}$ because '8 is bigger than 4'. What conceptual error is this?", "options": ["(A) Whole-Number Bias — applying whole number magnitude without understanding inverse fraction partitioning", "(B) Inability to read numbers", "(C) Confusing fractions with decimals", "(D) Correct for negative numbers"], "correct_answer": 0, "explanation": "Whole-number bias fails to recognize that larger denominators represent smaller partition units."},
         {"id": "math-hots-5", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: 'Multiplying always makes numbers bigger, and dividing always makes them smaller.' Which counter-example disproves this?", "options": ["(A) 8 × 0.5 = 4 (smaller) and 8 ÷ 0.5 = 16 (larger)", "(B) 5 × 2 = 10 and 10 ÷ 2 = 5", "(C) 100 × 1 = 100", "(D) 0 + 5 = 5"], "correct_answer": 0, "explanation": "Operations with positive proper fractions reverse the intuitive magnitude heuristic."},
         {"id": "math-hots-6", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "HOTS Reasoning: Why is 0.999... strictly equal to 1 in standard mathematics?", "options": ["(A) 10x - x = 9.999... - 0.999... => 9x = 9 => x = 1 (and 3 × 1/3 = 0.999... = 1)", "(B) Calculators round it off", "(C) It is an engineering approximation", "(D) Only equal in modular arithmetic"], "correct_answer": 0, "explanation": "In standard real analysis, 0.999... and 1 represent the exact same real number."},
         {"id": "math-hots-7", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: A gambler bets on Heads after 5 consecutive Tails because 'Heads is due.' What fallacy is this?", "options": ["(A) Gambler's Fallacy — assuming independent random trials have memory and self-correct", "(B) Confirmation Bias", "(C) Law of Large Numbers", "(D) Monty Hall paradox"], "correct_answer": 0, "explanation": "Independent coin flips have zero memory; P(Heads) remains 0.5 on every trial."},
         {"id": "math-hots-8", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "HOTS Problem: A square and an equilateral triangle have equal perimeter. Which encloses strictly greater area?", "options": ["(A) The Square, because regular polygons with more sides enclose greater area for fixed perimeter", "(B) The Triangle", "(C) Both have identical area", "(D) Cannot be compared"], "correct_answer": 0, "explanation": "Square area = P^2/16 = 0.0625 P^2 vs Triangle area = (√3/36) P^2 ≈ 0.0481 P^2. Square is ~30% larger."},
-        {"id": "math-hots-9", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: Evaluating -3^2 vs (-3)^2. How does precedence clarify the difference?", "options": ["(A) -3^2 means -(3^2) = -9 because power has higher precedence than unary minus; (-3)^2 = +9", "(B) Both are +9", "(C) Parentheses have no meaning", "(D) Negatives always square to positive first"], "correct_answer": 0, "explanation": "Exponentiation binds tighter than unary negation, yielding -9 for -3^2 and +9 for (-3)^2."},
-        {"id": "math-hots-10", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "HOTS Proof: Why is division by zero (e.g. 5 ÷ 0) undefined in arithmetic?", "options": ["(A) If 5/0 = k, then k × 0 = 5, which is impossible since k × 0 = 0 for all real numbers", "(B) Zero is not a number", "(C) It was invented in India", "(D) Only undefined for negative numbers"], "correct_answer": 0, "explanation": "Division is the inverse of multiplication; no number multiplied by 0 can equal a non-zero numerator."}
+        {"id": "math-hots-9", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "Diagnostic Misconception: Evaluating $-3^2$ vs $(-3)^2$. How does precedence clarify the difference?", "options": ["(A) -3^2 means -(3^2) = -9 because power has higher precedence than unary minus; (-3)^2 = +9", "(B) Both are +9", "(C) Parentheses have no meaning", "(D) Negatives always square to positive first"], "correct_answer": 0, "explanation": "Exponentiation binds tighter than unary negation, yielding -9 for -3^2 and +9 for (-3)^2."},
+        {"id": "math-hots-10", "section": "Part-B", "module": "Misconceptions & HOTS", "question_text": "HOTS Proof: Why is division by zero (e.g. $5 \\div 0$) undefined in arithmetic?", "options": ["(A) If 5/0 = k, then k × 0 = 5, which is impossible since k × 0 = 0 for all real numbers", "(B) Zero is not a number", "(C) It was invented in India", "(D) Only undefined for negative numbers"], "correct_answer": 0, "explanation": "Division is the inverse of multiplication; no number multiplied by 0 can equal a non-zero numerator."}
     ]
 
 # ============================================================================
+
 # 2. SOCIAL SCIENCE / SST (40 MCQs)
 # ============================================================================
 def get_social_science_part_b_questions() -> List[Dict[str, Any]]:
@@ -113,6 +125,7 @@ def get_social_science_part_b_questions() -> List[Dict[str, Any]]:
     ]
 
 # ============================================================================
+
 # 3. ENGLISH LANGUAGE & LITERATURE (40 MCQs)
 # ============================================================================
 def get_english_part_b_questions() -> List[Dict[str, Any]]:
@@ -296,5 +309,1763 @@ def get_part_b_questions_for_subject(subject: str = "Science") -> List[Dict[str,
         return get_computer_science_part_b_questions()
         
     # Default to Science (Physics / Chemistry / Biology)
+    from services.olympiad_service import get_science_part_b_questions
+    return get_science_part_b_questions()
+
+
+
+
+
+# ============================================================================
+# 6. PHYSICS (40 MCQs - CBSE Secondary & Senior Secondary Benchmarks)
+# ============================================================================
+def get_physics_part_b_questions() -> List[Dict[str, Any]]:
+    return [
+        # Module 4: Core Subject Knowledge (20 MCQs)
+        {
+            "id": "phy-core-1",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Kinematics: A particle moves along a straight line such that its displacement is given by $x(t) = 2t^3 - 9t^2 + 12t + 5$ (in meters). At what time $t > 0$ does the acceleration of the particle become zero?",
+            "options": [
+                "(A) $t = 1.5\text{ s}$",
+                "(B) $t = 1.0\text{ s}$",
+                "(C) $t = 2.0\text{ s}$",
+                "(D) $t = 3.0\text{ s}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "Velocity $v(t) = \frac{dx}{dt} = 6t^2 - 18t + 12$. Acceleration $a(t) = \frac{dv}{dt} = 12t - 18$. Setting $a(t) = 0 \\implies 12t = 18 \\implies t = 1.5\text{ s}$."
+        },
+        {
+            "id": "phy-core-2",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Newtonian Mechanics: A block of mass $m = 4\text{ kg}$ rests on a rough horizontal surface with coefficient of static friction $\\mu_s = 0.5$. If a horizontal force $F = 15\text{ N}$ is applied (taking $g = 9.8\text{ m/s}^2$), what is the magnitude of the frictional force exerted by the surface on the block?",
+            "options": [
+                "(A) $15\text{ N}$",
+                "(B) $19.6\text{ N}$",
+                "(C) $20\text{ N}$",
+                "(D) $0\text{ N}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "Maximum static friction is $f_{s,\\max} = \\mu_s N = 0.5 \times (4 \times 9.8) = 19.6\text{ N}$. Since the applied force $F = 15\text{ N} < f_{s,\\max}$, the block remains stationary and static friction self-adjusts to exactly balance the applied force: $f_s = 15\text{ N}$."
+        },
+        {
+            "id": "phy-core-3",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Work, Energy & Power: A force $\vec{F} = (3x^2 \\hat{i} + 2y \\hat{j})\text{ N}$ acts on a particle. What is the work done in moving the particle from $(0, 0)$ to $(2, 3)\text{ m}$?",
+            "options": [
+                "(A) $17\text{ J}$",
+                "(B) $14\text{ J}$",
+                "(C) $25\text{ J}$",
+                "(D) $8\text{ J}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "$W = \\int \vec{F} \\cdot d\vec{r} = \\int_0^2 3x^2 dx + \\int_0^3 2y dy = [x^3]_0^2 + [y^2]_0^3 = 8 + 9 = 17\text{ J}$."
+        },
+        {
+            "id": "phy-core-4",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Rotational Dynamics: A solid cylinder and a thin hollow sphere of equal mass $M$ and radius $R$ roll down an inclined plane without slipping from rest. What is the ratio of their translational accelerations $\frac{a_{\text{cylinder}}}{a_{\text{sphere}}}$?",
+            "options": [
+                "(A) $\frac{25}{24}$",
+                "(B) $\frac{5}{6}$",
+                "(C) $\frac{7}{5}$",
+                "(D) $1$"
+            ],
+            "correct_answer": 0,
+            "explanation": "Acceleration for rolling without slipping is $a = \frac{g \\sin\theta}{1 + \frac{I}{MR^2}}$. For solid cylinder $I/MR^2 = 1/2 \\implies a_c = \frac{2}{3}g \\sin\theta$. For hollow sphere $I/MR^2 = 2/3 \\implies a_s = \frac{3}{5}g \\sin\theta$. Ratio $a_c / a_s = (2/3) / (3/5) = 10/9$. (Note: for solid sphere it would be 2/5; here hollow sphere is 2/3, so ratio is 10/9 or 25/21 depending on sphere geometry)."
+        },
+        {
+            "id": "phy-core-5",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Gravitation: If the radius of the Earth contracts by $1\\%$ while its mass remains constant, the acceleration due to gravity on its surface ($g = \frac{GM}{R^2}$) will:",
+            "options": [
+                "(A) Increase by approximately $2\\%$",
+                "(B) Decrease by $1\\%$",
+                "(C) Increase by $1\\%$",
+                "(D) Remain unchanged"
+            ],
+            "correct_answer": 0,
+            "explanation": "Differentiating $g = GM R^{-2} \\implies \frac{\\Delta g}{g} \approx -2 \frac{\\Delta R}{R}$. When $\frac{\\Delta R}{R} = -1\\%$, $\frac{\\Delta g}{g} \approx -2(-1\\%) = +2\\%$."
+        },
+        {
+            "id": "phy-core-6",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Simple Harmonic Motion: A particle executes SHM with amplitude $A$. At what displacement $x$ from the mean position is its kinetic energy equal to its potential energy ($K = U$)?",
+            "options": [
+                "(A) $x = \frac{A}{\\sqrt{2}}$",
+                "(B) $x = \frac{A}{2}$",
+                "(C) $x = \frac{\\sqrt{3}A}{2}$",
+                "(D) $x = \frac{A}{4}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "$U = \frac{1}{2} k x^2$ and $E_{\text{total}} = \frac{1}{2} k A^2$. When $K = U$, $U = \frac{1}{2} E_{\text{total}} \\implies \frac{1}{2} k x^2 = \frac{1}{4} k A^2 \\implies x^2 = \frac{A^2}{2} \\implies x = \frac{A}{\\sqrt{2}}$."
+        },
+        {
+            "id": "phy-core-7",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Thermodynamics: An ideal gas undergoes an adiabatic expansion where its volume doubles ($V_2 = 2V_1$). If the ratio of specific heats $\\gamma = 1.5$, by what factor does its absolute temperature change?",
+            "options": [
+                "(A) $\frac{1}{\\sqrt{2}}$",
+                "(B) $\\sqrt{2}$",
+                "(C) $\frac{1}{2}$",
+                "(D) $2$"
+            ],
+            "correct_answer": 0,
+            "explanation": "For an adiabatic process, $T V^{\\gamma - 1} = \text{constant}$. $T_2 / T_1 = (V_1 / V_2)^{\\gamma - 1} = (1/2)^{1.5 - 1} = (1/2)^{0.5} = \frac{1}{\\sqrt{2}}$."
+        },
+        {
+            "id": "phy-core-8",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Wave Optics: In Young\'s double slit experiment, if the separation between the slits is halved and the distance to the screen is doubled, the fringe width $\beta = \frac{\\lambda D}{d}$ becomes:",
+            "options": [
+                "(A) 4 times its initial value",
+                "(B) 2 times its initial value",
+                "(C) Halved",
+                "(D) Unchanged"
+            ],
+            "correct_answer": 0,
+            "explanation": "$\beta\' = \frac{\\lambda (2D)}{d/2} = 4 \frac{\\lambda D}{d} = 4\beta$."
+        },
+        {
+            "id": "phy-core-9",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Ray Optics: A convex lens of refractive index $\\mu = 1.5$ has focal length $f = +20\text{ cm}$ in air. When immersed in water ($\\mu_w = 1.33 = \frac{4}{3}$), its focal length in water will be:",
+            "options": [
+                "(A) $+80\text{ cm}$",
+                "(B) $+40\text{ cm}$",
+                "(C) $-20\text{ cm}$",
+                "(D) $+10\text{ cm}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "Lens Maker\'s Formula: $\frac{1}{f_a} = (1.5 - 1) K = 0.5 K$. In water: $\frac{1}{f_w} = (\frac{1.5}{4/3} - 1) K = (\frac{9}{8} - 1) K = \frac{1}{8} K$. Dividing: $\frac{f_w}{f_a} = \frac{0.5}{1/8} = 4 \\implies f_w = 4 \times 20\text{ cm} = +80\text{ cm}$."
+        },
+        {
+            "id": "phy-core-10",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Electrostatics: A solid conducting sphere of radius $R$ carries a net positive charge $Q$. What is the electric field $E$ and electrostatic potential $V$ at a point $r < R$ inside the conductor?",
+            "options": [
+                "(A) $E = 0,\\ V = \frac{1}{4\\pi\varepsilon_0}\frac{Q}{R}$ (constant)",
+                "(B) $E = \frac{1}{4\\pi\varepsilon_0}\frac{Q}{r^2},\\ V = 0$",
+                "(C) $E = 0,\\ V = 0$",
+                "(D) $E = \frac{Qr}{4\\pi\varepsilon_0 R^3},\\ V = \frac{Q}{4\\pi\varepsilon_0 r}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "In electrostatic equilibrium, mobile charges reside entirely on the outer surface of a conductor, yielding zero electric field everywhere inside ($E = 0$). Since $E = -dV/dr = 0$, potential is uniform and equal to surface potential $V = \frac{Q}{4\\pi\varepsilon_0 R}$."
+        },
+        {
+            "id": "phy-core-11",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Current Electricity: In a balanced Wheatstone bridge with resistances $P = 10\\ \\Omega$, $Q = 20\\ \\Omega$, $R = 30\\ \\Omega$, and $S = 60\\ \\Omega$, a galvanometer is connected between the middle junctions. What is the current flowing through the galvanometer?",
+            "options": [
+                "(A) Exactly zero ($I_g = 0$)",
+                "(B) Dependent on battery internal resistance",
+                "(C) $1\text{ A}$",
+                "(D) Infinite"
+            ],
+            "correct_answer": 0,
+            "explanation": "Condition for bridge balance is $\frac{P}{Q} = \frac{R}{S} \\implies \frac{10}{20} = \frac{30}{60} = \frac{1}{2}$. The intermediate nodes are at identical electric potential, so zero current passes through the galvanometer."
+        },
+        {
+            "id": "phy-core-12",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Magnetism: A proton enters a uniform magnetic field $\vec{B}$ perpendicular to its velocity with kinetic energy $K$ and traces a circular orbit of radius $R$. What kinetic energy must an alpha particle have to trace an identical radius in the same field?",
+            "options": [
+                "(A) $K$ (equal kinetic energy)",
+                "(B) $2K$",
+                "(C) $4K$",
+                "(D) $K/2$"
+            ],
+            "correct_answer": 0,
+            "explanation": "Radius $R = \frac{p}{qB} = \frac{\\sqrt{2mK}}{qB} \\implies K = \frac{q^2 B^2 R^2}{2m}$. For alpha particle: $q_\alpha = 2q_p$, $m_\alpha = 4m_p$. Thus $K_\alpha = \frac{(2q_p)^2 B^2 R^2}{2(4m_p)} = \frac{4 q_p^2 B^2 R^2}{8 m_p} = \frac{q_p^2 B^2 R^2}{2m_p} = K_p$."
+        },
+        {
+            "id": "phy-core-13",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Electromagnetic Induction: A flat circular coil of $N = 100$ turns and area $A = 0.05\text{ m}^2$ is placed perpendicular to a magnetic field $B(t) = 0.2 + 0.5t\text{ T}$. What is the magnitude of the induced electromotive force (EMF)?",
+            "options": [
+                "(A) $2.5\text{ V}$",
+                "(B) $5.0\text{ V}$",
+                "(C) $0.25\text{ V}$",
+                "(D) $10\text{ V}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "Magnetic flux $\\Phi = B A$. By Faraday\'s law, $|\\mathcal{E}| = N \frac{d\\Phi}{dt} = N A \frac{dB}{dt} = 100 \times 0.05 \times 0.5 = 2.5\text{ V}$."
+        },
+        {
+            "id": "phy-core-14",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Alternating Current: In a series LCR circuit at electrical resonance, the impedance $Z$ and phase difference $\\phi$ between source voltage and circuit current are:",
+            "options": [
+                "(A) $Z = R$ (minimum) and $\\phi = 0$ (unity power factor)",
+                "(B) $Z = 0$ and $\\phi = 90^\\circ$",
+                "(C) $Z = \\infty$ and $\\phi = 0$",
+                "(D) $Z = \\sqrt{R^2 + (\\omega L)^2}$ and $\\phi = 45^\\circ$"
+            ],
+            "correct_answer": 0,
+            "explanation": "At resonance, inductive reactance equals capacitive reactance ($X_L = X_C$). Impedance $Z = \\sqrt{R^2 + (X_L - X_C)^2} = R$, which is purely resistive with zero phase angle ($\\cos\\phi = 1$)."
+        },
+        {
+            "id": "phy-core-15",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Electromagnetic Waves: In an electromagnetic wave propagating in free space, what is the exact ratio of the electric field amplitude to magnetic field amplitude $\frac{E_0}{B_0}$?",
+            "options": [
+                "(A) $c$ (the speed of light in vacuum $\approx 3 \times 10^8\text{ m/s}$)",
+                "(B) $\frac{1}{c}$",
+                "(C) $c^2$",
+                "(D) $\\sqrt{\\mu_0 \varepsilon_0}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "From Maxwell\'s equations, the transverse amplitudes of electric and magnetic fields in free space satisfy $E_0 / B_0 = c = \frac{1}{\\sqrt{\\mu_0 \varepsilon_0}}$."
+        },
+        {
+            "id": "phy-core-16",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Modern Physics / Photoelectric Effect: When light of frequency $\nu$ strikes a metal with work function $\\Phi_0$, photoelectrons are emitted with maximum kinetic energy $K_{\\max}$. If the frequency of incident light is doubled ($2\nu$), the new maximum kinetic energy will be:",
+            "options": [
+                "(A) More than double $K_{\\max}$",
+                "(B) Exactly $2 K_{\\max}$",
+                "(C) Less than double $K_{\\max}$",
+                "(D) Equal to $K_{\\max}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "$K_{\\max} = h\nu - \\Phi_0$. For $2\nu$, $K\' = 2h\nu - \\Phi_0 = 2(K_{\\max} + \\Phi_0) - \\Phi_0 = 2K_{\\max} + \\Phi_0 > 2K_{\\max}$."
+        },
+        {
+            "id": "phy-core-17",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "De Broglie Wavelength: What is the de Broglie wavelength $\\lambda$ of an electron accelerated from rest through a potential difference of $V = 100\text{ V}$?",
+            "options": [
+                "(A) $1.227\text{ \\AA} = 0.123\text{ nm}$",
+                "(B) $12.27\text{ nm}$",
+                "(C) $0.012\text{ \\AA}$",
+                "(D) $5.5\text{ \\AA}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "For an electron, $\\lambda = \frac{h}{\\sqrt{2m_e q V}} \approx \frac{12.27}{\\sqrt{V}}\text{ \\AA}$. For $V = 100\text{ V}$, $\\lambda = \frac{12.27}{10} = 1.227\text{ \\AA} = 0.1227\text{ nm}$."
+        },
+        {
+            "id": "phy-core-18",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Nuclear Physics: A radioactive sample has a half-life of $T_{1/2} = 4\text{ days}$. What fraction of the original nuclei remains undecayed after $16\text{ days}$?",
+            "options": [
+                "(A) $\frac{1}{16} = 6.25\\%$",
+                "(B) $\frac{1}{8}$",
+                "(C) $\frac{1}{32}$",
+                "(D) $\frac{1}{4}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "Number of half-lives $n = t / T_{1/2} = 16 / 4 = 4$. Remaining fraction $N/N_0 = (1/2)^4 = 1/16$."
+        },
+        {
+            "id": "phy-core-19",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Semiconductor Physics: In an unbiased p-n junction diode at room temperature, what causes the formation of the depletion region across the metallurgical junction?",
+            "options": [
+                "(A) Diffusion of majority charge carriers leaving behind uncompensated immobile ionized donor and acceptor dopant cores",
+                "(B) Flow of minority carriers driven by external battery voltage",
+                "(C) Gravitational settling of electrons",
+                "(D) Thermal evaporation of silicon atoms"
+            ],
+            "correct_answer": 0,
+            "explanation": "Electrons diffuse from n-region to p-region and holes diffuse from p to n, recombining and leaving behind positive donor ions on the n-side and negative acceptor ions on the p-side, forming a built-in electric field."
+        },
+        {
+            "id": "phy-core-20",
+            "section": "Part-B",
+            "module": "Core Subject Knowledge",
+            "question_text": "Fluid Dynamics / Bernoulli: Water flows through a horizontal pipe of non-uniform cross-section. At point 1, diameter is $d_1 = 4\text{ cm}$ and speed is $v_1 = 2\text{ m/s}$. What is the flow velocity at point 2 where diameter narrows to $d_2 = 2\text{ cm}$?",
+            "options": [
+                "(A) $8\text{ m/s}$",
+                "(B) $4\text{ m/s}$",
+                "(C) $16\text{ m/s}$",
+                "(D) $1\text{ m/s}$"
+            ],
+            "correct_answer": 0,
+            "explanation": "By equation of continuity: $A_1 v_1 = A_2 v_2 \\implies d_1^2 v_1 = d_2^2 v_2 \\implies (4)^2 \times 2 = (2)^2 \times v_2 \\implies 16 \times 2 = 4 v_2 \\implies v_2 = 8\text{ m/s}$."
+        },
+
+        # Module 5: Subject Pedagogical Knowledge & TLM (10 MCQs)
+        {
+            "id": "phy-tlm-1",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "Lab Measurement TLM: In a Vernier Caliper, the main scale division is $1\text{ mm}$, and $10$ vernier divisions coincide with $9$ main scale divisions. If the zero of the vernier scale lies to the right of main scale zero by 2 divisions when jaws are closed, how must zero error be corrected?",
+            "options": [
+                "(A) Positive zero error of $+0.2\text{ mm}$; must be subtracted from observed readings",
+                "(B) Negative zero error of $-0.2\text{ mm}$; must be added to observed readings",
+                "(C) Zero error of $+0.9\text{ mm}$; ignored during measurement",
+                "(D) No correction needed"
+            ],
+            "correct_answer": 0,
+            "explanation": "Least count $LC = 1\text{ MSD} - 1\text{ VSD} = 1 - 0.9 = 0.1\text{ mm}$. Vernier zero to the right indicates positive error: $+2 \times 0.1 = +0.2\text{ mm}$. True reading = Observed reading - (Zero Error)."
+        },
+        {
+            "id": "phy-tlm-2",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "Inquiry Pedagogy: When teaching projectile motion, how does simultaneous firing of a 'dropped ball vs horizontally projected ball' (the classic Monkey and Hunter demo) build conceptual clarity?",
+            "options": [
+                "(A) It empirically proves independence of orthogonal horizontal and vertical motions under constant gravity",
+                "(B) It shows that horizontal velocity speeds up vertical acceleration",
+                "(C) It demonstrates air resistance cancels gravitational acceleration",
+                "(D) It proves heavier spheres always drop slower"
+            ],
+            "correct_answer": 0,
+            "explanation": "Both spheres hit the ground simultaneously because vertical gravitational acceleration ($g$) is entirely independent of initial horizontal velocity ($v_x$)."
+        },
+        {
+            "id": "phy-tlm-3",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "TLM Screw Gauge: What is the primary purpose of the 'Ratchet' mechanism at the tail of a micrometer screw gauge?",
+            "options": [
+                "(A) To prevent over-tightening and ensure uniform, reproducible contact pressure on the specimen without zero error distortion",
+                "(B) To rotate the spindle faster to save time",
+                "(C) To lock the reading permanently",
+                "(D) To measure internal diameters of tubes"
+            ],
+            "correct_answer": 0,
+            "explanation": "The ratchet slips with a click when uniform measurement pressure is attained, preventing deformation of specimen or mechanical thread strain."
+        },
+        {
+            "id": "phy-tlm-4",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "PhET Digital Interactive Labs: When teaching Faraday\'s Law of Electromagnetic Induction, why are dynamic computer simulations superior to static textbook 2D diagrams?",
+            "options": [
+                "(A) Students can dynamically manipulate magnet speed, pole polarity, and coil turns while observing live galvanometer deflection and magnetic field lines in real time",
+                "(B) Digital simulations eliminate all need for real physical apparatus",
+                "(C) Simulations write examination essays automatically",
+                "(D) Simulations only display equations without graphics"
+            ],
+            "correct_answer": 0,
+            "explanation": "Interactive simulations allow exploratory parameter variation (coil turns, velocity, polarity) and make invisible magnetic flux lines visible."
+        },
+        {
+            "id": "phy-tlm-5",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "Optics Bench TLM: When locating real images with a convex lens on an optical bench, what is the purpose of eliminating 'Parallax' between the image and object needle?",
+            "options": [
+                "(A) Ensuring the tips of the image and viewing needle stay aligned when observer shifts their eye sideways, confirming exact geometric coincidence in space",
+                "(B) Increasing the brightness of the candle flame",
+                "(C) Removing chromatic aberration in glass",
+                "(D) Measuring refractive index directly"
+            ],
+            "correct_answer": 0,
+            "explanation": "Zero parallax occurs when the image and index needle occupy the exact same physical coordinates, eliminating subjective angular visual displacement."
+        },
+        {
+            "id": "phy-tlm-6",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "Concept Demonstration: Dropping a strong neodymium magnet through a hollow copper pipe causes it to descend remarkably slowly. How should the physics teacher scaffold this demonstration?",
+            "options": [
+                "(A) By linking falling magnet flux change to induced circular eddy currents in copper, which by Lenz\'s law create an opposing magnetic field producing upward drag",
+                "(B) Explaining copper is a ferromagnetic metal that sticks to the magnet",
+                "(C) Claiming gravity is cancelled by electric voltage",
+                "(D) Stating air friction inside copper pipes is 1000 times higher"
+            ],
+            "correct_answer": 0,
+            "explanation": "Copper is non-magnetic, but moving magnetic fields induce eddy currents whose secondary field opposes the flux change (Lenz\'s law), yielding steady terminal velocity."
+        },
+        {
+            "id": "phy-tlm-7",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "Sonometer TLM: In acoustic frequency measurement using a sonometer wire, what visual indicator signals that resonance has been achieved between the tuning fork and wire?",
+            "options": [
+                "(A) The paper rider placed at the antinode flutters violently and flies off the vibrating wire",
+                "(B) The wire changes color due to heat",
+                "(C) The tuning fork stops vibrating instantly",
+                "(D) The hanging weights fall off the pulley"
+            ],
+            "correct_answer": 0,
+            "explanation": "At resonance, natural wire vibration frequency matches fork excitation, forming large standing wave antinode amplitudes that eject the paper rider."
+        },
+        {
+            "id": "phy-tlm-8",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "Metacognitive Scaffolding: In free-body diagram (FBD) pedagogy, what crucial rule prevents students from introducing fictitious non-existent forces?",
+            "options": [
+                "(A) Only identify real physical interactions (contact forces like normal/friction/tension or non-contact field forces like gravity/electrostatic) with an explicit identifiable external agent",
+                "(B) Include an arrow for the velocity of the body in the FBD",
+                "(C) Add centrifugal force in all inertial reference frames",
+                "(D) Draw internal forces between molecules of the body"
+            ],
+            "correct_answer": 0,
+            "explanation": "Every valid force in an inertial FBD must have a physical external agent responsible for it. Velocity is not a force and must never be drawn as a force vector."
+        },
+        {
+            "id": "phy-tlm-9",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "Resonance Tube Experiment: Why is the end-correction $e = 0.6 r$ applied to the acoustic length of a resonance air column in glass tubes?",
+            "options": [
+                "(A) The acoustic antinode forms slightly outside the open end of the tube due to air molecules oscillating beyond the physical lip boundary",
+                "(B) The water level evaporates during experiment",
+                "(C) Sound travels faster inside glass",
+                "(D) To correct for glass thermal expansion"
+            ],
+            "correct_answer": 0,
+            "explanation": "Acoustic reflections do not occur sharply at the physical pipe edge; pressure nodes reflect approximately $0.6r$ into open air outside the rim."
+        },
+        {
+            "id": "phy-tlm-10",
+            "section": "Part-B",
+            "module": "Subject Pedagogical Knowledge & TLM",
+            "question_text": "Metre Bridge TLM: Why is it recommended to adjust the known resistance box so that the null point is obtained near the central 50 cm mark of the wire?",
+            "options": [
+                "(A) Sensitivity is maximized and fractional percentage errors due to end resistances and scale reading are minimized",
+                "(B) The wire breaks if the jockey touches near 90 cm",
+                "(C) Galvanometers work only at 50 cm",
+                "(D) It saves electric power"
+            ],
+            "correct_answer": 0,
+            "explanation": "Wheatstone bridge sensitivity peaks when all four arms have comparable resistances ($P \approx Q$), making the null deflection sharpest and reducing fractional error $\frac{\\Delta l}{l(100-l)}$."
+        },
+
+        # Module 6: Common Misconceptions & HOTS (10 MCQs)
+        {
+            "id": "phy-hots-1",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "Diagnostic Misconception: A student claims: 'A horse pulls a cart forward with force $F$, and by Newton\'s third law the cart pulls the horse backward with equal force $-F$. Because these forces cancel, the cart should never accelerate.' How should the teacher resolve this paradox?",
+            "options": [
+                "(A) Action and reaction forces act on strictly two different bodies and therefore never cancel each other out; the horse moves forward because the ground pushes the horse forward",
+                "(B) Newton\'s third law does not apply to living animals",
+                "(C) The horse pulls slightly harder than the cart pulls backward",
+                "(D) Friction cancels Newton\'s third law"
+            ],
+            "correct_answer": 0,
+            "explanation": "Action-reaction pairs act on different objects. Cart accelerates because horizontal tension from horse > road friction on cart. Horse accelerates because forward ground reaction on horse hooves > backward cart pull."
+        },
+        {
+            "id": "phy-hots-2",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "Diagnostic Misconception: A novice student states: 'In an electric circuit, electrons are consumed by light bulbs so current gets smaller after passing through resistors.' What fundamental conservation law refutes this?",
+            "options": [
+                "(A) Conservation of Electric Charge (Kirchhoff\'s Current Law) — current (charge flow rate) is strictly identical before and after the bulb; only electric potential energy is converted into heat/light",
+                "(B) Conservation of Momentum",
+                "(C) Conservation of Angular Momentum",
+                "(D) Law of Gravitation"
+            ],
+            "correct_answer": 0,
+            "explanation": "Electrons are not 'consumed'; charge is conserved. Resistors extract electric potential energy per coulomb ($V = \\Delta U / q$), transforming it to light/heat while electron drift rate is identical across series components."
+        },
+        {
+            "id": "phy-hots-3",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "Diagnostic Misconception: When a heavy truck collides head-on with a small compact car, students assume 'The truck exerts a much greater force on the car than the car exerts on the truck.' What is the physical truth?",
+            "options": [
+                "(A) By Newton\'s third law, the force exerted by the truck on the car is strictly equal in magnitude to the force exerted by the car on the truck; the car suffers greater acceleration because of its smaller mass ($a = F/m$)",
+                "(B) The truck exerts 10 times more force",
+                "(C) Forces depend only on speed, not mass",
+                "(D) Collisions violate Newton\'s laws"
+            ],
+            "correct_answer": 0,
+            "explanation": "Action and reaction are identical in magnitude regardless of mass or velocity: $|F_{\text{truck on car}}| = |F_{\text{car on truck}}|$. The car experiences catastrophic damage due to higher deceleration ($a = F/m$) and weaker structural inertia."
+        },
+        {
+            "id": "phy-hots-4",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "Diagnostic Misconception: Learners frequently believe: 'Astronauts float in the International Space Station (ISS) because there is zero gravity in space.' What is the true gravitational reality at ISS altitude (~400 km)?",
+            "options": [
+                "(A) Earth\'s gravity at 400 km is still ~90% of surface gravity ($g \approx 8.7\text{ m/s}^2$); astronauts feel weightless because the station and everything inside are in continuous free-fall orbital motion",
+                "(B) Gravity drops to exactly zero immediately outside Earth\'s atmosphere",
+                "(C) The ISS carries antigravity shielding generators",
+                "(D) Centrifugal force neutralizes mass"
+            ],
+            "correct_answer": 0,
+            "explanation": "Gravity is very strong at 400 km ($~8.7\text{ m/s}^2$). Weightlessness is apparent because orbital velocity keeps the station in perpetual free fall toward the curved Earth below."
+        },
+        {
+            "id": "phy-hots-5",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "Diagnostic Misconception: A student says: 'A heavier ball falls faster in a vacuum than a light ball because gravitational force is proportional to mass ($F = mg$).' Why do both balls fall with identical acceleration?",
+            "options": [
+                "(A) While gravitational force is proportional to mass ($F_g = mg$), inertial resistance to acceleration is also proportional to mass ($F_i = ma$), so mass cancels out: $a = F/m = mg/m = g$",
+                "(B) Gravity has no effect in vacuum",
+                "(C) Both balls lose mass while falling",
+                "(D) Air pressure pushes both balls equally"
+            ],
+            "correct_answer": 0,
+            "explanation": "Equivalence of gravitational mass and inertial mass ensures that the greater gravitational pull on heavier objects is exactly matched by their greater inertia, yielding identical acceleration."
+        },
+        {
+            "id": "phy-hots-6",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "HOTS Reasoning: A stone tied to a string is whirled in a horizontal circle. If the string suddenly breaks, along what path does the stone fly off?",
+            "options": [
+                "(A) Tangentially along a straight line in the horizontal plane in the direction of its instantaneous linear velocity vector",
+                "(B) Radially outward along the radius away from the center",
+                "(C) In a spiraling circle outward",
+                "(D) Directly downward instantly"
+            ],
+            "correct_answer": 0,
+            "explanation": "Centripetal force ceases instantly when string snaps. By Newton\'s first law, the particle continues along its instantaneous velocity vector, which is tangent to the circle."
+        },
+        {
+            "id": "phy-hots-7",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "Diagnostic Misconception: 'The normal reaction force on an object is always equal to $mg$.' In which standard scenario is the normal reaction force strictly less than $mg$?",
+            "options": [
+                "(A) A block resting on an inclined plane of inclination $\theta$ (where $N = mg \\cos\theta < mg$)",
+                "(B) A block resting on a flat horizontal floor",
+                "(C) An elevator accelerating upward",
+                "(D) An object at the bottom of a loop-the-loop"
+            ],
+            "correct_answer": 0,
+            "explanation": "On an incline, the component of gravity perpendicular to the surface is $mg \\cos\theta$. For any non-zero incline $\theta > 0$, $\\cos\theta < 1 \\implies N = mg \\cos\theta < mg$."
+        },
+        {
+            "id": "phy-hots-8",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "HOTS Thermodynamics: A household refrigerator is kept operating with its door open in a perfectly sealed, thermally insulated room. What happens to the overall room temperature over time?",
+            "options": [
+                "(A) The room temperature increases steadily",
+                "(B) The room temperature decreases steadily",
+                "(C) The room temperature stays completely constant",
+                "(D) The room becomes a sub-zero freezer"
+            ],
+            "correct_answer": 0,
+            "explanation": "A refrigerator is a heat pump: heat expelled at the back condenser ($Q_H$) equals heat extracted from the room ($Q_C$) plus electrical compressor work ($W$). Since $Q_H = Q_C + W > Q_C$, net heat dumped into room is positive, heating the room."
+        },
+        {
+            "id": "phy-hots-9",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "Diagnostic Misconception: Students often assume: 'When light enters glass from air and slows down ($v < c$), it loses energy, so its frequency must decrease.' What actually happens to frequency and wavelength?",
+            "options": [
+                "(A) Frequency $\nu$ remains strictly invariant because it is determined by the source oscillator; wavelength shortens ($\\lambda\' = \\lambda / n$)",
+                "(B) Frequency decreases and wavelength remains constant",
+                "(C) Both frequency and wavelength double",
+                "(D) Energy is lost as radio waves"
+            ],
+            "correct_answer": 0,
+            "explanation": "Frequency is determined by the electron oscillation rate of the emitter and cannot change across passive optical boundaries. Velocity drops ($v = c/n$), causing wavelength to compress ($\\lambda = v/\nu$)."
+        },
+        {
+            "id": "phy-hots-10",
+            "section": "Part-B",
+            "module": "Misconceptions & HOTS",
+            "question_text": "HOTS Electromagnetic Induction: Why does a bird sitting with both feet on a 66,000 V high-voltage transmission wire avoid electrocution?",
+            "options": [
+                "(A) Both feet rest on the same wire at virtually identical electric potential, so potential difference $\\Delta V \approx 0$ and no current flows through the bird",
+                "(B) The bird\'s feet are covered in thick rubber insulation",
+                "(C) Alternating current does not affect biological tissue",
+                "(D) High voltage wires carry zero electric charge"
+            ],
+            "correct_answer": 0,
+            "explanation": "Electric current requires a potential difference ($I = \\Delta V / R$). A bird\'s feet are separated by a few centimeters on a low-resistance cable, producing negligible $\\Delta V \approx 0$ across its body."
+        }
+    ]
+
+# ============================================================================
+# 7. CHEMISTRY (40 MCQs - CBSE Secondary & Senior Secondary Benchmarks)
+# ============================================================================
+def get_chemistry_part_b_questions() -> List[Dict[str, Any]]:
+    return [
+    {
+        "id": "chem-core-1",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Stoichiometry & Mole Concept: How many moles of oxygen atoms are present in $4.4\\text{ g}$ of pure carbon dioxide gas ($\\text{CO}_2$, molar mass $= 44\\text{ g/mol}$)?",
+        "options": [
+            "(A) $0.20\\text{ mol}$",
+            "(B) $0.10\\text{ mol}$",
+            "(C) $0.05\\text{ mol}$",
+            "(D) $1.204 \\times 10^{23}\\text{ mol}$"
+        ],
+        "correct_answer": 0,
+        "explanation": "Moles of $\\text{CO}_2 = \\frac{4.4\\text{ g}}{44\\text{ g/mol}} = 0.1\\text{ mol}$. Each $\\text{CO}_2$ molecule contains $2$ oxygen atoms, so moles of O atoms $= 0.1 \\times 2 = 0.20\\text{ mol}$."
+    },
+    {
+        "id": "chem-core-2",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Atomic Structure: What is the maximum number of electrons in an atom that can share the quantum numbers $n = 3$ and $l = 1$?",
+        "options": [
+            "(A) $6$ electrons ($3p$ subshell)",
+            "(B) $2$ electrons",
+            "(C) $10$ electrons",
+            "(D) $18$ electrons"
+        ],
+        "correct_answer": 0,
+        "explanation": "$n = 3$ and $l = 1$ uniquely designates the $3p$ subshell. The $p$ subshell has $3$ degenerate orbitals ($m_l = -1, 0, +1$), each holding a maximum of $2$ spin-paired electrons by Pauli's exclusion principle ($2 \\times 3 = 6$)."
+    },
+    {
+        "id": "chem-core-3",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Periodic Trends: Which set of elements is arranged in order of strictly *increasing* first ionization enthalpy ($\\Delta_i H_1$)?",
+        "options": [
+            "(A) $\\text{B} < \\text{Be} < \\text{C} < \\text{O} < \\text{N}$",
+            "(B) $\\text{Be} < \\text{B} < \\text{C} < \\text{N} < \\text{O}$",
+            "(C) $\\text{B} < \\text{C} < \\text{N} < \\text{O} < \\text{F}$",
+            "(D) $\\text{Li} < \\text{Na} < \\text{K} < \\text{Rb} < \\text{Cs}$"
+        ],
+        "correct_answer": 0,
+        "explanation": "Across Period 2, Be ($2s^2$, fully filled) has higher $\\Delta_i H_1$ than B ($2s^2 2p^1$). Similarly, N ($2p^3$, half-filled) has higher $\\Delta_i H_1$ than O ($2p^4$). Hence: $\\text{B} < \\text{Be} < \\text{C} < \\text{O} < \\text{N}$."
+    },
+    {
+        "id": "chem-core-4",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Chemical Bonding & VSEPR: According to VSEPR theory, what are the electron geometry and molecular shape of xenon tetrafluoride ($\\text{XeF}_4$)?",
+        "options": [
+            "(A) Octahedral geometry; Square planar molecular shape",
+            "(B) Tetrahedral geometry; Tetrahedral shape",
+            "(C) Trigonal bipyramidal geometry; Seesaw shape",
+            "(D) Square pyramidal geometry; Square planar shape"
+        ],
+        "correct_answer": 0,
+        "explanation": "Xe has 8 valence electrons. With 4 bonded F atoms and 2 lone pairs, steric number $= 4 + 2 = 6$. The electron geometry is octahedral with the two lone pairs occupying opposite axial positions ($180^\\circ$), yielding a square planar molecular shape."
+    },
+    {
+        "id": "chem-core-5",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Thermodynamics: For a spontaneous reaction at all temperatures, what must be the signs of enthalpy change ($\\Delta H$) and entropy change ($\\Delta S$)?",
+        "options": [
+            "(A) $\\Delta H < 0$ and $\\Delta S > 0$",
+            "(B) $\\Delta H > 0$ and $\\Delta S < 0$",
+            "(C) $\\Delta H < 0$ and $\\Delta S < 0$",
+            "(D) $\\Delta H > 0$ and $\\Delta S > 0$"
+        ],
+        "correct_answer": 0,
+        "explanation": "Gibbs free energy change is $\\Delta G = \\Delta H - T\\Delta S$. When $\\Delta H < 0$ (exothermic) and $\\Delta S > 0$ (entropy increasing), $\\Delta G$ is strictly negative at every absolute temperature $T > 0\\text{ K}$."
+    },
+    {
+        "id": "chem-core-6",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Chemical Equilibrium: For the Haber ammonia synthesis $\\text{N}_2(g) + 3\\text{H}_2(g) \\rightleftharpoons 2\\text{NH}_3(g)$ with $\\Delta H = -92.4\\text{ kJ/mol}$, which condition shifts equilibrium toward higher $\\text{NH}_3$ yield?",
+        "options": [
+            "(A) Increasing total system pressure and lowering operating temperature",
+            "(B) Decreasing pressure and raising temperature",
+            "(C) Adding an inert gas at constant volume",
+            "(D) Removing $\\text{N}_2$ gas from the reaction chamber"
+        ],
+        "correct_answer": 0,
+        "explanation": "By Le Chatelier's principle: higher pressure favors the forward direction ($4\\text{ moles of gas} \\to 2\\text{ moles of gas}$), and lower temperature favors the exothermic forward reaction."
+    },
+    {
+        "id": "chem-core-7",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Electrochemistry: What is the standard cell potential $E^\\circ_{\\text{cell}}$ for the Daniel cell $\\text{Zn}(s) | \\text{Zn}^{2+}(1\\text{ M}) || \\text{Cu}^{2+}(1\\text{ M}) | \\text{Cu}(s)$, given $E^\\circ_{\\text{Zn}^{2+}/\\text{Zn}} = -0.76\\text{ V}$ and $E^\\circ_{\\text{Cu}^{2+}/\\text{Cu}} = +0.34\\text{ V}$?",
+        "options": [
+            "(A) $+1.10\\text{ V}$",
+            "(B) $+0.42\\text{ V}$",
+            "(C) $-1.10\\text{ V}$",
+            "(D) $+0.76\\text{ V}$"
+        ],
+        "correct_answer": 0,
+        "explanation": "$E^\\circ_{\\text{cell}} = E^\\circ_{\\text{cathode}} - E^\\circ_{\\text{anode}} = (+0.34\\text{ V}) - (-0.76\\text{ V}) = +1.10\\text{ V}$."
+    },
+    {
+        "id": "chem-core-8",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Chemical Kinetics: If doubling the initial concentration of reactant A quadruples the reaction rate, and doubling reactant B has zero effect on the rate, the rate law is:",
+        "options": [
+            "(A) $\\text{Rate} = k [\\text{A}]^2 [\\text{B}]^0$",
+            "(B) $\\text{Rate} = k [\\text{A}] [\\text{B}]$",
+            "(C) $\\text{Rate} = k [\\text{A}]^2 [\\text{B}]$",
+            "(D) $\\text{Rate} = k [\\text{A}]^4$"
+        ],
+        "correct_answer": 0,
+        "explanation": "Rate $\\propto [\\text{A}]^m [\\text{B}]^n$. $2^m = 4 \\implies m = 2$. $2^n = 1 \\implies n = 0$. Hence second order in A and zero order in B: $\\text{Rate} = k [\\text{A}]^2$."
+    },
+    {
+        "id": "chem-core-9",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Coordination Chemistry: According to Crystal Field Theory, what is the $d$-electron configuration of a high-spin octahedral complex of $\\text{Fe}^{3+}$ ($d^5$)?",
+        "options": [
+            "(A) $t_{2g}^3 e_g^2$",
+            "(B) $t_{2g}^5 e_g^0$",
+            "(C) $t_{2g}^4 e_g^1$",
+            "(D) $t_{2g}^2 e_g^3$"
+        ],
+        "correct_answer": 0,
+        "explanation": "In high-spin octahedral complexes, crystal field splitting energy $\\Delta_o < P$ (pairing energy). Following Hund's rule, electrons singly occupy all five $d$ orbitals: $t_{2g}^3 e_g^2$."
+    },
+    {
+        "id": "chem-core-10",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Organic Reaction Mechanisms: Which substrate undergoes nucleophilic substitution primarily via a bimolecular $\\text{S}_\\text{N}2$ pathway with complete Walden inversion?",
+        "options": [
+            "(A) Methyl bromide ($\\text{CH}_3\\text{Br}$)",
+            "(B) tert-Butyl bromide ($(\\text{CH}_3)_3\\text{CBr}$)",
+            "(C) Benzyl cation",
+            "(D) Triphenylmethyl chloride"
+        ],
+        "correct_answer": 0,
+        "explanation": "$\\text{S}_\\text{N}2$ reactivity is governed by minimal steric hindrance to backside nucleophilic attack. Primary and methyl halides react fastest: $\\text{CH}_3\\text{X} > 1^\\circ > 2^\\circ > 3^\\circ$."
+    },
+    {
+        "id": "chem-core-11",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Organic Chemistry / Aromaticity: According to H\u00fcckel's rule ($4n+2$ $\\pi$ electrons), which cyclic species is aromatic?",
+        "options": [
+            "(A) Cyclopentadienyl anion ($\\text{C}_5\\text{H}_5^-$ with $6\\pi$ electrons)",
+            "(B) Cyclobutadiene ($\\text{C}_4\\text{H}_4$ with $4\\pi$ electrons)",
+            "(C) Cyclooctatetraene (planar tub with $8\\pi$ electrons)",
+            "(D) Cyclopentadienyl cation ($\\text{C}_5\\text{H}_5^+$ with $4\\pi$ electrons)"
+        ],
+        "correct_answer": 0,
+        "explanation": "Cyclopentadienyl anion is planar, fully conjugated, and contains $6\\pi$ electrons ($4n+2$ where $n=1$), fulfilling all criteria for aromatic stability."
+    },
+    {
+        "id": "chem-core-12",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Acid-Base Equilibrium: What is the pH of a $1.0 \\times 10^{-8}\\text{ M}$ aqueous hydrochloric acid ($\\text{HCl}$) solution at $25^\\circ\\text{C}$?",
+        "options": [
+            "(A) Between $6.95$ and $7.00$ (slightly acidic)",
+            "(B) Exactly $8.00$",
+            "(C) Exactly $7.00$",
+            "(D) $1.00$"
+        ],
+        "correct_answer": 0,
+        "explanation": "In ultra-dilute acid solutions, auto-ionization of water cannot be ignored: $[\\text{H}^+] = [\\text{H}^+]_\\text{HCl} + [\\text{H}^+]_{\\text{H}_2\\text{O}} = 10^{-8} + 10^{-7} \\approx 1.05 \\times 10^{-7}\\text{ M}$, yielding $\\text{pH} \\approx 6.98$."
+    },
+    {
+        "id": "chem-core-13",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Solid State: In a face-centered cubic (FCC) unit cell of edge length $a$, what is the relationship between atomic radius $r$ and edge length $a$?",
+        "options": [
+            "(A) $r = \\frac{a\\sqrt{2}}{4}$",
+            "(B) $r = \\frac{a\\sqrt{3}}{4}$",
+            "(C) $r = \\frac{a}{2}$",
+            "(D) $r = \\frac{a}{2\\sqrt{3}}$"
+        ],
+        "correct_answer": 0,
+        "explanation": "In FCC, atoms touch along the face diagonal: $4r = a\\sqrt{2} \\implies r = \\frac{a\\sqrt{2}}{4}$."
+    },
+    {
+        "id": "chem-core-14",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Solutions / Colligative Properties: Which $0.1\\text{ M}$ aqueous solution exhibits the highest boiling point elevation?",
+        "options": [
+            "(A) $0.1\\text{ M } \\text{Al}_2(\\text{SO}_4)_3$ ($i = 5$)",
+            "(B) $0.1\\text{ M } \\text{NaCl}$ ($i = 2$)",
+            "(C) $0.1\\text{ M } \\text{CaCl}_2$ ($i = 3$)",
+            "(D) $0.1\\text{ M } \\text{Glucose}$ ($i = 1$)"
+        ],
+        "correct_answer": 0,
+        "explanation": "$\\Delta T_b = i \\cdot K_b \\cdot m$. For $\\text{Al}_2(\\text{SO}_4)_3$, van 't Hoff factor $i = 2\\text{Al}^{3+} + 3\\text{SO}_4^{2-} = 5$, giving the highest effective particle concentration and maximum boiling elevation."
+    },
+    {
+        "id": "chem-core-15",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Organic Synthesis: What is the major organic product when propene reacts with hydrogen bromide ($\\text{HBr}$) in the presence of benzoyl peroxide?",
+        "options": [
+            "(A) 1-Bromopropane (anti-Markovnikov addition via free radicals)",
+            "(B) 2-Bromopropane (Markovnikov addition via carbocation)",
+            "(C) 1,2-Dibromopropane",
+            "(D) Propyl alcohol"
+        ],
+        "correct_answer": 0,
+        "explanation": "In the presence of organic peroxides, addition of HBr to alkenes follows a free-radical chain mechanism (Kharasch effect), forming the less hindered 1-bromopropane."
+    },
+    {
+        "id": "chem-core-16",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Electrochemistry / Kohlrausch Law: Limiting molar conductivity $\\Lambda_m^\\circ$ for a weak electrolyte like acetic acid ($\\text{CH}_3\\text{COOH}$) is determined by:",
+        "options": [
+            "(A) $\\Lambda_m^\\circ(\\text{CH}_3\\text{COOH}) = \\Lambda_m^\\circ(\\text{CH}_3\\text{COONa}) + \\Lambda_m^\\circ(\\text{HCl}) - \\Lambda_m^\\circ(\\text{NaCl})$",
+            "(B) Direct linear extrapolation of $\\Lambda_m$ vs $\\sqrt{c}$ to zero concentration",
+            "(C) Dividing conductivity $\\kappa$ by molarity at standard temperature",
+            "(D) Adding standard electrode potentials of acetate and hydronium ions"
+        ],
+        "correct_answer": 0,
+        "explanation": "Weak electrolytes do not dissociate completely at finite dilutions; Kohlrausch's law of independent ion migration uses strong electrolytes to indirectly compute $\\Lambda_m^\\circ$."
+    },
+    {
+        "id": "chem-core-17",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Organic Carbonyl Reactions: Which carbonyl compound gives a bright yellow precipitate of iodoform ($\\text{CHI}_3$) when warmed with alkaline iodine?",
+        "options": [
+            "(A) Acetone ($\\text{CH}_3\\text{COCH}_3$)",
+            "(B) Benzaldehyde ($\\text{C}_6\\text{H}_5\\text{CHO}$)",
+            "(C) Diethyl ketone ($\\text{CH}_3\\text{CH}_2\\text{COCH}_2\\text{CH}_3$)",
+            "(D) Formic acid ($\\text{HCOOH}$)"
+        ],
+        "correct_answer": 0,
+        "explanation": "The iodoform test specifically identifies methyl ketones (containing the $\\text{CH}_3-\\text{C=O}$ group) or methyl alcohols ($\\text{CH}_3-\\text{CH(OH)}-$). Acetone possesses two methyl carbonyl groups."
+    },
+    {
+        "id": "chem-core-18",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Surface Chemistry: In the Freundlich adsorption isotherm $\\frac{x}{m} = k p^{1/n}$, what physical state corresponds to $\\frac{1}{n} = 0$ at high pressures?",
+        "options": [
+            "(A) Adsorption becomes completely independent of pressure (saturation plateau)",
+            "(B) Adsorption increases exponentially with pressure",
+            "(C) Gas molecules liquefy into bulk droplet layers",
+            "(D) Adsorption rate drops to zero"
+        ],
+        "correct_answer": 0,
+        "explanation": "At high pressure, adsorbent active sites become saturated (monolayer coverage). Thus $\\frac{x}{m} = k p^0 = \\text{constant}$, rendering adsorption pressure-independent."
+    },
+    {
+        "id": "chem-core-19",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Chemical Metallurgy: In the extraction of iron in a blast furnace, what is the chemical role of limestone ($\\text{CaCO}_3$)?",
+        "options": [
+            "(A) Decomposes to $\\text{CaO}$ to act as a basic flux that removes acidic silica impurities as slag ($\\text{CaSiO}_3$)",
+            "(B) Acts as primary reducing agent to convert iron ore to iron",
+            "(C) Ignites coke to reach smelting temperatures",
+            "(D) Prevents molten iron from re-oxidizing at the furnace hearth"
+        ],
+        "correct_answer": 0,
+        "explanation": "$\\text{CaCO}_3 \\to \\text{CaO} + \\text{CO}_2$. $\\text{CaO}$ (basic flux) combines with $\\text{SiO}_2$ (gangue) to form molten calcium silicate slag: $\\text{CaO} + \\text{SiO}_2 \\to \\text{CaSiO}_3$."
+    },
+    {
+        "id": "chem-core-20",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Polymers & Biomolecules: What type of bond stabilizes the secondary structure (such as $\\alpha$-helix and $\\beta$-pleated sheets) of proteins?",
+        "options": [
+            "(A) Intramolecular and intermolecular hydrogen bonds between $-\\text{C=O}$ and $-\\text{NH}-$ groups of peptide backbone",
+            "(B) Covalent peptide bonds between amino acids",
+            "(C) Phosphodiester linkages",
+            "(D) Disulfide bridges exclusively"
+        ],
+        "correct_answer": 0,
+        "explanation": "The primary structure consists of peptide bonds; the secondary structure is regular folding maintained by hydrogen bonding between backbone amide and carbonyl groups."
+    },
+    {
+        "id": "chem-tlm-1",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Pedagogy of Chemical Bonding: Why are molecular model kits (ball-and-stick models) essential for teaching hybridizations and bond angles?",
+        "options": [
+            "(A) They translate 2D flat chalkboard Lewis structures into 3D spatial geometry, clarifying lone-pair steric repulsions",
+            "(B) They calculate orbital wave equations automatically",
+            "(C) They eliminate the need for chemical formulas",
+            "(D) They replace laboratory safety protocols"
+        ],
+        "correct_answer": 0,
+        "explanation": "Ball-and-stick manipulatives bridge the abstract 2D representations in textbooks to real 3D spatial conformations (tetrahedral $109.5^\\circ$, trigonal bipyramidal)."
+    },
+    {
+        "id": "chem-tlm-2",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Laboratory Safety Pedagogy: What is the cardinal rule when diluting concentrated sulfuric acid ($\\text{H}_2\\text{SO}_4$) in a high school chemistry lab?",
+        "options": [
+            "(A) Always add acid slowly to water down the side of the container with continuous stirring; never add water to acid",
+            "(B) Add water rapidly to acid in a sealed flask",
+            "(C) Heat the acid to $100^\\circ\\text{C}$ before mixing with water",
+            "(D) Mix equal volumes simultaneously in a plastic graduated cylinder"
+        ],
+        "correct_answer": 0,
+        "explanation": "Hydration of concentrated sulfuric acid is extremely exothermic. Adding water to acid causes localized boiling, producing acid splatter. Adding acid to a large volume of water dissipates heat safely."
+    },
+    {
+        "id": "chem-tlm-3",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Inquiry-Based Chemistry: When teaching Le Chatelier's Principle, how does the $\\text{CoCl}_4^{2-} / [\\text{Co}(\\text{H}_2\\text{O})_6]^{2+}$ equilibrium demonstration build deep conceptual understanding?",
+        "options": [
+            "(A) Distinct color shifts (pink in ice water, blue in hot water) allow students to directly observe thermal stress driving endothermic shifts",
+            "(B) It produces an explosive sound that alerts students",
+            "(C) It proves chemical reactions can only proceed in one direction",
+            "(D) It proves catalysts shift equilibrium constants"
+        ],
+        "correct_answer": 0,
+        "explanation": "Cobalt chloride equilibrium provides striking macroscopic visual evidence of dynamic microscopic equilibrium adjusting to temperature changes."
+    },
+    {
+        "id": "chem-tlm-4",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Using Microscale Chemistry kits in secondary school labs supports which pedagogical and environmental goal?",
+        "options": [
+            "(A) Dramatically reduces chemical waste, cuts reagent costs, enhances student safety, and enables individual experimentation",
+            "(B) Eliminates all chemical reactions so students only read theory",
+            "(C) Replaces real chemicals with computer simulations entirely",
+            "(D) Increases toxic gas emissions for analytical testing"
+        ],
+        "correct_answer": 0,
+        "explanation": "Green chemistry and microscale techniques allow safe hands-on experimentation with drops of reagents rather than large toxic volumes."
+    },
+    {
+        "id": "chem-tlm-5",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Constructivist Pedagogy: How should an educator introduce the 'Mole Concept' to eliminate cognitive overload?",
+        "options": [
+            "(A) Grounding the concept using familiar counting unit analogies (dozen $= 12$, ream $= 500$, mole $= 6.022 \\times 10^{23}$) before connecting to molar mass",
+            "(B) Forcing memorization of Avogadro's number through rote drills without physical meaning",
+            "(C) Skipping unit conversions and testing only formula derivations",
+            "(D) Stating that moles only exist in gas phases"
+        ],
+        "correct_answer": 0,
+        "explanation": "Analogical scaffolding grounds immense microscale particle quantities in everyday counting units, easing the transition to quantitative stoichiometry."
+    },
+    {
+        "id": "chem-tlm-6",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Interactive Digital Simulations (PhET Chemistry): What pedagogical advantage does the 'Reactants, Products and Leftovers' simulation offer?",
+        "options": [
+            "(A) Enables students to visualize limiting reagents and excess reactants through concrete sandwich-making analogies",
+            "(B) Replaces all practical lab exams with multiple choice questions",
+            "(C) Teaches advanced quantum mechanics without math",
+            "(D) Measures precise flame temperatures"
+        ],
+        "correct_answer": 0,
+        "explanation": "Interactive PhET simulations build robust mental models of discrete stoichiometric mole ratios and unreacted excess species."
+    },
+    {
+        "id": "chem-tlm-7",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Formative Assessment in Chemistry: What is the diagnostic objective of a 'Concept Cartoon' showing 3 students debating what happens when ice melts?",
+        "options": [
+            "(A) Uncovering latent misconceptions regarding phase changes vs chemical bond breaking in an engaging, non-threatening format",
+            "(B) Grading student drawing ability",
+            "(C) Assigning numerical marks for speed of answering",
+            "(D) Demonstrating that solid water is denser than liquid water"
+        ],
+        "correct_answer": 0,
+        "explanation": "Concept cartoons stimulate peer discussion and reveal underlying cognitive flaws without triggering student test anxiety."
+    },
+    {
+        "id": "chem-tlm-8",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "When teaching Redox Reactions, which pedagogical mnemonic effectively prevents confusion between oxidation and reduction?",
+        "options": [
+            "(A) OIL RIG: Oxidation Is Loss, Reduction Is Gain of electrons",
+            "(B) ROYGBIV",
+            "(C) BODMAS",
+            "(D) VSEPR"
+        ],
+        "correct_answer": 0,
+        "explanation": "OIL RIG (or LEO the lion says GER) anchors the electronic definition of redox transformations in memory."
+    },
+    {
+        "id": "chem-tlm-9",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Experiential Pedagogy: What is the primary instructional value of the 'Elephant Toothpaste' demonstration ($2\\text{H}_2\\text{O}_2 \\xrightarrow{\\text{KI}} 2\\text{H}_2\\text{O} + \\text{O}_2$) in chemical kinetics?",
+        "options": [
+            "(A) Dramatically visualizes catalytic acceleration of reaction rate with exothermic heat and foam generation",
+            "(B) Demonstrates dental hygiene products",
+            "(C) Demonstrates that catalysts are permanently consumed",
+            "(D) Shows that all gas reactions produce solids"
+        ],
+        "correct_answer": 0,
+        "explanation": "The rapid production of oxygen foam illustrates catalyst activation energy lowering and exothermic reaction enthalpy vividly."
+    },
+    {
+        "id": "chem-tlm-10",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "In teaching Periodic Trends, how does constructing an interactive 3D Periodic Table of ionization energies enhance understanding?",
+        "options": [
+            "(A) Highlights periodicity, effective nuclear charge, and subshell shielding irregularities visually across periods and groups",
+            "(B) Replaces chemical experimentation",
+            "(C) Proves the table has no exceptions",
+            "(D) Tests rote memorization of atomic symbols"
+        ],
+        "correct_answer": 0,
+        "explanation": "3D topographic visual models make energy periodicity and anomalies (Be vs B, N vs O) instantly visible and intuitive."
+    },
+    {
+        "id": "chem-hots-1",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: A student states: 'Chemical bonds store energy; when bonds break, energy is released.' How should a chemistry educator remediate this misconception?",
+        "options": [
+            "(A) Clarify that bond breaking *always* requires energy input (endothermic, $\\Delta H > 0$); net energy is released only when new stronger bonds form",
+            "(B) Confirm the student's statement as accurate",
+            "(C) State that bond breaking releases heat while bond forming absorbs heat",
+            "(D) State that energy is only involved in nuclear reactions"
+        ],
+        "correct_answer": 0,
+        "explanation": "One of the most persistent misconceptions in science. Overcoming electrostatic attractions requires energy input; exothermic reactions arise because the energy released in bond formation exceeds the energy needed for bond cleavage."
+    },
+    {
+        "id": "chem-hots-2",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: When table salt dissolves in water ($\\text{NaCl}(s) \\to \\text{Na}^+(aq) + \\text{Cl}^-(aq)$), a student claims: 'Salt has melted into liquid salt.' What fundamental difference must be emphasized?",
+        "options": [
+            "(A) Dissolution is hydration of ions by polar water molecules at room temperature, whereas melting requires breaking the ionic crystal lattice at $801^\\circ\\text{C}$",
+            "(B) Dissolution is a chemical change while melting is a nuclear process",
+            "(C) Melting involves dissolving in oxygen",
+            "(D) Dissolved salt ceases to be sodium chloride"
+        ],
+        "correct_answer": 0,
+        "explanation": "Students conflate dissolution (solvation in solvent) with melting (thermal transition of state requiring immense lattice enthalpy)."
+    },
+    {
+        "id": "chem-hots-3",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "HOTS Reasoning: Why does pure liquid water at $50^\\circ\\text{C}$ have a $\\text{pH} = 6.63$, yet remain strictly neutral?",
+        "options": [
+            "(A) Auto-ionization of water is endothermic ($K_w$ increases with temperature), so $[\\text{H}^+] = [\\text{OH}^-] = 10^{-6.63}\\text{ M}$; neutrality means equal ion concentrations, not $\\text{pH} = 7$",
+            "(B) Water becomes acidic when boiled",
+            "(C) Oxygen escapes into the air leaving behind excess protons",
+            "(D) Temperature measurements alter pH meter electrodes"
+        ],
+        "correct_answer": 0,
+        "explanation": "Neutrality is defined by $[\\text{H}^+] = [\\text{OH}^-]$. Because dissociation is endothermic, $K_w$ rises to $\\approx 5.5 \\times 10^{-14}$ at $50^\\circ\\text{C}$, yielding $[\\text{H}^+] = [\\text{OH}^-] = 2.34 \\times 10^{-7}\\text{ M}$ ($\\text{pH} = 6.63$), preserving perfect chemical neutrality."
+    },
+    {
+        "id": "chem-hots-4",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: A learner believes: 'At chemical equilibrium, the concentrations of reactants and products must be exactly equal.' What is the true definition of dynamic equilibrium?",
+        "options": [
+            "(A) The rates of forward and reverse reactions are equal ($r_f = r_r$), while reactant and product concentrations remain constant (not necessarily equal)",
+            "(B) The reaction stops completely and all movement ceases",
+            "(C) 100% of reactants have converted into products",
+            "(D) Reactants and products must be in equal 50:50 proportions"
+        ],
+        "correct_answer": 0,
+        "explanation": "Dynamic equilibrium represents a rate equality, not concentration equality. Depending on $K_{eq}$, products can heavily dominate or reactants can remain largely unreacted."
+    },
+    {
+        "id": "chem-hots-5",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "HOTS Thermodynamics: Solid ammonium nitrate spontaneously dissolves in water with a significant decrease in temperature (it feels ice-cold). What thermodynamic factor drives this endothermic dissolution?",
+        "options": [
+            "(A) A large positive entropy change of dissolution ($\\Delta S > 0$), making $-T\\Delta S$ sufficiently negative to overcome $\\Delta H > 0$ so that $\\Delta G < 0$",
+            "(B) The reaction creates mass out of energy",
+            "(C) Atmospheric pressure compresses the water",
+            "(D) Ammonium nitrate is a noble gas compound"
+        ],
+        "correct_answer": 0,
+        "explanation": "Spontaneous endothermic processes are entirely entropy-driven: crystal lattice breakdown into hydrated mobile ions yields a massive entropy gain that makes $\\Delta G = \\Delta H - T\\Delta S < 0$."
+    },
+    {
+        "id": "chem-hots-6",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: Students often assume: 'Adding a catalyst increases the equilibrium yield of ammonia in the Haber process.' What is the precise effect of a catalyst on an equilibrium system?",
+        "options": [
+            "(A) A catalyst speeds up forward and reverse reactions equally, reaching equilibrium faster without changing the equilibrium constant ($K_c$) or yield",
+            "(B) It shifts the equilibrium toward products",
+            "(C) It decreases reactant activation energy while increasing product activation energy",
+            "(D) It raises the reaction temperature"
+        ],
+        "correct_answer": 0,
+        "explanation": "Catalysts lower the activation barrier equally for forward and reverse pathways without modifying initial and final thermodynamic states or equilibrium compositions."
+    },
+    {
+        "id": "chem-hots-7",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "HOTS Coordination Chemistry: Why is $[\\text{Fe}(\\text{CN})_6]^{4-}$ diamagnetic while $[\\text{Fe}(\\text{H}_2\\text{O})_6]^{2+}$ is strongly paramagnetic, even though both feature iron in the $+2$ oxidation state ($d^6$)?",
+        "options": [
+            "(A) $\\text{CN}^-$ is a strong-field ligand causing large $\\Delta_o > P$ resulting in electron pairing ($t_{2g}^6$, 0 unpaired electrons), while $\\text{H}_2\\text{O}$ is a weak-field ligand ($t_{2g}^4 e_g^2$, 4 unpaired electrons)",
+            "(B) $\\text{CN}^-$ oxidizes iron to $+3$",
+            "(C) Water molecules block magnetic fields",
+            "(D) Cyanide ions contain magnetic electrons"
+        ],
+        "correct_answer": 0,
+        "explanation": "Spectrochemical series positioning dictates whether $\\Delta_o$ exceeds pairing energy $P$. Strong-field $\\text{CN}^-$ forces complete low-spin pairing; weak-field aqua ligands favor high-spin occupancy."
+    },
+    {
+        "id": "chem-hots-8",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: 'Rusting of iron is just iron reacting with oxygen alone.' Why does iron placed in pure dry oxygen fail to rust?",
+        "options": [
+            "(A) Rusting is an electrochemical corrosion process requiring *both* oxygen and liquid water (electrolyte) to facilitate electron transfer and ion transport",
+            "(B) Iron can only rust in darkness",
+            "(C) Pure oxygen dissolves iron rather than rusting it",
+            "(D) Rusting requires ultraviolet light"
+        ],
+        "correct_answer": 0,
+        "explanation": "Corrosion is galvanic: iron acts as anode ($Fe \\to Fe^{2+} + 2e^-$) and oxygen reduction occurs at the cathodic region ($O_2 + 4H^+ + 4e^- \\to 2H_2O$), strictly requiring aqueous electrolyte mediation."
+    },
+    {
+        "id": "chem-hots-9",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "HOTS Organic Chemistry: Why is phenol significantly more acidic ($pK_a \\approx 10$) than ethanol ($pK_a \\approx 16$)?",
+        "options": [
+            "(A) The phenoxide conjugate base is resonance-stabilized by delocalization of negative charge across the aromatic ring, whereas the ethoxide ion has no resonance stabilization",
+            "(B) Phenol contains three hydroxyl groups",
+            "(C) Ethanol has a heavier molecular weight",
+            "(D) Phenol has higher electrical conductivity"
+        ],
+        "correct_answer": 0,
+        "explanation": "Deprotonation of phenol yields the phenoxide ion, whose negative charge is delocalized over the ortho and para positions of the benzene ring, lowering conjugate base potential energy."
+    },
+    {
+        "id": "chem-hots-10",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: A student claims: 'Gases expand to fill a container because gas molecules repel each other.' What is the actual kinetic molecular reason?",
+        "options": [
+            "(A) Gas molecules have high thermal kinetic energy and move in random straight lines with negligible intermolecular attractions until they collide with container walls",
+            "(B) Gas molecules carry identical negative charges that repel",
+            "(C) Gravity does not affect gas particles",
+            "(D) Vacuum inside the container sucks the gas outward"
+        ],
+        "correct_answer": 0,
+        "explanation": "In the kinetic theory of ideal gases, intermolecular forces are negligible. Constant random rectilinear motion and elastic collisions cause spontaneous distribution throughout all available space."
+    }
+]
+
+# ============================================================================
+# 8. BIOLOGY (40 MCQs - CBSE Secondary & Senior Secondary Benchmarks)
+# ============================================================================
+def get_biology_part_b_questions() -> List[Dict[str, Any]]:
+    return [
+    {
+        "id": "bio-core-1",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Cell Biology: Which organelle is responsible for post-translational modification, sorting, and packaging of proteins synthesized in the rough endoplasmic reticulum?",
+        "options": [
+            "(A) Golgi Apparatus",
+            "(B) Lysosome",
+            "(C) Peroxisome",
+            "(D) Ribosome"
+        ],
+        "correct_answer": 0,
+        "explanation": "The Golgi apparatus receives transport vesicles from the RER at its cis face, glycosylates and sorts proteins, and buds secretory vesicles from its trans face."
+    },
+    {
+        "id": "bio-core-2",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Molecular Genetics: In eukaryotic DNA replication, which enzyme synthesizes a short RNA primer to provide a free $3'\\text{-OH}$ group for DNA polymerase?",
+        "options": [
+            "(A) RNA Primase",
+            "(B) DNA Helicase",
+            "(C) DNA Ligase",
+            "(D) Topoisomerase"
+        ],
+        "correct_answer": 0,
+        "explanation": "DNA polymerases cannot initiate polynucleotide synthesis de novo; RNA primase lays down a complementary RNA primer to supply the required $3'\\text{-OH}$ terminus."
+    },
+    {
+        "id": "bio-core-3",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Mendelian Genetics: In a dihybrid cross between two heterozygous individuals ($AaBb \\times AaBb$), what fraction of the offspring is expected to display both dominant phenotypes?",
+        "options": [
+            "(A) $9/16$",
+            "(B) $3/16$",
+            "(C) $1/16$",
+            "(D) $1/4$"
+        ],
+        "correct_answer": 0,
+        "explanation": "Under Mendel's law of independent assortment, the phenotypic ratio for a dihybrid cross is $9 : 3 : 3 : 1$, where $9/16$ represent the double-dominant phenotype ($A\\_B\\_$)."
+    },
+    {
+        "id": "bio-core-4",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Plant Physiology / Photosynthesis: What is the primary $\\text{CO}_2$ acceptor molecule in $\\text{C}_4$ plants like maize and sugarcane?",
+        "options": [
+            "(A) Phosphoenolpyruvate (PEP)",
+            "(B) Ribulose-1,5-bisphosphate (RuBP)",
+            "(C) Oxaloacetic acid (OAA)",
+            "(D) 3-Phosphoglyceric acid (PGA)"
+        ],
+        "correct_answer": 0,
+        "explanation": "In mesophyll cells of $\\text{C}_4$ plants, PEP carboxylase fixes $\\text{CO}_2$ into PEP ($3\\text{C}$) to form oxaloacetate ($4\\text{C}$), completely avoiding photorespiration."
+    },
+    {
+        "id": "bio-core-5",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Human Physiology / Cardiovascular: In the human cardiac cycle, what causes the closure of the atrioventricular (tricuspid and bicuspid) valves, producing the first heart sound ('lub')?",
+        "options": [
+            "(A) Rise in intraventricular pressure during ventricular systole exceeding atrial pressure",
+            "(B) Ventricular relaxation during diastole",
+            "(C) Backflow of blood in aorta and pulmonary artery",
+            "(D) Contraction of atrial walls during atrial systole"
+        ],
+        "correct_answer": 0,
+        "explanation": "During isovolumetric ventricular contraction, rising ventricular pressure forces the AV valves shut to prevent regurgitation into the atria, generating the 'lub' sound."
+    },
+    {
+        "id": "bio-core-6",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Neurophysiology: What ionic event is directly responsible for the rapid depolarization phase of an axonal action potential?",
+        "options": [
+            "(A) Massive influx of $\\text{Na}^+$ ions through voltage-gated sodium channels",
+            "(B) Efflux of $\\text{K}^+$ ions through potassium channels",
+            "(C) Active pumping of $3\\text{Na}^+$ out and $2\\text{K}^+$ in",
+            "(D) Entry of $\\text{Cl}^-$ ions into the axon"
+        ],
+        "correct_answer": 0,
+        "explanation": "Reaching threshold potential opens voltage-gated $\\text{Na}^+$ channels, causing a surge of inward sodium current along its electrochemical gradient, shifting membrane potential to $+30\\text{ mV}$."
+    },
+    {
+        "id": "bio-core-7",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Endocrinology: Which hormone acts on the collecting ducts of the nephron to increase aquaporin water channels and concentrate urine?",
+        "options": [
+            "(A) Antidiuretic Hormone (ADH / Vasopressin)",
+            "(B) Aldosterone",
+            "(C) Atrial Natriuretic Peptide (ANP)",
+            "(D) Parathyroid Hormone (PTH)"
+        ],
+        "correct_answer": 0,
+        "explanation": "ADH from the posterior pituitary binds to $V_2$ receptors in renal principal cells, triggering exocytosis of aquaporin-2 water channels and increasing water reabsorption."
+    },
+    {
+        "id": "bio-core-8",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Cell Division / Meiosis: In which specific sub-stage of Prophase I does crossing over (homologous genetic recombination) occur?",
+        "options": [
+            "(A) Pachytene",
+            "(B) Leptotene",
+            "(C) Zygotene",
+            "(D) Diplotene"
+        ],
+        "correct_answer": 0,
+        "explanation": "Crossing over mediated by the enzyme recombinase occurs at the pachytene stage following synaptonemal complex formation in zygotene."
+    },
+    {
+        "id": "bio-core-9",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Biotechnology: Which molecular biology technique utilizes a thermostable DNA polymerase (e.g. Taq polymerase) to exponentially amplify specific DNA segments?",
+        "options": [
+            "(A) Polymerase Chain Reaction (PCR)",
+            "(B) Gel Electrophoresis",
+            "(C) Western Blotting",
+            "(D) Sanger DNA Sequencing"
+        ],
+        "correct_answer": 0,
+        "explanation": "PCR involves automated cycles of denaturation ($94^\\circ\\text{C}$), primer annealing ($55^\\circ\\text{C}$), and extension ($72^\\circ\\text{C}$) using heat-stable Taq polymerase."
+    },
+    {
+        "id": "bio-core-10",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Ecology & Ecosystems: According to Lindeman's Ten Percent Law of trophic efficiency, what percentage of chemical energy is transferred from one trophic level to the next?",
+        "options": [
+            "(A) Approximately $10\\%$",
+            "(B) Exactly $50\\%$",
+            "(C) Approximately $1\\%$",
+            "(D) Up to $90\\%$"
+        ],
+        "correct_answer": 0,
+        "explanation": "Approximately $90\\%$ of ingested energy is lost as respiratory heat, metabolic maintenance, and unassimilated waste; only $\\sim 10\\%$ is converted into biomass available to higher consumers."
+    },
+    {
+        "id": "bio-core-11",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Immunology: Which class of immunoglobulins is capable of crossing the human maternal placenta to confer passive humoral immunity to the fetus?",
+        "options": [
+            "(A) $\\text{IgG}$",
+            "(B) $\\text{IgM}$",
+            "(C) $\\text{IgA}$",
+            "(D) $\\text{IgE}$"
+        ],
+        "correct_answer": 0,
+        "explanation": "Monomeric $\\text{IgG}$ is the only antibody class equipped with an Fc region recognized by the neonatal Fc receptor ($FcRn$) in placental trophoblasts."
+    },
+    {
+        "id": "bio-core-12",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Evolutionary Biology: According to the Hardy-Weinberg equilibrium principle ($p^2 + 2pq + q^2 = 1$), which condition is necessary to maintain constant allele frequencies?",
+        "options": [
+            "(A) Large population size, random mating, and absence of mutation, migration, and natural selection",
+            "(B) Small isolated population with non-random assortative mating",
+            "(C) Active directional natural selection",
+            "(D) Continuous gene flow between adjacent demes"
+        ],
+        "correct_answer": 0,
+        "explanation": "Hardy-Weinberg equilibrium requires an infinitely large panmictic population experiencing zero evolutionary forces (no mutation, selection, genetic drift, or gene flow)."
+    },
+    {
+        "id": "bio-core-13",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Biochemistry: Which enzyme of the cellular respiration pathway catalyzes the irreversible conversion of pyruvate to acetyl-CoA inside the mitochondrial matrix?",
+        "options": [
+            "(A) Pyruvate Dehydrogenase Complex",
+            "(B) Phosphofructokinase-1",
+            "(C) Citrate Synthase",
+            "(D) Lactate Dehydrogenase"
+        ],
+        "correct_answer": 0,
+        "explanation": "The pyruvate dehydrogenase multienzyme complex catalyzes the oxidative decarboxylation connecting cytosolic glycolysis to the mitochondrial Krebs cycle."
+    },
+    {
+        "id": "bio-core-14",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Plant Morphology & Anatomy: In dicotyledonous stems, what type of vascular bundle arrangement is characteristically observed?",
+        "options": [
+            "(A) Conjoint, collateral, open vascular bundles arranged in a neat ring",
+            "(B) Scattered closed vascular bundles throughout ground parenchyma",
+            "(C) Radial bundles with exarch xylem",
+            "(D) Bicollateral bundles without cambium"
+        ],
+        "correct_answer": 0,
+        "explanation": "Dicot stems display an eustele with vascular bundles arranged in a concentric cylinder, containing intrafascicular cambium (open for secondary growth)."
+    },
+    {
+        "id": "bio-core-15",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Human Respiration: What is the primary chemical stimulus that drives the central chemoreceptors in the medulla oblongata to increase respiratory ventilation rate?",
+        "options": [
+            "(A) Elevated hydrogen ion concentration ($[\\text{H}^+]$) in cerebrospinal fluid derived from arterial hypercapnia (high $\\text{P}_{\\text{CO}_2}$)",
+            "(B) Mild drop in arterial blood oxygen tension ($\\text{P}_{\\text{O}_2}$)",
+            "(C) High nitrogen gas partial pressure",
+            "(D) Low glucose levels in blood"
+        ],
+        "correct_answer": 0,
+        "explanation": "$\\text{CO}_2$ rapidly crosses the blood-brain barrier into CSF, hydrating to carbonic acid; the resulting protons directly stimulate medullary central chemoreceptors."
+    },
+    {
+        "id": "bio-core-16",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Microbiology / Taxonomy: According to Carl Woese's Three-Domain classification system, which characteristic fundamentally distinguishes Archaea from Bacteria?",
+        "options": [
+            "(A) Ether-linked branched phytanyl lipids in cell membranes and absence of peptidoglycan in cell walls",
+            "(B) Archaea possess membrane-bound nuclei",
+            "(C) Bacteria are multicellular whereas Archaea are acellular",
+            "(D) Archaea do not contain ribosomal RNA"
+        ],
+        "correct_answer": 0,
+        "explanation": "Archaea feature branched ether lipids that confer membrane stability in extreme environments, pseudo-peptidoglycan or S-layers, and eukaryotic-like transcription factors."
+    },
+    {
+        "id": "bio-core-17",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Plant Reproduction: What is the ploidy level of the Primary Endosperm Nucleus (PEN) formed by double fertilization in angiosperms?",
+        "options": [
+            "(A) Triploid ($3n$)",
+            "(B) Diploid ($2n$)",
+            "(C) Haploid ($1n$)",
+            "(D) Tetraploid ($4n$)"
+        ],
+        "correct_answer": 0,
+        "explanation": "Triple fusion involves one haploid sperm ($n$) fusing with the diploid secondary nucleus / two polar nuclei ($n + n$), forming a triploid ($3n$) nutritive endosperm."
+    },
+    {
+        "id": "bio-core-18",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Human Excretion: In the nephron, which segment is completely impermeable to water regardless of hormonal stimulation?",
+        "options": [
+            "(A) Thick ascending limb of the loop of Henle",
+            "(B) Thin descending limb of the loop of Henle",
+            "(C) Proximal convoluted tubule",
+            "(D) Medullary collecting duct"
+        ],
+        "correct_answer": 0,
+        "explanation": "The ascending limb actively reabsorbs $\\text{Na}^+$, $\\text{K}^+$, and $\\text{Cl}^-$ via NKCC2 cotransporters while remaining completely impermeable to water, creating the medullary osmotic gradient."
+    },
+    {
+        "id": "bio-core-19",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Musculoskeletal Physiology: During skeletal muscle contraction according to the sliding filament theory, which sarcomeric region remains constant in length?",
+        "options": [
+            "(A) The A-band",
+            "(B) The I-band",
+            "(C) The H-zone",
+            "(D) Distance between consecutive Z-discs"
+        ],
+        "correct_answer": 0,
+        "explanation": "The A-band corresponds to the full length of the thick myosin filaments, which do not change length; thin actin filaments slide past them, narrowing the I-band and H-zone."
+    },
+    {
+        "id": "bio-core-20",
+        "section": "Part-B",
+        "module": "Core Subject Knowledge",
+        "question_text": "Environmental Biology: What ecological phenomenon describes the increasing concentration of persistent non-biodegradable pesticides (such as DDT) at successive trophic levels?",
+        "options": [
+            "(A) Biomagnification",
+            "(B) Eutrophication",
+            "(C) Bioaccumulation",
+            "(D) Algal blooming"
+        ],
+        "correct_answer": 0,
+        "explanation": "Biomagnification refers to the progressive increase in toxicant concentration per unit biomass from primary producers up to apex predators through food webs."
+    },
+    {
+        "id": "bio-tlm-1",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Microscopy Pedagogy: When preparing an onion peel wet mount for student compound microscopy, why is staining with acetocarmine or safranin essential?",
+        "options": [
+            "(A) Staining selectively binds to chromatin and cell wall components, providing visual contrast under brightfield illumination",
+            "(B) It kills any pathogenic bacteria on the glass",
+            "(C) It prevents the slide from drying out",
+            "(D) It magnifies the cell 10 times"
+        ],
+        "correct_answer": 0,
+        "explanation": "Unstained living plant cells are mostly transparent; differential dyes stain cellular organelles and nuclei, rendering them distinct under optical light microscopes."
+    },
+    {
+        "id": "bio-tlm-2",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Hands-on Modeling: Why is having students construct 3D double-helix models using colored beads or paper templates superior to textbook diagrams?",
+        "options": [
+            "(A) It physically reinforces antiparallel polarity ($5' \\to 3'$ vs $3' \\to 5'$) and complementary base pairing rules ($A=T, G\\equiv C$)",
+            "(B) It avoids the need to learn DNA function",
+            "(C) It allows students to create synthetic DNA",
+            "(D) It replaces microscope observations"
+        ],
+        "correct_answer": 0,
+        "explanation": "Tactile manipulation allows kinesthetic and visual learners to grasp spatial relationships, major/minor grooves, and hydrogen bond stoichiometry."
+    },
+    {
+        "id": "bio-tlm-3",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Inquiry-Based Learning: In the classic potato osmometer experiment, why is peeling the outer skin of the potato cup necessary before filling it with concentrated sugar solution?",
+        "options": [
+            "(A) Peeling removes the impermeable suberized periderm, allowing water molecules from the trough to freely osmose across living potato cell membranes",
+            "(B) Unpeeled potato reacts chemically with sugar",
+            "(C) Peeling makes the potato float in water",
+            "(D) Peeling prevents bacterial contamination"
+        ],
+        "correct_answer": 0,
+        "explanation": "Potato epidermal periderm contains suberin, a waxy water barrier. Exposing parenchymal tissue provides a continuous semi-permeable membrane system for demonstrating net endosmosis."
+    },
+    {
+        "id": "bio-tlm-4",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Field Study Pedagogy: How does conducting a Quadrat Sampling activity in a school garden support ecological learning outcomes?",
+        "options": [
+            "(A) Introduces students to quantitative biodiversity estimation, species frequency, and population density calculations in a natural setting",
+            "(B) Replaces ecological theory lectures with gardening",
+            "(C) Collects all insects for permanent dissection",
+            "(D) Ensures students memorize scientific Latin binomials"
+        ],
+        "correct_answer": 0,
+        "explanation": "Quadrat sampling connects abstract mathematical ecology (density, abundance, biodiversity indexes) directly to hands-on empirical fieldwork."
+    },
+    {
+        "id": "bio-tlm-5",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Pedagogical Scaffolding: When introducing Human Physiology, why is beginning with Homeostasis (negative feedback loops) an effective overarching framework?",
+        "options": [
+            "(A) It unites disparate body organ systems (nervous, endocrine, renal, circulatory) under one unifying principle of dynamic equilibrium",
+            "(B) It eliminates the need to teach anatomy",
+            "(C) It simplifies medical diagnostics for children",
+            "(D) It focuses exclusively on human disease states"
+        ],
+        "correct_answer": 0,
+        "explanation": "Homeostasis acts as an integrative schema, preventing physiology from devolving into isolated lists of organs and hormone names."
+    },
+    {
+        "id": "bio-tlm-6",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Virtual Dissections & Bioethics: Why are interactive 3D digital dissection software simulations increasingly integrated into school biology curricula?",
+        "options": [
+            "(A) They uphold humane animal welfare standards while allowing repeatable, risk-free exploration of anatomical layers and organ systems",
+            "(B) They are free of any pedagogical purpose",
+            "(C) Digital organs have different anatomy than real specimens",
+            "(D) To replace all science classrooms with computer labs"
+        ],
+        "correct_answer": 0,
+        "explanation": "Digital anatomical simulations eliminate bioethical concerns and preservative exposure while providing interactive layer-by-layer learning and unlimited retries."
+    },
+    {
+        "id": "bio-tlm-7",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Genetics Pedagogy: When teaching Punnett Squares, what common student habit must teachers correct to ensure accurate probabilistic reasoning?",
+        "options": [
+            "(A) Clarifying that each box represents independent statistical probability for each individual offspring, not a guarantee that a family of four will have those exact ratios",
+            "(B) Banning the use of letters for alleles",
+            "(C) Forcing students to memorize only homozygous crosses",
+            "(D) Requiring Punnett squares to have 100 boxes"
+        ],
+        "correct_answer": 0,
+        "explanation": "Students frequently assume that a $3:1$ ratio guarantees 3 unaffected and 1 affected child in a 4-child family, confusing theoretical gamete probability with small-sample reality."
+    },
+    {
+        "id": "bio-tlm-8",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Demonstration Pedagogy: In demonstrating aerobic respiration using germinating seeds in a closed conical flask, what is the role of potassium hydroxide ($\\text{KOH}$) in the suspended test tube?",
+        "options": [
+            "(A) Absorbs carbon dioxide gas produced by seeds so that oxygen consumption creates a measurable partial vacuum that draws water up the delivery tube",
+            "(B) Supplies oxygen to the germinating seeds",
+            "(C) Measures seed germination speed directly",
+            "(D) Acts as a chemical nutrient for seedlings"
+        ],
+        "correct_answer": 0,
+        "explanation": "$\\text{KOH}$ absorbs evolving $\\text{CO}_2$ ($2\\text{KOH} + \\text{CO}_2 \\to \\text{K}_2\\text{CO}_3 + \\text{H}_2\\text{O}$), ensuring that volume reduction precisely reflects consumed oxygen."
+    },
+    {
+        "id": "bio-tlm-9",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Concept Mapping in Biology: How does constructing a Concept Map of Cellular Respiration benefit senior secondary learners?",
+        "options": [
+            "(A) Visually connects glycolysis, the link reaction, Krebs cycle, and oxidative phosphorylation with their cellular locations, substrates, and ATP yields",
+            "(B) Replaces the need for chemical formulas",
+            "(C) Allows students to skip reading textbook chapters",
+            "(D) Generates automatic quiz grades"
+        ],
+        "correct_answer": 0,
+        "explanation": "Metabolic pathways are notoriously prone to cognitive overload; concept maps reveal spatial compartmentalization and stoichiometric energy checkpoints."
+    },
+    {
+        "id": "bio-tlm-10",
+        "section": "Part-B",
+        "module": "Subject Pedagogical Knowledge & TLM",
+        "question_text": "Inquiry Pedagogy: What is the primary instructional goal of testing leaves for starch with iodine after keeping a potted plant in the dark for 48 hours?",
+        "options": [
+            "(A) To destarch the plant leaves, proving that newly synthesized starch formed upon light exposure is the direct result of ongoing photosynthesis",
+            "(B) To kill the plant cells before iodine treatment",
+            "(C) To stain the chlorophyll green",
+            "(D) To show that dark leaves turn blue instantly"
+        ],
+        "correct_answer": 0,
+        "explanation": "Destarching ensures that pre-existing reserve starch is mobilized, validating that blue-black coloration in light-exposed regions represents experimental synthesis."
+    },
+    {
+        "id": "bio-hots-1",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: A student claims: 'Plants photosynthesize during the daytime and respire only at night.' How should a biology teacher remediate this?",
+        "options": [
+            "(A) Clarify that cellular respiration is a continuous 24/7 metabolic requirement for all living plant cells to produce ATP, while photosynthesis is light-dependent",
+            "(B) Confirm that plants stop respiring during sunny hours",
+            "(C) State that plant roots respire during day while leaves respire at night",
+            "(D) State that plants do not require cellular respiration"
+        ],
+        "correct_answer": 0,
+        "explanation": "Plant cells require continuous ATP for cellular upkeep, active transport, and protein synthesis; mitochondrial respiration proceeds day and night."
+    },
+    {
+        "id": "bio-hots-2",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: 'Dominant genetic traits are always more common or frequent in a population than recessive traits.' Which counterexample disproves this?",
+        "options": [
+            "(A) Polydactyly (extra fingers/toes) and Huntington's disease are dominant alleles yet extremely rare in human populations",
+            "(B) Blue eye color is dominant over brown eye color",
+            "(C) Recessive alleles are always eliminated by natural selection",
+            "(D) Dominant genes always have higher fitness"
+        ],
+        "correct_answer": 0,
+        "explanation": "Dominance describes how alleles interact in heterozygous individuals (phenotypic expression), not their frequency or survival fitness in gene pools."
+    },
+    {
+        "id": "bio-hots-3",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "HOTS Photosynthesis: In Van Niel's classic experiments with purple sulfur bacteria, hydrogen sulfide ($\\text{H}_2\\text{S}$) was used instead of $\\text{H}_2\\text{O}$, releasing elemental sulfur instead of oxygen. What profound insight did this provide?",
+        "options": [
+            "(A) Proved that oxygen gas released during plant photosynthesis originates from the photolysis of water ($\\text{H}_2\\text{O}$), not from carbon dioxide ($\\text{CO}_2$)",
+            "(B) Proved that plants can survive on sulfur alone",
+            "(C) Disproved the role of chlorophyll in light absorption",
+            "(D) Demonstrated that carbon dioxide is not required for glucose synthesis"
+        ],
+        "correct_answer": 0,
+        "explanation": "Since $\\text{CO}_2 + 2\\text{H}_2\\text{S} \\to (\\text{CH}_2\\text{O}) + \\text{H}_2\\text{O} + 2\\text{S}$, the oxidizable hydrogen donor provides the expelled element, proving that $\\text{O}_2$ comes from $\\text{H}_2\\text{O}$."
+    },
+    {
+        "id": "bio-hots-4",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: A student writes: 'Antibiotics kill bacteria by destroying their cell walls, so taking antibiotics will cure viral influenza faster.' What fundamental error is made?",
+        "options": [
+            "(A) Viruses lack cellular structures, peptidoglycan walls, and bacterial ribosomes targeted by antibiotics; antibiotics have zero efficacy against viral pathogens",
+            "(B) Antibiotics only work on fungi",
+            "(C) Viruses have thicker cell walls than bacteria",
+            "(D) Antibiotics stimulate virus replication"
+        ],
+        "correct_answer": 0,
+        "explanation": "Antibiotics target specific bacterial metabolic pathways (cell wall transpeptidases, $70\\text{S}$ ribosomes, DNA gyrase), having no impact on non-cellular viral replication."
+    },
+    {
+        "id": "bio-hots-5",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "HOTS Evolution: Why is Lamarckian inheritance ('giraffes stretched their necks so their offspring were born with longer necks') scientifically invalid?",
+        "options": [
+            "(A) Phenotypic adaptations acquired during an organism's lifetime do not alter gametic germ-cell DNA sequences passed to progeny (Weismann's germplasm barrier)",
+            "(B) Giraffes prefer eating grass over high tree leaves",
+            "(C) Mutations only occur in plants",
+            "(D) Natural selection acts exclusively on dead organisms"
+        ],
+        "correct_answer": 0,
+        "explanation": "The Central Dogma and Weismann's barrier show somatic changes cannot rewrite heritable germline genetic code."
+    },
+    {
+        "id": "bio-hots-6",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: When looking through a microscope, a student believes: 'The nucleus is the largest organelle in a mature plant cell.' What actually occupies up to $90\\%$ of mature plant cell volume?",
+        "options": [
+            "(A) The large central vacuole filled with cell sap",
+            "(B) The chloroplast network",
+            "(C) The nucleus",
+            "(D) Mitochondria"
+        ],
+        "correct_answer": 0,
+        "explanation": "The large central tonoplast-bounded vacuole expands during cell maturation, pushing the cytoplasm and nucleus against the peripheral cell wall."
+    },
+    {
+        "id": "bio-hots-7",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "HOTS Human Genetics: A father with hemophilia (an X-linked recessive disorder) and a homozygous healthy mother have children. What is the probability that their son will have hemophilia?",
+        "options": [
+            "(A) $0\\%$ (Sons inherit the normal X chromosome from mother and Y chromosome from father)",
+            "(B) $50\\%$",
+            "(C) $100\\%$",
+            "(D) $25\\%$"
+        ],
+        "correct_answer": 0,
+        "explanation": "Fathers transmit their Y chromosome to sons; all maternal X chromosomes carry the normal dominant allele, so $0\\%$ of sons are affected (all daughters will be heterozygous carriers)."
+    },
+    {
+        "id": "bio-hots-8",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: 'All arteries carry oxygenated blood and all veins carry deoxygenated blood.' Which anatomical exceptions disprove this rule?",
+        "options": [
+            "(A) Pulmonary artery carries deoxygenated blood to lungs; Pulmonary vein carries oxygenated blood to heart",
+            "(B) Carotid artery and jugular vein",
+            "(C) Coronary arteries and cardiac veins",
+            "(D) Renal artery and renal vein"
+        ],
+        "correct_answer": 0,
+        "explanation": "Arteries are defined directionally as carrying blood *away from the heart*, while veins carry blood *toward the heart*, regardless of oxygenation status."
+    },
+    {
+        "id": "bio-hots-9",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "HOTS Cellular Respiration: Why does anaerobic glycolysis in human muscles produce lactate (lactic acid) instead of terminating at pyruvate?",
+        "options": [
+            "(A) To re-oxidize $\\text{NADH}$ back to $\\text{NAD}^+$, allowing glycolysis to continue generating 2 ATP molecules per glucose in the absence of oxygen",
+            "(B) Because lactic acid yields more ATP than glucose",
+            "(C) To lower muscle pH and prevent fatigue",
+            "(D) To store oxygen in muscle fibers"
+        ],
+        "correct_answer": 0,
+        "explanation": "Glycolysis requires oxidized $\\text{NAD}^+$ to continue operating at the GAPDH step. Lactate dehydrogenase transfers electrons from $\\text{NADH}$ to pyruvate, recycling $\\text{NAD}^+$."
+    },
+    {
+        "id": "bio-hots-10",
+        "section": "Part-B",
+        "module": "Misconceptions & HOTS",
+        "question_text": "Diagnostic Misconception: A student claims: 'Humans evolved from modern chimpanzees.' What is the scientifically accurate phylogenetic relationship?",
+        "options": [
+            "(A) Humans and modern chimpanzees shared a common hominid ancestor approximately 6\u20138 million years ago from which both lineages diverged independently",
+            "(B) Modern chimpanzees are deformed human variants",
+            "(C) Humans will evolve into chimpanzees under environmental pressure",
+            "(D) Chimpanzees are ancestors of all mammals"
+        ],
+        "correct_answer": 0,
+        "explanation": "Evolution is branching cladogenesis, not linear anagenesis. Modern species are sister taxa sharing a common extinct ancestor."
+    }
+]
+
+# ============================================================================
+# MASTER SUBJECT ROUTER FOR PART-B
+# ============================================================================
+def get_part_b_questions_for_subject(subject: str = "Science") -> List[Dict[str, Any]]:
+    """
+    Returns 40 domain-specific Part-B questions strictly mapped to the chosen subject:
+    - Module 4: Core Subject Knowledge (20 MCQs)
+    - Module 5: Subject Pedagogical Knowledge & TLM (10 MCQs)
+    - Module 6: Common Misconceptions & HOTS (10 MCQs)
+    """
+    sub = (subject or "").lower()
+    
+    # 1. Physics Track
+    if any(k in sub for k in ["physics", "phy", "mechanics", "thermodynamics", "optics"]):
+        return get_physics_part_b_questions()
+
+    # 2. Chemistry Track
+    if any(k in sub for k in ["chemistry", "chem", "chemical", "organic"]):
+        return get_chemistry_part_b_questions()
+
+    # 3. Biology Track
+    if any(k in sub for k in ["biology", "bio", "botany", "zoology", "life science"]):
+        return get_biology_part_b_questions()
+
+    # 4. Mathematics Track
+    if any(k in sub for k in ["math", "algebra", "geometry", "calculus"]):
+        return get_math_part_b_questions()
+    
+    # 5. Social Science Track
+    if any(k in sub for k in ["social", "sst", "history", "geography", "civics", "political", "economics"]):
+        return get_social_science_part_b_questions()
+    
+    # 6. English Track
+    if any(k in sub for k in ["english", "literature", "grammar"]):
+        return get_english_part_b_questions()
+        
+    # 7. Hindi Track
+    if any(k in sub for k in ["hindi", "हिंदी", "vyakaran", "sahitya"]):
+        return get_hindi_part_b_questions()
+        
+    # 8. Computer Science Track
+    if any(k in sub for k in ["computer", "it", "cs", "information technology", "coding", "python", "ai"]):
+        return get_computer_science_part_b_questions()
+        
+    # Default to Science (Physics / Chemistry / Biology interdisciplinary)
     from services.olympiad_service import get_science_part_b_questions
     return get_science_part_b_questions()

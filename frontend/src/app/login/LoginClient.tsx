@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Lock, Mail, User, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowRight, ArrowLeft, Home, Lock, Mail, User, Eye, EyeOff, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { getApiBase } from "@/lib/api";
 
@@ -156,6 +156,24 @@ export default function LoginClient() {
       {/* LOGIN CARD WITH PRIMARY FOCUS */}
       <div className="w-full max-w-md bg-white/95 sm:bg-white backdrop-blur-xl p-7 sm:p-10 rounded-3xl border border-white/60 sm:border-slate-200/90 shadow-2xl relative z-10 space-y-6">
         
+        {/* TOP HOME REDIRECT BAR */}
+        <div className="flex items-center justify-between pb-1 -mt-2">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-black text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-3 py-1.5 rounded-xl transition-all shadow-xs group"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-600 group-hover:-translate-x-0.5 transition-transform" />
+            <span>← Back to Home</span>
+          </Link>
+          <Link
+            href="/"
+            className="text-[11px] font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 transition-colors"
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span>Home Screen</span>
+          </Link>
+        </div>
+
         {/* LOGO BRANDING WITH DEVGYA GLOBAL EDUTECH */}
         <div className="text-center space-y-2.5">
           <Link href="/" className="inline-flex items-center justify-center gap-2.5 sm:gap-3 group mb-1 hover:opacity-95 transition-opacity">
@@ -298,6 +316,15 @@ export default function LoginClient() {
               {role === "school" ? "Register School" : "Sign Up Free"}
             </Link>
           </p>
+          <div className="pt-2">
+            <Link
+              href="/"
+              className="w-full inline-flex items-center justify-center gap-2 py-2 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-indigo-600 rounded-xl font-bold text-xs transition-colors shadow-xs"
+            >
+              <Home className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Return to Devgya Home Screen</span>
+            </Link>
+          </div>
           <p className="text-[11px] text-slate-400">
             Need login assistance? Contact <a href="mailto:dgepl.info@gmail.com" className="text-indigo-600 font-bold hover:underline">dgepl.info@gmail.com</a>
           </p>

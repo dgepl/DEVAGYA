@@ -76,6 +76,9 @@ export default function OlympiadPracticePage() {
     return questions.filter(q => q.module === selectedModule);
   }, [questions, selectedModule]);
 
+  const partACount = useMemo(() => questions.filter(q => q.section === "Part-A").length, [questions]);
+  const partBCount = useMemo(() => questions.filter(q => q.section === "Part-B").length, [questions]);
+
   const totalAnswered = Object.keys(selectedAnswers).length;
 
   // Evaluation results computed strictly when user submits at the end
@@ -204,79 +207,46 @@ export default function OlympiadPracticePage() {
           </div>
         </div>
 
-        {/* MODULE FILTER PILLS */}
+        {/* MODULE FILTER: ONLY PART-A AND PART-B */}
         <div className="pt-2 border-t border-slate-800/80">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-black">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-black">
             <button
               onClick={() => setSelectedModule("all")}
-              className={`px-3 py-1 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${
-                selectedModule === "all" ? "bg-white text-slate-900 shadow-xs" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+              className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer text-xs font-black ${
+                selectedModule === "all" 
+                  ? "bg-white text-slate-950 shadow-md ring-2 ring-white/20" 
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
-              All ({questions.length})
+              All Questions ({questions.length})
             </button>
 
             <button
               onClick={() => setSelectedModule("Part-A")}
-              className={`px-3 py-1 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${
-                selectedModule === "Part-A" ? "bg-purple-500 text-white shadow-xs" : "bg-slate-800 text-purple-200 hover:bg-slate-700"
+              className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer text-xs font-black flex items-center gap-1.5 ${
+                selectedModule === "Part-A" 
+                  ? "bg-purple-500 text-white shadow-md shadow-purple-500/30 ring-2 ring-purple-400" 
+                  : "bg-slate-800 text-purple-300 hover:bg-slate-700"
               }`}
             >
-              Part A: Pedagogy (60 Qs)
+              <span>Part A: Pedagogy &amp; NEP</span>
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-purple-900/50 text-purple-200">
+                {partACount || 60} Qs
+              </span>
             </button>
 
             <button
               onClick={() => setSelectedModule("Part-B")}
-              className={`px-3 py-1 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${
-                selectedModule === "Part-B" ? "bg-indigo-500 text-white shadow-xs" : "bg-slate-800 text-indigo-200 hover:bg-slate-700"
+              className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer text-xs font-black flex items-center gap-1.5 ${
+                selectedModule === "Part-B" 
+                  ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/30 ring-2 ring-indigo-400" 
+                  : "bg-slate-800 text-indigo-300 hover:bg-slate-700"
               }`}
             >
-              Part B: Subject (40 Qs)
-            </button>
-
-            <button
-              onClick={() => setSelectedModule("CBSE CPD Modules & NEP Guidelines")}
-              className={`px-3 py-1 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${
-                selectedModule === "CBSE CPD Modules & NEP Guidelines" ? "bg-purple-500 text-white shadow-xs" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-              }`}
-            >
-              CPD &amp; NEP (20 Qs)
-            </button>
-
-            <button
-              onClick={() => setSelectedModule("Personal Classroom Experience & Scenarios")}
-              className={`px-3 py-1 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${
-                selectedModule === "Personal Classroom Experience & Scenarios" ? "bg-purple-500 text-white shadow-xs" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-              }`}
-            >
-              Classroom Scenarios (20 Qs)
-            </button>
-
-            <button
-              onClick={() => setSelectedModule("Modern Pedagogy & Critical Thinking")}
-              className={`px-3 py-1 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${
-                selectedModule === "Modern Pedagogy & Critical Thinking" ? "bg-purple-500 text-white shadow-xs" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-              }`}
-            >
-              Modern Pedagogy (20 Qs)
-            </button>
-
-            <button
-              onClick={() => setSelectedModule("Core Subject Knowledge")}
-              className={`px-3 py-1 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${
-                selectedModule === "Core Subject Knowledge" ? "bg-indigo-500 text-white shadow-xs" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-              }`}
-            >
-              Core Subject (20 Qs)
-            </button>
-
-            <button
-              onClick={() => setSelectedModule("Misconceptions & HOTS")}
-              className={`px-3 py-1 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${
-                selectedModule === "Misconceptions & HOTS" ? "bg-indigo-500 text-white shadow-xs" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-              }`}
-            >
-              Misconceptions &amp; HOTS (10 Qs)
+              <span>Part B: {selectedSubject} Track</span>
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-indigo-900/50 text-indigo-200">
+                {partBCount || 40} Qs
+              </span>
             </button>
           </div>
         </div>

@@ -26,6 +26,37 @@ VALID_ADMIN_USERS = {
     "admin": "Super Admin"
 }
 
+ADMIN_CREDENTIALS_FILE = ADMIN_DATA_DIR / "admin_credentials.json"
+DEFAULT_ADMIN_PASSWORD = "admin123"
+
+def get_admin_credentials() -> Dict[str, str]:
+    if ADMIN_CREDENTIALS_FILE.exists():
+        try:
+            with open(ADMIN_CREDENTIALS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Error loading admin credentials: {e}")
+    return {}
+
+def save_admin_credentials(creds: Dict[str, str]):
+    try:
+        with open(ADMIN_CREDENTIALS_FILE, "w", encoding="utf-8") as f:
+            json.dump(creds, f, indent=2)
+    except Exception as e:
+        logger.error(f"Error saving admin credentials: {e}")
+
+def get_admin_password_for_user(username: str) -> str:
+    creds = get_admin_credentials()
+    clean = (username or "").strip().lower()
+    return creds.get(clean, creds.get("global", DEFAULT_ADMIN_PASSWORD))
+
+def update_admin_password_for_user(username: str, new_password: str):
+    creds = get_admin_credentials()
+    clean = (username or "").strip().lower()
+    creds[clean] = new_password
+    creds["global"] = new_password
+    save_admin_credentials(creds)
+
 class AdminSessionManager:
     """Manages single-device session enforcement. When an admin logs in, all previous sessions on any device are revoked."""
     def __init__(self):
@@ -171,13 +202,20 @@ class UpdateSchedulePayload(BaseModel):
     end_time: str
     published: bool = True
 
+class AdminChangePasswordPayload(BaseModel):
+    username: str
+    old_password: str
+    new_password: str
+    confirm_password: str
+
 @router.post("/login")
 async def admin_login(payload: AdminLoginPayload, request: Request):
     """Authenticate Admin user from dropdown list (ved prakash, melbin benny, pratikk). Invalidates any previous admin sessions."""
     clean_user = payload.username.strip().lower()
     clean_pass = payload.password.strip()
 
-    if clean_user in VALID_ADMIN_USERS and clean_pass == "admin123":
+    expected_pass = get_admin_password_for_user(clean_user)
+    if clean_user in VALID_ADMIN_USERS and clean_pass == expected_pass:
         display_name = VALID_ADMIN_USERS[clean_user]
         ua = request.headers.get("user-agent", "")
         session_token = admin_session_manager.create_session(username=display_name, device_info=ua)
@@ -189,6 +227,39 @@ async def admin_login(payload: AdminLoginPayload, request: Request):
             "session_id": session_token
         }
     raise HTTPException(status_code=401, detail="Invalid Super Admin credentials. Select your Admin Username and enter the password.")
+
+@router.post("/change-password")
+async def change_admin_password(payload: AdminChangePasswordPayload):
+    """Allow admin to change their password by providing old password, new password, and confirmation."""
+    clean_user = (payload.username or "").strip().lower()
+    old_p = (payload.old_password or "").strip()
+    new_p = (payload.new_password or "").strip()
+    conf_p = (payload.confirm_password or "").strip()
+
+    if clean_user not in VALID_ADMIN_USERS:
+        raise HTTPException(status_code=400, detail="Invalid admin username selected.")
+
+    expected_pass = get_admin_password_for_user(clean_user)
+    if old_p != expected_pass:
+        raise HTTPException(status_code=400, detail="Current (old) password is incorrect.")
+
+    if not new_p or len(new_p) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters long.")
+
+    if new_p != conf_p:
+        raise HTTPException(status_code=400, detail="New password and Confirm Password do not match.")
+
+    if new_p == old_p:
+        raise HTTPException(status_code=400, detail="New password must be different from current password.")
+
+    update_admin_password_for_user(clean_user, new_p)
+    display_name = VALID_ADMIN_USERS[clean_user]
+    logger.info(f"Super admin password changed successfully for {display_name}")
+
+    return {
+        "status": "success",
+        "message": f"Super Admin password successfully updated for {display_name}."
+    }
 
 @router.get("/session-verify")
 async def verify_admin_session(
