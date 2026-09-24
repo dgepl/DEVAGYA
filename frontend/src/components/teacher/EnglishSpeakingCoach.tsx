@@ -182,6 +182,11 @@ export function EnglishSpeakingCoach() {
   const [isCoachThinking, setIsCoachThinking] = useState<boolean>(false);
   const [isHandsFreeMode, setIsHandsFreeMode] = useState<boolean>(true);
 
+  // Studio Neural Coach Voice Settings (Edge-TTS)
+  const [coachVoice, setCoachVoice] = useState<string>("en-IN-NeerjaNeural");
+  const [coachSpeed, setCoachSpeed] = useState<string>("+0%");
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
   // Audio / Speech Recognition & Hands-Free Loop Refs
   const recognitionRef = useRef<any>(null);
   const isUserActivelyRecordingRef = useRef<boolean>(false);
@@ -237,57 +242,141 @@ export function EnglishSpeakingCoach() {
     return t.replace(/\s+/g, " ").trim();
   };
 
-  // Cache voices once browser synthesizes them
+  // Stop any active audio or browser speech
+  const stopSpeaking = useCallback(() => {
+    if (activeAudioRef.current) {
+      try {
+        activeAudioRef.current.pause();
+        activeAudioRef.current.currentTime = 0;
+      } catch {}
+      activeAudioRef.current = null;
+    }
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+    setIsAiSpeaking(false);
+  }, []);
+
+  // Filter and prioritize high quality browser voices as fallback
   useEffect(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     const updateVoices = () => {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) {
-        const inVoice = voices.find(v => 
-          (v.lang.includes("en-IN") || v.lang.includes("en-GB") || v.lang.includes("en-US")) && 
-          (v.name.includes("Neerja") || v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Female") || v.name.includes("India"))
-        ) || voices.find(v => v.lang.startsWith("en"));
-        cachedVoiceRef.current = inVoice || voices[0];
+        // Exclude robotic SAPI5 desktop voices (Microsoft David, Zira, Mark)
+        const filtered = voices.filter(v => 
+          !v.name.includes("David") && 
+          !v.name.includes("Desktop") && 
+          !v.name.includes("Zira") && 
+          !v.name.includes("Mark")
+        );
+        const pool = filtered.length > 0 ? filtered : voices;
+        const naturalVoice = pool.find(v => 
+          (v.name.includes("Natural") || v.name.includes("Neural") || v.name.includes("Google") || v.name.includes("Online")) &&
+          (v.lang.startsWith("en") || v.lang.includes("IN"))
+        ) || pool.find(v => v.lang.includes("en-IN")) || pool.find(v => v.lang.startsWith("en")) || pool[0];
+
+        cachedVoiceRef.current = naturalVoice;
       }
     };
     updateVoices();
     window.speechSynthesis.onvoiceschanged = updateVoices;
   }, []);
 
-  // Speak aloud using browser Web Speech API
-  const speakText = (text: string, onDone?: () => void) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    try {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.rate = 0.93;
-      utt.pitch = 1.0;
-      utt.lang = "en-IN";
-      if (cachedVoiceRef.current) {
-        utt.voice = cachedVoiceRef.current;
-      }
-      utt.onstart = () => setIsAiSpeaking(true);
-      utt.onend = () => {
-        setIsAiSpeaking(false);
-        onDone?.();
-      };
-      utt.onerror = () => {
-        setIsAiSpeaking(false);
-        onDone?.();
-      };
-      window.speechSynthesis.speak(utt);
-    } catch {
-      setIsAiSpeaking(false);
-      onDone?.();
-    }
+  // Clean raw speech text before synthesis
+  const cleanSpeechText = (raw: string): string => {
+    if (!raw) return "";
+    return raw
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/\[(?:Coach|AI|Assistant|Friendly|Teacher)[^\]]*\]/gi, "")
+      .replace(/(\*\*|__)(.*?)\1/g, "$2")
+      .replace(/(\*|_)(.*?)\1/g, "$2")
+      .replace(/~~(.*?)~~/g, "$1")
+      .replace(/^#+\s+/gm, "")
+      .replace(/^[-*•]\s+/gm, "")
+      .replace(/^[0-9]+[\.\)]\s+/gm, "")
+      .replace(/^>\s+/gm, "")
+      .replace(/[#_~*`]/g, "")
+      .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]/gu, "")
+      .replace(/\s+/g, " ")
+      .trim();
   };
 
-  const stopSpeaking = () => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+  // Speak aloud using Edge-TTS Studio Neural Stream (Primary) with intelligent fallback
+  const speakText = useCallback((text: string, onDone?: () => void) => {
+    stopSpeaking();
+    const cleaned = cleanSpeechText(text);
+    if (!cleaned) {
+      onDone?.();
+      return;
     }
-    setIsAiSpeaking(false);
-  };
+
+    // 1. Browser Speech Fallback (Modern Natural Voice selection)
+    const runBrowserFallback = () => {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        setIsAiSpeaking(false);
+        onDone?.();
+        return;
+      }
+      try {
+        window.speechSynthesis.cancel();
+        const utt = new SpeechSynthesisUtterance(cleaned);
+        utt.rate = 0.94;
+        utt.pitch = 1.02;
+
+        if (cachedVoiceRef.current) {
+          utt.voice = cachedVoiceRef.current;
+        }
+
+        utt.onstart = () => setIsAiSpeaking(true);
+        utt.onend = () => {
+          setIsAiSpeaking(false);
+          onDone?.();
+        };
+        utt.onerror = () => {
+          setIsAiSpeaking(false);
+          onDone?.();
+        };
+        window.speechSynthesis.speak(utt);
+      } catch {
+        setIsAiSpeaking(false);
+        onDone?.();
+      }
+    };
+
+    // 2. Primary: Studio-Quality Edge-TTS Streaming via Backend
+    try {
+      const baseUrl = getApiBase();
+      const streamUrl = `${baseUrl}/tts/speak?voice=${encodeURIComponent(coachVoice)}&rate=${encodeURIComponent(coachSpeed)}&text=${encodeURIComponent(cleaned)}`;
+      const audio = new Audio(streamUrl);
+      activeAudioRef.current = audio;
+
+      audio.onplay = () => {
+        setIsAiSpeaking(true);
+      };
+
+      audio.onended = () => {
+        setIsAiSpeaking(false);
+        activeAudioRef.current = null;
+        onDone?.();
+      };
+
+      audio.onerror = () => {
+        runBrowserFallback();
+      };
+
+      audio.play().catch(() => {
+        runBrowserFallback();
+      });
+    } catch {
+      runBrowserFallback();
+    }
+  }, [coachVoice, coachSpeed, stopSpeaking]);
 
   // 1. Initial State Fetch from Supabase
   const loadState = useCallback(async () => {
@@ -1574,19 +1663,51 @@ export function EnglishSpeakingCoach() {
 
     return (
       <div className="max-w-4xl mx-auto space-y-6 py-6 px-4 animate-in fade-in duration-300">
-        {/* NAVIGATION TOP BAR */}
-        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        {/* NAVIGATION TOP BAR & STUDIO VOICE SELECTOR */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
           <button
             onClick={() => setActiveTab("roadmap")}
-            className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition-colors"
+            className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition-colors shrink-0"
           >
             <ArrowRight className="w-4 h-4 rotate-180" />
             <span>Back to Module Roadmap</span>
           </button>
 
-          <span className="text-xs font-bold text-slate-500">
-            {currentMod?.title} • Step {activeStepIdx + 1} of {currentMod?.steps.length}
-          </span>
+          {/* STUDIO NEURAL VOICE CONTROLS */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-xs">
+              <Volume2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="text-[11px] text-slate-400 font-semibold">Coach Voice:</span>
+              <select
+                value={coachVoice}
+                onChange={(e) => setCoachVoice(e.target.value)}
+                className="bg-transparent font-extrabold text-xs text-indigo-600 focus:outline-none cursor-pointer"
+              >
+                <option value="en-IN-NeerjaNeural">Neerja (Indian English 👩)</option>
+                <option value="en-IN-PrabhatNeural">Prabhat (Indian English 👨)</option>
+                <option value="en-US-JennyNeural">Jenny (US English 👩)</option>
+                <option value="en-US-GuyNeural">Guy (US English 👨)</option>
+                <option value="en-GB-SoniaNeural">Sonia (British English 👩)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-xs">
+              <span className="text-[11px] text-slate-400 font-semibold">Speed:</span>
+              <select
+                value={coachSpeed}
+                onChange={(e) => setCoachSpeed(e.target.value)}
+                className="bg-transparent font-extrabold text-xs text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value="-10%">0.9x Slow</option>
+                <option value="+0%">1.0x Normal</option>
+                <option value="+10%">1.1x Fast</option>
+              </select>
+            </div>
+
+            <span className="text-xs font-bold text-slate-500 hidden lg:inline-block">
+              Step {activeStepIdx + 1}/{currentMod?.steps.length}
+            </span>
+          </div>
         </div>
 
         {stepCompleteNotice && (

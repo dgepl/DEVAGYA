@@ -3,6 +3,8 @@
  * Supports high-fidelity, natural Hindi & English speech synthesis with intelligent voice routing.
  */
 
+import { getApiBase } from "@/lib/api";
+
 // Helper: Clean raw markdown, LaTeX, tables, and emojis into natural spoken language
 export function cleanTextForSpeech(rawText: string, lang: string = "english"): string {
   if (!rawText) return "";
@@ -130,11 +132,19 @@ export function getBestVoice(preferredLang: string, sampleText: string): SpeechS
   }
 }
 
-// Global active utterance tracking to prevent garbage collection cutoffs
+// Global active utterance and audio tracking
 let currentUtterance: SpeechSynthesisUtterance | null = null;
+let currentAudioElement: HTMLAudioElement | null = null;
 let currentOnStopCallback: (() => void) | null = null;
 
 export function stopSpeech(): void {
+  if (currentAudioElement) {
+    try {
+      currentAudioElement.pause();
+      currentAudioElement.currentTime = 0;
+    } catch {}
+    currentAudioElement = null;
+  }
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
     try {
       window.speechSynthesis.cancel();
@@ -148,13 +158,16 @@ export function stopSpeech(): void {
 }
 
 export function isSpeechActive(): boolean {
+  if (currentAudioElement && !currentAudioElement.paused && !currentAudioElement.ended) {
+    return true;
+  }
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return false;
   return window.speechSynthesis.speaking;
 }
 
 /**
- * Speaks the given text naturally with automatic language detection,
- * neural voice assignment, and speech state callbacks.
+ * Speaks the given text with studio-quality Edge-TTS Neural Audio (Primary)
+ * and automatic language detection, neural voice assignment, and browser fallback.
  */
 export function speakChatMessage(
   rawText: string,
@@ -163,11 +176,6 @@ export function speakChatMessage(
   onEnd?: () => void,
   onError?: () => void
 ): () => void {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-    onError?.();
-    return () => {};
-  }
-
   // Stop any ongoing speech
   stopSpeech();
 
@@ -179,45 +187,84 @@ export function speakChatMessage(
     return () => {};
   }
 
-  const voice = getBestVoice(isHindi ? "hindi" : "english", clean);
-  const utt = new SpeechSynthesisUtterance(clean);
-
-  utt.lang = isHindi ? "hi-IN" : (voice?.lang || "en-IN");
-  utt.rate = isHindi ? 0.95 : 1.0;
-  utt.pitch = isHindi ? 1.05 : 1.0;
-
-  if (voice) {
-    utt.voice = voice;
-  }
-
-  currentUtterance = utt;
   currentOnStopCallback = onEnd || null;
 
-  utt.onstart = () => {
-    onStart?.();
-  };
+  // Browser Web Speech Fallback
+  const fallbackBrowserSpeech = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      onError?.();
+      return;
+    }
 
-  utt.onend = () => {
-    currentUtterance = null;
-    currentOnStopCallback = null;
-    onEnd?.();
-  };
+    const voice = getBestVoice(isHindi ? "hindi" : "english", clean);
+    const utt = new SpeechSynthesisUtterance(clean);
 
-  utt.onerror = (e) => {
-    // If canceled manually, don't trigger error state
-    if (e.error !== "canceled" && e.error !== "interrupted") {
+    utt.lang = isHindi ? "hi-IN" : (voice?.lang || "en-IN");
+    utt.rate = isHindi ? 0.95 : 1.0;
+    utt.pitch = isHindi ? 1.05 : 1.0;
+
+    if (voice) {
+      utt.voice = voice;
+    }
+
+    currentUtterance = utt;
+
+    utt.onstart = () => {
+      onStart?.();
+    };
+
+    utt.onend = () => {
+      currentUtterance = null;
+      currentOnStopCallback = null;
+      onEnd?.();
+    };
+
+    utt.onerror = (e) => {
+      if (e.error !== "canceled" && e.error !== "interrupted") {
+        onError?.();
+      }
+      currentUtterance = null;
+      currentOnStopCallback = null;
+      onEnd?.();
+    };
+
+    try {
+      window.speechSynthesis.speak(utt);
+    } catch (err) {
+      console.warn("Speech synthesis notice:", err);
       onError?.();
     }
-    currentUtterance = null;
-    currentOnStopCallback = null;
-    onEnd?.();
   };
 
+  // Primary: Stream Edge-TTS Studio Neural Audio via backend API
   try {
-    window.speechSynthesis.speak(utt);
-  } catch (err) {
-    console.warn("Speech synthesis notice:", err);
-    onError?.();
+    const apiBase = getApiBase();
+    const voiceId = isHindi ? "hi-IN-SwaraNeural" : "en-IN-NeerjaNeural";
+    const streamUrl = `${apiBase}/tts/speak?voice=${encodeURIComponent(voiceId)}&rate=+0%&text=${encodeURIComponent(clean)}`;
+    const audio = new Audio(streamUrl);
+    currentAudioElement = audio;
+
+    audio.onplay = () => {
+      onStart?.();
+    };
+
+    audio.onended = () => {
+      currentAudioElement = null;
+      currentOnStopCallback = null;
+      onEnd?.();
+    };
+
+    audio.onerror = () => {
+      currentAudioElement = null;
+      fallbackBrowserSpeech();
+    };
+
+    audio.play().catch(() => {
+      currentAudioElement = null;
+      fallbackBrowserSpeech();
+    });
+  } catch {
+    fallbackBrowserSpeech();
   }
 
   // Return cancel function
