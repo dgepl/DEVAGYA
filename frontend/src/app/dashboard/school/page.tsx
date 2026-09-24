@@ -288,92 +288,92 @@ export default function SchoolDashboardHomePage() {
       {/* 3. QUICK NAVIGATION (4 SQUARES IN 2 LINES ON MOBILE) */}
       <div className="space-y-3">
         <h2 className="text-base font-extrabold text-slate-900 px-1">Quick Navigation</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5">
           {/* 1. Job Vacancies */}
           <Link
             href="/dashboard/school/vacancies"
-            className="p-4 sm:p-5 bg-white rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1]"
+            className="p-4 sm:p-4.5 bg-white rounded-2xl sm:rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between min-h-[110px] sm:min-h-[125px] group active:scale-98 transition-all"
           >
             <div className="flex items-center justify-between w-full">
-              <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Building2 className="w-5 h-5" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Job Vacancies</h3>
-              <p className="text-[10.5px] text-slate-400 truncate mt-0.5">Manage open openings</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate mt-0.5">Manage open openings</p>
             </div>
           </Link>
 
           {/* 2. Applicants & CVs */}
           <Link
             href="/dashboard/school/applicants"
-            className="p-4 sm:p-5 bg-white rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1]"
+            className="p-4 sm:p-4.5 bg-white rounded-2xl sm:rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between min-h-[110px] sm:min-h-[125px] group active:scale-98 transition-all"
           >
             <div className="flex items-center justify-between w-full">
-              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Users className="w-5 h-5" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Applicants & CVs</h3>
-              <p className="text-[10.5px] text-slate-400 truncate mt-0.5">Review PDF resumes</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate mt-0.5">Review PDF resumes</p>
             </div>
           </Link>
 
           {/* 3. + Post Vacancy */}
           <Link
             href="/dashboard/school/vacancies?action=new"
-            className="p-4 sm:p-5 bg-white rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1]"
+            className="p-4 sm:p-4.5 bg-white rounded-2xl sm:rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between min-h-[110px] sm:min-h-[125px] group active:scale-98 transition-all"
           >
             <div className="flex items-center justify-between w-full">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Plus className="w-5 h-5 stroke-[2.5]" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
               </div>
               <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">+ Post Vacancy</h3>
-              <p className="text-[10.5px] text-slate-400 truncate mt-0.5">TGT, PGT, PRT roles</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate mt-0.5">TGT, PGT, PRT roles</p>
             </div>
           </Link>
 
           {/* 4. School Profile */}
           <Link
             href="/dashboard/school/profile"
-            className="p-4 sm:p-5 bg-white rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1]"
+            className="p-4 sm:p-4.5 bg-white rounded-2xl sm:rounded-3xl border border-slate-100/90 hover:border-indigo-200 shadow-xs hover:shadow-md flex flex-col justify-between min-h-[110px] sm:min-h-[125px] group active:scale-98 transition-all"
           >
             <div className="flex items-center justify-between w-full">
-              <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileText className="w-5 h-5" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">School Profile</h3>
-              <p className="text-[10.5px] text-slate-400 truncate mt-0.5">Credentials & Board</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate mt-0.5">Credentials & Board</p>
             </div>
           </Link>
 
           {/* 5. Stream Assessment AI */}
           <Link
             href="/dashboard/school/stream-assessment"
-            className="p-4 sm:p-5 bg-gradient-to-br from-indigo-50/60 to-purple-50/60 rounded-3xl border border-indigo-100 hover:border-indigo-300 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1] col-span-2 sm:col-span-1"
+            className="p-4 sm:p-4.5 bg-gradient-to-br from-indigo-50/60 to-purple-50/60 rounded-2xl sm:rounded-3xl border border-indigo-100 hover:border-indigo-300 shadow-xs hover:shadow-md flex flex-col justify-between min-h-[110px] sm:min-h-[125px] group active:scale-98 transition-all col-span-2 sm:col-span-1"
           >
             <div className="flex items-center justify-between w-full">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                <Compass className="w-5 h-5" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                <Compass className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <ChevronRight className="w-4 h-4 text-indigo-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
             </div>
             <div>
-              <div className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 mb-1">
+              <div className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 mb-0.5">
                 Class 11-12
               </div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Stream Assessment</h3>
-              <p className="text-[10.5px] text-slate-500 truncate mt-0.5">AI Paper & PDF</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate mt-0.5">AI Paper & PDF</p>
             </div>
           </Link>
         </div>
