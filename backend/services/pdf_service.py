@@ -2788,10 +2788,15 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
             q_elems.append(p_table)
             q_elems.append(Spacer(1, 3))
 
-        # Question prompt: starts directly with Question Number and question text (never starts with stream or topic)
+        # Question prompt: starts directly with Question Number and question text
         raw_q_text = str(q.get("question_text", "")).strip()
-        cleaned_q_text = re.sub(r'^(?:\[?(?:science|commerce|humanities)\]?[\s:\-–—|•]+)+', '', raw_q_text, flags=re.IGNORECASE).strip()
-        cleaned_q_text = re.sub(r'^(?:topic|competency)[\s:\-–—|•]+[^:\n]+[:\-–—]+', '', cleaned_q_text, flags=re.IGNORECASE).strip()
+        cleaned_q_text = re.sub(
+            r'^(?:\[?(?:science|commerce|humanities|literacy|numeracy|observation|stem|domain\s*\d*|section\s*[a-c])\]?[\s:\-–—|•]+)+',
+            '',
+            raw_q_text,
+            flags=re.IGNORECASE
+        ).strip()
+        cleaned_q_text = re.sub(r'^(?:q(?:uestion)?\s*\d+[\s.:\-–—]+)', '', cleaned_q_text, flags=re.IGNORECASE).strip()
         q_text = html.escape(cleaned_q_text or raw_q_text).replace("\n", "<br/>")
         
         stem_str = f"<b>Q{idx}.</b> {q_text} &nbsp;&nbsp;{marks_tag}"

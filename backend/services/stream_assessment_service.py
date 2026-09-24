@@ -240,7 +240,7 @@ REQUIREMENTS:
    - stream: "{cfg['domain_keys'][0]}", "{cfg['domain_keys'][1]}", or "{cfg['domain_keys'][2]}"
    - question_type: "mcq", "short", or "long"
    - competency: Specific NEP competency tested
-   - question_text: Direct, clear question prompt. DO NOT prefix with stream, class, or topic.
+   - question_text: Complete, standalone question prompt with clear, full instructions so students know exactly what is being asked (e.g. "Which of the following words begins with the same letter sound as 'Sun'?", "Identify which word ends with the letter 't':", "Which of the following is a high-frequency sight word?"). Must be a complete grammatical sentence. DO NOT prefix with stream, class, or topic tags.
    - options: 4 clear choices for MCQs, e.g. ["(A) ...", "(B) ...", "(C) ...", "(D) ..."]
    - answer: Model answer / marking scheme
    - explanation: Pedagogical / diagnostic insight
@@ -313,8 +313,15 @@ Return ONLY valid JSON:
             ))
 
             raw_q_text = str(q.get("question_text") or f"Question #{q_id}").strip()
-            # Clean accidental leading stream/topic tags
-            clean_q_text = re.sub(r'^(?:\[?[a-zA-Z\s]+\]?[\s:\-–—|•]+)+', '', raw_q_text).strip() or raw_q_text
+            # Clean accidental leading stream/topic tags ONLY if they match specific known tags
+            clean_q_text = re.sub(
+                r'^(?:\[?(?:science|commerce|humanities|literacy|numeracy|observation|stem|domain\s*\d*|section\s*[a-c])\]?[\s:\-–—|•]+)+',
+                '',
+                raw_q_text,
+                flags=re.IGNORECASE
+            ).strip()
+            clean_q_text = re.sub(r'^(?:q(?:uestion)?\s*\d+[\s.:\-–—]+)', '', clean_q_text, flags=re.IGNORECASE).strip()
+            clean_q_text = clean_q_text or raw_q_text
 
             clean_questions.append(QuestionItem(
                 id=q_id,

@@ -1293,10 +1293,7 @@ export default function SchoolStreamAssessmentPage() {
 
                         {/* Question Text */}
                         <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
-                          {(q.question_text || "")
-                            .replace(/^(?:\[?(?:science|commerce|humanities)\]?[\s:\-–—|•]+)+/i, "")
-                            .replace(/^(?:topic|competency)[\s:\-–—|•]+[^:\n]+[:\-–—]+/i, "")
-                            .trim() || q.question_text}
+                          {q.question_text}
                         </p>
 
                         {/* MCQ Options */}
