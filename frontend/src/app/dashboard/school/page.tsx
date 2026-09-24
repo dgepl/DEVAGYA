@@ -17,7 +17,9 @@ import {
   UserCheck,
   Target,
   RefreshCw,
-  Mail
+  Mail,
+  Compass,
+  Download
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { getApiBase } from "@/lib/api";
@@ -207,6 +209,33 @@ export default function SchoolDashboardHomePage() {
         </div>
       </div>
 
+      {/* FEATURED: AI STREAM SELECTION & APTITUDE ASSESSMENT (CLASS 11-12) */}
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-950 text-white shadow-md border border-indigo-500/20">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-cyan-300 border border-white/15">
+              <Sparkles className="w-3 h-3 text-cyan-300" />
+              <span>New Academic Feature &bull; Class 11-12</span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+              AI Stream Selection & Aptitude Assessment Paper
+            </h2>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Generate curriculum-accurate diagnostic papers balanced across <span className="text-cyan-300 font-bold">Science</span>, <span className="text-emerald-300 font-bold">Commerce</span>, and <span className="text-purple-300 font-bold">Humanities</span> (MCQs, Short & Long questions). Download print-ready student PDFs and career counseling evaluation keys.
+            </p>
+          </div>
+
+          <Link
+            href="/dashboard/school/stream-assessment"
+            className="px-5 py-3 rounded-2xl bg-white text-slate-900 hover:bg-slate-100 font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 shrink-0 group active:scale-98"
+          >
+            <Compass className="w-4 h-4 text-indigo-600 group-hover:rotate-45 transition-transform" />
+            <span>Generate Stream Paper</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      </div>
+
       {/* 2. QUICK OVERVIEW */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
@@ -352,6 +381,26 @@ export default function SchoolDashboardHomePage() {
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">School Profile</h3>
               <p className="text-[10.5px] text-slate-400 truncate mt-0.5">Credentials & Board</p>
+            </div>
+          </Link>
+
+          {/* 5. Stream Assessment AI */}
+          <Link
+            href="/dashboard/school/stream-assessment"
+            className="p-4 sm:p-5 bg-gradient-to-br from-indigo-50/60 to-purple-50/60 rounded-3xl border border-indigo-100 hover:border-indigo-300 shadow-xs hover:shadow-md flex flex-col justify-between gap-3 group active:scale-98 transition-all aspect-[1.15/1] col-span-2 sm:col-span-1"
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                <Compass className="w-5 h-5" />
+              </div>
+              <ChevronRight className="w-4 h-4 text-indigo-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <div className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 mb-1">
+                Class 11-12
+              </div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Stream Assessment</h3>
+              <p className="text-[10.5px] text-slate-500 truncate mt-0.5">AI Paper & PDF</p>
             </div>
           </Link>
         </div>

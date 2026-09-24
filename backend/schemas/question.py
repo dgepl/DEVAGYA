@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 class QuestionItem(BaseModel):
@@ -14,6 +14,9 @@ class QuestionItem(BaseModel):
     sub_questions: Optional[List[str]] = None # For Case Study sub-questions
     answer: str
     explanation: Optional[str] = None
+    stream: Optional[str] = None # 'science' | 'commerce' | 'humanities'
+    competency: Optional[str] = None # e.g. 'Empirical Inquiry', 'Market Logic', 'Critical Analysis'
+    section: Optional[str] = None # e.g. 'Section A: Objective MCQs'
 
 class GeneratePaperRequest(BaseModel):
     title: str = Field(default="Periodic Assessment - 2025")
@@ -51,5 +54,44 @@ class GeneratedPaperResponse(BaseModel):
     questions: List[QuestionItem]
     school_name: str
     school_logo: Optional[str] = None
+    user_email: Optional[str] = None
+    created_at: Optional[str] = None
+
+class StreamAssessmentRequest(BaseModel):
+    title: str = Field(default="Class 11-12 Stream Selection & Aptitude Diagnostic Assessment")
+    class_name: str = Field(default="Class 11", example="Class 11")
+    school_name: str = Field(default="Apex International Academy")
+    school_logo: Optional[str] = None
+    time_allowed_mins: int = Field(default=90)
+    difficulty: str = Field(default="balanced") # "foundation", "balanced", "advanced"
+    num_mcqs_per_stream: int = Field(default=4)
+    num_short_per_stream: int = Field(default=2)
+    num_long_per_stream: int = Field(default=1)
+    custom_instructions: Optional[str] = None
+    user_email: Optional[str] = None
+
+class StreamBreakdown(BaseModel):
+    stream: str # 'science', 'commerce', 'humanities'
+    stream_name: str
+    mcq_count: int
+    short_count: int
+    long_count: int
+    total_marks: int
+    key_competencies: List[str]
+
+class StreamAssessmentResponse(BaseModel):
+    id: Optional[str] = None
+    title: str
+    class_name: str
+    subject: str = "Stream Aptitude Evaluation (Science • Commerce • Humanities)"
+    school_name: str
+    school_logo: Optional[str] = None
+    total_marks: int
+    time_allowed_mins: int
+    difficulty: str
+    instructions: List[str]
+    questions: List[QuestionItem]
+    stream_breakdown: List[StreamBreakdown]
+    diagnostic_matrix: Dict[str, Any]
     user_email: Optional[str] = None
     created_at: Optional[str] = None

@@ -6,8 +6,14 @@ from typing import Optional, List, Any
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
 from fastapi.responses import StreamingResponse
 from PIL import Image
-from schemas.question import GeneratePaperRequest, GeneratedPaperResponse
+from schemas.question import (
+    GeneratePaperRequest, 
+    GeneratedPaperResponse, 
+    StreamAssessmentRequest, 
+    StreamAssessmentResponse
+)
 from services.groq_service import groq_service
+from services.stream_assessment_service import stream_assessment_service
 from services.pdf_service import extract_document_text, extract_pdf_content
 from services.supabase_service import supabase_service
 from services.rate_limiter import check_rate_limit
@@ -90,6 +96,21 @@ async def generate_paper(request: GeneratePaperRequest):
         raise
     except Exception as e:
         status_code, detail = format_ai_exception_detail(e, "Question Paper Generation")
+        raise HTTPException(status_code=status_code, detail=detail)
+
+@router.post("/stream-assessment", response_model=StreamAssessmentResponse)
+async def generate_stream_assessment(request: StreamAssessmentRequest):
+    """Generate Class 11-12 Stream Selection Assessment across Science, Commerce & Humanities."""
+    try:
+        response = await stream_assessment_service.generate_assessment(request)
+        if request.user_email:
+            response.user_email = request.user_email
+        await _save_paper_for_user(request.user_email, response.dict())
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        status_code, detail = format_ai_exception_detail(e, "Stream Assessment Generation")
         raise HTTPException(status_code=status_code, detail=detail)
 
 @router.post("/generate-from-file", response_model=GeneratedPaperResponse)

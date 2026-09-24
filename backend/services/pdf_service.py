@@ -2385,6 +2385,491 @@ def _generate_worksheet_pdf(self, payload: Dict[str, Any]) -> bytes:
         fallback_buffer.close()
         return pdf_bytes
 
+def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = False) -> bytes:
+    """
+    Renders an official, beautifully styled A4 PDF for Class 11-12 Stream Suitability & Aptitude Diagnostic Assessment.
+    Supports Student Question Paper mode and Teacher Answer Key & Counseling Guide mode.
+    """
+    if isinstance(paper, dict):
+        p = paper
+    elif hasattr(paper, "dict"):
+        p = paper.dict()
+    elif hasattr(paper, "model_dump"):
+        p = paper.model_dump()
+    else:
+        p = vars(paper)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=36,
+        rightMargin=36,
+        topMargin=32,
+        bottomMargin=38
+    )
+
+    styles = getSampleStyleSheet()
+
+    school_title_style = ParagraphStyle(
+        'StreamSchoolTitle',
+        parent=styles['Heading1'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=16,
+        leading=20,
+        alignment=1,
+        textColor=colors.HexColor("#1E1B4B")
+    )
+
+    doc_title_style = ParagraphStyle(
+        'StreamDocTitle',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=12,
+        leading=16,
+        alignment=1,
+        textColor=colors.HexColor("#312E81")
+    )
+
+    sub_title_style = ParagraphStyle(
+        'StreamSubTitle',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=9.5,
+        leading=13,
+        alignment=1,
+        textColor=colors.HexColor("#4338CA")
+    )
+
+    meta_label_style = ParagraphStyle(
+        'StreamMetaLabel',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=8.5,
+        leading=12,
+        textColor=colors.HexColor("#1E293B")
+    )
+
+    inst_style = ParagraphStyle(
+        'StreamInst',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=8,
+        leading=11.5,
+        textColor=colors.HexColor("#475569")
+    )
+
+    sec_hdr_style = ParagraphStyle(
+        'StreamSecHdr',
+        parent=styles['Heading2'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor("#1E1B4B")
+    )
+
+    q_stem_style = ParagraphStyle(
+        'StreamQStem',
+        parent=styles['Normal'],
+        fontName=UNICODE_BOLD_FONT_NAME,
+        fontSize=9,
+        leading=13,
+        textColor=colors.HexColor("#0F172A")
+    )
+
+    opt_style = ParagraphStyle(
+        'StreamOpt',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=8.5,
+        leading=12,
+        leftIndent=12,
+        textColor=colors.HexColor("#334155")
+    )
+
+    ans_box_style = ParagraphStyle(
+        'StreamAnsBox',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=8.5,
+        leading=12,
+        textColor=colors.HexColor("#065F46")
+    )
+
+    expl_box_style = ParagraphStyle(
+        'StreamExplBox',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=8,
+        leading=11.5,
+        textColor=colors.HexColor("#1E293B")
+    )
+
+    write_line_style = ParagraphStyle(
+        'StreamWriteLine',
+        parent=styles['Normal'],
+        fontName=UNICODE_FONT_NAME,
+        fontSize=8,
+        leading=12,
+        leftIndent=12,
+        textColor=colors.HexColor("#94A3B8")
+    )
+
+    story = []
+
+    school_name = str(p.get("school_name") or "DEVGYA GLOBAL ACADEMY")
+    title = str(p.get("title") or "Class 11-12 Stream Selection & Aptitude Diagnostic Assessment")
+    class_name = str(p.get("class_name") or "Class 11")
+    total_marks = p.get("total_marks") or 45
+    time_mins = p.get("time_allowed_mins") or 90
+    difficulty = str(p.get("difficulty") or "balanced").capitalize()
+    raw_logo = p.get("school_logo")
+
+    # Logo resolution
+    logo_elem = None
+    if raw_logo:
+        try:
+            if str(raw_logo).startswith(("http://", "https://")):
+                with httpx.Client(timeout=4.0) as client:
+                    r = client.get(raw_logo)
+                    if r.status_code == 200:
+                        logo_elem = RLImage(io.BytesIO(r.content), width=44, height=44)
+            elif "base64," in str(raw_logo):
+                b64 = str(raw_logo).split("base64,")[1]
+                logo_elem = RLImage(io.BytesIO(base64.b64decode(b64)), width=44, height=44)
+        except Exception:
+            logo_elem = None
+
+    if not logo_elem:
+        default_logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "logo.png"))
+        if os.path.exists(default_logo_path):
+            try:
+                logo_elem = RLImage(default_logo_path, width=44, height=44)
+            except Exception:
+                pass
+
+    # Header
+    edition_label = "TEACHER ANSWER KEY & COUNSELING RUBRIC" if include_answers else "STUDENT QUESTION PAPER"
+    header_title_p = [
+        Paragraph(school_name.upper(), school_title_style),
+        Spacer(1, 2),
+        Paragraph(f"{title.upper()}", doc_title_style),
+        Spacer(1, 1),
+        Paragraph(f"Science (STEM) &bull; Commerce & Finance &bull; Humanities & Social Sciences &mdash; <b>[{edition_label}]</b>", sub_title_style)
+    ]
+
+    if logo_elem:
+        h_table = Table([[logo_elem, header_title_p]], colWidths=[52, 470])
+        h_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('ALIGN', (0,0), (0,0), 'CENTER'),
+            ('ALIGN', (1,0), (1,0), 'CENTER'),
+            ('PADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        story.append(h_table)
+    else:
+        for hp in header_title_p:
+            story.append(hp)
+    story.append(Spacer(1, 6))
+
+    # Candidate & Exam Information Block
+    cand_data = [
+        [
+            Paragraph("<b>Candidate Name:</b> _________________________________", meta_label_style),
+            Paragraph("<b>Roll / Scholar ID:</b> _____________", meta_label_style),
+            Paragraph(f"<b>Cohort / Class:</b> {class_name}", meta_label_style)
+        ],
+        [
+            Paragraph("<b>Date of Exam:</b> ____________________", meta_label_style),
+            Paragraph(f"<b>Max Marks:</b> {total_marks} Marks", meta_label_style),
+            Paragraph(f"<b>Time Allowed:</b> {time_mins} Minutes", meta_label_style)
+        ],
+        [
+            Paragraph("<b>Preliminary Student Preference:</b>&nbsp;&nbsp;[&nbsp;] Science&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Commerce&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Humanities&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Undecided", meta_label_style),
+            "",
+            Paragraph(f"<b>Assessment Standard:</b> {difficulty}", meta_label_style)
+        ]
+    ]
+    cand_table = Table(cand_data, colWidths=[230, 140, 152])
+    cand_table.setStyle(TableStyle([
+        ('SPAN', (0, 2), (1, 2)),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8FAFC")),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E1")),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
+        ('PADDING', (0,0), (-1,-1), 4.5),
+    ]))
+    story.append(cand_table)
+    story.append(Spacer(1, 6))
+
+    # Stream Breakdown Overview Box
+    breakdowns = p.get("stream_breakdown") or []
+    sci_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "science"), int(total_marks/3))
+    com_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "commerce"), int(total_marks/3))
+    hum_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "humanities"), int(total_marks/3))
+
+    stream_bar_data = [[
+        Paragraph("<font color='#1E40AF'><b>SCIENCE (STEM):</b></font> Empirical & Quantitative Logic &bull; <b>" + str(sci_m) + " Marks</b>", meta_label_style),
+        Paragraph("<font color='#065F46'><b>COMMERCE:</b></font> Economic & Financial Acumen &bull; <b>" + str(com_m) + " Marks</b>", meta_label_style),
+        Paragraph("<font color='#6B21A8'><b>HUMANITIES:</b></font> Critical Reasoning & Policy &bull; <b>" + str(hum_m) + " Marks</b>", meta_label_style),
+    ]]
+    stream_bar_table = Table(stream_bar_data, colWidths=[174, 174, 174])
+    stream_bar_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,0), colors.HexColor("#EFF6FF")),
+        ('BACKGROUND', (1,0), (1,0), colors.HexColor("#ECFDF5")),
+        ('BACKGROUND', (2,0), (2,0), colors.HexColor("#FAF5FF")),
+        ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#CBD5E1")),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1")),
+        ('PADDING', (0,0), (-1,-1), 4),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+    ]))
+    story.append(stream_bar_table)
+    story.append(Spacer(1, 6))
+
+    # General Instructions
+    instructions = p.get("instructions") or [
+        "All questions are compulsory across Science, Commerce, and Humanities sections.",
+        "Section A consists of Objective MCQs (1 Mark each). Select the single most appropriate option.",
+        "Section B consists of Short Analytical Questions (3 Marks each). Write concise, structured explanations.",
+        "Section C consists of Long Scenario & Case-Based Questions (5 Marks each). Demonstrate analytical depth."
+    ]
+    story.append(Paragraph("<b>GENERAL INSTRUCTIONS:</b>", meta_label_style))
+    for inst in instructions:
+        story.append(Paragraph(f"&bull;&nbsp; {html.escape(str(inst))}", inst_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#6366F1"), spaceBefore=4, spaceAfter=8))
+
+    # Questions Partition
+    raw_qs = p.get("questions") or []
+    mcqs = [q for q in raw_qs if q.get("question_type") == "mcq"]
+    shorts = [q for q in raw_qs if q.get("question_type") == "short"]
+    longs = [q for q in raw_qs if q.get("question_type") == "long"]
+
+    def _get_stream_badge(stream_val: str) -> str:
+        s = (stream_val or "science").lower()
+        if s == "commerce":
+            return "<font color='#047857'><b>[COMMERCE STREAM]</b></font>"
+        elif s == "humanities":
+            return "<font color='#7E22CE'><b>[HUMANITIES STREAM]</b></font>"
+        return "<font color='#1D4ED8'><b>[SCIENCE STREAM]</b></font>"
+
+    def _render_question(q: dict, idx: int):
+        q_elems = []
+        stream_badge = _get_stream_badge(q.get("stream", "science"))
+        comp = q.get("competency")
+        comp_tag = f" &bull; <i>{html.escape(str(comp))}</i>" if comp else ""
+        marks = q.get("marks", 1)
+        marks_tag = f"<b>[{marks} Mark{'s' if marks > 1 else ''}]</b>"
+
+        # Case passage if present
+        if q.get("case_passage"):
+            passage_html = html.escape(str(q.get("case_passage"))).replace("\n", "<br/>")
+            p_table = Table([[Paragraph(f"<b>CASE STUDY SCENARIO / CONTEXT:</b><br/>{passage_html}", inst_style)]], colWidths=[522])
+            p_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8FAFC")),
+                ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#CBD5E1")),
+                ('PADDING', (0,0), (-1,-1), 5),
+            ]))
+            q_elems.append(p_table)
+            q_elems.append(Spacer(1, 3))
+
+        # Question prompt
+        q_text = html.escape(str(q.get("question_text", ""))).replace("\n", "<br/>")
+        stem_str = f"<b>Q{idx}.</b> {stream_badge}{comp_tag} &nbsp; {q_text} &nbsp; {marks_tag}"
+        q_elems.append(Paragraph(stem_str, q_stem_style))
+        q_elems.append(Spacer(1, 2))
+
+        # MCQ Options
+        opts = q.get("options")
+        if q.get("question_type") == "mcq" and isinstance(opts, list) and len(opts) >= 2:
+            clean_opts = [html.escape(str(o)) for o in opts]
+            if len(clean_opts) == 4:
+                opt_table = Table([
+                    [Paragraph(clean_opts[0], opt_style), Paragraph(clean_opts[1], opt_style)],
+                    [Paragraph(clean_opts[2], opt_style), Paragraph(clean_opts[3], opt_style)]
+                ], colWidths=[261, 261])
+                opt_table.setStyle(TableStyle([
+                    ('PADDING', (0,0), (-1,-1), 1.5),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+                ]))
+                q_elems.append(opt_table)
+            else:
+                for opt in clean_opts:
+                    q_elems.append(Paragraph(opt, opt_style))
+
+        # Blank response space for students
+        if not include_answers:
+            if q.get("question_type") == "short":
+                q_elems.append(Spacer(1, 2))
+                q_elems.append(Paragraph("Answer: ............................................................................................................................................................................................................", write_line_style))
+                q_elems.append(Paragraph("........................................................................................................................................................................................................................", write_line_style))
+            elif q.get("question_type") == "long":
+                q_elems.append(Spacer(1, 2))
+                q_elems.append(Paragraph("Solution / Rationale: ..........................................................................................................................................................................................", write_line_style))
+                q_elems.append(Paragraph("........................................................................................................................................................................................................................", write_line_style))
+                q_elems.append(Paragraph("........................................................................................................................................................................................................................", write_line_style))
+                q_elems.append(Paragraph("........................................................................................................................................................................................................................", write_line_style))
+
+        # Teacher Model Answer & Scoring Guide
+        if include_answers:
+            q_elems.append(Spacer(1, 2))
+            ans_text = html.escape(str(q.get("answer", "Refer to standard solution."))).replace("\n", "<br/>")
+            expl_text = html.escape(str(q.get("explanation", ""))).replace("\n", "<br/>")
+            
+            box_content = [
+                Paragraph(f"<b>&check; Model Solution / Marking Key:</b> {ans_text}", ans_box_style)
+            ]
+            if expl_text:
+                box_content.append(Spacer(1, 1))
+                box_content.append(Paragraph(f"<b>Aptitude Diagnostic Insight:</b> {expl_text}", expl_box_style))
+
+            ans_table = Table([[box_content]], colWidths=[522])
+            ans_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F0FDF4")),
+                ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#86EFAC")),
+                ('PADDING', (0,0), (-1,-1), 4),
+            ]))
+            q_elems.append(ans_table)
+
+        q_elems.append(Spacer(1, 5))
+        return q_elems
+
+    q_counter = 1
+
+    # SECTION A: MCQs
+    if mcqs:
+        sec_a_table = Table([[Paragraph(f"<b>SECTION A: OBJECTIVE & APTITUDE MCQs (1 Mark Each)</b> &mdash; {len(mcqs)} Questions", sec_hdr_style)]], colWidths=[522])
+        sec_a_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EEF2FF")),
+            ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#C7D2FE")),
+            ('PADDING', (0,0), (-1,-1), 4),
+        ]))
+        story.append(sec_a_table)
+        story.append(Spacer(1, 4))
+        for q in mcqs:
+            for elem in _render_question(q, q_counter):
+                story.append(elem)
+            q_counter += 1
+
+    # SECTION B: Short Analytical Questions
+    if shorts:
+        sec_b_table = Table([[Paragraph(f"<b>SECTION B: SHORT ANALYTICAL & APPLICATION QUESTIONS (3 Marks Each)</b> &mdash; {len(shorts)} Questions", sec_hdr_style)]], colWidths=[522])
+        sec_b_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F0FDF4")),
+            ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#BBF7D0")),
+            ('PADDING', (0,0), (-1,-1), 4),
+        ]))
+        story.append(sec_b_table)
+        story.append(Spacer(1, 4))
+        for q in shorts:
+            for elem in _render_question(q, q_counter):
+                story.append(elem)
+            q_counter += 1
+
+    # SECTION C: Long Scenario Questions
+    if longs:
+        sec_c_table = Table([[Paragraph(f"<b>SECTION C: LONG SCENARIO & CASE-BASED QUESTIONS (5 Marks Each)</b> &mdash; {len(longs)} Questions", sec_hdr_style)]], colWidths=[522])
+        sec_c_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FAF5FF")),
+            ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#E9D5FF")),
+            ('PADDING', (0,0), (-1,-1), 4),
+        ]))
+        story.append(sec_c_table)
+        story.append(Spacer(1, 4))
+        for q in longs:
+            for elem in _render_question(q, q_counter):
+                story.append(elem)
+            q_counter += 1
+
+    # Counseling Matrix & Score Interpretation (Only in Teacher / Key Mode)
+    if include_answers:
+        story.append(Spacer(1, 8))
+        matrix_hdr = Table([[Paragraph("<b>SCHOOL ACADEMIC COUNSELING & STREAM DECISION MATRIX</b>", sec_hdr_style)]], colWidths=[522])
+        matrix_hdr.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FEF3C7")),
+            ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#FDE68A")),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ]))
+        story.append(matrix_hdr)
+        story.append(Spacer(1, 4))
+
+        c_matrix = p.get("diagnostic_matrix") or {}
+        sci_note = c_matrix.get("science_indicators", "Score >= 75%: High suitability for PCM/PCB, Engineering, Medicine, Pure Sciences, and AI.")
+        com_note = c_matrix.get("commerce_indicators", "Score >= 75%: Exceptional acumen for CA, Corporate Finance, Economics, CFA, and Management.")
+        hum_note = c_matrix.get("humanities_indicators", "Score >= 75%: Outstanding suitability for Law (CLAT), Civil Services (UPSC), Public Policy, and Journalism.")
+
+        matrix_table_data = [
+            [
+                Paragraph("<b>STREAM</b>", q_stem_style),
+                Paragraph("<b>MARKS WEIGHT</b>", q_stem_style),
+                Paragraph("<b>DIAGNOSTIC CRITERIA & RECOMMENDED PATHWAYS</b>", q_stem_style)
+            ],
+            [
+                Paragraph("<font color='#1E40AF'><b>SCIENCE (STEM)</b></font>", meta_label_style),
+                Paragraph(f"<b>{sci_m} Marks</b>", meta_label_style),
+                Paragraph(html.escape(sci_note), inst_style)
+            ],
+            [
+                Paragraph("<font color='#065F46'><b>COMMERCE & FINANCE</b></font>", meta_label_style),
+                Paragraph(f"<b>{com_m} Marks</b>", meta_label_style),
+                Paragraph(html.escape(com_note), inst_style)
+            ],
+            [
+                Paragraph("<font color='#6B21A8'><b>HUMANITIES & SOCIAL</b></font>", meta_label_style),
+                Paragraph(f"<b>{hum_m} Marks</b>", meta_label_style),
+                Paragraph(html.escape(hum_note), inst_style)
+            ]
+        ]
+        matrix_table = Table(matrix_table_data, colWidths=[120, 80, 322])
+        matrix_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#F1F5F9")),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1")),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ]))
+        story.append(matrix_table)
+        story.append(Spacer(1, 8))
+
+        # Sign-off & Counselor Endorsement Box
+        sig_data = [
+            [
+                Paragraph("<b>Candidate Final Stream Recommendation:</b><br/>[&nbsp;] Science (PCM / PCB)&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Commerce (with/without Math)&nbsp;&nbsp;&nbsp;&nbsp;[&nbsp;] Humanities / Arts", meta_label_style),
+                Paragraph("<b>Counselor Signature:</b> ____________________<br/><br/><b>Principal Seal:</b> ___________________________", meta_label_style)
+            ]
+        ]
+        sig_table = Table(sig_data, colWidths=[330, 192])
+        sig_table.setStyle(TableStyle([
+            ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#94A3B8")),
+            ('PADDING', (0,0), (-1,-1), 5),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+        story.append(sig_table)
+
+    try:
+        doc.build(story, canvasmaker=NumberedCanvas)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+    except Exception as build_err:
+        logger.error(f"Stream assessment PDF build error: {build_err}")
+        # Build simpler fallback doc
+        fb_buf = io.BytesIO()
+        doc_fb = SimpleDocTemplate(fb_buf, pagesize=A4, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+        fb_story = [
+            Paragraph(f"<b>{school_name}</b>", school_title_style),
+            Paragraph(f"<b>{title}</b>", doc_title_style),
+            Spacer(1, 10)
+        ]
+        for q in raw_qs:
+            fb_story.append(Paragraph(f"<b>Q{q.get('question_number', 1)}. [{q.get('stream', '').upper()}]</b> {q.get('question_text', '')}", q_stem_style))
+            fb_story.append(Spacer(1, 4))
+        doc_fb.build(fb_story, canvasmaker=NumberedCanvas)
+        res_bytes = fb_buf.getvalue()
+        fb_buf.close()
+        return res_bytes
+
 PDFGeneratorService.generate_assignment_worksheet_pdf = _generate_assignment_worksheet_pdf
 PDFGeneratorService.generate_worksheet_pdf = _generate_worksheet_pdf
+PDFGeneratorService.generate_stream_assessment_pdf = _generate_stream_assessment_pdf
 pdf_generator_service = PDFGeneratorService()
+

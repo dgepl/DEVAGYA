@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   Mail,
   ExternalLink,
-  Target
+  Target,
+  Compass
 } from "lucide-react";
 
 interface SchoolData {
@@ -344,6 +345,28 @@ export function MobileSchoolDashboard({
       {/* DEFAULT SECTIONS (WHEN NOT SEARCHING) */}
       {!hasSearch && (
         <>
+          {/* FEATURED: AI STREAM SELECTION & APTITUDE ASSESSMENT (CLASS 11-12) */}
+          <div className="relative overflow-hidden rounded-3xl p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-950 text-white shadow-md border border-indigo-500/20 space-y-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/10 text-cyan-300 w-fit border border-white/15">
+              <Sparkles className="w-3 h-3 text-cyan-300" />
+              <span>Class 11-12 &bull; New</span>
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-white">Stream Selection Assessment AI</h3>
+              <p className="text-[11px] text-slate-300 leading-snug mt-0.5">
+                Generate papers across Science, Commerce & Humanities. Download printable PDF with answers & counseling rubric.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/school/stream-assessment"
+              className="w-full py-2.5 px-4 rounded-xl bg-white text-slate-900 font-extrabold text-xs flex items-center justify-center gap-2 active:scale-98 transition-all"
+            >
+              <Compass className="w-4 h-4 text-indigo-600" />
+              <span>Generate Stream Assessment</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
           {/* 4. KPI STATS OVERVIEW (MATCHING QUICK STATS GRID) */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
@@ -511,6 +534,26 @@ export function MobileSchoolDashboard({
                 <div>
                   <h3 className="text-xs font-black text-slate-900 leading-tight">School Profile</h3>
                   <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">Credentials & Board</p>
+                </div>
+              </Link>
+
+              {/* 5. Stream Assessment AI */}
+              <Link
+                href="/dashboard/school/stream-assessment"
+                className="p-4 bg-gradient-to-br from-indigo-50/70 to-purple-50/70 rounded-3xl border border-indigo-100 shadow-xs hover:border-indigo-200 hover:shadow-md flex flex-col justify-between gap-3 group active:scale-95 transition-all aspect-[1.12/1] col-span-2"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                    <Compass className="w-5 h-5" />
+                  </div>
+                  <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded">Class 11-12</span>
+                  <h3 className="text-xs font-black text-slate-900 leading-tight mt-1">Stream Assessment AI</h3>
+                  <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">Generate paper & download PDF</p>
                 </div>
               </Link>
             </div>

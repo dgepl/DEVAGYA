@@ -265,6 +265,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   if (user.role === "school") {
     navItems = [
       { label: "School Overview", href: "/dashboard/school", icon: Building2 },
+      { label: "Stream Assessment AI", href: "/dashboard/school/stream-assessment", icon: Compass },
       { label: "Job Vacancies", href: "/dashboard/school/vacancies", icon: Briefcase },
       { label: "Applicants & Resumes", href: "/dashboard/school/applicants", icon: Users },
       { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },

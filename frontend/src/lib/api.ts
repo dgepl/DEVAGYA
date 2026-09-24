@@ -56,6 +56,9 @@ export interface QuestionItem {
   sub_questions?: string[];
   answer: string;
   explanation?: string;
+  stream?: "science" | "commerce" | "humanities" | string;
+  competency?: string;
+  section?: string;
 }
 
 export interface GeneratedPaperResponse {
@@ -367,6 +370,100 @@ export async function downloadPDF(paper: GeneratedPaperResponse, includeAnswers:
   const a = document.createElement("a");
   a.href = url;
   a.download = `${paper.subject}_${paper.class_name}_${includeAnswers ? 'AnswerKey' : 'Paper'}.pdf`.replace(/\s+/g, "_");
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+export interface StreamBreakdown {
+  stream: "science" | "commerce" | "humanities";
+  stream_name: string;
+  mcq_count: number;
+  short_count: number;
+  long_count: number;
+  total_marks: number;
+  key_competencies: string[];
+}
+
+export interface StreamAssessmentResponse {
+  id?: string;
+  title: string;
+  class_name: string;
+  subject: string;
+  school_name: string;
+  school_logo?: string;
+  total_marks: number;
+  time_allowed_mins: number;
+  difficulty: string;
+  instructions: string[];
+  questions: QuestionItem[];
+  stream_breakdown: StreamBreakdown[];
+  diagnostic_matrix: {
+    science_indicators?: string;
+    commerce_indicators?: string;
+    humanities_indicators?: string;
+    balanced_recommendation?: string;
+    [key: string]: any;
+  };
+  user_email?: string;
+  created_at?: string;
+}
+
+export interface StreamAssessmentPayload {
+  title: string;
+  class_name: string;
+  school_name: string;
+  school_logo?: string;
+  time_allowed_mins: number;
+  difficulty: "foundation" | "balanced" | "advanced";
+  num_mcqs_per_stream: number;
+  num_short_per_stream: number;
+  num_long_per_stream: number;
+  custom_instructions?: string;
+  user_email?: string;
+}
+
+export async function generateStreamAssessment(payload: StreamAssessmentPayload): Promise<StreamAssessmentResponse> {
+  try {
+    const res = await fetch(`${getApiBase()}/generator/stream-assessment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(parseErrorMessage(errData, "Failed to generate stream assessment paper.", res.status));
+    }
+    return res.json();
+  } catch (e: any) {
+    if (e.name === "TypeError" && (e.message.includes("fetch") || e.message.includes("Failed to fetch"))) {
+      throw new Error("🌐 Network / Server Connection Error: Unable to reach the backend server. Please verify backend is running.");
+    }
+    throw e;
+  }
+}
+
+export async function downloadStreamAssessmentPDF(
+  paper: StreamAssessmentResponse,
+  includeAnswers: boolean = false
+): Promise<void> {
+  const res = await fetch(`${getApiBase()}/pdf/generate-stream-assessment?include_answers=${includeAnswers}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(paper)
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Failed to generate PDF (${res.status}): ${errText || 'Server Error'}`);
+  }
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const schoolSlug = (paper.school_name || "School").replace(/\s+/g, "_");
+  const classSlug = (paper.class_name || "Class_11").replace(/\s+/g, "_");
+  const modeSlug = includeAnswers ? "TeacherKey_CounselingRubric" : "StudentQuestionPaper";
+  a.download = `${schoolSlug}_${classSlug}_StreamAssessment_${modeSlug}.pdf`;
   document.body.appendChild(a);
   a.click();
   a.remove();

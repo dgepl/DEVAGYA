@@ -123,3 +123,23 @@ async def generate_worksheet(payload: Dict[str, Any] = Body(...)):
     except Exception as e:
         logger.error(f"Worksheet PDF generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"Worksheet PDF generation failed: {str(e)}")
+
+@router.post("/generate-stream-assessment")
+async def generate_stream_assessment_pdf_endpoint(payload: Dict[str, Any] = Body(...), include_answers: bool = False):
+    """Generate Class 11-12 Stream Selection Assessment PDF (Science, Commerce, Humanities) with counseling matrix and marking rubric."""
+    try:
+        pdf_bytes = pdf_generator_service.generate_stream_assessment_pdf(payload, include_answers=include_answers)
+        school_name = str(payload.get("school_name") or "School").replace(" ", "_")
+        class_name = str(payload.get("class_name") or "Class_11").replace(" ", "_")
+        mode = "TeacherKey_CounselingRubric" if include_answers else "StudentQuestionPaper"
+        filename = f"{school_name}_{class_name}_StreamAssessment_{mode}.pdf"
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Stream assessment PDF generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Stream assessment PDF generation failed: {str(e)}")
+
