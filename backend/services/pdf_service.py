@@ -73,6 +73,42 @@ try:
 except Exception as e:
     pass
 
+_IMAGE_CACHE: Dict[str, bytes] = {}
+
+def _fetch_image_bytes(raw_logo: Any, timeout: float = 3.5) -> Optional[bytes]:
+    """Retrieves and caches image bytes from URL, base64 data, or local file for fast PDF rendering."""
+    if not raw_logo:
+        return None
+    raw_str = str(raw_logo).strip()
+    if not raw_str:
+        return None
+    if raw_str in _IMAGE_CACHE:
+        return _IMAGE_CACHE[raw_str]
+    try:
+        if raw_str.startswith(("http://", "https://")):
+            with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+                res = client.get(raw_str)
+                if res.status_code == 200 and len(res.content) > 0:
+                    _IMAGE_CACHE[raw_str] = res.content
+                    return res.content
+        elif "base64," in raw_str:
+            b64_data = raw_str.split("base64,")[1]
+            data = base64.b64decode(b64_data)
+            _IMAGE_CACHE[raw_str] = data
+            return data
+        elif os.path.exists(raw_str):
+            with open(raw_str, "rb") as f:
+                data = f.read()
+                _IMAGE_CACHE[raw_str] = data
+                return data
+        elif len(raw_str) > 100:
+            data = base64.b64decode(raw_str)
+            _IMAGE_CACHE[raw_str] = data
+            return data
+    except Exception as e:
+        logger.warning(f"Error fetching image bytes: {e}")
+    return None
+
 
 def _create_school_crest(school_name: str) -> Optional[RLImage]:
     """Generates an authentic, high-resolution official School Crest / Seal image for paper header."""
@@ -854,24 +890,13 @@ class PDFGeneratorService:
         logo_element = None
         raw_logo = getattr(paper, "school_logo", None)
         if raw_logo:
-            try:
-                import base64
-                if str(raw_logo).startswith(("http://", "https://")):
-                    import httpx
-                    with httpx.Client(timeout=5.0) as client:
-                        res = client.get(raw_logo)
-                        if res.status_code == 200:
-                            logo_io = io.BytesIO(res.content)
-                            logo_element = RLImage(logo_io, width=48, height=48)
-                elif "base64," in str(raw_logo):
-                    base64_data = str(raw_logo).split("base64,")[1]
-                    logo_bytes = base64.b64decode(base64_data)
-                    logo_io = io.BytesIO(logo_bytes)
+            img_bytes = _fetch_image_bytes(raw_logo)
+            if img_bytes:
+                try:
+                    logo_io = io.BytesIO(img_bytes)
                     logo_element = RLImage(logo_io, width=48, height=48)
-                elif os.path.exists(str(raw_logo)):
-                    logo_element = RLImage(str(raw_logo), width=48, height=48)
-            except Exception as e:
-                pass
+                except Exception:
+                    pass
 
         # Fallback to authentic school crest if school name is present (never force Devgya logo on school paper)
         if not logo_element:
@@ -1316,24 +1341,13 @@ class PDFGeneratorService:
         # Process School Logo
         logo_element = None
         if school_logo:
-            try:
-                import base64
-                if str(school_logo).startswith(("http://", "https://")):
-                    import httpx
-                    with httpx.Client(timeout=5.0) as client:
-                        res = client.get(school_logo)
-                        if res.status_code == 200:
-                            logo_io = io.BytesIO(res.content)
-                            logo_element = RLImage(logo_io, width=44, height=44)
-                elif "base64," in str(school_logo):
-                    base64_data = str(school_logo).split("base64,")[1]
-                    logo_bytes = base64.b64decode(base64_data)
-                    logo_io = io.BytesIO(logo_bytes)
+            img_bytes = _fetch_image_bytes(school_logo)
+            if img_bytes:
+                try:
+                    logo_io = io.BytesIO(img_bytes)
                     logo_element = RLImage(logo_io, width=44, height=44)
-                elif os.path.exists(str(school_logo)):
-                    logo_element = RLImage(str(school_logo), width=44, height=44)
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
         if not logo_element:
             default_logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "logo.png"))
@@ -1971,40 +1985,15 @@ def _generate_assignment_worksheet_pdf(self, assignment: Dict[str, Any], config:
 def _decode_school_logo(logo_data: Optional[str], max_w: float = 60, max_h: float = 40):
     if not logo_data:
         return None
-    s = str(logo_data).strip()
-    if not s:
+    raw = _fetch_image_bytes(logo_data)
+    if not raw:
         return None
     try:
-        if s.startswith("data:image"):
-            header, b64_data = s.split(",", 1)
-            raw = base64.b64decode(b64_data)
-            img_io = io.BytesIO(raw)
-            with PILImage.open(img_io) as pil_img:
-                w, h = pil_img.size
-            scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
-            return RLImage(io.BytesIO(raw), width=max(10, w * scale), height=max(10, h * scale))
-        elif s.startswith("http://") or s.startswith("https://"):
-            with httpx.Client(timeout=4.0) as client:
-                resp = client.get(s)
-                if resp.status_code == 200:
-                    raw = resp.content
-                    img_io = io.BytesIO(raw)
-                    with PILImage.open(img_io) as pil_img:
-                        w, h = pil_img.size
-                    scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
-                    return RLImage(io.BytesIO(raw), width=max(10, w * scale), height=max(10, h * scale))
-        elif os.path.exists(s):
-            with PILImage.open(s) as pil_img:
-                w, h = pil_img.size
-            scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
-            return RLImage(s, width=max(10, w * scale), height=max(10, h * scale))
-        elif len(s) > 100:
-            raw = base64.b64decode(s)
-            img_io = io.BytesIO(raw)
-            with PILImage.open(img_io) as pil_img:
-                w, h = pil_img.size
-            scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
-            return RLImage(io.BytesIO(raw), width=max(10, w * scale), height=max(10, h * scale))
+        img_io = io.BytesIO(raw)
+        with PILImage.open(img_io) as pil_img:
+            w, h = pil_img.size
+        scale = min(max_w / max(1, w), max_h / max(1, h), 1.0)
+        return RLImage(io.BytesIO(raw), width=max(10, w * scale), height=max(10, h * scale))
     except Exception as e:
         logger.warning(f"Logo decode notice: {e}")
     return None
@@ -2585,55 +2574,47 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
 
     story = []
 
-    school_name = str(p.get("school_name") or "DEVGYA GLOBAL ACADEMY")
+    raw_logo = p.get("school_logo")
+    user_email = p.get("user_email")
+    curr_school_name = str(p.get("school_name") or "").strip()
+    is_generic_name = not curr_school_name or curr_school_name in ("Apex International School", "DEVGYA GLOBAL ACADEMY", "School")
+
+    # If school name or logo missing/generic, auto-resolve from recruitment_service
+    if (is_generic_name or not raw_logo) and user_email:
+        try:
+            from services.recruitment_service import recruitment_service
+            sch = recruitment_service.get_school_by_email(str(user_email).strip().lower())
+            if sch:
+                if is_generic_name and sch.get("school_name"):
+                    curr_school_name = sch["school_name"]
+                    is_generic_name = False
+                if not raw_logo and sch.get("logo_url"):
+                    raw_logo = sch.get("logo_url")
+        except Exception:
+            pass
+
+    if not raw_logo and curr_school_name and not is_generic_name:
+        try:
+            from services.recruitment_service import recruitment_service
+            for s_data in recruitment_service.schools.values():
+                if s_data.get("school_name", "").strip().lower() == curr_school_name.lower() and s_data.get("logo_url"):
+                    raw_logo = s_data.get("logo_url")
+                    break
+        except Exception:
+            pass
+
+    school_name = curr_school_name or "DEVGYA GLOBAL ACADEMY"
     title = str(p.get("title") or "Class 11-12 Stream Selection & Aptitude Diagnostic Assessment")
     class_name = str(p.get("class_name") or "Class 11")
     total_marks = p.get("total_marks") or 45
     time_mins = p.get("time_allowed_mins") or 90
     difficulty = str(p.get("difficulty") or "balanced").capitalize()
-    raw_logo = p.get("school_logo")
-
-    # School Logo resolution (Never fall back to DEVGYA company logo for school papers)
-    if not raw_logo:
-        # Check if we can look up logo from recruitment_schools by email or name
-        user_email = p.get("user_email")
-        if user_email:
-            try:
-                from services.recruitment_service import recruitment_service
-                sch = recruitment_service.get_school_by_email(str(user_email).strip().lower())
-                if sch and sch.get("logo_url"):
-                    raw_logo = sch.get("logo_url")
-            except Exception:
-                pass
-        if not raw_logo and school_name:
-            try:
-                from services.recruitment_service import recruitment_service
-                for s_data in recruitment_service.schools.values():
-                    if s_data.get("school_name", "").strip().lower() == school_name.strip().lower() and s_data.get("logo_url"):
-                        raw_logo = s_data.get("logo_url")
-                        break
-            except Exception:
-                pass
 
     logo_elem = None
     if raw_logo:
-        try:
-            img_bytes = None
-            if str(raw_logo).startswith(("http://", "https://")):
-                with httpx.Client(timeout=6.0, follow_redirects=True) as client:
-                    r = client.get(str(raw_logo))
-                    if r.status_code == 200:
-                        img_bytes = r.content
-            elif "base64," in str(raw_logo):
-                b64 = str(raw_logo).split("base64,")[1]
-                img_bytes = base64.b64decode(b64)
-            elif os.path.exists(str(raw_logo)):
-                with open(str(raw_logo), "rb") as f:
-                    img_bytes = f.read()
-            elif len(str(raw_logo).strip()) > 100:
-                img_bytes = base64.b64decode(str(raw_logo).strip())
-
-            if img_bytes:
+        img_bytes = _fetch_image_bytes(raw_logo)
+        if img_bytes:
+            try:
                 from PIL import Image as PILImage
                 im = PILImage.open(io.BytesIO(img_bytes))
                 if im.mode not in ("RGB", "RGBA"):
@@ -2642,9 +2623,9 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
                 im.save(out_bio, format="PNG")
                 out_bio.seek(0)
                 logo_elem = RLImage(out_bio, width=48, height=48)
-        except Exception as e:
-            logger.warning(f"Error loading school logo: {e}")
-            logo_elem = None
+            except Exception as e:
+                logger.warning(f"Error loading school logo: {e}")
+                logo_elem = None
 
     # If no custom school logo provided, generate an authentic School Crest with school's own name/initials
     if not logo_elem:

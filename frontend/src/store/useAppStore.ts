@@ -182,11 +182,63 @@ const getInitialDismissedNotificationIds = (email?: string): string[] => {
   return [];
 };
 
+const getInitialSchoolProfile = (email?: string): any | null => {
+  if (typeof window !== "undefined") {
+    try {
+      const key = email ? `devgya_school_profile_${email.trim().toLowerCase()}` : "devgya_school_profile";
+      const stored = localStorage.getItem(key) || localStorage.getItem("devgya_school_profile");
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+  }
+  return null;
+};
+
+const getInitialSchoolVacancies = (email?: string): any[] => {
+  if (typeof window !== "undefined") {
+    try {
+      const key = email ? `devgya_school_vacancies_${email.trim().toLowerCase()}` : "devgya_school_vacancies";
+      const stored = localStorage.getItem(key) || localStorage.getItem("devgya_school_vacancies");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+  }
+  return [];
+};
+
+const getInitialSchoolApplications = (email?: string): any[] => {
+  if (typeof window !== "undefined") {
+    try {
+      const key = email ? `devgya_school_apps_${email.trim().toLowerCase()}` : "devgya_school_apps";
+      const stored = localStorage.getItem(key) || localStorage.getItem("devgya_school_apps");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+  }
+  return [];
+};
+
 export const useAppStore = create<AppState>((set, get) => {
   const initialUser = getInitialUser();
   const initialPapers = getInitialSavedPapers(initialUser.email);
   const initialAssignments = getInitialSavedAssignments(initialUser.email);
   const initialDismissed = getInitialDismissedNotificationIds(initialUser.email);
+  const initialSchool = getInitialSchoolProfile(initialUser.email);
+  const initialVacancies = getInitialSchoolVacancies(initialUser.email);
+  const initialApplications = getInitialSchoolApplications(initialUser.email);
+
+  // If school profile cached, ensure user object reflects school name & logo
+  if (initialSchool && initialUser.role === "school") {
+    if (initialSchool.school_name && !initialUser.schoolName) {
+      initialUser.schoolName = initialSchool.school_name;
+    }
+    if (initialSchool.logo_url && !initialUser.schoolLogo) {
+      initialUser.schoolLogo = initialSchool.logo_url;
+    }
+  }
 
   return {
     user: initialUser,
@@ -201,17 +253,83 @@ export const useAppStore = create<AppState>((set, get) => {
     setMobileDrawerOpen: (open: boolean) => set({ isMobileDrawerOpen: open }),
 
     // School Portal Cached State & Actions
-    schoolProfile: null,
-    schoolVacancies: [],
-    schoolApplications: [],
-    setSchoolProfile: (profile: any) => set({ schoolProfile: profile }),
-    setSchoolVacancies: (vacancies: any[]) => set({ schoolVacancies: vacancies }),
-    setSchoolApplications: (applications: any[]) => set({ schoolApplications: applications }),
-    setSchoolOverview: (school: any, vacancies: any[], applications: any[]) => set({
-      schoolProfile: school,
-      schoolVacancies: vacancies,
-      schoolApplications: applications
-    }),
+    schoolProfile: initialSchool,
+    schoolVacancies: initialVacancies,
+    schoolApplications: initialApplications,
+    setSchoolProfile: (profile: any) => {
+      set({ schoolProfile: profile });
+      if (typeof window !== "undefined" && profile) {
+        try {
+          const email = get().user?.email;
+          if (email) localStorage.setItem(`devgya_school_profile_${email.trim().toLowerCase()}`, JSON.stringify(profile));
+          localStorage.setItem("devgya_school_profile", JSON.stringify(profile));
+        } catch (e) {}
+      }
+      if (profile?.school_name || profile?.logo_url) {
+        const curUser = get().user;
+        const updated = {
+          ...curUser,
+          schoolName: profile.school_name || curUser.schoolName,
+          schoolLogo: profile.logo_url || curUser.schoolLogo
+        };
+        set({ user: updated });
+        try { localStorage.setItem("devgya_user", JSON.stringify(updated)); } catch (e) {}
+      }
+    },
+    setSchoolVacancies: (vacancies: any[]) => {
+      set({ schoolVacancies: vacancies });
+      if (typeof window !== "undefined" && Array.isArray(vacancies)) {
+        try {
+          const email = get().user?.email;
+          if (email) localStorage.setItem(`devgya_school_vacancies_${email.trim().toLowerCase()}`, JSON.stringify(vacancies));
+          localStorage.setItem("devgya_school_vacancies", JSON.stringify(vacancies));
+        } catch (e) {}
+      }
+    },
+    setSchoolApplications: (applications: any[]) => {
+      set({ schoolApplications: applications });
+      if (typeof window !== "undefined" && Array.isArray(applications)) {
+        try {
+          const email = get().user?.email;
+          if (email) localStorage.setItem(`devgya_school_apps_${email.trim().toLowerCase()}`, JSON.stringify(applications));
+          localStorage.setItem("devgya_school_apps", JSON.stringify(applications));
+        } catch (e) {}
+      }
+    },
+    setSchoolOverview: (school: any, vacancies: any[], applications: any[]) => {
+      set({
+        schoolProfile: school,
+        schoolVacancies: vacancies || [],
+        schoolApplications: applications || []
+      });
+      if (typeof window !== "undefined") {
+        try {
+          const email = get().user?.email;
+          if (school) {
+            if (email) localStorage.setItem(`devgya_school_profile_${email.trim().toLowerCase()}`, JSON.stringify(school));
+            localStorage.setItem("devgya_school_profile", JSON.stringify(school));
+          }
+          if (Array.isArray(vacancies)) {
+            if (email) localStorage.setItem(`devgya_school_vacancies_${email.trim().toLowerCase()}`, JSON.stringify(vacancies));
+            localStorage.setItem("devgya_school_vacancies", JSON.stringify(vacancies));
+          }
+          if (Array.isArray(applications)) {
+            if (email) localStorage.setItem(`devgya_school_apps_${email.trim().toLowerCase()}`, JSON.stringify(applications));
+            localStorage.setItem("devgya_school_apps", JSON.stringify(applications));
+          }
+        } catch (e) {}
+      }
+      if (school?.school_name || school?.logo_url) {
+        const curUser = get().user;
+        const updated = {
+          ...curUser,
+          schoolName: school.school_name || curUser.schoolName,
+          schoolLogo: school.logo_url || curUser.schoolLogo
+        };
+        set({ user: updated });
+        try { localStorage.setItem("devgya_user", JSON.stringify(updated)); } catch (e) {}
+      }
+    },
 
     dismissNotification: (id: string) => set((state) => {
       if (state.dismissedNotificationIds.includes(id)) return state;
@@ -314,11 +432,24 @@ export const useAppStore = create<AppState>((set, get) => {
       const userPapers = getInitialSavedPapers(user.email);
       const userAssignments = getInitialSavedAssignments(user.email);
       const userDismissed = getInitialDismissedNotificationIds(user.email);
+      const userSchool = getInitialSchoolProfile(user.email);
+      const userVacancies = getInitialSchoolVacancies(user.email);
+      const userApplications = getInitialSchoolApplications(user.email);
+
+      // Merge school name and logo into user object if school role
+      if (user.role === "school" && userSchool) {
+        if (userSchool.school_name && !user.schoolName) user.schoolName = userSchool.school_name;
+        if (userSchool.logo_url && !user.schoolLogo) user.schoolLogo = userSchool.logo_url;
+      }
+
       set({ 
         user, 
         savedPapers: userPapers.length > 0 ? userPapers : get().savedPapers,
         savedAssignments: userAssignments.length > 0 ? userAssignments : get().savedAssignments,
-        dismissedNotificationIds: userDismissed
+        dismissedNotificationIds: userDismissed,
+        schoolProfile: userSchool || get().schoolProfile,
+        schoolVacancies: userVacancies.length > 0 ? userVacancies : get().schoolVacancies,
+        schoolApplications: userApplications.length > 0 ? userApplications : get().schoolApplications
       });
 
       // Fetch latest profile, papers and assignments from server for multi-device sync
@@ -344,11 +475,23 @@ export const useAppStore = create<AppState>((set, get) => {
       const userPapers = getInitialSavedPapers(user.email);
       const userAssignments = getInitialSavedAssignments(user.email);
       const userDismissed = getInitialDismissedNotificationIds(user.email);
+      const userSchool = getInitialSchoolProfile(user.email);
+      const userVacancies = getInitialSchoolVacancies(user.email);
+      const userApplications = getInitialSchoolApplications(user.email);
+
+      if (user.role === "school" && userSchool) {
+        if (userSchool.school_name && !user.schoolName) user.schoolName = userSchool.school_name;
+        if (userSchool.logo_url && !user.schoolLogo) user.schoolLogo = userSchool.logo_url;
+      }
+
       set({ 
         user, 
         savedPapers: userPapers, 
         savedAssignments: userAssignments,
-        dismissedNotificationIds: userDismissed 
+        dismissedNotificationIds: userDismissed,
+        schoolProfile: userSchool,
+        schoolVacancies: userVacancies,
+        schoolApplications: userApplications
       });
       if (user.email) {
         get().syncProfileFromServer(user.email);

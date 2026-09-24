@@ -135,7 +135,7 @@ export default function SchoolStreamAssessmentPage() {
 
   // Form State — Class selector configured across NEP 2020 Stages (Class 1 to 12)
   const [schoolName, setSchoolName] = useState(
-    schoolProfile?.school_name || user?.schoolName || "Apex International School"
+    schoolProfile?.school_name || user?.schoolName || ""
   );
   const [schoolLogo, setSchoolLogo] = useState(
     schoolProfile?.logo_url || user?.schoolLogo || ""
@@ -166,7 +166,7 @@ export default function SchoolStreamAssessmentPage() {
       setSchoolLogo(activeLogo);
     }
     const activeName = schoolProfile?.school_name || user?.schoolName;
-    if (activeName && (schoolName === "Apex International School" || !schoolName)) {
+    if (activeName && (!schoolName || schoolName === "Apex International School")) {
       setSchoolName(activeName);
     }
 
@@ -188,14 +188,14 @@ export default function SchoolStreamAssessmentPage() {
                 });
               }
             }
-            if (data.school.school_name) {
+            if (data.school.school_name && (!schoolName || schoolName === "Apex International School")) {
               setSchoolName(data.school.school_name);
             }
           }
         })
         .catch((e) => console.warn("Could not pre-fetch school profile:", e));
     }
-  }, [user?.email, user?.schoolLogo, schoolProfile?.logo_url]);
+  }, [user?.email, user?.schoolLogo, schoolProfile?.logo_url, schoolProfile?.school_name]);
 
   // Generation & View State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -216,10 +216,11 @@ export default function SchoolStreamAssessmentPage() {
 
   // Sync school name from profile
   useEffect(() => {
-    if (user?.schoolName && (!schoolName || schoolName === "Apex International School")) {
-      setSchoolName(user.schoolName);
+    const profileName = schoolProfile?.school_name || user?.schoolName;
+    if (profileName && (!schoolName || schoolName === "Apex International School")) {
+      setSchoolName(profileName);
     }
-  }, [user?.schoolName]);
+  }, [user?.schoolName, schoolProfile?.school_name]);
 
   // Load history from Supabase Cloud on mount & email change
   const loadCloudHistory = async () => {
@@ -252,13 +253,16 @@ export default function SchoolStreamAssessmentPage() {
     setErrorMsg(null);
 
     try {
+      const effectiveSchoolName = schoolName || schoolProfile?.school_name || user?.schoolName || "";
+      const effectiveSchoolLogo = schoolLogo || schoolProfile?.logo_url || user?.schoolLogo || "";
+
       const payload: StreamAssessmentPayload = {
         title,
         class_name: className,
         nep_stage: activeStage.stage,
         subject: subject || `${activeStage.name} Assessment (${activeStage.domains.join(" • ")})`,
-        school_name: schoolName,
-        school_logo: schoolLogo || user.schoolLogo || "",
+        school_name: effectiveSchoolName,
+        school_logo: effectiveSchoolLogo,
         time_allowed_mins: Number(timeAllowedMins),
         difficulty,
         num_mcqs_per_stream: Number(numMcqsPerStream),
@@ -269,8 +273,11 @@ export default function SchoolStreamAssessmentPage() {
       };
 
       const result = await generateStreamAssessment(payload);
-      if (result && !result.school_logo && (schoolLogo || user.schoolLogo)) {
-        result.school_logo = schoolLogo || user.schoolLogo;
+      if (result && !result.school_logo && (effectiveSchoolLogo)) {
+        result.school_logo = effectiveSchoolLogo;
+      }
+      if (result && (!result.school_name || result.school_name === "Apex International School") && effectiveSchoolName) {
+        result.school_name = effectiveSchoolName;
       }
       setAssessmentPaper(result);
       setViewMode("generator");
@@ -291,8 +298,15 @@ export default function SchoolStreamAssessmentPage() {
     else setDownloadingStudentPdf(true);
 
     try {
-      const logoToUse = paperObj.school_logo || schoolLogo || schoolProfile?.logo_url || user?.schoolLogo || "";
-      const nameToUse = paperObj.school_name || schoolName || schoolProfile?.school_name || user?.schoolName || "";
+      const isDefaultOrGeneric = (name: string) => !name || name === "Apex International School" || name === "DEVGYA GLOBAL ACADEMY" || name === "School";
+      const resolvedProfileName = schoolProfile?.school_name || user?.schoolName || schoolName || "";
+      const nameToUse = (paperObj.school_name && !isDefaultOrGeneric(paperObj.school_name))
+        ? paperObj.school_name
+        : (resolvedProfileName || paperObj.school_name || "");
+
+      const resolvedProfileLogo = schoolProfile?.logo_url || user?.schoolLogo || schoolLogo || "";
+      const logoToUse = paperObj.school_logo || resolvedProfileLogo || "";
+
       const paperWithLogo = {
         ...paperObj,
         school_logo: logoToUse,
@@ -586,7 +600,7 @@ export default function SchoolStreamAssessmentPage() {
                           type="text"
                           value={schoolName}
                           onChange={(e) => setSchoolName(e.target.value)}
-                          placeholder="e.g. Delhi Public School / Apex International School"
+                          placeholder="e.g. Delhi Public School, R.K. Puram"
                           className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                         />
                       </div>

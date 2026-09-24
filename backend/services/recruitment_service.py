@@ -55,16 +55,18 @@ class RecruitmentService:
         self.vacancies: Dict[str, Dict[str, Any]] = _load_json(VACANCIES_FILE)
         self.applications: Dict[str, Dict[str, Any]] = _load_json(APPLICATIONS_FILE)
         self._last_cloud_sync: float = 0
-        # Pull live data from Supabase Cloud on initialization
-        self._sync_from_supabase_cloud(force=True)
+        # If no local data exists, sync once; otherwise serve instantly from cache
+        if not self.schools and not self.vacancies:
+            import threading
+            threading.Thread(target=self._sync_from_supabase_cloud, kwargs={"force": True}, daemon=True).start()
 
     def _sync_from_supabase_cloud(self, force: bool = False):
-        """Pulls all schools, vacancies, and applications live from Supabase Cloud with a 60s cache TTL to ensure instant speed."""
+        """Pulls all schools, vacancies, and applications live from Supabase Cloud with a 120s cache TTL to ensure instant speed."""
         if not SERVICE_KEY or not SUPABASE_URL:
             return
 
         now = time.time()
-        if not force and (now - getattr(self, "_last_cloud_sync", 0) < 60.0):
+        if not force and (now - getattr(self, "_last_cloud_sync", 0) < 120.0):
             return
 
         self._last_cloud_sync = now
@@ -409,7 +411,7 @@ class RecruitmentService:
             item["applicant_count"] = app_count
             
             # Enrich with school details
-            sch = self.schools.get(vac.get("school_id")) or self.get_school_by_id(vac.get("school_id", ""))
+            sch = self.schools.get(vac.get("school_id"))
             if sch:
                 item["school_name"] = item.get("school_name") or sch.get("school_name", "")
                 item["school_city"] = sch.get("city", "")
@@ -605,7 +607,7 @@ class RecruitmentService:
         for a in self.applications.values():
             if a.get("teacher_email", "").lower() == email_clean:
                 item = a.copy()
-                sch = self.schools.get(item.get("school_id")) or self.get_school_by_id(item.get("school_id", ""))
+                sch = self.schools.get(item.get("school_id"))
                 if sch:
                     item["school_name"] = item.get("school_name") or sch.get("school_name", "")
                     item["school_email"] = sch.get("email", "")
