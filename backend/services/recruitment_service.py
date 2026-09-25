@@ -42,6 +42,33 @@ def _load_json(file_path: Path) -> Dict[str, Any]:
             return {}
     return {}
 
+import io
+import base64
+from PIL import Image
+
+def _compress_logo_url(logo_url: Optional[str], max_size: int = 256) -> str:
+    """Compresses large base64 logo images to a lightweight thumbnail under 25KB."""
+    if not logo_url or not isinstance(logo_url, str):
+        return ""
+    if not logo_url.startswith("data:image"):
+        return logo_url  # Standard HTTP/HTTPS image URL
+    try:
+        header, b64_str = logo_url.split(",", 1)
+        raw_bytes = base64.b64decode(b64_str)
+        if len(raw_bytes) < 35 * 1024:
+            return logo_url
+        img = Image.open(io.BytesIO(raw_bytes))
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=80, optimize=True)
+        compressed_b64 = base64.b64encode(out.getvalue()).decode("utf-8")
+        return f"data:image/jpeg;base64,{compressed_b64}"
+    except Exception as e:
+        logger.warning(f"Failed to compress school logo: {e}")
+        return logo_url
+
 def _save_json(file_path: Path, data: Dict[str, Any]):
     try:
         with open(file_path, "w", encoding="utf-8") as f:
@@ -260,7 +287,7 @@ class RecruitmentService:
             "state": state or school_record.get("state", ""),
             "contact_person": contact_person or school_record.get("contact_person", ""),
             "address": address or school_record.get("address", ""),
-            "logo_url": logo_url or school_record.get("logo_url", ""),
+            "logo_url": _compress_logo_url(logo_url or school_record.get("logo_url", "")),
             "verification_status": current_status,  # "pending_verification" | "verified" | "rejected"
             "verification_notes": school_record.get("verification_notes", ""),
             "verified_at": school_record.get("verified_at"),

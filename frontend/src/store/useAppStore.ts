@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { GeneratedPaperResponse, AssignmentData } from "@/lib/api";
+import { GeneratedPaperResponse, AssignmentData, getApiBase } from "@/lib/api";
 
 export interface UserProfile {
   id: string;
@@ -98,6 +98,56 @@ interface AppState {
   logout: () => void;
 }
 
+/**
+ * Recursively strips oversized base64 data URLs (> 25KB) from objects
+ * before JSON stringification to prevent localStorage QuotaExceededError.
+ */
+function sanitizeForStorage(obj: any): any {
+  if (!obj || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForStorage(item));
+  }
+  const copy: any = { ...obj };
+  for (const k of Object.keys(copy)) {
+    const val = copy[k];
+    if (typeof val === "string" && val.startsWith("data:image") && val.length > 25000) {
+      delete copy[k];
+    } else if (val && typeof val === "object") {
+      copy[k] = sanitizeForStorage(val);
+    }
+  }
+  return copy;
+}
+
+/**
+ * Safely writes to localStorage and sessionStorage with automatic pruning and fallback.
+ */
+export function safeSetLocalStorage(key: string, value: any): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const stringified = JSON.stringify(value);
+    localStorage.setItem(key, stringified);
+    try { sessionStorage.setItem(key, stringified); } catch (e) {}
+    return true;
+  } catch (err) {
+    console.warn(`localStorage.setItem failed for "${key}", applying storage sanitizer:`, err);
+    try {
+      const sanitized = sanitizeForStorage(value);
+      const sanitizedStr = JSON.stringify(sanitized);
+      localStorage.setItem(key, sanitizedStr);
+      try { sessionStorage.setItem(key, sanitizedStr); } catch (e) {}
+      return true;
+    } catch (retryErr) {
+      console.error(`localStorage.setItem sanitized retry failed for "${key}":`, retryErr);
+      try {
+        sessionStorage.setItem(key, JSON.stringify(sanitizeForStorage(value)));
+        return true;
+      } catch (sessionErr) {}
+    }
+  }
+  return false;
+}
+
 const defaultUser: UserProfile = {
   id: "usr-guest",
   name: "Guest User",
@@ -117,10 +167,15 @@ const defaultUser: UserProfile = {
 const getInitialUser = (): UserProfile => {
   if (typeof window !== "undefined") {
     try {
-      const stored = localStorage.getItem("devgya_user");
+      const stored = localStorage.getItem("devgya_user") || sessionStorage.getItem("devgya_user");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed && parsed.email) return parsed;
+        if (parsed && parsed.email) {
+          if (parsed.role === "management") {
+            parsed.role = "school";
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       console.error("Error reading stored user session", e);
@@ -259,11 +314,9 @@ export const useAppStore = create<AppState>((set, get) => {
     setSchoolProfile: (profile: any) => {
       set({ schoolProfile: profile });
       if (typeof window !== "undefined" && profile) {
-        try {
-          const email = get().user?.email;
-          if (email) localStorage.setItem(`devgya_school_profile_${email.trim().toLowerCase()}`, JSON.stringify(profile));
-          localStorage.setItem("devgya_school_profile", JSON.stringify(profile));
-        } catch (e) {}
+        const email = get().user?.email;
+        if (email) safeSetLocalStorage(`devgya_school_profile_${email.trim().toLowerCase()}`, profile);
+        safeSetLocalStorage("devgya_school_profile", profile);
       }
       if (profile?.school_name || profile?.logo_url) {
         const curUser = get().user;
@@ -273,27 +326,23 @@ export const useAppStore = create<AppState>((set, get) => {
           schoolLogo: profile.logo_url || curUser.schoolLogo
         };
         set({ user: updated });
-        try { localStorage.setItem("devgya_user", JSON.stringify(updated)); } catch (e) {}
+        safeSetLocalStorage("devgya_user", updated);
       }
     },
     setSchoolVacancies: (vacancies: any[]) => {
       set({ schoolVacancies: vacancies });
       if (typeof window !== "undefined" && Array.isArray(vacancies)) {
-        try {
-          const email = get().user?.email;
-          if (email) localStorage.setItem(`devgya_school_vacancies_${email.trim().toLowerCase()}`, JSON.stringify(vacancies));
-          localStorage.setItem("devgya_school_vacancies", JSON.stringify(vacancies));
-        } catch (e) {}
+        const email = get().user?.email;
+        if (email) safeSetLocalStorage(`devgya_school_vacancies_${email.trim().toLowerCase()}`, vacancies);
+        safeSetLocalStorage("devgya_school_vacancies", vacancies);
       }
     },
     setSchoolApplications: (applications: any[]) => {
       set({ schoolApplications: applications });
       if (typeof window !== "undefined" && Array.isArray(applications)) {
-        try {
-          const email = get().user?.email;
-          if (email) localStorage.setItem(`devgya_school_apps_${email.trim().toLowerCase()}`, JSON.stringify(applications));
-          localStorage.setItem("devgya_school_apps", JSON.stringify(applications));
-        } catch (e) {}
+        const email = get().user?.email;
+        if (email) safeSetLocalStorage(`devgya_school_apps_${email.trim().toLowerCase()}`, applications);
+        safeSetLocalStorage("devgya_school_apps", applications);
       }
     },
     setSchoolOverview: (school: any, vacancies: any[], applications: any[]) => {
@@ -303,21 +352,19 @@ export const useAppStore = create<AppState>((set, get) => {
         schoolApplications: applications || []
       });
       if (typeof window !== "undefined") {
-        try {
-          const email = get().user?.email;
-          if (school) {
-            if (email) localStorage.setItem(`devgya_school_profile_${email.trim().toLowerCase()}`, JSON.stringify(school));
-            localStorage.setItem("devgya_school_profile", JSON.stringify(school));
-          }
-          if (Array.isArray(vacancies)) {
-            if (email) localStorage.setItem(`devgya_school_vacancies_${email.trim().toLowerCase()}`, JSON.stringify(vacancies));
-            localStorage.setItem("devgya_school_vacancies", JSON.stringify(vacancies));
-          }
-          if (Array.isArray(applications)) {
-            if (email) localStorage.setItem(`devgya_school_apps_${email.trim().toLowerCase()}`, JSON.stringify(applications));
-            localStorage.setItem("devgya_school_apps", JSON.stringify(applications));
-          }
-        } catch (e) {}
+        const email = get().user?.email;
+        if (school) {
+          if (email) safeSetLocalStorage(`devgya_school_profile_${email.trim().toLowerCase()}`, school);
+          safeSetLocalStorage("devgya_school_profile", school);
+        }
+        if (Array.isArray(vacancies)) {
+          if (email) safeSetLocalStorage(`devgya_school_vacancies_${email.trim().toLowerCase()}`, vacancies);
+          safeSetLocalStorage("devgya_school_vacancies", vacancies);
+        }
+        if (Array.isArray(applications)) {
+          if (email) safeSetLocalStorage(`devgya_school_apps_${email.trim().toLowerCase()}`, applications);
+          safeSetLocalStorage("devgya_school_apps", applications);
+        }
       }
       if (school?.school_name || school?.logo_url) {
         const curUser = get().user;
@@ -327,7 +374,7 @@ export const useAppStore = create<AppState>((set, get) => {
           schoolLogo: school.logo_url || curUser.schoolLogo
         };
         set({ user: updated });
-        try { localStorage.setItem("devgya_user", JSON.stringify(updated)); } catch (e) {}
+        safeSetLocalStorage("devgya_user", updated);
       }
     },
 
@@ -403,19 +450,23 @@ export const useAppStore = create<AppState>((set, get) => {
         return;
       }
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+        const baseUrl = getApiBase();
         const res = await fetch(`${baseUrl}/auth/profile?email=${encodeURIComponent(emailToSync.trim().toLowerCase())}`);
         if (res.ok) {
           const data = await res.json();
           if (data.status === "success" && data.user) {
             const current = get().user;
+            const normalizedRole = (data.user.role === "management" ? "school" : (data.user.role || current.role)) as any;
             const mergedAvatar = data.user.avatarUrl !== undefined ? data.user.avatarUrl : current.avatarUrl;
             const mergedLogo = data.user.schoolLogo !== undefined ? data.user.schoolLogo : current.schoolLogo;
-            const updatedUser: UserProfile = { ...current, ...data.user, avatarUrl: mergedAvatar, schoolLogo: mergedLogo };
+            const updatedUser: UserProfile = { ...current, ...data.user, role: normalizedRole, avatarUrl: mergedAvatar, schoolLogo: mergedLogo };
             set({ user: updatedUser });
-            try {
-              localStorage.setItem("devgya_user", JSON.stringify(updatedUser));
-            } catch (e) {}
+            safeSetLocalStorage("devgya_user", updatedUser);
+            if (data.user.schoolProfile) {
+              set({ schoolProfile: data.user.schoolProfile });
+              safeSetLocalStorage("devgya_school_profile", data.user.schoolProfile);
+              safeSetLocalStorage(`devgya_school_profile_${emailToSync.trim().toLowerCase()}`, data.user.schoolProfile);
+            }
           }
         }
       } catch (err) {
@@ -423,27 +474,28 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
     setUser: (user) => {
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem("devgya_user", JSON.stringify(user));
-        } catch (e) {}
-      }
+      const effectiveUser: UserProfile = {
+        ...user,
+        role: (user.role === "management" ? "school" : user.role) as any
+      };
+      safeSetLocalStorage("devgya_user", effectiveUser);
+
       // Load user-specific papers, assignments and dismissed notifications
-      const userPapers = getInitialSavedPapers(user.email);
-      const userAssignments = getInitialSavedAssignments(user.email);
-      const userDismissed = getInitialDismissedNotificationIds(user.email);
-      const userSchool = getInitialSchoolProfile(user.email);
-      const userVacancies = getInitialSchoolVacancies(user.email);
-      const userApplications = getInitialSchoolApplications(user.email);
+      const userPapers = getInitialSavedPapers(effectiveUser.email);
+      const userAssignments = getInitialSavedAssignments(effectiveUser.email);
+      const userDismissed = getInitialDismissedNotificationIds(effectiveUser.email);
+      const userSchool = getInitialSchoolProfile(effectiveUser.email);
+      const userVacancies = getInitialSchoolVacancies(effectiveUser.email);
+      const userApplications = getInitialSchoolApplications(effectiveUser.email);
 
       // Merge school name and logo into user object if school role
-      if (user.role === "school" && userSchool) {
-        if (userSchool.school_name && !user.schoolName) user.schoolName = userSchool.school_name;
-        if (userSchool.logo_url && !user.schoolLogo) user.schoolLogo = userSchool.logo_url;
+      if ((effectiveUser.role === "school" || (effectiveUser.role as any) === "management") && userSchool) {
+        if (userSchool.school_name && !effectiveUser.schoolName) effectiveUser.schoolName = userSchool.school_name;
+        if (userSchool.logo_url && !effectiveUser.schoolLogo) effectiveUser.schoolLogo = userSchool.logo_url;
       }
 
       set({ 
-        user, 
+        user: effectiveUser, 
         savedPapers: userPapers.length > 0 ? userPapers : get().savedPapers,
         savedAssignments: userAssignments.length > 0 ? userAssignments : get().savedAssignments,
         dismissedNotificationIds: userDismissed,
@@ -453,20 +505,20 @@ export const useAppStore = create<AppState>((set, get) => {
       });
 
       // Fetch latest profile, papers and assignments from server for multi-device sync
-      if (user.email) {
-        get().syncProfileFromServer(user.email);
-        get().fetchSavedPapers(user.email);
-        get().fetchSavedAssignments(user.email);
+      if (effectiveUser.email) {
+        get().syncProfileFromServer(effectiveUser.email);
+        get().fetchSavedPapers(effectiveUser.email);
+        get().fetchSavedAssignments(effectiveUser.email);
       }
     },
     updateUserProfile: (updates) => {
       set((state) => {
-        const updatedUser = { ...state.user, ...updates };
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem("devgya_user", JSON.stringify(updatedUser));
-          } catch (e) {}
-        }
+        const updatedUser = { 
+          ...state.user, 
+          ...updates,
+          role: (updates.role === "management" ? "school" : (updates.role || state.user.role)) as any
+        };
+        safeSetLocalStorage("devgya_user", updatedUser);
         return { user: updatedUser };
       });
     },
@@ -479,7 +531,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const userVacancies = getInitialSchoolVacancies(user.email);
       const userApplications = getInitialSchoolApplications(user.email);
 
-      if (user.role === "school" && userSchool) {
+      if ((user.role === "school" || (user.role as any) === "management") && userSchool) {
         if (userSchool.school_name && !user.schoolName) user.schoolName = userSchool.school_name;
         if (userSchool.logo_url && !user.schoolLogo) user.schoolLogo = userSchool.logo_url;
       }
@@ -500,12 +552,9 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
     switchRole: (role) => set((state) => {
-      const updatedUser = { ...state.user, role };
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem("devgya_user", JSON.stringify(updatedUser));
-        } catch (e) {}
-      }
+      const targetRole = ((role as string) === "management" ? "school" : role) as any;
+      const updatedUser = { ...state.user, role: targetRole };
+      safeSetLocalStorage("devgya_user", updatedUser);
       return { user: updatedUser };
     }),
     setActivePaper: (paper) => set({ activePaper: paper }),

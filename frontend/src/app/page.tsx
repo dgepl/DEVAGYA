@@ -19,6 +19,7 @@ export default function LandingPage() {
     if (user && user.email) {
       if (user.role === "student") router.replace("/dashboard/student");
       else if (user.role === "parent") router.replace("/dashboard/parent");
+      else if (user.role === "school" || (user.role as any) === "management") router.replace("/dashboard/school");
       else router.replace("/dashboard");
     }
   }, [user, router]);

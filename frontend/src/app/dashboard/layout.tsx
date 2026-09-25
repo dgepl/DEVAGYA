@@ -174,10 +174,13 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     let activeUser = user;
     if ((!activeUser || !activeUser.email || activeUser.email.trim() === "" || activeUser.id === "usr-guest") && typeof window !== "undefined") {
       try {
-        const stored = localStorage.getItem("devgya_user");
+        const stored = localStorage.getItem("devgya_user") || sessionStorage.getItem("devgya_user");
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed && parsed.email) {
+            if (parsed.role === "management") {
+              parsed.role = "school";
+            }
             activeUser = parsed;
             setUser(parsed);
           }
@@ -193,7 +196,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
     // Note: If a feature is disabled by Admin, instead of redirecting away,
     // the dashboard renders the Coming Soon experience in-place.
-    const effectiveRole = (activeUser.role || "").toLowerCase();
+    const effectiveRole = (activeUser.role === "management" ? "school" : (activeUser.role || "")).toLowerCase();
 
     if (effectiveRole === "student") {
       const isStudentAllowed = 
