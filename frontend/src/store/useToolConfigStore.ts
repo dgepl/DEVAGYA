@@ -135,6 +135,19 @@ export const INITIAL_TOOLS: ToolItem[] = [
 
   // --- STUDENT TOOLS & SECTIONS ---
   {
+    id: "student_english_coach",
+    name: "English Speaking Coach",
+    role: "student",
+    category: "Spoken Fluency",
+    path: "/dashboard/english-coach",
+    badge: "LIVE SPOKEN AI",
+    description: "Live interactive spoken English practice, pronunciation coaching, debate, and fluent public speaking.",
+    greeting: "Practice your spoken English fluency with your personal AI Speaking Coach.",
+    is_enabled: true,
+    icon_name: "Headphones",
+    color: "from-cyan-500 to-blue-600"
+  },
+  {
     id: "student_tutor",
     name: "Socratic AI Tutor",
     role: "student",

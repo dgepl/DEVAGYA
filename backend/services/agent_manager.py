@@ -71,9 +71,9 @@ DEFAULT_AGENTS: List[Dict[str, Any]] = [
         "agent_code": "english_coach",
         "name": "English Speaking & Communication Coach",
         "avatar": "MessageSquare",
-        "role_scope": "internal",
-        "description": "Live spoken English coach for educators: classroom English, parent PTM meetings, pronunciation, grammar polish, and daily fluency.",
-        "capabilities": ["Spoken Fluency", "Classroom English", "PTM Dialogues", "Pronunciation Polish", "Live Phrasing Tips"],
+        "role_scope": "general",
+        "description": "Live spoken English coach for students and educators: pronunciation polish, daily fluency practice, speech confidence, and grammar tips.",
+        "capabilities": ["Spoken Fluency", "Classroom English", "Public Speaking", "Pronunciation Polish", "Live Phrasing Tips"],
         "system_prompt": (
             "You are DEVGYA's elite AI English Speaking Coach, delivering ultra-fast, natural spoken conversation like Gemini Live. "
             "Your mission is to help teachers and learners speak English with effortless confidence, natural rhythm, and warmth. "

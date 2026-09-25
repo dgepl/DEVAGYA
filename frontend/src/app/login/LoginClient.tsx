@@ -105,19 +105,24 @@ export default function LoginClient() {
 
           // Successful authentication
           setUser(data.user);
-          if ((role === "school" || data.user.role === "school") && data.user.schoolProfile) {
+          if ((role === "school" || data.user.role === "school" || data.user.role === "management") && data.user.schoolProfile) {
             setSchoolProfile(data.user.schoolProfile);
           }
           setStatusMessage(null);
 
-          if (role === "student") router.push("/dashboard/student");
-          else if (role === "parent") router.push("/dashboard/parent");
-          else if (role === "school") router.push("/dashboard/school");
-          else {
+          const targetRole = (data.user?.role || role || "").toLowerCase();
+
+          if (targetRole === "student") {
+            window.location.href = "/dashboard/student";
+          } else if (targetRole === "parent") {
+            window.location.href = "/dashboard/parent";
+          } else if (targetRole === "school" || targetRole === "management") {
+            window.location.href = "/dashboard/school";
+          } else {
             if (!data.user.schoolName || !data.user.subject || data.user.isProfileComplete === false) {
-              router.push("/dashboard/profile?onboarding=true");
+              window.location.href = "/dashboard/profile?onboarding=true";
             } else {
-              router.push("/dashboard");
+              window.location.href = "/dashboard";
             }
           }
           return;

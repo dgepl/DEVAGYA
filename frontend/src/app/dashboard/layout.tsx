@@ -61,7 +61,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, logout, initSession, syncProfileFromServer } = useAppStore();
+  const { user, logout, initSession, syncProfileFromServer, setUser } = useAppStore();
   const { isFeatureAllowed, fetchFromServer } = useToolConfigStore();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -170,16 +170,32 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
 
+    // Check localStorage fallback to prevent premature guest-redirect on page transition
+    let activeUser = user;
+    if ((!activeUser || !activeUser.email || activeUser.email.trim() === "" || activeUser.id === "usr-guest") && typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("devgya_user");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.email) {
+            activeUser = parsed;
+            setUser(parsed);
+          }
+        }
+      } catch (e) {}
+    }
+
     // Guest users or unauthenticated visitors cannot access the dashboard
-    if (!user || !user.email || user.email.trim() === "" || user.id === "usr-guest") {
+    if (!activeUser || !activeUser.email || activeUser.email.trim() === "" || activeUser.id === "usr-guest") {
       router.replace("/login");
       return;
     }
 
     // Note: If a feature is disabled by Admin, instead of redirecting away,
     // the dashboard renders the Coming Soon experience in-place.
+    const effectiveRole = (activeUser.role || "").toLowerCase();
 
-    if (user.role === "student") {
+    if (effectiveRole === "student") {
       const isStudentAllowed = 
         pathname.startsWith("/dashboard/student") ||
         pathname.startsWith("/dashboard/agents") ||
@@ -192,7 +208,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       if (!isStudentAllowed) {
         router.replace("/dashboard/student");
       }
-    } else if (user.role === "parent") {
+    } else if (effectiveRole === "parent") {
       const isParentAllowed = 
         pathname.startsWith("/dashboard/parent") ||
         pathname.startsWith("/dashboard/agents") ||
@@ -202,7 +218,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       if (!isParentAllowed) {
         router.replace("/dashboard/parent");
       }
-    } else if (user.role === "school") {
+    } else if (effectiveRole === "school" || effectiveRole === "management") {
       const isSchoolAllowed = 
         pathname.startsWith("/dashboard/school") ||
         pathname === "/dashboard/suggestions" ||
@@ -211,7 +227,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       if (!isSchoolAllowed) {
         router.replace("/dashboard/school");
       }
-    } else if (user.role === "teacher") {
+    } else if (effectiveRole === "teacher") {
       const isTeacherAllowed = 
         pathname === "/dashboard" ||
         pathname.startsWith("/dashboard/generator") ||
@@ -230,7 +246,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         router.replace("/dashboard");
       }
     }
-  }, [user, pathname, router, mounted, agentParam, isFeatureAllowed]);
+  }, [user, pathname, router, mounted, agentParam, isFeatureAllowed, setUser]);
 
   if (!mounted || !user || !user.email || user.id === "usr-guest") {
     return (
@@ -254,7 +270,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
   ];
 
-  if (user.role === "school") {
+  if (user.role === "school" || user.role === "management") {
     navItems = [
       { label: "School Overview", href: "/dashboard/school", icon: Building2 },
       { label: "Stream Assessment AI", href: "/dashboard/school/stream-assessment", icon: Compass },

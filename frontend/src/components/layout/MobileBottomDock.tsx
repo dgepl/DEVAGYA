@@ -19,7 +19,8 @@ import {
   Building2,
   Briefcase,
   Plus,
-  Users
+  Users,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -55,7 +56,7 @@ export function MobileBottomDock() {
     if (role === "student") {
       return [
         { label: "Home", href: "/dashboard/student", icon: Home },
-        { label: "AI Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy },
+        { label: "Speaking", href: "/dashboard/english-coach", icon: Headphones },
         { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Sparkles, central: true, agentCode: "student_tutor" },
         { label: "Quiz", href: "/dashboard/student/practice", icon: Target },
         { label: "Profile", href: "/dashboard/profile", icon: User },

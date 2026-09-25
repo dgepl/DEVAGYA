@@ -102,12 +102,15 @@ def _hydrate_from_supabase_cloud():
                         _password_store[email] = pwd_hash
                         passwords_updated = True
 
+                    cloud_role = row.get("role") or meta.get("role") or "teacher"
+                    if cloud_role in ("school", "management") or meta.get("role") == "school":
+                        cloud_role = "school"
                     profile_entry = {
                         "id": row.get("id"),
                         "email": email,
                         "name": row.get("full_name") or meta.get("name") or email.split("@")[0].capitalize(),
                         "full_name": row.get("full_name") or meta.get("name") or email.split("@")[0].capitalize(),
-                        "role": row.get("role") or meta.get("role") or "teacher",
+                        "role": cloud_role,
                         "school_name": meta.get("school_name", ""),
                         "school_logo": meta.get("school_logo", ""),
                         "subject": meta.get("subject", ""),
@@ -373,11 +376,14 @@ class SupabaseService:
         # If no supabase record, fallback from local store
         if not profile_data and email_clean in _password_store:
             stored_extra = _teacher_profiles_store.get(email_clean, {})
+            stored_role = stored_extra.get("role", "teacher")
+            if stored_role in ("school", "management"):
+                stored_role = "school"
             profile_data = {
                 "id": f"usr-{email_clean.split('@')[0]}",
                 "email": email_clean,
                 "full_name": email_clean.split('@')[0].capitalize(),
-                "role": stored_extra.get("role", "teacher"),
+                "role": stored_role,
                 "is_active": True
             }
 
@@ -393,8 +399,8 @@ class SupabaseService:
                             _password_store[email_clean] = unpacked["pwd_hash"]
                             _save_password_store(_password_store)
 
-                        # Restore role='school' if saved in metadata
-                        if unpacked.get("role") == "school":
+                        # Restore role='school' if saved in metadata or if management
+                        if unpacked.get("role") in ("school", "management") or profile_data.get("role") in ("school", "management"):
                             profile_data["role"] = "school"
 
                         for k, v in unpacked.items():

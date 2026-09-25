@@ -23,7 +23,8 @@ import {
   MessageSquare, 
   ChevronRight,
   ShieldCheck,
-  FileText
+  FileText,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -43,7 +44,7 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
     }
   };
 
-  const role = user?.role || "teacher";
+  const role = (user?.role === "management" ? "school" : user?.role) || "teacher";
 
   // Role-based bottom tabs
   const teacherBottomTabs = [
@@ -56,9 +57,9 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
 
   const studentBottomTabs = [
     { label: "Home", href: "/dashboard/student", icon: LayoutDashboard },
-    { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain },
+    { label: "Speaking", href: "/dashboard/english-coach", icon: Headphones },
     { label: "Speed Dial", href: "/dashboard/student/practice", isSpeedDial: true, icon: Zap },
-    { label: "Flashcards", href: "/dashboard/student/flashcards", icon: BookOpen },
+    { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain },
     { label: "Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy },
   ];
 
@@ -166,6 +167,10 @@ export function MobileDashboardLayout({ children }: { children: React.ReactNode 
                     </Link>
                     <Link href="/dashboard/agents?agent=student_tutor" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">
                       <span className="flex items-center gap-2.5"><Brain className="w-4 h-4 text-purple-600" /> AI Student Tutor</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </Link>
+                    <Link href="/dashboard/english-coach" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-cyan-50 text-xs font-bold text-slate-700 hover:text-cyan-700">
+                      <span className="flex items-center gap-2.5"><Headphones className="w-4 h-4 text-cyan-600" /> English Speaking Coach</span>
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     </Link>
                     <Link href="/dashboard/student/flashcards" onClick={() => setDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-indigo-50 text-xs font-bold text-slate-700 hover:text-indigo-600">

@@ -232,13 +232,13 @@ export default function RegisterClient() {
 
           // Redirect to appropriate dashboard
           if (role === "teacher") {
-            router.push("/onboarding");
+            window.location.href = "/onboarding";
           } else if (role === "parent") {
-            router.push("/dashboard/parent");
+            window.location.href = "/dashboard/parent";
           } else if (role === "school") {
-            router.replace("/dashboard/school");
+            window.location.href = "/dashboard/school";
           } else {
-            router.push("/dashboard");
+            window.location.href = "/dashboard";
           }
           return;
         } catch (fetchErr: any) {

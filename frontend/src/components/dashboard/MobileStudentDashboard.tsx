@@ -14,7 +14,8 @@ import {
   X, 
   ArrowRight,
   BookOpen,
-  FileText
+  FileText,
+  Headphones
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -25,6 +26,7 @@ export function MobileStudentDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const studentTools = [
+    { name: "English Coach", sub: "Live Spoken English Fluency", href: "/dashboard/english-coach", icon: Headphones, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", type: "English Coach" },
     { name: "Socratic AI Tutor", sub: "Step-by-Step Concept Master", href: "/dashboard/agents?agent=student_tutor", icon: Brain, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100", type: "AI Tutor" },
     { name: "AI Exam Prep", sub: "CBSE Roadmaps & Expected Qs", href: "/dashboard/student/exam-prep", icon: Trophy, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", type: "Board Prep" },
     { name: "Practice Quizzes", sub: "Chapter Mocks & Testing", href: "/dashboard/student/practice", icon: Target, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", type: "Quiz & Drill" },
@@ -104,10 +106,19 @@ export function MobileStudentDashboard() {
         <div className="flex items-center gap-2 pt-1 relative z-10">
           <Link
             href="/dashboard/agents?agent=student_tutor"
-            className="flex-1 py-2.5 bg-white text-indigo-950 font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
+            className="flex-1 py-2.5 bg-white text-indigo-950 font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all hover:bg-slate-50 cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-purple-600 fill-purple-500" />
-            <span>Ask Socratic Tutor AI</span>
+            <span>Socratic AI</span>
+          </Link>
+
+          <Link
+            href="/dashboard/english-coach"
+            className="py-2.5 px-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+            title="English Speaking Coach"
+          >
+            <Headphones className="w-4 h-4 text-cyan-200" />
+            <span>Speaking</span>
           </Link>
           
           <Link
@@ -121,7 +132,67 @@ export function MobileStudentDashboard() {
         </div>
       </div>
 
-      {/* 2. REAL-TIME SEARCH BAR */}
+      {/* 2. DEDICATED ENGLISH SPEAKING COACH FEATURE CARD */}
+      <div className="bg-gradient-to-br from-cyan-900 via-blue-900 to-indigo-950 rounded-3xl p-4 sm:p-5 text-white shadow-xl relative overflow-hidden space-y-3.5 border border-cyan-500/40">
+        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 bg-cyan-400/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-48 h-48 bg-blue-500/20 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-500 text-white flex items-center justify-center shadow-lg border border-white/20 shrink-0">
+              <Headphones className="w-6 h-6 animate-pulse text-white" />
+            </div>
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-400/20 text-cyan-200 text-[9px] font-black uppercase tracking-wider border border-cyan-400/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                Live Spoken AI Coach
+              </div>
+              <h3 className="text-sm font-black tracking-tight text-white mt-0.5">
+                English Speaking &amp; Fluency Coach
+              </h3>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-cyan-100/90 font-medium leading-relaxed relative z-10">
+          Practice live spoken conversations, speech pronunciation, assembly debate, and public speaking with your personal AI mentor.
+        </p>
+
+        {/* 1-Tap Quick Practice Pills */}
+        <div className="grid grid-cols-2 gap-2 relative z-10">
+          {[
+            { title: "Self Intro & Fluency", tag: "Day 1 Basics" },
+            { title: "Assembly & Debate", tag: "Public Speaking" },
+            { title: "Classroom Q&A", tag: "Pronunciation" },
+            { title: "Daily Conversation", tag: "Live Spoken AI" },
+          ].map((item, idx) => (
+            <Link
+              key={idx}
+              href="/dashboard/english-coach"
+              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 transition-all flex flex-col justify-between active:scale-95 cursor-pointer"
+            >
+              <span className="text-[8px] font-black uppercase text-cyan-300 tracking-wider truncate">
+                {item.tag}
+              </span>
+              <span className="text-[11px] font-bold text-white truncate mt-0.5">
+                {item.title}
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Big Launch Button */}
+        <Link
+          href="/dashboard/english-coach"
+          className="w-full py-2.5 bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-slate-950 font-black text-xs rounded-xl transition shadow-lg flex items-center justify-center gap-2 relative z-10 active:scale-98 cursor-pointer"
+        >
+          <Headphones className="w-4 h-4 text-slate-950" />
+          <span>Launch English Speaking Coach</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
+      {/* 3. REAL-TIME SEARCH BAR */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm px-4 py-3 flex items-center justify-between gap-2.5 transition-all focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
         <div className="flex items-center gap-2.5 flex-1 text-slate-400 text-xs">
           <Search className="w-4 h-4 text-indigo-600 shrink-0" />

@@ -310,11 +310,12 @@ async def login_user(payload: LoginPayload):
 
     full_name = profile.get("full_name", email_clean.split('@')[0].capitalize())
     user_role = profile.get("role") or payload.role or "teacher"
-    school_rec = None
-    if (payload.role and payload.role.strip().lower() == "school") or user_role == "school":
+    if user_role in ("school", "management") or (payload.role and payload.role.strip().lower() == "school"):
         user_role = "school"
-        from services.recruitment_service import recruitment_service
-        school_rec = recruitment_service.get_school_by_email(email_clean)
+    from services.recruitment_service import recruitment_service
+    school_rec = recruitment_service.get_school_by_email(email_clean)
+    if school_rec:
+        user_role = "school"
     user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
 
     # Enforce strict Role Matching
@@ -413,10 +414,12 @@ async def get_profile(email: str):
         raise HTTPException(status_code=404, detail="User profile not found.")
 
     user_role = profile.get("role", "teacher")
-    school_rec = None
-    if user_role == "school":
-        from services.recruitment_service import recruitment_service
-        school_rec = recruitment_service.get_school_by_email(email_clean)
+    if user_role in ("school", "management"):
+        user_role = "school"
+    from services.recruitment_service import recruitment_service
+    school_rec = recruitment_service.get_school_by_email(email_clean)
+    if school_rec:
+        user_role = "school"
     user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
     user_data = {
         "id": user_id,
@@ -542,6 +545,12 @@ async def update_profile(payload: UpdateProfilePayload):
 
     profile = await supabase_service.get_profile_by_email(email_clean) or {}
     user_role = profile.get("role", payload.role or "teacher")
+    if user_role in ("school", "management"):
+        user_role = "school"
+    from services.recruitment_service import recruitment_service
+    school_rec = recruitment_service.get_school_by_email(email_clean)
+    if school_rec:
+        user_role = "school"
     user_data = {
         "id": profile.get("id", f"usr-{email_clean.split('@')[0]}"),
         "email": email_clean,

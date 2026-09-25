@@ -61,7 +61,7 @@ export function MobileTopHeader() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("all");
 
-  const role = user?.role || "teacher";
+  const role = (user?.role === "management" ? "school" : user?.role) || "teacher";
 
   // Build real dynamic practical notifications based on user activity
   const rawNotifications = useMemo(() => {
@@ -169,6 +169,7 @@ export function MobileTopHeader() {
   if (role === "school") {
     navItems = [
       { label: "School Overview", href: "/dashboard/school", icon: LayoutDashboard },
+      { label: "Stream Assessment AI", href: "/dashboard/school/stream-assessment", icon: Compass },
       { label: "Job Vacancies", href: "/dashboard/school/vacancies", icon: Briefcase },
       { label: "Applicants & Resumes", href: "/dashboard/school/applicants", icon: Users },
       { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
@@ -177,6 +178,7 @@ export function MobileTopHeader() {
   } else if (role === "student") {
     navItems = [
       { label: "Student Home", href: "/dashboard/student", icon: LayoutDashboard },
+      { label: "English Speaking Coach", href: "/dashboard/english-coach", icon: Headphones },
       { label: "AI Tutor", href: "/dashboard/agents?agent=student_tutor", icon: Brain },
       { label: "AI Exam Prep", href: "/dashboard/student/exam-prep", icon: Trophy },
       { label: "Practice & Quizzes", href: "/dashboard/student/practice", icon: Target },

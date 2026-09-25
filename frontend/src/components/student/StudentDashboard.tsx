@@ -198,6 +198,59 @@ export function StudentDashboard() {
             </div>
           </div>
 
+          {/* ── ENGLISH SPEAKING COACH FEATURE CARD ── */}
+          <div className="bg-gradient-to-br from-cyan-900 via-blue-900 to-indigo-950 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden space-y-4 border border-cyan-700/40">
+            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-500 text-white flex items-center justify-center shadow-lg border border-white/20">
+                  <Headphones className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-400/20 text-cyan-200 text-[10px] font-extrabold uppercase tracking-wider border border-cyan-400/30">
+                    Live Spoken AI Coach
+                  </div>
+                  <h2 className="text-lg font-black tracking-tight text-white mt-0.5">English Speaking & Fluency Coach</h2>
+                  <p className="text-xs text-cyan-100 font-medium">Practice live spoken conversations, pronunciation, speech debate & assembly speaking</p>
+                </div>
+              </div>
+              <Link
+                href="/dashboard/english-coach"
+                className="px-5 py-2.5 bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-slate-950 text-xs font-black rounded-xl transition shadow-lg flex items-center justify-center gap-2 shrink-0 group active:scale-95"
+              >
+                <Sparkles className="w-4 h-4 text-slate-900" />
+                <span>Start Speaking Now</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 relative z-10">
+              {[
+                { title: "Self Introduction & Fluency", desc: "Speak with natural rhythm & confidence", tag: "Day 1 Basics" },
+                { title: "School Assembly & Debate", desc: "Stage speech & public speaking polish", tag: "Public Speaking" },
+                { title: "Classroom Q&A & Pronunciation", desc: "Express answers without hesitation", tag: "Daily Practice" },
+              ].map((item, idx) => (
+                <Link
+                  key={idx}
+                  href="/dashboard/english-coach"
+                  className="p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 hover:border-cyan-400/40 transition-all flex flex-col justify-between group"
+                >
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-cyan-300 bg-cyan-900/60 px-2 py-0.5 rounded-md border border-cyan-500/30 inline-block">
+                      {item.tag}
+                    </span>
+                    <h4 className="text-xs font-bold text-white group-hover:text-cyan-200 transition-colors">{item.title}</h4>
+                    <p className="text-[10px] text-cyan-200/80 font-medium">{item.desc}</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-cyan-300 mt-2">
+                    <span>Practice with AI</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <div className="bg-gradient-to-br from-indigo-50 via-violet-50 to-white rounded-3xl p-6 border border-indigo-100 shadow-sm">
             <h3 className="text-sm font-extrabold text-slate-900 mb-3 flex items-center gap-2">
               <Zap className="w-4 h-4 text-indigo-600" /> How to Earn XP
@@ -267,6 +320,10 @@ export function StudentDashboard() {
             <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
               <Play className="w-4 h-4 text-emerald-600" /> Quick Start
             </h3>
+            <Link href="/dashboard/english-coach"
+              className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-xs">
+              <Headphones className="w-4 h-4" /> Practice Spoken English
+            </Link>
             <Link href="/dashboard/agents?agent=student_tutor"
               className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2">
               <Brain className="w-4 h-4" /> Ask AI Tutor (+XP)
