@@ -2683,56 +2683,7 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
     story.append(cand_table)
-    story.append(Spacer(1, 6))
-
-    # NEP Stage Domain Breakdown Overview Box
-    breakdowns = p.get("stream_breakdown") or []
-    domain_colors = [
-        ("#1E40AF", "#EFF6FF"), # Indigo/Blue
-        ("#065F46", "#ECFDF5"), # Emerald/Green
-        ("#6B21A8", "#FAF5FF")  # Purple
-    ]
-
-    bar_cells = []
-    col_w = 522 / max(1, min(3, len(breakdowns) if breakdowns else 3))
-    col_widths = []
-    table_styles = [
-        ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#CBD5E1")),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1")),
-        ('PADDING', (0,0), (-1,-1), 4),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-    ]
-
-    if breakdowns and len(breakdowns) >= 3:
-        for idx in range(min(3, len(breakdowns))):
-            b = breakdowns[idx]
-            b_name = b.get("stream_name") or b.get("stream", "").upper()
-            b_marks = b.get("total_marks", 0)
-            txt_color, bg_color = domain_colors[idx % len(domain_colors)]
-            cell_p = Paragraph(f"<font color='{txt_color}'><b>{b_name.upper()}:</b></font> <b>{b_marks} Marks</b>", meta_label_style)
-            bar_cells.append(cell_p)
-            col_widths.append(col_w)
-            table_styles.append(('BACKGROUND', (idx, 0), (idx, 0), colors.HexColor(bg_color)))
-    else:
-        sci_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "science"), int(total_marks/3))
-        com_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "commerce"), int(total_marks/3))
-        hum_m = next((b.get("total_marks") for b in breakdowns if b.get("stream") == "humanities"), int(total_marks/3))
-        bar_cells = [
-            Paragraph("<font color='#1E40AF'><b>SCIENCE (STEM):</b></font> <b>" + str(sci_m) + " Marks</b>", meta_label_style),
-            Paragraph("<font color='#065F46'><b>COMMERCE:</b></font> <b>" + str(com_m) + " Marks</b>", meta_label_style),
-            Paragraph("<font color='#6B21A8'><b>HUMANITIES:</b></font> <b>" + str(hum_m) + " Marks</b>", meta_label_style),
-        ]
-        col_widths = [174, 174, 174]
-        table_styles.extend([
-            ('BACKGROUND', (0,0), (0,0), colors.HexColor("#EFF6FF")),
-            ('BACKGROUND', (1,0), (1,0), colors.HexColor("#ECFDF5")),
-            ('BACKGROUND', (2,0), (2,0), colors.HexColor("#FAF5FF")),
-        ])
-
-    stream_bar_table = Table([bar_cells], colWidths=col_widths)
-    stream_bar_table.setStyle(TableStyle(table_styles))
-    story.append(stream_bar_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 8))
 
     # General Instructions
     instructions = p.get("instructions") or [
@@ -2902,6 +2853,13 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
         ]))
         story.append(matrix_hdr)
         story.append(Spacer(1, 4))
+
+        breakdowns = p.get("stream_breakdown") or []
+        domain_colors = [
+            ("#1E40AF", "#EFF6FF"), # Indigo/Blue
+            ("#065F46", "#ECFDF5"), # Emerald/Green
+            ("#6B21A8", "#FAF5FF")  # Purple
+        ]
 
         c_matrix = p.get("diagnostic_matrix") or {}
         matrix_table_data = [
