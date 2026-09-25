@@ -116,6 +116,12 @@ function parseErrorMessage(errData: any, fallback: string, status?: number): str
       "Please wait a few moments and try again."
     );
   }
+  if (status === 500) {
+    return (
+      "⚠️ Server Notice: The server was processing or restarting. " +
+      "Please click Generate again in a few moments."
+    );
+  }
 
   return fallback;
 }
@@ -434,8 +440,14 @@ export async function generateStreamAssessment(payload: StreamAssessmentPayload)
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(parseErrorMessage(errData, "Failed to generate stream assessment paper.", res.status));
+      let errData: any = {};
+      try {
+        errData = await res.json();
+      } catch {
+        const text = await res.text().catch(() => "");
+        if (text) errData = { detail: text };
+      }
+      throw new Error(parseErrorMessage(errData, "Failed to generate stream assessment paper. The backend is busy or restarting, please click Generate again.", res.status));
     }
     return res.json();
   } catch (e: any) {

@@ -427,9 +427,18 @@ export default function SchoolStreamAssessmentPage() {
       )}
 
       {errorMsg && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-          <span>{errorMsg}</span>
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors shrink-0 disabled:opacity-50"
+          >
+            {isGenerating ? "Retrying..." : "Retry Now"}
+          </button>
         </div>
       )}
 
