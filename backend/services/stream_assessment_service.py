@@ -121,23 +121,43 @@ class StreamAssessmentService:
         stage = req.nep_stage or detect_nep_stage(req.class_name)
         cfg = NEP_STAGES_CONFIG.get(stage, NEP_STAGES_CONFIG["senior_secondary"])
 
-        n_mcq = max(2, min(req.num_mcqs_per_stream or 4, 10))
-        n_short = max(1, min(req.num_short_per_stream or 2, 5))
-        n_long = max(1, min(req.num_long_per_stream or 1, 3))
+        # Determine if this is a Class 11-12 Stream Allocation Assessment or a Class 1-10 Subject Paper
+        is_stream = req.is_stream_assessment if req.is_stream_assessment is not None else (stage == "senior_secondary")
 
-        marks_per_domain = (n_mcq * 1) + (n_short * 3) + (n_long * 5)
-        total_marks = marks_per_domain * 3
-        subject = req.subject or cfg["default_title"]
+        if is_stream:
+            n_mcq = max(2, min(req.num_mcqs_per_stream or 4, 10))
+            n_short = max(1, min(req.num_short_per_stream or 2, 5))
+            n_long = max(1, min(req.num_long_per_stream or 1, 3))
+            marks_per_domain = (n_mcq * 1) + (n_short * 3) + (n_long * 5)
+            total_marks = marks_per_domain * 3
+            prompt = self._construct_nep_prompt(req, stage, cfg, n_mcq, n_short, n_long)
+            sec_a_marks, sec_b_marks, sec_c_marks = 1, 3, 5
+        else:
+            # Class-specific paper tailored to user's requested counts and subject
+            def_mcq = 5 if stage == "foundational" else (8 if stage == "preparatory" else 10)
+            def_short = 3 if stage == "foundational" else (4 if stage == "preparatory" else 5)
+            def_long = 2 if stage in ("foundational", "preparatory") else 3
 
-        prompt = self._construct_nep_prompt(req, stage, cfg, n_mcq, n_short, n_long)
+            n_mcq = max(1, req.total_mcqs if req.total_mcqs is not None else def_mcq)
+            n_short = max(1, req.total_short if req.total_short is not None else def_short)
+            n_long = max(1, req.total_long if req.total_long is not None else def_long)
+
+            sec_a_marks = req.section_a_marks or 1
+            sec_b_marks = req.section_b_marks or (2 if stage == "foundational" else 3)
+            sec_c_marks = req.section_c_marks or 5
+            total_marks = (n_mcq * sec_a_marks) + (n_short * sec_b_marks) + (n_long * sec_c_marks)
+
+            prompt = self._construct_class_prompt(req, stage, cfg, n_mcq, n_short, n_long, sec_a_marks, sec_b_marks, sec_c_marks)
 
         try:
-            logger.info(f"Calling AI provider for NEP assessment ({stage} - {req.class_name})...")
+            logger.info(f"Calling AI provider for assessment ({'Stream' if is_stream else 'Class-Specific'} {stage} - {req.class_name})...")
+            system_role = (
+                f"You are DEVGYA's Chief Psychometrician & Stream Assessment Specialist. Output strict valid JSON matching {cfg['name']}."
+                if is_stream else
+                f"You are DEVGYA's Senior CBSE Paper Setter & Curriculum Specialist for {req.class_name}. Create an authentic, curriculum-aligned exam paper for {req.subject or 'General Curriculum'}. Output strict valid JSON."
+            )
             messages = [
-                {
-                    "role": "system",
-                    "content": f"You are DEVGYA's Chief NEP 2020 Assessment Architect & CBSE Curriculum Specialist. Always output strict, valid JSON with age-appropriate questions matching the {cfg['name']}."
-                },
+                {"role": "system", "content": system_role},
                 {"role": "user", "content": prompt}
             ]
             raw_response = await ai_provider.chat_completion(
@@ -148,14 +168,14 @@ class StreamAssessmentService:
             )
             parsed = self._parse_json_response(raw_response)
             if parsed and parsed.get("questions"):
-                return self._build_response(req, stage, cfg, parsed, total_marks)
+                return self._build_response(req, stage, cfg, parsed, total_marks, is_stream=is_stream, sec_a_marks=sec_a_marks, sec_b_marks=sec_b_marks, sec_c_marks=sec_c_marks)
         except Exception as e:
             logger.error(f"AI Provider error during assessment generation: {e}")
 
         # Fallback generator for high-reliability guarantee
         logger.warning(f"Using built-in verified NEP {stage} fallback data.")
         fallback_data = self._generate_fallback_data(req, stage, cfg, n_mcq, n_short, n_long)
-        return self._build_response(req, stage, cfg, fallback_data, total_marks)
+        return self._build_response(req, stage, cfg, fallback_data, total_marks, is_stream=is_stream, sec_a_marks=sec_a_marks, sec_b_marks=sec_b_marks, sec_c_marks=sec_c_marks)
 
     def _construct_nep_prompt(self, req: StreamAssessmentRequest, stage: str, cfg: Dict[str, Any], n_mcq: int, n_short: int, n_long: int) -> str:
         d1, d2, d3 = cfg["domains"]
@@ -276,6 +296,113 @@ Return ONLY valid JSON:
   }}
 }}"""
 
+    def _construct_class_prompt(self, req: StreamAssessmentRequest, stage: str, cfg: Dict[str, Any], n_mcq: int, n_short: int, n_long: int, sec_a_marks: int, sec_b_marks: int, sec_c_marks: int) -> str:
+        sec_a_name = req.section_a_name or ("Section A: Visual & Objective Questions" if stage == "foundational" else "Section A: Objective MCQs")
+        sec_b_name = req.section_b_name or ("Section B: Short Activity & Worksheet" if stage == "foundational" else "Section B: Short Answer Questions")
+        sec_c_name = req.section_c_name or ("Section C: Observation & Good Habits Scenario" if stage == "foundational" else ("Section C: Real-World Scenario / Discovery Questions" if stage == "preparatory" else "Section C: Long Answer & Case-Based Questions"))
+
+        subject = req.subject or f"{req.class_name} Curriculum"
+
+        pedagogy = ""
+        if stage == "foundational":
+            pedagogy = """
+FOUNDATIONAL STAGE PEDAGOGY (CLASSES 1 TO 2, Ages 6-7):
+- Language must be extremely child-friendly, playful, clear, and encouraging.
+- Section A: Visual Matching, Word Sound/Phonics, Counting & Pattern Recognition MCQs.
+- Section B: Short Activity / Tracing / Fill-in Prompts (e.g. complete word, simple math sum, drawing/labeling idea).
+- Section C: Observation & Good Habits Scenario (daily hygiene, kindness, nature observation, healthy routine).
+"""
+        elif stage == "preparatory":
+            pedagogy = """
+PREPARATORY STAGE PEDAGOGY (CLASSES 3 TO 5, Ages 8-10):
+- Language should encourage curiosity, discovery, and active problem solving.
+- Section A: Reading Comprehension, Everyday Math, and Environmental Science MCQs.
+- Section B: Short Problem Solving & Worksheet Questions with clear steps.
+- Section C: Real-World Application / Mini-Scenario Problem (e.g. playground math, saving water, nature care).
+"""
+        elif stage == "middle":
+            pedagogy = """
+MIDDLE STAGE PEDAGOGY (CLASSES 6 TO 8, Ages 11-13):
+- Focus on conceptual understanding, logical reasoning, and experimentation.
+- Section A: Objective & Conceptual Understanding MCQs.
+- Section B: Short Analytical & Reasoning Questions (explain scientific hypotheses, mathematical proofs, or historical events).
+- Section C: Long Conceptual Problem or Practical Experiment Scenario.
+"""
+        else: # secondary
+            pedagogy = """
+SECONDARY STAGE PEDAGOGY (CLASSES 9 TO 10, Ages 14-16):
+- Strictly aligned with CBSE Board competency patterns and NEP 2020 learning outcomes.
+- Section A: Objective & Competency-Based MCQs with 4 distinct plausible options.
+- Section B: Short Answer Questions requiring multi-step reasoning and precise application.
+- Section C: CBSE Style Case Study / Long Analytical Questions with a realistic passage/context and sub-questions.
+"""
+
+        total_questions = n_mcq + n_short + n_long
+        total_marks = (n_mcq * sec_a_marks) + (n_short * sec_b_marks) + (n_long * sec_c_marks)
+
+        return f"""You are the Chief Academic Paper Setter & Senior CBSE Curriculum Specialist for DEVGYA Global Edutech.
+Generate an authentic, high-quality assessment paper for:
+- Class: {req.class_name} ({cfg['name']})
+- Subject: {subject}
+- Paper Title: {req.title or f"{req.class_name} {subject} Examination"}
+- School Name: {req.school_name}
+- Difficulty Level: {req.difficulty}
+- Time Allowed: {req.time_allowed_mins} minutes
+- Teacher / School Custom Guidance: {req.custom_instructions or "Adhere strictly to CBSE / NEP 2020 competency framework for " + req.class_name + "."}
+
+{pedagogy}
+
+EXACT QUESTION STRUCTURE REQUESTED BY THE USER:
+1. {sec_a_name}: EXACTLY {n_mcq} Questions ({sec_a_marks} Mark each). Format: 4 options (A, B, C, D) for MCQs.
+2. {sec_b_name}: EXACTLY {n_short} Questions ({sec_b_marks} Marks each). Format: Short Answer / Worksheet / Problem Solving.
+3. {sec_c_name}: EXACTLY {n_long} Questions ({sec_c_marks} Marks each). Format: Long Answer / Scenario / Case-Based Problems.
+
+Total Questions: {total_questions}
+Total Marks: {total_marks} Marks
+
+CRITICAL INSTRUCTIONS:
+- ALL questions must be strictly focused on the subject "{subject}" for {req.class_name}.
+- Do NOT generate stream questions (no Science/Commerce/Humanities separation). This is a single unified paper for {req.class_name} {subject}!
+- Number all questions sequentially from 1 to {total_questions}.
+- EXACT TYPE MAPPING IN JSON:
+  * Questions 1 to {n_mcq}: MUST have "question_type": "mcq", "section": "{sec_a_name}", "marks": {sec_a_marks}, with 4 options ["(A)...", "(B)...", "(C)...", "(D)..."].
+  * Questions {n_mcq + 1} to {n_mcq + n_short}: MUST have "question_type": "short", "section": "{sec_b_name}", "marks": {sec_b_marks}, with "options": null.
+  * Questions {n_mcq + n_short + 1} to {total_questions}: MUST have "question_type": "long", "section": "{sec_c_name}", "marks": {sec_c_marks}, with "options": null.
+- Every question must have clear, complete standalone wording so the student understands exactly what is being asked.
+- Do NOT prefix questions with stream or domain tags.
+- Provide concise, accurate model answers and grading guidelines for teachers.
+
+OUTPUT FORMAT:
+Return ONLY valid JSON matching this schema:
+{{
+  "instructions": [
+    "Read all questions carefully.",
+    "{sec_a_name} consists of {n_mcq} Objective Questions ({sec_a_marks} Mark each).",
+    "{sec_b_name} consists of {n_short} Short Answer Questions ({sec_b_marks} Marks each).",
+    "{sec_c_name} consists of {n_long} Long / Case Questions ({sec_c_marks} Marks each)."
+  ],
+  "questions": [
+    {{
+      "question_number": 1,
+      "stream": "{subject.lower()[:15]}",
+      "question_type": "mcq",
+      "section": "{sec_a_name}",
+      "competency": "Concept Understanding",
+      "question_text": "Complete question text...",
+      "options": ["(A) ...", "(B) ...", "(C) ...", "(D) ..."],
+      "marks": {sec_a_marks},
+      "answer": "(A) Model answer",
+      "explanation": "Rationale / scoring point"
+    }}
+  ],
+  "counseling_matrix": {{
+    "domain_1_indicators": "Indicators for Section A / Foundational concepts mastery...",
+    "domain_2_indicators": "Indicators for Section B / Application & Problem Solving...",
+    "domain_3_indicators": "Indicators for Section C / Higher-order synthesis & case analysis...",
+    "balanced_recommendation": "Teacher evaluation summary and learning recommendations for {req.class_name} {subject}..."
+  }}
+}}"""
+
     def _parse_json_response(self, raw: str) -> Optional[Dict[str, Any]]:
         cleaned = _clean_json_str(raw)
         try:
@@ -309,28 +436,60 @@ Return ONLY valid JSON:
 
         return None
 
-    def _build_response(self, req: StreamAssessmentRequest, stage: str, cfg: Dict[str, Any], data: Dict[str, Any], calculated_total_marks: int) -> StreamAssessmentResponse:
+    def _build_response(
+        self,
+        req: StreamAssessmentRequest,
+        stage: str,
+        cfg: Dict[str, Any],
+        data: Dict[str, Any],
+        calculated_total_marks: int,
+        is_stream: bool = True,
+        sec_a_marks: int = 1,
+        sec_b_marks: int = 3,
+        sec_c_marks: int = 5
+    ) -> StreamAssessmentResponse:
         raw_questions = data.get("questions") or []
         clean_questions: List[QuestionItem] = []
 
         domain_keys = cfg.get("domain_keys", ["science", "commerce", "humanities"])
 
+        sec_a_label = req.section_a_name or ("Section A: Visual & Objective Questions" if stage == "foundational" else "Section A: Objective Questions")
+        sec_b_label = req.section_b_name or ("Section B: Short Activity & Worksheet" if stage == "foundational" else "Section B: Short Answer Questions")
+        sec_c_label = req.section_c_name or ("Section C: Observation & Good Habits" if stage == "foundational" else ("Section C: Real-World Scenario" if stage == "preparatory" else "Section C: Long / Case-Based Questions"))
+
+        req_mcqs = req.total_mcqs or 8
+        req_short = req.total_short or 4
+
         q_id = 1
         for q in raw_questions:
-            stream = str(q.get("stream") or domain_keys[0]).lower()
-            if stream not in domain_keys:
-                stream = domain_keys[0]
-
-            q_type = str(q.get("question_type") or "mcq").lower()
+            q_type = str(q.get("question_type") or "").lower()
             if q_type not in ("mcq", "short", "long"):
-                q_type = "mcq"
+                # Smart fallback type inference
+                has_opts = bool(q.get("options") and isinstance(q.get("options"), list) and len(q.get("options")) >= 2)
+                q_sec_str = str(q.get("section") or "").lower()
+                if has_opts or "section a" in q_sec_str or (not is_stream and q_id <= req_mcqs):
+                    q_type = "mcq"
+                elif "section c" in q_sec_str or int(q.get("marks") or 0) >= 5 or (not is_stream and q_id > (req_mcqs + req_short)):
+                    q_type = "long"
+                else:
+                    q_type = "short"
 
-            marks = int(q.get("marks") or (1 if q_type == "mcq" else 3 if q_type == "short" else 5))
-            section = str(q.get("section") or (
-                "Section A: Objective Questions" if q_type == "mcq" else
-                "Section B: Short Analytical Questions" if q_type == "short" else
-                "Section C: Long Scenario & Case-Based Questions"
-            ))
+            if is_stream:
+                stream = str(q.get("stream") or domain_keys[0]).lower()
+                if stream not in domain_keys:
+                    stream = domain_keys[0]
+                marks = int(q.get("marks") or (1 if q_type == "mcq" else 3 if q_type == "short" else 5))
+                section = str(q.get("section") or (
+                    "Section A: Objective Questions" if q_type == "mcq" else
+                    "Section B: Short Analytical Questions" if q_type == "short" else
+                    "Section C: Long Scenario & Case-Based Questions"
+                ))
+            else:
+                stream = f"section_{'a' if q_type == 'mcq' else ('b' if q_type == 'short' else 'c')}"
+                marks = int(q.get("marks") or (sec_a_marks if q_type == "mcq" else (sec_b_marks if q_type == "short" else sec_c_marks)))
+                section = str(q.get("section") or (
+                    sec_a_label if q_type == "mcq" else (sec_b_label if q_type == "short" else sec_c_label)
+                ))
 
             raw_q_text = str(q.get("question_text") or f"Question #{q_id}").strip()
             raw_q_text = re.sub(r'₹\s*', 'Rs. ', raw_q_text).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
@@ -363,41 +522,76 @@ Return ONLY valid JSON:
                 answer=clean_ans,
                 explanation=clean_expl,
                 stream=stream,
-                competency=str(q.get("competency") or f"{stream.capitalize()} Competency"),
+                competency=str(q.get("competency") or f"{section.split(':')[0]} Competency"),
                 section=section
             ))
             q_id += 1
 
         actual_total_marks = sum(q.marks for q in clean_questions) or calculated_total_marks
 
-        # Stream / Domain breakdowns
+        # Stream / Domain / Section breakdowns
         stream_breakdown = []
-        for i, d_key in enumerate(domain_keys):
-            d_name = cfg["domains"][i]
-            d_qs = [q for q in clean_questions if q.stream == d_key]
-            stream_breakdown.append(StreamBreakdown(
-                stream=d_key,
-                stream_name=d_name,
-                mcq_count=sum(1 for q in d_qs if q.question_type == "mcq"),
-                short_count=sum(1 for q in d_qs if q.question_type == "short"),
-                long_count=sum(1 for q in d_qs if q.question_type == "long"),
-                total_marks=sum(q.marks for q in d_qs),
-                key_competencies=[f"{d_name} Mastery", f"{d_name} Problem Solving"]
-            ))
+        if is_stream:
+            for i, d_key in enumerate(domain_keys):
+                d_name = cfg["domains"][i]
+                d_qs = [q for q in clean_questions if q.stream == d_key]
+                stream_breakdown.append(StreamBreakdown(
+                    stream=d_key,
+                    stream_name=d_name,
+                    mcq_count=sum(1 for q in d_qs if q.question_type == "mcq"),
+                    short_count=sum(1 for q in d_qs if q.question_type == "short"),
+                    long_count=sum(1 for q in d_qs if q.question_type == "long"),
+                    total_marks=sum(q.marks for q in d_qs),
+                    key_competencies=[f"{d_name} Mastery", f"{d_name} Problem Solving"]
+                ))
+        else:
+            # Breakdown by Section A, Section B, Section C
+            a_qs = [q for q in clean_questions if q.question_type == "mcq"]
+            b_qs = [q for q in clean_questions if q.question_type == "short"]
+            c_qs = [q for q in clean_questions if q.question_type == "long"]
+            stream_breakdown = [
+                StreamBreakdown(
+                    stream="section_a",
+                    stream_name=sec_a_label,
+                    mcq_count=len(a_qs),
+                    short_count=0,
+                    long_count=0,
+                    total_marks=sum(q.marks for q in a_qs),
+                    key_competencies=["Core Concept Understanding", "Factual Clarity & Recall"]
+                ),
+                StreamBreakdown(
+                    stream="section_b",
+                    stream_name=sec_b_label,
+                    mcq_count=0,
+                    short_count=len(b_qs),
+                    long_count=0,
+                    total_marks=sum(q.marks for q in b_qs),
+                    key_competencies=["Application & Step Solving", "Structured Explanation"]
+                ),
+                StreamBreakdown(
+                    stream="section_c",
+                    stream_name=sec_c_label,
+                    mcq_count=0,
+                    short_count=0,
+                    long_count=len(c_qs),
+                    total_marks=sum(q.marks for q in c_qs),
+                    key_competencies=["Higher-Order Thinking", "Case Synthesis & Analytical Depth"]
+                )
+            ]
 
         instructions = data.get("instructions") or [
             f"This examination adheres to the NEP 2020 {cfg['name']} framework.",
             f"Primary Focus: {cfg['focus']}.",
-            "Section A contains Objective Questions (1 Mark each).",
-            "Section B contains Short Application Questions (3 Marks each).",
-            "Section C contains Long Scenario & Case Questions (5 Marks each)."
+            f"{sec_a_label} ({sec_a_marks} Mark each).",
+            f"{sec_b_label} ({sec_b_marks} Marks each).",
+            f"{sec_c_label} ({sec_c_marks} Marks each)."
         ]
 
         diagnostic_matrix = data.get("counseling_matrix") or {
-            "domain_1_indicators": f"Strong grasp of {cfg['domains'][0]} fundamentals and practical concepts.",
-            "domain_2_indicators": f"High competence in {cfg['domains'][1]} reasoning and logical problem formulation.",
-            "domain_3_indicators": f"Strong acumen in {cfg['domains'][2]} analysis and real-world synthesis.",
-            "balanced_recommendation": f"Learner demonstrates well-rounded capability aligned with NEP 2020 {cfg['name']} outcomes."
+            "domain_1_indicators": f"Strong grasp of {sec_a_label} fundamentals and core concepts.",
+            "domain_2_indicators": f"High competence in {sec_b_label} reasoning and structured application.",
+            "domain_3_indicators": f"Strong acumen in {sec_c_label} higher-order analysis and synthesis.",
+            "balanced_recommendation": f"Learner demonstrates well-rounded capability aligned with {req.class_name} learning outcomes."
         }
 
         # Backwards compatibility: Map domain indicators to science/commerce/humanities indicators
@@ -408,12 +602,16 @@ Return ONLY valid JSON:
         if "humanities_indicators" not in diagnostic_matrix and "domain_3_indicators" in diagnostic_matrix:
             diagnostic_matrix["humanities_indicators"] = diagnostic_matrix["domain_3_indicators"]
 
+        effective_subject = req.subject or (
+            f"{cfg['name']} Stream Diagnostic" if is_stream else f"{req.class_name} Assessment"
+        )
+
         return StreamAssessmentResponse(
             id=f"nep-assess-{int(datetime.now().timestamp())}",
-            title=req.title or f"{req.class_name} {cfg['name']} Assessment",
+            title=req.title or f"{req.class_name} {effective_subject} Paper",
             class_name=req.class_name,
             nep_stage=stage,
-            subject=req.subject or f"{cfg['name']} Diagnostic ({cfg['domains'][0]} • {cfg['domains'][1]} • {cfg['domains'][2]})",
+            subject=effective_subject,
             school_name=req.school_name,
             school_logo=req.school_logo,
             total_marks=actual_total_marks,

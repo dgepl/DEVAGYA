@@ -425,9 +425,19 @@ export interface StreamAssessmentPayload {
   school_logo?: string;
   time_allowed_mins: number;
   difficulty: "foundation" | "balanced" | "advanced";
-  num_mcqs_per_stream: number;
-  num_short_per_stream: number;
-  num_long_per_stream: number;
+  num_mcqs_per_stream?: number;
+  num_short_per_stream?: number;
+  num_long_per_stream?: number;
+  is_stream_assessment?: boolean;
+  total_mcqs?: number;
+  total_short?: number;
+  total_long?: number;
+  section_a_name?: string;
+  section_b_name?: string;
+  section_c_name?: string;
+  section_a_marks?: number;
+  section_b_marks?: number;
+  section_c_marks?: number;
   custom_instructions?: string;
   user_email?: string;
 }

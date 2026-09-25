@@ -69,6 +69,17 @@ class StreamAssessmentRequest(BaseModel):
     num_mcqs_per_stream: Optional[int] = Field(default=4)
     num_short_per_stream: Optional[int] = Field(default=2)
     num_long_per_stream: Optional[int] = Field(default=1)
+    # Direct class-specific question counts (for Class 1 to 10)
+    is_stream_assessment: Optional[bool] = None
+    total_mcqs: Optional[int] = None
+    total_short: Optional[int] = None
+    total_long: Optional[int] = None
+    section_a_name: Optional[str] = None
+    section_b_name: Optional[str] = None
+    section_c_name: Optional[str] = None
+    section_a_marks: Optional[int] = Field(default=1)
+    section_b_marks: Optional[int] = Field(default=3)
+    section_c_marks: Optional[int] = Field(default=5)
     custom_instructions: Optional[str] = None
     user_email: Optional[str] = None
 

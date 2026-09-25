@@ -143,20 +143,128 @@ export default function SchoolStreamAssessmentPage() {
   const [className, setClassName] = useState<string>("Class 10");
   const [subject, setSubject] = useState<string>("");
   const activeStage = getStageForClass(className);
+  const isStreamAssessment = activeStage.stage === "senior_secondary";
 
   const [title, setTitle] = useState("Class 10 Secondary Stage Competency & Diagnostic Assessment");
   const [timeAllowedMins, setTimeAllowedMins] = useState<number>(90);
   const [difficulty, setDifficulty] = useState<"foundation" | "balanced" | "advanced">("balanced");
+  
+  // Stream Mode (Class 11-12) question counts per domain
   const [numMcqsPerStream, setNumMcqsPerStream] = useState<number>(4);
   const [numShortPerStream, setNumShortPerStream] = useState<number>(2);
   const [numLongPerStream, setNumLongPerStream] = useState<number>(1);
+
+  // Standard Class Mode (Class 1 to 10) direct question counts
+  const [numSectionA, setNumSectionA] = useState<number>(10);
+  const [numSectionB, setNumSectionB] = useState<number>(5);
+  const [numSectionC, setNumSectionC] = useState<number>(3);
+
   const [customInstructions, setCustomInstructions] = useState("");
+
+  // Common subject suggestions per NEP 2020 stage
+  const STAGE_SUBJECT_SUGGESTIONS: Record<string, string[]> = {
+    foundational: ["English", "Hindi", "Mathematics", "EVS & Nature", "General Awareness"],
+    preparatory: ["Mathematics", "Environmental Studies (EVS)", "English", "Hindi", "Social Studies"],
+    middle: ["Science", "Mathematics", "Social Science", "English", "Hindi", "Computer Science"],
+    secondary: ["Science (Physics/Chem/Bio)", "Mathematics (Standard/Basic)", "Social Science", "English Language & Lit", "Hindi Course A"],
+    senior_secondary: ["Comprehensive Stream Aptitude", "Science (STEM) Focus", "Commerce & Finance Focus", "Humanities & Social Focus"]
+  };
+
+  // Stage-specific section configurations
+  const getSectionConfig = (stageKey: string) => {
+    switch (stageKey) {
+      case "foundational":
+        return {
+          secAName: "Section A: Visual & Objective Questions",
+          secBName: "Section B: Short Activity & Tracing Prompts",
+          secCName: "Section C: Observation & Good Habits Scenario",
+          secAMarks: 1,
+          secBMarks: 2,
+          secCMarks: 5,
+          secADesc: "Picture matching, sounds & counting",
+          secBDesc: "Fill in blanks, missing letters & tracing",
+          secCDesc: "Scene interpretation & hygiene habits"
+        };
+      case "preparatory":
+        return {
+          secAName: "Section A: Objective & Mental Math MCQs",
+          secBName: "Section B: Short Answer & Worksheet Tasks",
+          secCName: "Section C: Real-World Scenario / Discovery",
+          secAMarks: 1,
+          secBMarks: 3,
+          secCMarks: 5,
+          secADesc: "Reading comprehension & mental math",
+          secBDesc: "Step-by-step problem solving & facts",
+          secCDesc: "Environmental & practical situations"
+        };
+      case "middle":
+        return {
+          secAName: "Section A: Objective & Conceptual MCQs",
+          secBName: "Section B: Short Analytical & Reasoning",
+          secCName: "Section C: Long Conceptual / Experiment Problem",
+          secAMarks: 1,
+          secBMarks: 3,
+          secCMarks: 5,
+          secADesc: "Core principles & concept check",
+          secBDesc: "Scientific reasons & mathematical proofs",
+          secCDesc: "Experiment deductions & case questions"
+        };
+      case "secondary":
+        return {
+          secAName: "Section A: Objective & Competency MCQs",
+          secBName: "Section B: Short Answer & Application Questions",
+          secCName: "Section C: CBSE Case Study / Long Analytical",
+          secAMarks: 1,
+          secBMarks: 3,
+          secCMarks: 5,
+          secADesc: "Competency MCQs & assertions",
+          secBDesc: "Multi-step analytical application",
+          secCDesc: "CBSE Case study scenario & sub-questions"
+        };
+      default:
+        return {
+          secAName: "Section A: Objective & Aptitude MCQs",
+          secBName: "Section B: Short Analytical Questions",
+          secCName: "Section C: Long Scenario & Case-Based",
+          secAMarks: 1,
+          secBMarks: 3,
+          secCMarks: 5,
+          secADesc: "Science, Commerce & Humanities mix",
+          secBDesc: "Domain problem solving & reasoning",
+          secCDesc: "Real-world trade-off & case analysis"
+        };
+    }
+  };
+
+  const secConfig = getSectionConfig(activeStage.stage);
 
   const handleClassChange = (newCls: string) => {
     setClassName(newCls);
     const newStage = getStageForClass(newCls);
     setTimeAllowedMins(newStage.defaultTime);
-    setTitle(`${newCls} ${newStage.name.split(" (")[0]} Diagnostic Assessment`);
+    const isStream = newStage.stage === "senior_secondary";
+    if (isStream) {
+      setTitle(`${newCls} Stream Allocation & Aptitude Diagnostic Assessment`);
+    } else {
+      setTitle(`${newCls} ${subject ? subject + " " : ""}Assessment Paper`);
+      if (newStage.stage === "foundational") {
+        setNumSectionA(5);
+        setNumSectionB(3);
+        setNumSectionC(2);
+      } else if (newStage.stage === "preparatory") {
+        setNumSectionA(8);
+        setNumSectionB(4);
+        setNumSectionC(2);
+      } else if (newStage.stage === "middle") {
+        setNumSectionA(10);
+        setNumSectionB(5);
+        setNumSectionC(3);
+      } else {
+        setNumSectionA(10);
+        setNumSectionB(6);
+        setNumSectionC(3);
+      }
+    }
   };
 
   // Sync state from profile or pre-fetch school details from backend
@@ -240,13 +348,20 @@ export default function SchoolStreamAssessmentPage() {
     loadCloudHistory();
   }, [user?.email]);
 
-  // Live calculations
+  // Live calculations (Stream Mode)
   const totalMcqs = numMcqsPerStream * 3;
   const totalShort = numShortPerStream * 3;
   const totalLong = numLongPerStream * 3;
-  const totalQuestions = totalMcqs + totalShort + totalLong;
+  const streamTotalQuestions = totalMcqs + totalShort + totalLong;
   const marksPerStream = (numMcqsPerStream * 1) + (numShortPerStream * 3) + (numLongPerStream * 5);
-  const totalCalculatedMarks = marksPerStream * 3;
+  const streamTotalCalculatedMarks = marksPerStream * 3;
+
+  // Live calculations (Class Mode)
+  const classTotalQuestions = numSectionA + numSectionB + numSectionC;
+  const classTotalCalculatedMarks = (numSectionA * secConfig.secAMarks) + (numSectionB * secConfig.secBMarks) + (numSectionC * secConfig.secCMarks);
+
+  const effectiveTotalQuestions = isStreamAssessment ? streamTotalQuestions : classTotalQuestions;
+  const effectiveTotalMarks = isStreamAssessment ? streamTotalCalculatedMarks : classTotalCalculatedMarks;
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -256,18 +371,32 @@ export default function SchoolStreamAssessmentPage() {
       const effectiveSchoolName = schoolName || schoolProfile?.school_name || user?.schoolName || "";
       const effectiveSchoolLogo = schoolLogo || schoolProfile?.logo_url || user?.schoolLogo || "";
 
+      const defaultSubject = isStreamAssessment
+        ? `${activeStage.name} Stream Assessment (${activeStage.domains.join(" • ")})`
+        : `${className} Comprehensive Assessment`;
+
       const payload: StreamAssessmentPayload = {
         title,
         class_name: className,
         nep_stage: activeStage.stage,
-        subject: subject || `${activeStage.name} Assessment (${activeStage.domains.join(" • ")})`,
+        subject: subject || defaultSubject,
         school_name: effectiveSchoolName,
         school_logo: effectiveSchoolLogo,
         time_allowed_mins: Number(timeAllowedMins),
         difficulty,
+        is_stream_assessment: isStreamAssessment,
         num_mcqs_per_stream: Number(numMcqsPerStream),
         num_short_per_stream: Number(numShortPerStream),
         num_long_per_stream: Number(numLongPerStream),
+        total_mcqs: isStreamAssessment ? undefined : Number(numSectionA),
+        total_short: isStreamAssessment ? undefined : Number(numSectionB),
+        total_long: isStreamAssessment ? undefined : Number(numSectionC),
+        section_a_name: secConfig.secAName,
+        section_b_name: secConfig.secBName,
+        section_c_name: secConfig.secCName,
+        section_a_marks: secConfig.secAMarks,
+        section_b_marks: secConfig.secBMarks,
+        section_c_marks: secConfig.secCMarks,
         custom_instructions: customInstructions,
         user_email: user?.email || schoolProfile?.email || ""
       };
@@ -704,17 +833,53 @@ export default function SchoolStreamAssessmentPage() {
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-1">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Subject / Focus Domain (Optional)</span>
+                    <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>{isStreamAssessment ? "Stream Focus (Optional)" : "Subject / Focus Area"}</span>
+                      </span>
+                      {subject && (
+                        <button
+                          type="button"
+                          onClick={() => setSubject("")}
+                          className="text-[10px] text-slate-400 hover:text-rose-500 font-semibold cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
                     </label>
                     <input
                       type="text"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      placeholder={`e.g. ${activeStage.domains.join(" • ")}`}
+                      placeholder={isStreamAssessment ? "e.g. Science • Commerce • Humanities" : "e.g. Mathematics, Science, English..."}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                     />
+                    {/* Quick Subject Suggestions for the Active Stage */}
+                    {STAGE_SUBJECT_SUGGESTIONS[activeStage.stage] && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] font-bold text-slate-400">Quick Select:</span>
+                        {STAGE_SUBJECT_SUGGESTIONS[activeStage.stage].map((sName) => (
+                          <button
+                            key={sName}
+                            type="button"
+                            onClick={() => {
+                              setSubject(sName);
+                              if (!isStreamAssessment) {
+                                setTitle(`${className} ${sName} Assessment Paper`);
+                              }
+                            }}
+                            className={`px-2 py-0.5 rounded-lg text-[10.5px] font-semibold border transition-all cursor-pointer ${
+                              subject.toLowerCase() === sName.toLowerCase()
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
+                            }`}
+                          >
+                            {sName}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* NEP 2020 Stage Architecture Guidance Banner */}
@@ -749,16 +914,30 @@ export default function SchoolStreamAssessmentPage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/40">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
-                        3 Diagnostic Domains:
-                      </span>
-                      {activeStage.domains.map((d, dIdx) => (
-                        <span key={dIdx} className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-slate-700 shadow-2xs">
-                          {d}
+                    {isStreamAssessment ? (
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/40">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
+                          3 Diagnostic Streams:
                         </span>
-                      ))}
-                    </div>
+                        {activeStage.domains.map((d, dIdx) => (
+                          <span key={dIdx} className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-slate-700 shadow-2xs">
+                            {d}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/40">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
+                          Curriculum Mode:
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-slate-700 shadow-2xs">
+                          {className} Subject Paper
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-indigo-700 shadow-2xs">
+                          Custom Question Counts & Direct Scoring
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Assessment Title (Full width) */}
@@ -807,78 +986,155 @@ export default function SchoolStreamAssessmentPage() {
                 </div>
 
                 {/* QUESTION MIX & STRUCTURE MATRIX */}
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-extrabold text-slate-800">
-                      Question Mix across 3 Domains ({activeStage.domains.join(" • ")})
-                    </label>
-                    <span className="text-[11px] font-bold text-indigo-600">
-                      Equal 3-Way Domain Weight
-                    </span>
+                {isStreamAssessment ? (
+                  /* 11th - 12th STREAM ASSESSMENT CONFIGURATION (Science, Commerce, Humanities) */
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-extrabold text-slate-800">
+                        Stream Aptitude Mix across 3 Streams ({activeStage.domains.join(" • ")})
+                      </label>
+                      <span className="text-[11px] font-bold text-indigo-600">
+                        Equal 3-Way Domain Weight
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* MCQs per stream */}
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700">Section A: Objective</span>
+                          <span className="text-[10px] font-extrabold text-slate-500">1 Mark each</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={2}
+                            max={8}
+                            value={numMcqsPerStream}
+                            onChange={(e) => setNumMcqsPerStream(Math.max(2, Math.min(8, Number(e.target.value))))}
+                            className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-center"
+                          />
+                          <span className="text-[11px] text-slate-500 font-semibold">per stream</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400">Total: {totalMcqs} Objective Qs ({totalMcqs} Marks)</p>
+                      </div>
+
+                      {/* Short per stream */}
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700">Section B: Short / Work</span>
+                          <span className="text-[10px] font-extrabold text-slate-500">3 Marks each</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={4}
+                            value={numShortPerStream}
+                            onChange={(e) => setNumShortPerStream(Math.max(1, Math.min(4, Number(e.target.value))))}
+                            className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-center"
+                          />
+                          <span className="text-[11px] text-slate-500 font-semibold">per stream</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400">Total: {totalShort} Short Qs ({totalShort * 3} Marks)</p>
+                      </div>
+
+                      {/* Long per stream */}
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700">Section C: Long / Case</span>
+                          <span className="text-[10px] font-extrabold text-slate-500">5 Marks each</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={2}
+                            value={numLongPerStream}
+                            onChange={(e) => setNumLongPerStream(Math.max(1, Math.min(2, Number(e.target.value))))}
+                            className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-center"
+                          />
+                          <span className="text-[11px] text-slate-500 font-semibold">per stream</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400">Total: {totalLong} Long/Case Qs ({totalLong * 5} Marks)</p>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* MCQs / Objective per domain */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">Section A: Objective</span>
-                        <span className="text-[10px] font-extrabold text-slate-500">1 Mark each</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={2}
-                          max={8}
-                          value={numMcqsPerStream}
-                          onChange={(e) => setNumMcqsPerStream(Math.max(2, Math.min(8, Number(e.target.value))))}
-                          className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-center"
-                        />
-                        <span className="text-[11px] text-slate-500 font-semibold">per domain</span>
-                      </div>
-                      <p className="text-[10px] text-slate-400">Total: {totalMcqs} Objective Qs ({totalMcqs} Marks)</p>
+                ) : (
+                  /* CLASS 1 TO 10 QUESTION PAPER STRUCTURE (Direct Section Counts) */
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-extrabold text-slate-800">
+                        Question Paper Structure ({className} &bull; {activeStage.name.split(" (")[0]})
+                      </label>
+                      <span className="text-[11px] font-bold text-indigo-600">
+                        {classTotalQuestions} Questions &bull; {classTotalCalculatedMarks} Total Marks
+                      </span>
                     </div>
 
-                    {/* Short / Activity per domain */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">Section B: Short / Work</span>
-                        <span className="text-[10px] font-extrabold text-slate-500">3 Marks each</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Section A */}
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 line-clamp-1">{secConfig.secAName.split(":")[1] || "Objective"}</span>
+                          <span className="text-[10px] font-extrabold text-slate-500">{secConfig.secAMarks} Mark each</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={30}
+                            value={numSectionA}
+                            onChange={(e) => setNumSectionA(Math.max(1, Math.min(30, Number(e.target.value))))}
+                            className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-center"
+                          />
+                          <span className="text-[11px] text-slate-500 font-semibold">questions</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-snug">{secConfig.secADesc} ({numSectionA * secConfig.secAMarks} Marks)</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={4}
-                          value={numShortPerStream}
-                          onChange={(e) => setNumShortPerStream(Math.max(1, Math.min(4, Number(e.target.value))))}
-                          className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-center"
-                        />
-                        <span className="text-[11px] text-slate-500 font-semibold">per domain</span>
-                      </div>
-                      <p className="text-[10px] text-slate-400">Total: {totalShort} Short Qs ({totalShort * 3} Marks)</p>
-                    </div>
 
-                    {/* Long / Case Study / Scenario per domain */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">Section C: Long / Case</span>
-                        <span className="text-[10px] font-extrabold text-slate-500">5 Marks each</span>
+                      {/* Section B */}
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 line-clamp-1">{secConfig.secBName.split(":")[1] || "Short Answer"}</span>
+                          <span className="text-[10px] font-extrabold text-slate-500">{secConfig.secBMarks} Marks each</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={20}
+                            value={numSectionB}
+                            onChange={(e) => setNumSectionB(Math.max(1, Math.min(20, Number(e.target.value))))}
+                            className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-center"
+                          />
+                          <span className="text-[11px] text-slate-500 font-semibold">questions</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-snug">{secConfig.secBDesc} ({numSectionB * secConfig.secBMarks} Marks)</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={2}
-                          value={numLongPerStream}
-                          onChange={(e) => setNumLongPerStream(Math.max(1, Math.min(2, Number(e.target.value))))}
-                          className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-center"
-                        />
-                        <span className="text-[11px] text-slate-500 font-semibold">per domain</span>
+
+                      {/* Section C */}
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 line-clamp-1">{secConfig.secCName.split(":")[1] || "Long / Case"}</span>
+                          <span className="text-[10px] font-extrabold text-slate-500">{secConfig.secCMarks} Marks each</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={numSectionC}
+                            onChange={(e) => setNumSectionC(Math.max(1, Math.min(10, Number(e.target.value))))}
+                            className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-center"
+                          />
+                          <span className="text-[11px] text-slate-500 font-semibold">questions</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-snug">{secConfig.secCDesc} ({numSectionC * secConfig.secCMarks} Marks)</p>
                       </div>
-                      <p className="text-[10px] text-slate-400">Total: {totalLong} Long/Case Qs ({totalLong * 5} Marks)</p>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Custom Guidance */}
                 <div className="space-y-1.5">
@@ -888,7 +1144,11 @@ export default function SchoolStreamAssessmentPage() {
                   <textarea
                     value={customInstructions}
                     onChange={(e) => setCustomInstructions(e.target.value)}
-                    placeholder="e.g. Focus on practical real-world applications, NEP 2020 competency-based reasoning, and financial literacy."
+                    placeholder={
+                      isStreamAssessment
+                        ? "e.g. Focus on practical real-world applications, NEP 2020 competency-based reasoning, and financial literacy."
+                        : `e.g. Focus on ${subject || 'core syllabus'} chapters, real-world examples, step-by-step problem solving, and CBSE competency patterns.`
+                    }
                     rows={2}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 resize-none"
                   />
@@ -903,12 +1163,14 @@ export default function SchoolStreamAssessmentPage() {
                   {isGenerating ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Synthesizing Authentic Assessment Paper with AI...</span>
+                      <span>Synthesizing Authentic Question Paper with AI...</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4" />
-                      <span>Generate {className} ({activeStage.name.split(" (")[0]}) Assessment Paper</span>
+                      <span>
+                        Generate {className} {subject ? `${subject} ` : ""}({isStreamAssessment ? "Stream Assessment" : activeStage.name.split(" (")[0]}) Paper
+                      </span>
                     </>
                   )}
                 </button>
@@ -931,52 +1193,97 @@ export default function SchoolStreamAssessmentPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-100 shadow-2xs">
                     <span className="text-xs font-bold text-slate-600">Total Questions</span>
-                    <span className="text-sm font-black text-slate-900">{totalQuestions} Questions</span>
+                    <span className="text-sm font-black text-slate-900">{effectiveTotalQuestions} Questions</span>
                   </div>
 
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-100 shadow-2xs">
                     <span className="text-xs font-bold text-slate-600">Total Marks</span>
-                    <span className="text-sm font-black text-indigo-600">{totalCalculatedMarks} Marks</span>
+                    <span className="text-sm font-black text-indigo-600">{effectiveTotalMarks} Marks</span>
                   </div>
 
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-                    <span className="text-xs font-bold text-slate-600">Weight Per Domain</span>
-                    <span className="text-xs font-black text-slate-900">{marksPerStream} Marks each (33.3%)</span>
+                    <span className="text-xs font-bold text-slate-600">{isStreamAssessment ? "Weight Per Domain" : "Section Structure"}</span>
+                    <span className="text-xs font-black text-slate-900">
+                      {isStreamAssessment ? `${marksPerStream} Marks each (33.3%)` : "3 Structured Sections"}
+                    </span>
                   </div>
                 </div>
 
-                {/* Stage Domain Breakdown Bars */}
-                <div className="space-y-2.5 pt-2 border-t border-slate-200/60">
-                  <div className="flex items-center justify-between text-[11px] font-bold">
-                    <span className="text-blue-700 flex items-center gap-1.5 line-clamp-1">
-                      <Atom className="w-3.5 h-3.5 shrink-0" /> {activeStage.domains[0]}
-                    </span>
-                    <span className="shrink-0">{marksPerStream} M</span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div className="bg-blue-600 h-full w-full rounded-full" />
-                  </div>
+                {/* Stage Domain or Section Breakdown Bars */}
+                {isStreamAssessment ? (
+                  <div className="space-y-2.5 pt-2 border-t border-slate-200/60">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-blue-700 flex items-center gap-1.5 line-clamp-1">
+                        <Atom className="w-3.5 h-3.5 shrink-0" /> {activeStage.domains[0]}
+                      </span>
+                      <span className="shrink-0">{marksPerStream} M</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-blue-600 h-full w-full rounded-full" />
+                    </div>
 
-                  <div className="flex items-center justify-between text-[11px] font-bold pt-0.5">
-                    <span className="text-emerald-700 flex items-center gap-1.5 line-clamp-1">
-                      <DollarSign className="w-3.5 h-3.5 shrink-0" /> {activeStage.domains[1]}
-                    </span>
-                    <span className="shrink-0">{marksPerStream} M</span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div className="bg-emerald-600 h-full w-full rounded-full" />
-                  </div>
+                    <div className="flex items-center justify-between text-[11px] font-bold pt-0.5">
+                      <span className="text-emerald-700 flex items-center gap-1.5 line-clamp-1">
+                        <DollarSign className="w-3.5 h-3.5 shrink-0" /> {activeStage.domains[1]}
+                      </span>
+                      <span className="shrink-0">{marksPerStream} M</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-emerald-600 h-full w-full rounded-full" />
+                    </div>
 
-                  <div className="flex items-center justify-between text-[11px] font-bold pt-0.5">
-                    <span className="text-purple-700 flex items-center gap-1.5 line-clamp-1">
-                      <BookOpen className="w-3.5 h-3.5 shrink-0" /> {activeStage.domains[2]}
-                    </span>
-                    <span className="shrink-0">{marksPerStream} M</span>
+                    <div className="flex items-center justify-between text-[11px] font-bold pt-0.5">
+                      <span className="text-purple-700 flex items-center gap-1.5 line-clamp-1">
+                        <BookOpen className="w-3.5 h-3.5 shrink-0" /> {activeStage.domains[2]}
+                      </span>
+                      <span className="shrink-0">{marksPerStream} M</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-purple-600 h-full w-full rounded-full" />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div className="bg-purple-600 h-full w-full rounded-full" />
+                ) : (
+                  <div className="space-y-2.5 pt-2 border-t border-slate-200/60">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-indigo-700 flex items-center gap-1.5 line-clamp-1">
+                        <FileText className="w-3.5 h-3.5 shrink-0" /> {secConfig.secAName.split(":")[1] || "Section A"}
+                      </span>
+                      <span className="shrink-0">{numSectionA * secConfig.secAMarks} M ({numSectionA} Qs)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-indigo-600 h-full rounded-full transition-all"
+                        style={{ width: `${Math.round(((numSectionA * secConfig.secAMarks) / Math.max(1, classTotalCalculatedMarks)) * 100)}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] font-bold pt-0.5">
+                      <span className="text-emerald-700 flex items-center gap-1.5 line-clamp-1">
+                        <FileText className="w-3.5 h-3.5 shrink-0" /> {secConfig.secBName.split(":")[1] || "Section B"}
+                      </span>
+                      <span className="shrink-0">{numSectionB * secConfig.secBMarks} M ({numSectionB} Qs)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-emerald-600 h-full rounded-full transition-all"
+                        style={{ width: `${Math.round(((numSectionB * secConfig.secBMarks) / Math.max(1, classTotalCalculatedMarks)) * 100)}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] font-bold pt-0.5">
+                      <span className="text-purple-700 flex items-center gap-1.5 line-clamp-1">
+                        <FileText className="w-3.5 h-3.5 shrink-0" /> {secConfig.secCName.split(":")[1] || "Section C"}
+                      </span>
+                      <span className="shrink-0">{numSectionC * secConfig.secCMarks} M ({numSectionC} Qs)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-purple-600 h-full rounded-full transition-all"
+                        style={{ width: `${Math.round(((numSectionC * secConfig.secCMarks) / Math.max(1, classTotalCalculatedMarks)) * 100)}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Supabase Cloud Synced Papers Widget */}
@@ -1208,7 +1515,9 @@ export default function SchoolStreamAssessmentPage() {
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                School Counseling & Evaluation Matrix
+                {(assessmentPaper?.nep_stage === "senior_secondary" || assessmentPaper?.class_name?.includes("11") || assessmentPaper?.class_name?.includes("12"))
+                  ? "School Counseling & Stream Matrix"
+                  : "Competency & Learning Rubric"}
               </button>
             </div>
 
@@ -1403,67 +1712,89 @@ export default function SchoolStreamAssessmentPage() {
             {activeTab === "counseling" && (
               <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8 space-y-6">
                 
-                <div className="border-b border-slate-200 pb-4">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200">
-                    Diagnostic Counseling & Evaluation Guide
-                  </span>
-                  <h3 className="text-xl font-black text-slate-900 mt-1">{assessmentPaper.class_name || "Student"} Diagnostic Rubric</h3>
-                  <p className="text-xs text-slate-500">Framework for educators and academic advisors to evaluate student readiness and domain strengths.</p>
-                </div>
+                {(() => {
+                  const paperIsStream = assessmentPaper.nep_stage === "senior_secondary" || assessmentPaper.class_name?.includes("11") || assessmentPaper.class_name?.includes("12");
+                  return (
+                    <>
+                      <div className="border-b border-slate-200 pb-4">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                          {paperIsStream ? "Diagnostic Counseling & Stream Allocation Guide" : "Competency & Learning Outcomes Rubric"}
+                        </span>
+                        <h3 className="text-xl font-black text-slate-900 mt-1">
+                          {assessmentPaper.class_name || "Student"} {paperIsStream ? "Stream Diagnostic Rubric" : "Evaluation Matrix"}
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          {paperIsStream
+                            ? "Framework for educators and academic advisors to evaluate student readiness and stream domain strengths."
+                            : "Framework for teachers to evaluate learning outcomes, conceptual clarity, application depth, and problem-solving mastery."}
+                        </p>
+                      </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Domain 1 Scorecard */}
-                  <div className="p-5 rounded-3xl bg-blue-50/80 border border-blue-200 space-y-3">
-                    <div className="flex items-center gap-2 text-blue-900 font-black text-sm">
-                      <Atom className="w-5 h-5 text-blue-600" />
-                      <span>{assessmentPaper.stream_breakdown?.[0]?.stream_name || "Domain 1 Criteria"}</span>
-                    </div>
-                    <div className="text-xs text-blue-950 leading-relaxed">
-                      {assessmentPaper.diagnostic_matrix?.domain_1_indicators || assessmentPaper.diagnostic_matrix?.science_indicators || "Score >= 75%: High suitability and deep conceptual grasp of fundamentals and quantitative logic."}
-                    </div>
-                    <div className="pt-2 border-t border-blue-200 text-[11px] font-bold text-blue-800">
-                      Core Pathway: Advanced STEM, Engineering, Research, Analytics & Logic.
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Domain 1 / Section A Scorecard */}
+                        <div className="p-5 rounded-3xl bg-blue-50/80 border border-blue-200 space-y-3">
+                          <div className="flex items-center gap-2 text-blue-900 font-black text-sm">
+                            <Atom className="w-5 h-5 text-blue-600" />
+                            <span>{assessmentPaper.stream_breakdown?.[0]?.stream_name || "Section A / Domain 1"}</span>
+                          </div>
+                          <div className="text-xs text-blue-950 leading-relaxed">
+                            {assessmentPaper.diagnostic_matrix?.domain_1_indicators || assessmentPaper.diagnostic_matrix?.science_indicators || "Score >= 75%: High proficiency in foundational concepts and factual recall."}
+                          </div>
+                          <div className="pt-2 border-t border-blue-200 text-[11px] font-bold text-blue-800">
+                            {paperIsStream
+                              ? "Core Pathway: Advanced STEM, Engineering, Research, Analytics & Logic."
+                              : "Competency Focus: Core concept comprehension, definition accuracy & objective reasoning."}
+                          </div>
+                        </div>
 
-                  {/* Domain 2 Scorecard */}
-                  <div className="p-5 rounded-3xl bg-emerald-50/80 border border-emerald-200 space-y-3">
-                    <div className="flex items-center gap-2 text-emerald-900 font-black text-sm">
-                      <DollarSign className="w-5 h-5 text-emerald-600" />
-                      <span>{assessmentPaper.stream_breakdown?.[1]?.stream_name || "Domain 2 Criteria"}</span>
-                    </div>
-                    <div className="text-xs text-emerald-950 leading-relaxed">
-                      {assessmentPaper.diagnostic_matrix?.domain_2_indicators || assessmentPaper.diagnostic_matrix?.commerce_indicators || "Score >= 75%: Strong acumen for quantitative problem formulation, economics, and commercial reasoning."}
-                    </div>
-                    <div className="pt-2 border-t border-emerald-200 text-[11px] font-bold text-emerald-800">
-                      Core Pathway: Finance, Commerce, Enterprise Systems, Economics & Planning.
-                    </div>
-                  </div>
+                        {/* Domain 2 / Section B Scorecard */}
+                        <div className="p-5 rounded-3xl bg-emerald-50/80 border border-emerald-200 space-y-3">
+                          <div className="flex items-center gap-2 text-emerald-900 font-black text-sm">
+                            <DollarSign className="w-5 h-5 text-emerald-600" />
+                            <span>{assessmentPaper.stream_breakdown?.[1]?.stream_name || "Section B / Domain 2"}</span>
+                          </div>
+                          <div className="text-xs text-emerald-950 leading-relaxed">
+                            {assessmentPaper.diagnostic_matrix?.domain_2_indicators || assessmentPaper.diagnostic_matrix?.commerce_indicators || "Score >= 75%: Strong acumen for structured step-by-step problem solving and application."}
+                          </div>
+                          <div className="pt-2 border-t border-emerald-200 text-[11px] font-bold text-emerald-800">
+                            {paperIsStream
+                              ? "Core Pathway: Finance, Commerce, Enterprise Systems, Economics & Planning."
+                              : "Competency Focus: Multi-step calculation, scientific explanation & procedural clarity."}
+                          </div>
+                        </div>
 
-                  {/* Domain 3 Scorecard */}
-                  <div className="p-5 rounded-3xl bg-purple-50/80 border border-purple-200 space-y-3">
-                    <div className="flex items-center gap-2 text-purple-900 font-black text-sm">
-                      <BookOpen className="w-5 h-5 text-purple-600" />
-                      <span>{assessmentPaper.stream_breakdown?.[2]?.stream_name || "Domain 3 Criteria"}</span>
-                    </div>
-                    <div className="text-xs text-purple-950 leading-relaxed">
-                      {assessmentPaper.diagnostic_matrix?.domain_3_indicators || assessmentPaper.diagnostic_matrix?.humanities_indicators || "Score >= 75%: Outstanding suitability for critical inquiry, qualitative analysis, and policy reasoning."}
-                    </div>
-                    <div className="pt-2 border-t border-purple-200 text-[11px] font-bold text-purple-800">
-                      Core Pathway: Social Sciences, Law, Civil Policy, Humanities & Communications.
-                    </div>
-                  </div>
-                </div>
+                        {/* Domain 3 / Section C Scorecard */}
+                        <div className="p-5 rounded-3xl bg-purple-50/80 border border-purple-200 space-y-3">
+                          <div className="flex items-center gap-2 text-purple-900 font-black text-sm">
+                            <BookOpen className="w-5 h-5 text-purple-600" />
+                            <span>{assessmentPaper.stream_breakdown?.[2]?.stream_name || "Section C / Domain 3"}</span>
+                          </div>
+                          <div className="text-xs text-purple-950 leading-relaxed">
+                            {assessmentPaper.diagnostic_matrix?.domain_3_indicators || assessmentPaper.diagnostic_matrix?.humanities_indicators || "Score >= 75%: Outstanding higher-order synthesis and case-based problem solving."}
+                          </div>
+                          <div className="pt-2 border-t border-purple-200 text-[11px] font-bold text-purple-800">
+                            {paperIsStream
+                              ? "Core Pathway: Social Sciences, Law, Civil Policy, Humanities & Communications."
+                              : "Competency Focus: Critical evaluation, case interpretation & real-world application."}
+                          </div>
+                        </div>
+                      </div>
 
-                {/* Balanced & Cross-Stream Advice */}
-                <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 space-y-2">
-                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">
-                    Cross-Disciplinary & Balanced Scores
-                  </h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {assessmentPaper.diagnostic_matrix?.balanced_recommendation || "Candidates demonstrating balanced performance across multiple streams should consider interdisciplinary combinations such as Economics with Mathematics, Legal Studies, or Cognitive Computing."}
-                  </p>
-                </div>
+                      {/* Summary & Recommendations */}
+                      <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 space-y-2">
+                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                          {paperIsStream ? "Cross-Disciplinary & Counseling Advice" : "Pedagogical Recommendations & Next Steps"}
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          {assessmentPaper.diagnostic_matrix?.balanced_recommendation ||
+                            (paperIsStream
+                              ? "Candidates demonstrating balanced performance across multiple streams should consider interdisciplinary combinations such as Economics with Mathematics, Legal Studies, or Cognitive Computing."
+                              : "Students should focus on bridging any conceptual gaps in multi-step problem solving while continuing to reinforce foundational definitions and regular application practice.")}
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
 
               </div>
             )}

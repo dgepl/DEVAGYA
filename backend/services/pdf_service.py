@@ -2642,7 +2642,12 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
     stage_name = stage_info.get("name", "NEP 2020 Assessment")
     stage_focus = stage_info.get("focus", "Competency & Diagnostic Assessment")
 
-    subtitle_domains = " &bull; ".join(stage_info.get("domains", ["Science", "Commerce", "Humanities"]))
+    is_stream_paper = (nep_stage_key == "senior_secondary") or ("11" in class_name) or ("12" in class_name)
+    if is_stream_paper:
+        subtitle_domains = " &bull; ".join(stage_info.get("domains", ["Science", "Commerce", "Humanities"]))
+    else:
+        subject_name = str(p.get("subject") or stage_name)
+        subtitle_domains = f"{subject_name} &bull; {class_name}"
 
     header_title_p = [
         Paragraph(school_name.upper(), school_title_style),
@@ -2779,18 +2784,29 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
             ans_clean = re.sub(r'₹\s*', 'Rs. ', strip_emojis_for_pdf(str(q.get("answer", "Refer to standard solution.")))).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
             expl_clean = re.sub(r'₹\s*', 'Rs. ', strip_emojis_for_pdf(str(q.get("explanation", "")))).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
             ans_text = html.escape(ans_clean).replace("\n", "<br/>")
-            expl_text = html.escape(expl_clean).replace("\n", "<br/>")
-            stream_name = str(q.get("stream", "Science")).capitalize()
-            comp_name = str(q.get("competency") or f"{stream_name} Aptitude")
-            
-            box_content = [
-                Paragraph(f"<b>&check; Model Solution / Marking Key:</b> {ans_text}", ans_box_style),
-                Spacer(1, 1),
-                Paragraph(f"<b>Stream Evaluated:</b> {stream_name} &bull; <b>Competency Tested:</b> {comp_name}", expl_box_style)
-            ]
-            if expl_text:
-                box_content.append(Spacer(1, 1))
-                box_content.append(Paragraph(f"<b>Aptitude Diagnostic Insight:</b> {expl_text}", expl_box_style))
+            expl_text = html.escape(expl_clean).replace("\n", "<br/>") if expl_clean else ""
+            if is_stream_paper:
+                stream_name = str(q.get("stream", "Science")).capitalize()
+                comp_name = str(q.get("competency") or f"{stream_name} Aptitude")
+                box_content = [
+                    Paragraph(f"<b>&check; Model Solution / Marking Key:</b> {ans_text}", ans_box_style),
+                    Spacer(1, 1),
+                    Paragraph(f"<b>Stream Evaluated:</b> {stream_name} &bull; <b>Competency Tested:</b> {comp_name}", expl_box_style)
+                ]
+                if expl_text:
+                    box_content.append(Spacer(1, 1))
+                    box_content.append(Paragraph(f"<b>Aptitude Diagnostic Insight:</b> {expl_text}", expl_box_style))
+            else:
+                sec_title = str(q.get("section") or "Section").split(":")[0]
+                comp_name = str(q.get("competency") or "Core Competency")
+                box_content = [
+                    Paragraph(f"<b>&check; Model Solution / Marking Key:</b> {ans_text}", ans_box_style),
+                    Spacer(1, 1),
+                    Paragraph(f"<b>{sec_title}</b> &bull; <b>Competency Evaluated:</b> {comp_name}", expl_box_style)
+                ]
+                if expl_text:
+                    box_content.append(Spacer(1, 1))
+                    box_content.append(Paragraph(f"<b>Pedagogical Insight:</b> {expl_text}", expl_box_style))
 
             ans_table = Table([[box_content]], colWidths=[522])
             ans_table.setStyle(TableStyle([
@@ -2807,7 +2823,8 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
 
     # SECTION A: MCQs
     if mcqs:
-        sec_a_table = Table([[Paragraph(f"<b>SECTION A: OBJECTIVE & APTITUDE MCQs (1 Mark Each)</b> &mdash; {len(mcqs)} Questions", sec_hdr_style)]], colWidths=[522])
+        sec_a_title = mcqs[0].get("section") or ("SECTION A: OBJECTIVE & APTITUDE MCQs (1 Mark Each)" if is_stream_paper else "SECTION A: OBJECTIVE QUESTIONS")
+        sec_a_table = Table([[Paragraph(f"<b>{sec_a_title.upper()}</b> &mdash; {len(mcqs)} Questions", sec_hdr_style)]], colWidths=[522])
         sec_a_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EEF2FF")),
             ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#C7D2FE")),
@@ -2822,7 +2839,8 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
 
     # SECTION B: Short Analytical Questions
     if shorts:
-        sec_b_table = Table([[Paragraph(f"<b>SECTION B: SHORT ANALYTICAL & APPLICATION QUESTIONS (3 Marks Each)</b> &mdash; {len(shorts)} Questions", sec_hdr_style)]], colWidths=[522])
+        sec_b_title = shorts[0].get("section") or ("SECTION B: SHORT ANALYTICAL & APPLICATION QUESTIONS (3 Marks Each)" if is_stream_paper else "SECTION B: SHORT ANSWER QUESTIONS")
+        sec_b_table = Table([[Paragraph(f"<b>{sec_b_title.upper()}</b> &mdash; {len(shorts)} Questions", sec_hdr_style)]], colWidths=[522])
         sec_b_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F0FDF4")),
             ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#BBF7D0")),
@@ -2837,7 +2855,8 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
 
     # SECTION C: Long Scenario Questions
     if longs:
-        sec_c_table = Table([[Paragraph(f"<b>SECTION C: LONG SCENARIO & CASE-BASED QUESTIONS (5 Marks Each)</b> &mdash; {len(longs)} Questions", sec_hdr_style)]], colWidths=[522])
+        sec_c_title = longs[0].get("section") or ("SECTION C: LONG SCENARIO & CASE-BASED QUESTIONS (5 Marks Each)" if is_stream_paper else "SECTION C: LONG / CASE QUESTIONS")
+        sec_c_table = Table([[Paragraph(f"<b>{sec_c_title.upper()}</b> &mdash; {len(longs)} Questions", sec_hdr_style)]], colWidths=[522])
         sec_c_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FAF5FF")),
             ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#E9D5FF")),
@@ -2853,7 +2872,8 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
     # Counseling Matrix & Score Interpretation (Only in Teacher / Key Mode)
     if include_answers:
         story.append(Spacer(1, 8))
-        matrix_hdr = Table([[Paragraph("<b>SCHOOL ACADEMIC COUNSELING & STREAM DECISION MATRIX</b>", sec_hdr_style)]], colWidths=[522])
+        matrix_title = "SCHOOL ACADEMIC COUNSELING & STREAM DECISION MATRIX" if is_stream_paper else "ACADEMIC COMPETENCY & EVALUATION RUBRIC"
+        matrix_hdr = Table([[Paragraph(f"<b>{matrix_title}</b>", sec_hdr_style)]], colWidths=[522])
         matrix_hdr.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FEF3C7")),
             ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#FDE68A")),
@@ -2871,9 +2891,10 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
         ]
 
         c_matrix = p.get("diagnostic_matrix") or {}
+        col_hdr_name = "DOMAIN / STREAM" if is_stream_paper else "SECTION / CRITERIA"
         matrix_table_data = [
             [
-                Paragraph("<b>DOMAIN / STREAM</b>", q_stem_style),
+                Paragraph(f"<b>{col_hdr_name}</b>", q_stem_style),
                 Paragraph("<b>MARKS WEIGHT</b>", q_stem_style),
                 Paragraph("<b>DIAGNOSTIC CRITERIA & EVALUATION GUIDANCE</b>", q_stem_style)
             ]
