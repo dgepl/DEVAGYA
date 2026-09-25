@@ -267,8 +267,9 @@ from PIL import Image as PILImage
 def strip_emojis_for_pdf(raw: str) -> str:
     if not raw:
         return ""
-    t = str(raw)
-    
+    # 0. Normalize rupee symbol to standard Rs. to prevent ReportLab black box (■)
+    t = re.sub(r'₹\s*', 'Rs. ', str(raw)).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
+
     # 1. Normalize bullet/box/checkbox glyphs that turn into tofu boxes
     t = re.sub(r'[\u25A0-\u25FF\u274F-\u2752\u2B1A-\u2B1F\u25CB\u25CF\u25E6\u2022\u2023\u2043\u25AA\u25AB\u25FB-\u25FE]', '&bull;', t)
     t = re.sub(r'[\u2713\u2714\u2705\u2611]', '✔', t)
@@ -2710,7 +2711,9 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
 
         # Case passage if present
         if q.get("case_passage"):
-            passage_html = html.escape(str(q.get("case_passage"))).replace("\n", "<br/>")
+            raw_passage = strip_emojis_for_pdf(str(q.get("case_passage"))).strip()
+            raw_passage = re.sub(r'₹\s*', 'Rs. ', raw_passage).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
+            passage_html = html.escape(raw_passage).replace("\n", "<br/>")
             p_table = Table([[Paragraph(f"<b>CASE STUDY SCENARIO / CONTEXT:</b><br/>{passage_html}", inst_style)]], colWidths=[522])
             p_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8FAFC")),
@@ -2721,7 +2724,8 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
             q_elems.append(Spacer(1, 3))
 
         # Question prompt: starts directly with Question Number and question text
-        raw_q_text = str(q.get("question_text", "")).strip()
+        raw_q_text = strip_emojis_for_pdf(str(q.get("question_text", ""))).strip()
+        raw_q_text = re.sub(r'₹\s*', 'Rs. ', raw_q_text).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
         cleaned_q_text = re.sub(
             r'^(?:\[?(?:science|commerce|humanities|literacy|numeracy|observation|stem|domain\s*\d*|section\s*[a-c])\]?[\s:\-–—|•]+)+',
             '',
@@ -2738,7 +2742,10 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
         # MCQ Options
         opts = q.get("options")
         if q.get("question_type") == "mcq" and isinstance(opts, list) and len(opts) >= 2:
-            clean_opts = [html.escape(str(o)) for o in opts]
+            clean_opts = [
+                html.escape(re.sub(r'₹\s*', 'Rs. ', strip_emojis_for_pdf(str(o))).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. '))
+                for o in opts
+            ]
             if len(clean_opts) == 4:
                 opt_table = Table([
                     [Paragraph(clean_opts[0], opt_style), Paragraph(clean_opts[1], opt_style)],
@@ -2769,8 +2776,10 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
         # Teacher Model Answer & Scoring Guide
         if include_answers:
             q_elems.append(Spacer(1, 2))
-            ans_text = html.escape(str(q.get("answer", "Refer to standard solution."))).replace("\n", "<br/>")
-            expl_text = html.escape(str(q.get("explanation", ""))).replace("\n", "<br/>")
+            ans_clean = re.sub(r'₹\s*', 'Rs. ', strip_emojis_for_pdf(str(q.get("answer", "Refer to standard solution.")))).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
+            expl_clean = re.sub(r'₹\s*', 'Rs. ', strip_emojis_for_pdf(str(q.get("explanation", "")))).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
+            ans_text = html.escape(ans_clean).replace("\n", "<br/>")
+            expl_text = html.escape(expl_clean).replace("\n", "<br/>")
             stream_name = str(q.get("stream", "Science")).capitalize()
             comp_name = str(q.get("competency") or f"{stream_name} Aptitude")
             

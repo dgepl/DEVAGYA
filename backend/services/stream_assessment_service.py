@@ -333,6 +333,7 @@ Return ONLY valid JSON:
             ))
 
             raw_q_text = str(q.get("question_text") or f"Question #{q_id}").strip()
+            raw_q_text = re.sub(r'₹\s*', 'Rs. ', raw_q_text).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
             # Clean accidental leading stream/topic tags ONLY if they match specific known tags
             clean_q_text = re.sub(
                 r'^(?:\[?(?:science|commerce|humanities|literacy|numeracy|observation|stem|domain\s*\d*|section\s*[a-c])\]?[\s:\-–—|•]+)+',
@@ -343,16 +344,24 @@ Return ONLY valid JSON:
             clean_q_text = re.sub(r'^(?:q(?:uestion)?\s*\d+[\s.:\-–—]+)', '', clean_q_text, flags=re.IGNORECASE).strip()
             clean_q_text = clean_q_text or raw_q_text
 
+            clean_opts = None
+            if q_type == "mcq" and q.get("options") and isinstance(q.get("options"), list):
+                clean_opts = [re.sub(r'₹\s*', 'Rs. ', str(o)).replace('\u20b9', 'Rs. ') for o in q.get("options")]
+
+            clean_ans = re.sub(r'₹\s*', 'Rs. ', str(q.get("answer") or "Refer to evaluation scheme.")).replace('\u20b9', 'Rs. ')
+            clean_expl = re.sub(r'₹\s*', 'Rs. ', str(q.get("explanation") or "")).replace('\u20b9', 'Rs. ') if q.get("explanation") else None
+            clean_passage = re.sub(r'₹\s*', 'Rs. ', str(q.get("case_passage") or "")).replace('\u20b9', 'Rs. ') if q.get("case_passage") else None
+
             clean_questions.append(QuestionItem(
                 id=q_id,
                 question_number=q_id,
                 question_type=q_type,
                 question_text=clean_q_text,
                 marks=marks,
-                options=q.get("options") if q_type == "mcq" else None,
-                case_passage=q.get("case_passage"),
-                answer=str(q.get("answer") or "Refer to evaluation scheme."),
-                explanation=q.get("explanation"),
+                options=clean_opts,
+                case_passage=clean_passage,
+                answer=clean_ans,
+                explanation=clean_expl,
                 stream=stream,
                 competency=str(q.get("competency") or f"{stream.capitalize()} Competency"),
                 section=section
