@@ -87,8 +87,20 @@ export default function SchoolApplicantsPage() {
   } = useAppStore();
   const searchParams = useSearchParams();
 
-  const [school, setSchool] = useState<SchoolData | null>(cachedSchool || null);
-  const [loading, setLoading] = useState(!cachedSchool);
+  const initialSchool: SchoolData | null = cachedSchool || (user?.schoolName || user?.email ? {
+    id: user.schoolId || `sch-${user.email}`,
+    school_name: user.schoolName || user.name || "School",
+    email: user.email || "",
+    phone: user.phone || "",
+    affiliation_board: user.affiliationBoard || user.board || "CBSE",
+    city: user.schoolCity || "",
+    state: user.schoolState || "",
+    verification_status: (user.verificationStatus as any) || "pending_verification",
+    logo_url: user.schoolLogo || "",
+  } : null);
+
+  const [school, setSchool] = useState<SchoolData | null>(initialSchool);
+  const [loading, setLoading] = useState(!initialSchool);
   const [applications, setApplications] = useState<JobApplication[]>(cachedApplications || []);
   const [vacancies, setVacancies] = useState<Vacancy[]>(cachedVacancies || []);
   const [loadingData, setLoadingData] = useState(false);
@@ -104,7 +116,7 @@ export default function SchoolApplicantsPage() {
 
   const loadApplicantsData = async (forceRefresh = false) => {
     if (!user?.email) return;
-    if (!cachedSchool && !school) setLoading(true);
+    if (!cachedSchool && !school && !initialSchool) setLoading(true);
 
     try {
       const baseUrl = getApiBase();

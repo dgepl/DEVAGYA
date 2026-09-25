@@ -61,61 +61,147 @@ class RecruitmentService:
             threading.Thread(target=self._sync_from_supabase_cloud, kwargs={"force": True}, daemon=True).start()
 
     def _sync_from_supabase_cloud(self, force: bool = False):
-        """Pulls all schools, vacancies, and applications live from Supabase Cloud with a 120s cache TTL to ensure instant speed."""
+        """Pulls all schools, vacancies, and applications concurrently from Supabase Cloud with cache TTL to ensure instant speed."""
         if not SERVICE_KEY or not SUPABASE_URL:
             return
 
         now = time.time()
-        if not force and (now - getattr(self, "_last_cloud_sync", 0) < 120.0):
+        if not force and (now - getattr(self, "_last_cloud_sync", 0) < 180.0):
             return
 
         self._last_cloud_sync = now
-        try:
-            with httpx.Client(timeout=5.0) as client:
-                # 1. Sync schools
-                res_sch = client.get(
-                    f"{SUPABASE_URL}/rest/v1/recruitment_schools?select=*&order=created_at.desc", 
-                    headers=supabase_headers
-                )
-                if res_sch.status_code == 200:
-                    cloud_schools = res_sch.json()
-                    if isinstance(cloud_schools, list):
-                        for s in cloud_schools:
-                            s_id = s.get("id")
-                            if s_id:
-                                self.schools[s_id] = s
-                        _save_json(SCHOOLS_FILE, self.schools)
-                        logger.info(f"Synced {len(cloud_schools)} schools from Supabase Cloud.")
 
-                # 2. Sync vacancies
-                res_vac = client.get(
-                    f"{SUPABASE_URL}/rest/v1/vacancies?select=*&order=created_at.desc", 
-                    headers=supabase_headers
-                )
-                if res_vac.status_code == 200:
-                    cloud_vac = res_vac.json()
-                    if isinstance(cloud_vac, list):
-                        for v in cloud_vac:
-                            v_id = v.get("id")
-                            if v_id:
-                                self.vacancies[v_id] = v
-                        _save_json(VACANCIES_FILE, self.vacancies)
+        def _fetch_schools():
+            try:
+                with httpx.Client(timeout=4.0) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/recruitment_schools?select=*&order=created_at.desc", 
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200:
+                        cloud_schools = res.json()
+                        if isinstance(cloud_schools, list):
+                            for s in cloud_schools:
+                                s_id = s.get("id")
+                                if s_id:
+                                    self.schools[s_id] = s
+                            _save_json(SCHOOLS_FILE, self.schools)
+                            logger.info(f"Synced {len(cloud_schools)} schools from Supabase Cloud.")
+            except Exception as e:
+                logger.warning(f"Notice during Supabase schools sync: {e}")
 
-                # 3. Sync job applications
-                res_app = client.get(
-                    f"{SUPABASE_URL}/rest/v1/job_applications?select=*&order=created_at.desc", 
-                    headers=supabase_headers
-                )
-                if res_app.status_code == 200:
-                    cloud_app = res_app.json()
-                    if isinstance(cloud_app, list):
-                        for a in cloud_app:
-                            a_id = a.get("id")
-                            if a_id:
-                                self.applications[a_id] = a
-                        _save_json(APPLICATIONS_FILE, self.applications)
-        except Exception as e:
-            logger.warning(f"Notice during Supabase recruitment sync: {e}")
+        def _fetch_vacancies():
+            try:
+                with httpx.Client(timeout=4.0) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/vacancies?select=*&order=created_at.desc", 
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200:
+                        cloud_vac = res.json()
+                        if isinstance(cloud_vac, list):
+                            for v in cloud_vac:
+                                v_id = v.get("id")
+                                if v_id:
+                                    self.vacancies[v_id] = v
+                            _save_json(VACANCIES_FILE, self.vacancies)
+            except Exception as e:
+                logger.warning(f"Notice during Supabase vacancies sync: {e}")
+
+        def _fetch_applications():
+            try:
+                with httpx.Client(timeout=4.0) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/job_applications?select=*&order=created_at.desc", 
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200:
+                        cloud_app = res.json()
+                        if isinstance(cloud_app, list):
+                            for a in cloud_app:
+                                a_id = a.get("id")
+                                if a_id:
+                                    self.applications[a_id] = a
+                            _save_json(APPLICATIONS_FILE, self.applications)
+            except Exception as e:
+                logger.warning(f"Notice during Supabase applications sync: {e}")
+
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            executor.map(lambda fn: fn(), [_fetch_schools, _fetch_vacancies, _fetch_applications])
+
+    def sync_school_cloud(self, school_id: Optional[str] = None, email: Optional[str] = None):
+        """Targeted fast sync for a single school in parallel instead of downloading entire platform tables."""
+        if not SERVICE_KEY or not SUPABASE_URL:
+            return
+
+        email_clean = email.strip().lower() if email else None
+
+        def _fetch_target_school():
+            try:
+                with httpx.Client(timeout=3.5) as client:
+                    url = f"{SUPABASE_URL}/rest/v1/recruitment_schools?select=*"
+                    if email_clean:
+                        url += f"&email=eq.{email_clean}"
+                    elif school_id:
+                        url += f"&id=eq.{school_id}"
+                    else:
+                        return
+                    res = client.get(url, headers=supabase_headers)
+                    if res.status_code == 200:
+                        rows = res.json()
+                        if rows and isinstance(rows, list):
+                            for s in rows:
+                                s_id = s.get("id")
+                                if s_id:
+                                    self.schools[s_id] = s
+                            _save_json(SCHOOLS_FILE, self.schools)
+            except Exception as e:
+                logger.warning(f"Notice during targeted school sync: {e}")
+
+        def _fetch_target_vacancies():
+            if not school_id:
+                return
+            try:
+                with httpx.Client(timeout=3.5) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/vacancies?school_id=eq.{school_id}&select=*&order=created_at.desc",
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200:
+                        rows = res.json()
+                        if rows and isinstance(rows, list):
+                            for v in rows:
+                                v_id = v.get("id")
+                                if v_id:
+                                    self.vacancies[v_id] = v
+                            _save_json(VACANCIES_FILE, self.vacancies)
+            except Exception as e:
+                logger.warning(f"Notice during targeted vacancies sync: {e}")
+
+        def _fetch_target_applications():
+            if not school_id:
+                return
+            try:
+                with httpx.Client(timeout=3.5) as client:
+                    res = client.get(
+                        f"{SUPABASE_URL}/rest/v1/job_applications?school_id=eq.{school_id}&select=*&order=created_at.desc",
+                        headers=supabase_headers
+                    )
+                    if res.status_code == 200:
+                        rows = res.json()
+                        if rows and isinstance(rows, list):
+                            for a in rows:
+                                a_id = a.get("id")
+                                if a_id:
+                                    self.applications[a_id] = a
+                            _save_json(APPLICATIONS_FILE, self.applications)
+            except Exception as e:
+                logger.warning(f"Notice during targeted applications sync: {e}")
+
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            executor.map(lambda fn: fn(), [_fetch_target_school, _fetch_target_vacancies, _fetch_target_applications])
 
     # ==========================================
     # SCHOOL MANAGEMENT & VERIFICATION
@@ -191,17 +277,15 @@ class RecruitmentService:
 
     def get_school_by_email(self, email: str, force_sync: bool = False) -> Optional[Dict[str, Any]]:
         email_clean = email.strip().lower()
-        if force_sync:
-            self._sync_from_supabase_cloud(force=True)
+        if not force_sync:
+            for s in self.schools.values():
+                if s.get("email", "").lower() == email_clean:
+                    return s
 
-        for s in self.schools.values():
-            if s.get("email", "").lower() == email_clean:
-                return s
-
-        # Direct cloud check if not in local memory
+        # Direct cloud check targeted specifically to this email
         if SERVICE_KEY and SUPABASE_URL:
             try:
-                with httpx.Client(timeout=4.0) as client:
+                with httpx.Client(timeout=3.5) as client:
                     res = client.get(
                         f"{SUPABASE_URL}/rest/v1/recruitment_schools?email=eq.{email_clean}&select=*",
                         headers=supabase_headers
@@ -215,6 +299,11 @@ class RecruitmentService:
                             return sch
             except Exception as e:
                 logger.warning(f"Error fetching school by email from cloud: {e}")
+
+        # Fallback to local memory if network failed
+        for s in self.schools.values():
+            if s.get("email", "").lower() == email_clean:
+                return s
 
         return None
 
@@ -393,7 +482,8 @@ class RecruitmentService:
         status: Optional[str] = "active",
         force_sync: bool = False
     ) -> List[Dict[str, Any]]:
-        self._sync_from_supabase_cloud(force=force_sync)
+        if force_sync or (not self.vacancies and time.time() - getattr(self, "_last_cloud_sync", 0) > 120.0):
+            self._sync_from_supabase_cloud(force=force_sync)
         results = []
         for vac in self.vacancies.values():
             if school_id and vac.get("school_id") != school_id:
@@ -596,12 +686,14 @@ class RecruitmentService:
         return record
 
     def get_applications_for_school(self, school_id: str, force_sync: bool = False) -> List[Dict[str, Any]]:
-        self._sync_from_supabase_cloud(force=force_sync)
+        if force_sync or (not self.applications and time.time() - getattr(self, "_last_cloud_sync", 0) > 120.0):
+            self._sync_from_supabase_cloud(force=force_sync)
         results = [a for a in self.applications.values() if a.get("school_id") == school_id]
         return sorted(results, key=lambda x: x.get("created_at", ""), reverse=True)
 
     def get_applications_for_teacher(self, teacher_email: str, force_sync: bool = False) -> List[Dict[str, Any]]:
-        self._sync_from_supabase_cloud(force=force_sync)
+        if force_sync or (not self.applications and time.time() - getattr(self, "_last_cloud_sync", 0) > 120.0):
+            self._sync_from_supabase_cloud(force=force_sync)
         email_clean = teacher_email.strip().lower()
         results = []
         for a in self.applications.values():
@@ -622,12 +714,26 @@ class RecruitmentService:
 
     def get_school_overview(self, email: str, force_sync: bool = False) -> Optional[Dict[str, Any]]:
         """Ultra-fast consolidated school data: returns school profile, all vacancies, and all applications in 1 pass."""
-        school = self.get_school_by_email(email, force_sync=force_sync)
+        email_clean = email.strip().lower()
+        school = self.get_school_by_email(email_clean, force_sync=False)
+
+        # If not yet in memory or force requested, do targeted sync
+        if not school or force_sync:
+            self.sync_school_cloud(school_id=school.get("id") if school else None, email=email_clean)
+            school = self.get_school_by_email(email_clean, force_sync=False)
+
         if not school:
             return None
+
         school_id = school.get("id")
         vacancies = self.get_vacancies(school_id=school_id, status="all", force_sync=False)
         applications = self.get_applications_for_school(school_id=school_id, force_sync=False)
+
+        # Background silent revalidation if served instantly from memory
+        if not force_sync and school_id:
+            import threading
+            threading.Thread(target=self.sync_school_cloud, kwargs={"school_id": school_id, "email": email_clean}, daemon=True).start()
+
         return {
             "school": school,
             "vacancies": vacancies,

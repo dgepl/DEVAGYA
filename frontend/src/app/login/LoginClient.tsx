@@ -16,7 +16,7 @@ export default function LoginClient() {
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const { user, setUser, logout } = useAppStore();
+  const { user, setUser, logout, setSchoolProfile } = useAppStore();
   const router = useRouter();
 
   const handleEmailChange = (val: string) => {
@@ -105,6 +105,9 @@ export default function LoginClient() {
 
           // Successful authentication
           setUser(data.user);
+          if ((role === "school" || data.user.role === "school") && data.user.schoolProfile) {
+            setSchoolProfile(data.user.schoolProfile);
+          }
           setStatusMessage(null);
 
           if (role === "student") router.push("/dashboard/student");

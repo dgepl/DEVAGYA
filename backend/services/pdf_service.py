@@ -75,7 +75,7 @@ except Exception as e:
 
 _IMAGE_CACHE: Dict[str, bytes] = {}
 
-def _fetch_image_bytes(raw_logo: Any, timeout: float = 3.5) -> Optional[bytes]:
+def _fetch_image_bytes(raw_logo: Any, timeout: float = 2.0) -> Optional[bytes]:
     """Retrieves and caches image bytes from URL, base64 data, or local file for fast PDF rendering."""
     if not raw_logo:
         return None

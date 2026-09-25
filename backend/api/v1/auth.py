@@ -308,12 +308,13 @@ async def login_user(payload: LoginPayload):
             detail="Incorrect password. Please check your credentials and try again."
         )
 
-    from services.recruitment_service import recruitment_service
-    school_rec = recruitment_service.get_school_by_email(email_clean)
     full_name = profile.get("full_name", email_clean.split('@')[0].capitalize())
     user_role = profile.get("role") or payload.role or "teacher"
-    if school_rec or (payload.role and payload.role.strip().lower() == "school") or user_role == "school":
+    school_rec = None
+    if (payload.role and payload.role.strip().lower() == "school") or user_role == "school":
         user_role = "school"
+        from services.recruitment_service import recruitment_service
+        school_rec = recruitment_service.get_school_by_email(email_clean)
     user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
 
     # Enforce strict Role Matching
@@ -363,6 +364,7 @@ async def login_user(payload: LoginPayload):
 
     if user_role == "school":
         if not school_rec:
+            from services.recruitment_service import recruitment_service
             school_rec = recruitment_service.get_school_by_email(email_clean)
         if not school_rec:
             school_rec = recruitment_service.register_or_update_school(
@@ -378,6 +380,7 @@ async def login_user(payload: LoginPayload):
         user_data["schoolState"] = school_rec.get("state", "")
         user_data["schoolName"] = school_rec.get("school_name", "") or profile.get("school_name", "")
         user_data["schoolLogo"] = school_rec.get("logo_url", "") or profile.get("school_logo", "")
+        user_data["schoolProfile"] = school_rec
 
     try:
         from services.activity_service import activity_service
@@ -409,11 +412,11 @@ async def get_profile(email: str):
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found.")
 
-    from services.recruitment_service import recruitment_service
-    school_rec = recruitment_service.get_school_by_email(email_clean)
     user_role = profile.get("role", "teacher")
-    if school_rec or user_role == "school":
-        user_role = "school"
+    school_rec = None
+    if user_role == "school":
+        from services.recruitment_service import recruitment_service
+        school_rec = recruitment_service.get_school_by_email(email_clean)
     user_id = profile.get("id", f"usr-{email_clean.split('@')[0]}")
     user_data = {
         "id": user_id,
@@ -448,6 +451,9 @@ async def get_profile(email: str):
 
     if user_role == "school":
         if not school_rec:
+            from services.recruitment_service import recruitment_service
+            school_rec = recruitment_service.get_school_by_email(email_clean)
+        if not school_rec:
             school_rec = recruitment_service.register_or_update_school(
                 email=email_clean,
                 school_name=profile.get("school_name") or user_data["name"],
@@ -462,6 +468,7 @@ async def get_profile(email: str):
         user_data["contactPerson"] = school_rec.get("contact_person", "")
         user_data["schoolName"] = school_rec.get("school_name", "") or profile.get("school_name", "")
         user_data["schoolLogo"] = school_rec.get("logo_url", "") or profile.get("school_logo", "")
+        user_data["schoolProfile"] = school_rec
 
 
 

@@ -77,8 +77,20 @@ export default function SchoolDashboardHomePage() {
   } = useAppStore();
   const router = useRouter();
 
-  const [school, setSchool] = useState<SchoolData | null>(cachedSchool || null);
-  const [loading, setLoading] = useState(!cachedSchool);
+  const initialSchool: SchoolData | null = cachedSchool || (user?.schoolName || user?.email ? {
+    id: user.schoolId || `sch-${user.email}`,
+    school_name: user.schoolName || user.name || "School",
+    email: user.email || "",
+    phone: user.phone || "",
+    affiliation_board: user.affiliationBoard || user.board || "CBSE",
+    city: user.schoolCity || "",
+    state: user.schoolState || "",
+    verification_status: (user.verificationStatus as any) || "pending_verification",
+    logo_url: user.schoolLogo || "",
+  } : null);
+
+  const [school, setSchool] = useState<SchoolData | null>(initialSchool);
+  const [loading, setLoading] = useState(!initialSchool);
   const [refreshing, setRefreshing] = useState(false);
   const [vacancies, setVacancies] = useState<Vacancy[]>(cachedVacancies || []);
   const [applications, setApplications] = useState<JobApplication[]>(cachedApplications || []);
@@ -86,7 +98,7 @@ export default function SchoolDashboardHomePage() {
   const loadDashboardData = async (forceRefresh = false) => {
     if (!user?.email) return;
     if (forceRefresh) setRefreshing(true);
-    else if (!school && !cachedSchool) setLoading(true);
+    else if (!school && !cachedSchool && !initialSchool) setLoading(true);
 
     try {
       const baseUrl = getApiBase();

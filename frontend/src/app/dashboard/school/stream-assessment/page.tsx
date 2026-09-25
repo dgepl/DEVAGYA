@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { 
   Building2, 
@@ -267,7 +267,8 @@ export default function SchoolStreamAssessmentPage() {
     }
   };
 
-  // Sync state from profile or pre-fetch school details from backend
+  // Sync state from profile or pre-fetch school details from backend once
+  const fetchedProfileRef = useRef(false);
   useEffect(() => {
     const activeLogo = schoolProfile?.logo_url || user?.schoolLogo;
     if (activeLogo && !schoolLogo) {
@@ -278,8 +279,9 @@ export default function SchoolStreamAssessmentPage() {
       setSchoolName(activeName);
     }
 
-    // Pre-fetch fresh institutional profile from backend to ensure latest school logo is loaded
-    if (user?.email) {
+    // Only pre-fetch if missing and not yet fetched in this session
+    if (user?.email && !schoolProfile && !user?.schoolLogo && !fetchedProfileRef.current) {
+      fetchedProfileRef.current = true;
       const email = user.email.trim().toLowerCase();
       fetch(`${getApiBase()}/recruitment/schools/me?email=${encodeURIComponent(email)}`)
         .then((res) => (res.ok ? res.json() : null))
@@ -288,13 +290,6 @@ export default function SchoolStreamAssessmentPage() {
             setSchoolProfile(data.school);
             if (data.school.logo_url) {
               setSchoolLogo(data.school.logo_url);
-              if (user && data.school.logo_url !== user.schoolLogo) {
-                setUser({
-                  ...user,
-                  schoolLogo: data.school.logo_url,
-                  schoolName: data.school.school_name || user.schoolName
-                });
-              }
             }
             if (data.school.school_name && (!schoolName || schoolName === "Apex International School")) {
               setSchoolName(data.school.school_name);
@@ -303,7 +298,7 @@ export default function SchoolStreamAssessmentPage() {
         })
         .catch((e) => console.warn("Could not pre-fetch school profile:", e));
     }
-  }, [user?.email, user?.schoolLogo, schoolProfile?.logo_url, schoolProfile?.school_name]);
+  }, [user?.email, user?.schoolLogo, user?.schoolName, schoolProfile?.logo_url, schoolProfile?.school_name]);
 
   // Generation & View State
   const [isGenerating, setIsGenerating] = useState(false);
