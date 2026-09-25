@@ -143,7 +143,7 @@ class StreamAssessmentService:
             raw_response = await ai_provider.chat_completion(
                 messages=messages,
                 temperature=0.35,
-                max_tokens=4000,
+                max_tokens=8192,
                 response_format_json=True
             )
             parsed = self._parse_json_response(raw_response)
@@ -242,8 +242,8 @@ REQUIREMENTS:
    - competency: Specific NEP competency tested
    - question_text: Complete, standalone question prompt with clear, full instructions so students know exactly what is being asked (e.g. "Which of the following words begins with the same letter sound as 'Sun'?", "Identify which word ends with the letter 't':", "Which of the following is a high-frequency sight word?"). Must be a complete grammatical sentence. DO NOT prefix with stream, class, or topic tags.
    - options: 4 clear choices for MCQs, e.g. ["(A) ...", "(B) ...", "(C) ...", "(D) ..."]
-   - answer: Model answer / marking scheme
-   - explanation: Pedagogical / diagnostic insight
+   - answer: Model answer / marking scheme (concise, max 2 sentences)
+   - explanation: Pedagogical / diagnostic insight (concise, 1 sentence)
 
 OUTPUT FORMAT:
 Return ONLY valid JSON:
@@ -281,12 +281,32 @@ Return ONLY valid JSON:
         try:
             return json.loads(cleaned)
         except Exception:
-            match = re.search(r'\{.*\}', cleaned, re.DOTALL)
-            if match:
-                try:
-                    return json.loads(match.group(0))
-                except Exception:
-                    pass
+            pass
+
+        match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except Exception:
+                pass
+
+        # Resilient recovery for truncated JSON
+        try:
+            q_match = re.search(r'"questions"\s*:\s*\[', cleaned)
+            if q_match:
+                q_start = q_match.end()
+                last_brace = cleaned.rfind("}")
+                if last_brace > q_start:
+                    sub = cleaned[:last_brace + 1]
+                    open_brackets = sub.count("[") - sub.count("]")
+                    open_braces = sub.count("{") - sub.count("}")
+                    repaired = sub + ("]" * max(0, open_brackets)) + ("}" * max(0, open_braces))
+                    res = json.loads(repaired)
+                    if res and isinstance(res.get("questions"), list) and len(res["questions"]) > 0:
+                        return res
+        except Exception as repair_err:
+            logger.debug(f"JSON repair attempt notice: {repair_err}")
+
         return None
 
     def _build_response(self, req: StreamAssessmentRequest, stage: str, cfg: Dict[str, Any], data: Dict[str, Any], calculated_total_marks: int) -> StreamAssessmentResponse:

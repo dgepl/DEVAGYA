@@ -58,17 +58,17 @@ class GeneratedPaperResponse(BaseModel):
     created_at: Optional[str] = None
 
 class StreamAssessmentRequest(BaseModel):
-    title: str = Field(default="NEP Stage-Wise Assessment Paper")
-    class_name: str = Field(default="Class 11", example="Class 10")
+    title: Optional[str] = Field(default="NEP Stage-Wise Assessment Paper")
+    class_name: Optional[str] = Field(default="Class 10", example="Class 10")
     subject: Optional[str] = Field(default="Comprehensive Diagnostic")
     nep_stage: Optional[str] = None # 'foundational', 'preparatory', 'middle', 'secondary', 'senior_secondary'
-    school_name: str = Field(default="Apex International Academy")
+    school_name: Optional[str] = Field(default="DEVGYA GLOBAL ACADEMY")
     school_logo: Optional[str] = None
-    time_allowed_mins: int = Field(default=90)
-    difficulty: str = Field(default="balanced") # "foundation", "balanced", "advanced"
-    num_mcqs_per_stream: int = Field(default=4)
-    num_short_per_stream: int = Field(default=2)
-    num_long_per_stream: int = Field(default=1)
+    time_allowed_mins: Optional[int] = Field(default=90)
+    difficulty: Optional[str] = Field(default="balanced") # "foundation", "balanced", "advanced"
+    num_mcqs_per_stream: Optional[int] = Field(default=4)
+    num_short_per_stream: Optional[int] = Field(default=2)
+    num_long_per_stream: Optional[int] = Field(default=1)
     custom_instructions: Optional[str] = None
     user_email: Optional[str] = None
 

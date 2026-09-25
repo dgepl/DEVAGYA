@@ -269,7 +269,7 @@ export default function SchoolStreamAssessmentPage() {
         num_short_per_stream: Number(numShortPerStream),
         num_long_per_stream: Number(numLongPerStream),
         custom_instructions: customInstructions,
-        user_email: user.email
+        user_email: user?.email || schoolProfile?.email || ""
       };
 
       const result = await generateStreamAssessment(payload);

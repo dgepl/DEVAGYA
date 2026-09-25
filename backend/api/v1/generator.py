@@ -105,7 +105,8 @@ async def generate_stream_assessment(request: StreamAssessmentRequest):
         response = await stream_assessment_service.generate_assessment(request)
         if request.user_email:
             response.user_email = request.user_email
-        await _save_paper_for_user(request.user_email, response.dict())
+        resp_dict = response.model_dump() if hasattr(response, "model_dump") else response.dict()
+        await _save_paper_for_user(request.user_email, resp_dict)
         return response
     except HTTPException:
         raise
