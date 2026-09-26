@@ -54,7 +54,10 @@ export function CoachDashboard({
   // If all completed in current level, check next unlocked level
   if (!nextActivity) {
     const higherUnlocked = levels.find(
-      (l) => l.level_number > currentLvlNum && l.is_unlocked && l.activities.some((a) => !a.is_completed)
+      (l) =>
+        l.level_number > currentLvlNum &&
+        (l.is_unlocked || profile.unlocked_levels?.includes(l.level_number) || (currentLevel?.progress_percentage || 0) >= 70) &&
+        l.activities.some((a) => !a.is_completed)
     );
     if (higherUnlocked) {
       nextLevel = higherUnlocked;
@@ -183,21 +186,40 @@ export function CoachDashboard({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-              <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2">
-                🔒 Next Level Unlock Criteria:
+            {((currentLevel?.progress_percentage || 0) >= 70 || currentLevel?.capstone_passed || (profile.unlocked_levels?.includes(currentLvlNum + 1))) && currentLvlNum < 5 ? (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-300 dark:border-emerald-800 text-left">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-300 mb-1">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Level {currentLvlNum + 1} Unlocked!</span>
+                </div>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mb-3">
+                  You satisfied the spoken requirements. Ready to jump to the next progressive stage!
+                </p>
+                <button
+                  onClick={onOpenRoadmap}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5"
+                >
+                  <span>Continue to Level {currentLvlNum + 1}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
-                <li className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${((currentLevel?.progress_percentage || 0) >= 80) ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
-                  <span>Reach 80% activities completion ({currentLevel?.completed_activities_count || 0}/{currentLevel?.total_activities_count || 0})</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${currentLevel?.capstone_passed ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
-                  <span>Pass Level {currentLvlNum} Capstone Spoken Exam ({currentLevel?.pass_percentage || 80}%+)</span>
-                </li>
-              </ul>
-            </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2">
+                  🔒 Next Level Unlock Criteria:
+                </div>
+                <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
+                  <li className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${((currentLevel?.progress_percentage || 0) >= 70) ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
+                    <span>Complete 70%+ of activities ({currentLevel?.completed_activities_count || 0}/{currentLevel?.total_activities_count || 0})</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${currentLevel?.capstone_passed ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
+                    <span>Or pass Level {currentLvlNum} Capstone Spoken Exam</span>
+                  </li>
+                </ul>
+              </div>
+            )}
 
             <button
               onClick={onOpenRoadmap}

@@ -606,6 +606,41 @@ class EnglishCoachService:
     # -----------------------------------------------------------------
     # USER PROFILE & PROGRESS STATE
     # -----------------------------------------------------------------
+    def _normalize_profile(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Safely parses JSONB fields from Supabase or cache into Python data structures."""
+        if not isinstance(data, dict):
+            return data
+
+        for list_field in ["unlocked_levels", "completed_activities", "common_mistakes", "strengths", "weaknesses", "priority_focus", "personalized_roadmap"]:
+            val = data.get(list_field)
+            if isinstance(val, str):
+                try:
+                    data[list_field] = json.loads(val)
+                except Exception:
+                    data[list_field] = []
+            elif not isinstance(val, list):
+                data[list_field] = [1] if list_field == "unlocked_levels" else []
+
+        for dict_field in ["activity_scores", "skills", "coach_feedback"]:
+            val = data.get(dict_field)
+            if isinstance(val, str):
+                try:
+                    data[dict_field] = json.loads(val)
+                except Exception:
+                    data[dict_field] = {}
+            elif not isinstance(val, dict):
+                data[dict_field] = {}
+
+        # Ensure unlocked_levels contains at least 1 and are ints
+        unlocked = []
+        for x in data.get("unlocked_levels", [1]):
+            try:
+                unlocked.append(int(x))
+            except (ValueError, TypeError):
+                pass
+        data["unlocked_levels"] = sorted(list(set(unlocked))) if unlocked else [1]
+        return data
+
     def get_or_create_profile(self, user_id: str, user_role: str = "student", user_name: str = "Learner") -> Dict[str, Any]:
         """Fetches user's coach profile or initializes default state."""
         clean_id = (user_id or "guest_learner").strip().lower()
@@ -623,7 +658,7 @@ class EnglishCoachService:
                     if resp.status_code == 200:
                         rows = resp.json()
                         if rows and len(rows) > 0:
-                            data = rows[0]
+                            data = self._normalize_profile(rows[0])
                             COACH_TRACK_CACHE[cache_key] = data
                             return data
             except Exception as e:
@@ -631,7 +666,7 @@ class EnglishCoachService:
 
         # 2. Return cached if present
         if cache_key in COACH_TRACK_CACHE:
-            return COACH_TRACK_CACHE[cache_key]
+            return self._normalize_profile(COACH_TRACK_CACHE[cache_key])
 
         # 3. Initialize fresh profile
         initial_profile = {
@@ -849,7 +884,25 @@ Rules:
         result_levels = []
         for l_cfg in LEVELS_CONFIG:
             lvl_num = l_cfg["level_number"]
-            is_unlocked = lvl_num in unlocked_set
+
+            # Dynamic unlock check: If preceding level has >= 70% completed, or capstone passed/done, unlock this level
+            if lvl_num > 1:
+                prev_cfg = next((l for l in LEVELS_CONFIG if l["level_number"] == lvl_num - 1), None)
+                if prev_cfg:
+                    prev_acts = prev_cfg.get("activities", [])
+                    prev_total = len(prev_acts)
+                    prev_completed = sum(1 for a in prev_acts if a["id"] in completed_activities_set)
+                    prev_prog = int((prev_completed / prev_total) * 100) if prev_total > 0 else 0
+                    prev_capstone = next((a for a in prev_acts if a.get("type") == "level_capstone_test"), None)
+                    prev_cap_passed = False
+                    if prev_capstone:
+                        prev_cap_score = profile.get("activity_scores", {}).get(prev_capstone["id"], 0)
+                        prev_cap_passed = prev_cap_score >= 60 or (prev_capstone["id"] in completed_activities_set)
+
+                    if prev_prog >= 70 or prev_cap_passed or prev_completed >= max(1, prev_total - 2):
+                        unlocked_set.add(lvl_num)
+
+            is_unlocked = (lvl_num in unlocked_set) or (lvl_num == 1)
 
             activities = l_cfg.get("activities", [])
             total_acts = len(activities)
@@ -861,9 +914,9 @@ Rules:
             capstone_passed = False
             if capstone_act:
                 capstone_score = profile.get("activity_scores", {}).get(capstone_act["id"], 0)
-                capstone_passed = capstone_score >= l_cfg.get("pass_percentage", 80)
+                capstone_passed = capstone_score >= 60 or (capstone_act["id"] in completed_activities_set)
 
-            is_completed = (progress_pct >= 90) and capstone_passed
+            is_completed = (progress_pct >= 80) or capstone_passed
 
             # Enrich activities with completion flag
             enriched_acts = []
@@ -888,9 +941,16 @@ Rules:
                 "completed_activities_count": completed_in_lvl,
                 "total_activities_count": total_acts,
                 "capstone_passed": capstone_passed,
-                "unlock_requirement": f"Complete {l_cfg['pass_percentage']}% of Level {lvl_num - 1} activities and pass Level {lvl_num - 1} Capstone Exam" if lvl_num > 1 else "Unlocked by default",
+                "unlock_requirement": f"Complete Level {lvl_num - 1} activities or pass the Level {lvl_num - 1} Spoken Exam" if lvl_num > 1 else "Unlocked by default",
                 "activities": enriched_acts
             })
+
+        # Keep profile's unlocked_levels synchronized
+        if set(profile.get("unlocked_levels") or []) != unlocked_set:
+            profile["unlocked_levels"] = sorted(list(unlocked_set))
+            if profile.get("current_level", 1) < max(unlocked_set):
+                profile["current_level"] = max(unlocked_set)
+            self._persist_profile_async(profile)
 
         return result_levels
 
@@ -949,17 +1009,29 @@ Rules:
             capstone_passed = False
             if capstone:
                 capstone_score = scores_map.get(capstone["id"], 0)
-                capstone_passed = capstone_score >= level_cfg.get("pass_percentage", 80)
+                capstone_passed = capstone_score >= 60 or (capstone["id"] in completed_list)
 
-            # If requirements met, unlock next level
-            if prog_pct >= 80 and capstone_passed:
+            # Unlocks next level if:
+            # 1. 70%+ of level activities done, OR
+            # 2. Capstone assessment passed or finished, OR
+            # 3. Current activity is the capstone exam, OR
+            # 4. Completed at least total_count - 2 activities
+            is_capstone_act = capstone and (activity_id == capstone["id"])
+            should_unlock = (
+                prog_pct >= 70
+                or capstone_passed
+                or is_capstone_act
+                or (completed_count >= max(1, total_count - 2))
+            )
+
+            if should_unlock:
                 next_lvl = level_number + 1
                 if next_lvl not in unlocked_levels:
                     unlocked_levels.append(next_lvl)
                     next_level_unlocked = True
-                    profile["current_level"] = next_lvl
+                profile["current_level"] = max(profile.get("current_level", 1), next_lvl)
 
-        profile["unlocked_levels"] = sorted(unlocked_levels)
+        profile["unlocked_levels"] = sorted(list(set(unlocked_levels)))
         profile["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         cache_key = f"{clean_id}_{user_role}"

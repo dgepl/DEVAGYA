@@ -28,7 +28,8 @@ import {
   TrendingUp,
   Brain,
   VolumeX,
-  Play
+  Play,
+  Flame
 } from "lucide-react";
 
 interface Props {
@@ -49,6 +50,7 @@ export function ActivityPlayer({
   onBack
 }: Props) {
   // Determine drill items based on activity type
+  // Determine drill items based on activity type
   const items: any[] = React.useMemo(() => {
     const data = activity.data || {};
     if (activity.type === "repeat_after_coach" && Array.isArray(data.phrases)) {
@@ -65,6 +67,12 @@ export function ActivityPlayer({
     }
     if (activity.type === "mini_lesson" && Array.isArray(data.examples)) {
       return data.examples;
+    }
+    if (activity.type === "fill_in_blanks" && Array.isArray(data.questions)) {
+      return data.questions;
+    }
+    if (activity.type === "daily_expressions" && Array.isArray(data.expressions)) {
+      return data.expressions;
     }
     if (activity.type === "level_capstone_test" && Array.isArray(data.questions)) {
       return data.questions;
@@ -95,28 +103,28 @@ export function ActivityPlayer({
   const silenceTimerRef = useRef<any>(null);
   const latestSpokenRef = useRef<string>("");
 
-  // Target phrase and spoken prompt calculation
+  // Exact 100% synchronization between screen text and coach speech
   const { targetPhrase, coachSpokenInstruction, displayPrompt } = React.useMemo(() => {
     const type = activity.type;
     const data = currentItem;
 
     if (type === "repeat_after_coach") {
       const text = data.text || "";
-      const tip = data.phonetic_tip ? ` Tip: ${data.phonetic_tip}` : "";
       return {
         targetPhrase: text,
-        coachSpokenInstruction: `Listen closely: "${text}". Now your turn, speak!`,
+        coachSpokenInstruction: text,
         displayPrompt: text
       };
     }
 
     if (type === "vocabulary") {
       const word = data.word || "";
-      const meaning = data.meaning || "";
       const example = data.example || "";
+      const meaning = data.meaning || "";
+      const spokenText = example ? `${word}. For example: ${example}` : word;
       return {
-        targetPhrase: word,
-        coachSpokenInstruction: `Our word is "${word}". For example: "${example}". Now speak the word "${word}"!`,
+        targetPhrase: example ? `${word}. ${example}` : word,
+        coachSpokenInstruction: spokenText,
         displayPrompt: `${word} — ${meaning}`
       };
     }
@@ -124,21 +132,19 @@ export function ActivityPlayer({
     if (type === "sentence_doctor") {
       const flawed = data.flawed || "";
       const corrected = data.corrected || "";
-      const reason = data.reason || "";
       return {
         targetPhrase: corrected,
-        coachSpokenInstruction: `Look at this trap: "${flawed}". Speak the corrected sentence aloud!`,
-        displayPrompt: `Trap: "${flawed}"`
+        coachSpokenInstruction: `Say the correct sentence: ${corrected}`,
+        displayPrompt: corrected
       };
     }
 
     if (type === "sentence_builder") {
       const target = data.target || "";
-      const jumbled = Array.isArray(data.jumbled) ? data.jumbled.join(" / ") : "";
       return {
         targetPhrase: target,
-        coachSpokenInstruction: `Assemble these words into a fluent spoken sentence. Speak aloud when ready!`,
-        displayPrompt: jumbled || target
+        coachSpokenInstruction: `Speak this sentence: ${target}`,
+        displayPrompt: target
       };
     }
 
@@ -146,8 +152,29 @@ export function ActivityPlayer({
       const correct = data.correct || "";
       return {
         targetPhrase: correct,
-        coachSpokenInstruction: `Listen to the correct English form: "${correct}". Now repeat after me!`,
+        coachSpokenInstruction: `Speak the correct form: ${correct}`,
         displayPrompt: correct
+      };
+    }
+
+    if (type === "fill_in_blanks") {
+      const sentence = data.sentence || "";
+      const correct = data.correct || "";
+      const completedSentence = sentence.replace("_______", correct).replace(/\s+/g, " ");
+      return {
+        targetPhrase: completedSentence,
+        coachSpokenInstruction: `Speak the full sentence: ${completedSentence}`,
+        displayPrompt: completedSentence
+      };
+    }
+
+    if (type === "daily_expressions") {
+      const trigger = data.trigger || "";
+      const replies = data.replies || [];
+      return {
+        targetPhrase: replies.join(" OR "),
+        coachSpokenInstruction: trigger,
+        displayPrompt: trigger
       };
     }
 
@@ -155,8 +182,18 @@ export function ActivityPlayer({
       const prompt = data.prompt || "";
       return {
         targetPhrase: "",
-        coachSpokenInstruction: `Here is your capstone challenge: "${prompt}". Speak your response naturally!`,
+        coachSpokenInstruction: prompt,
         displayPrompt: prompt
+      };
+    }
+
+    if (type === "roleplay") {
+      const starter = data.starter || "";
+      const suggested = (data.suggested_phrases || []).join(" OR ");
+      return {
+        targetPhrase: suggested,
+        coachSpokenInstruction: starter,
+        displayPrompt: starter
       };
     }
 
@@ -184,9 +221,9 @@ export function ActivityPlayer({
     };
   }, [currentIndex, activity.id]);
 
-  // Trigger coach speech on step load
+  // Trigger coach speech cleanly without automatically starting microphone in a loop!
   const handlePlayCoachSpeech = () => {
-    if (!coachSpokenInstruction) return;
+    if (!coachSpokenInstruction || isCoachSpeaking) return;
     setHasStarted(true);
     stopRecording();
     setIsCoachSpeaking(true);
@@ -195,39 +232,37 @@ export function ActivityPlayer({
       coachSpokenInstruction,
       () => {
         setIsCoachSpeaking(false);
-        // Automatically open mic after coach finishes speaking
-        setTimeout(() => {
-          startRecording();
-        }, 300);
+        // Clean finish - Microphone stays OFF until user explicitly taps the microphone button when ready!
       },
       coachVoice
     );
   };
 
   const hasEvaluatedRef = useRef(false);
-  const isLongForm = activity.type === "presentation_pitch" || activity.type === "speech_cadence";
+  const isLongForm = activity.type === "presentation_pitch" || activity.type === "speech_cadence" || activity.type === "speaking_challenge";
 
   // Start recording with clean non-duplicating transcript and automatic silence detector
   const startRecording = () => {
     if (typeof window === "undefined") return;
+
+    // Hardware isolation: Ensure AI coach is completely silent before listening
+    stopCoachSpeaking();
+    setIsCoachSpeaking(false);
+
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRec) {
-      alert("Microphone speech recognition not supported in this browser. Please type below.");
+      alert("Microphone speech recognition not supported in this browser. Please use Chrome or Edge.");
       return;
     }
 
     try {
-      stopCoachSpeaking();
-      setIsCoachSpeaking(false);
       setFeedback(null);
       setSpokenText("");
       latestSpokenRef.current = "";
       hasEvaluatedRef.current = false;
 
       const rec = new SpeechRec();
-      // For short sentence drills (sentence builder, vocabulary, repeat, traps), continuous MUST be false.
-      // This prevents Chrome from emitting multi-phrase prefix loops and word stuttering!
       rec.continuous = isLongForm;
       rec.interimResults = true;
       rec.lang = "en-IN";
@@ -237,6 +272,8 @@ export function ActivityPlayer({
       };
 
       rec.onresult = (event: any) => {
+        if (isCoachSpeaking) return; // Prevent mic from capturing speaker audio
+
         let text = "";
         if (isLongForm) {
           let finals = "";
@@ -258,20 +295,20 @@ export function ActivityPlayer({
         }
 
         const clean = cleanRepeatedPhrases(text);
-        if (clean) {
+        if (clean && clean.trim().length > 0) {
           setSpokenText(clean);
           latestSpokenRef.current = clean;
 
-          // Automatic Silence / VAD: If user has spoken at least 1 word and pauses for 1.6 seconds
+          // Automatic Silence Detection: Trigger evaluation 1.8s after user stops speaking
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             handleAutoFinishSpeaking(clean);
-          }, 1600);
+          }, 1800);
         }
       };
 
       rec.onerror = (e: any) => {
-        console.warn("Speech recognition error:", e);
+        console.warn("Speech recognition notice:", e.error);
         setIsRecording(false);
       };
 
@@ -279,7 +316,7 @@ export function ActivityPlayer({
         setIsRecording(false);
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         const finalClean = cleanRepeatedPhrases(latestSpokenRef.current);
-        if (finalClean && finalClean.length > 0 && !hasEvaluatedRef.current) {
+        if (finalClean && finalClean.trim().length > 0 && !hasEvaluatedRef.current && !isCoachSpeaking) {
           handleAutoFinishSpeaking(finalClean);
         }
       };
@@ -306,8 +343,8 @@ export function ActivityPlayer({
     if (isRecording) {
       stopRecording();
       // If user manually stopped and text exists, evaluate
-      const clean = cleanRepeatedPhrases(spokenText);
-      if (clean && !hasEvaluatedRef.current) {
+      const clean = cleanRepeatedPhrases(spokenText || latestSpokenRef.current);
+      if (clean && clean.trim().length > 0 && !hasEvaluatedRef.current) {
         executeEvaluation(clean);
       }
     } else {
@@ -315,16 +352,17 @@ export function ActivityPlayer({
     }
   };
 
-  // Called automatically when user pauses speaking for 1.6s
+  // Called automatically when user pauses speaking
   const handleAutoFinishSpeaking = (textToEvaluate: string) => {
     stopRecording();
+    if (isCoachSpeaking || hasEvaluatedRef.current) return;
     const clean = cleanRepeatedPhrases(textToEvaluate);
-    if (clean && clean.length > 0 && !hasEvaluatedRef.current) {
+    if (clean && clean.trim().length > 0) {
       executeEvaluation(clean);
     }
   };
 
-  // Execute real AI evaluation and speak feedback out loud
+  // Execute real AI evaluation and speak feedback out loud ONCE (no auto-advancing loop)
   const executeEvaluation = async (text: string) => {
     if (isAnalyzing || hasEvaluatedRef.current) return;
     hasEvaluatedRef.current = true;
@@ -349,7 +387,7 @@ export function ActivityPlayer({
       );
       setItemScores((prev) => [...prev, avg]);
 
-      // CRITICAL: The AI Coach SPEAKS the critique and correction OUT LOUD to the user!
+      // CRITICAL: The AI Coach SPEAKS the critique and correction OUT LOUD to the user ONCE
       const scriptToSpeak =
         res.spoken_coach_speech ||
         (res.has_mistakes && res.corrected_sentence
@@ -361,12 +399,8 @@ export function ActivityPlayer({
         scriptToSpeak,
         () => {
           setIsCoachSpeaking(false);
-          // If passed without mistakes and more items remain, auto advance after 1.5 seconds!
-          if (!res.has_mistakes && isMultiItem && currentIndex < items.length - 1) {
-            setTimeout(() => {
-              handleAdvanceNext();
-            }, 1500);
-          }
+          // STOP! Do NOT auto advance into an endless loop.
+          // The user has full control to view feedback, repeat, or tap "Next Challenge" when ready.
         },
         coachVoice
       );
@@ -378,7 +412,7 @@ export function ActivityPlayer({
     }
   };
 
-  // Advance to next phrase / item or complete the activity
+  // Advance to next phrase / item or complete the activity cleanly without auto-playing loop
   const handleAdvanceNext = () => {
     stopRecording();
     stopCoachSpeaking();
@@ -386,11 +420,10 @@ export function ActivityPlayer({
     if (currentIndex < items.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setSpokenText("");
+      latestSpokenRef.current = "";
       setFeedback(null);
-      // Auto-speak the next item prompt
-      setTimeout(() => {
-        handlePlayCoachSpeech();
-      }, 300);
+      hasEvaluatedRef.current = false;
+      // Do NOT auto-play speech or microphone. Gives user a calm, premium experience!
     } else {
       finalizeActivity();
     }
@@ -437,9 +470,10 @@ export function ActivityPlayer({
       speakCoachText("Activity completed! Fantastic speaking practice today. Let's keep this momentum going!");
     } catch (err: any) {
       console.error("Failed to complete activity:", err);
-      alert(err.message || "Failed to record completion.");
+      setCompleted(true);
     }
   };
+
 
   // Completed State View
   if (completed) {
@@ -546,18 +580,18 @@ export function ActivityPlayer({
         )}
 
         {/* Coach Voice Banner: Start or Listen */}
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/40 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-50/80 to-purple-50/80 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-100 dark:border-indigo-900/50 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-indigo-600/20">
               <Brain className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-0.5">
-                AI Coach Audio Guide
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block">
+                AI Coach Studio Voice
               </span>
-              <div className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
-                {coachSpokenInstruction}
-              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                Listen to the coach pronounce it, or tap the microphone below to speak.
+              </p>
             </div>
           </div>
 
@@ -626,68 +660,290 @@ export function ActivityPlayer({
           </div>
         </div>
 
-        {/* Specific Visual Presentation based on activity type */}
+        {/* 1. Repeat After Coach */}
         {activity.type === "repeat_after_coach" && (
-          <div className="text-center py-4 mb-4">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 block">
-              Repeat Phrase {currentIndex + 1} of {items.length}
+          <div className="text-center py-6 mb-4 bg-slate-50/60 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-800 p-6">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-2 block">
+              Phrase to Repeat ({currentIndex + 1} of {items.length})
             </span>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-relaxed">
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-relaxed mb-3">
               &ldquo;{currentItem.text}&rdquo;
             </div>
             {currentItem.phonetic_tip && (
-              <div className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold mt-2">
-                💡 {currentItem.phonetic_tip}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-xs text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-100 dark:border-indigo-900/60">
+                <span>💡 {currentItem.phonetic_tip}</span>
               </div>
             )}
           </div>
         )}
 
+        {/* 2. Vocabulary */}
         {activity.type === "vocabulary" && (
-          <div className="p-5 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 text-center mb-6">
+          <div className="p-6 rounded-3xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 text-center mb-6">
             <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-1">
-              Vocabulary Word {currentIndex + 1} of {items.length}
+              Vocabulary Word ({currentIndex + 1} of {items.length})
             </span>
-            <div className="text-2xl font-black text-slate-900 dark:text-white mb-1">
+            <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">
               {currentItem.word}
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300 mb-3">{currentItem.meaning}</p>
-            <div className="text-xs text-slate-700 dark:text-slate-200 italic bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
-              &ldquo;{currentItem.example}&rdquo;
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-4 font-medium">{currentItem.meaning}</p>
+            <div className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-indigo-100 dark:border-slate-700 max-w-md mx-auto mb-3 shadow-xs">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block mb-0.5">Example in a Sentence:</span>
+              <strong className="text-indigo-700 dark:text-indigo-300">&ldquo;{currentItem.example}&rdquo;</strong>
             </div>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+              👉 Pronounce the word <strong className="text-indigo-600 dark:text-indigo-400">&ldquo;{currentItem.word}&rdquo;</strong> or the full sentence aloud.
+            </span>
           </div>
         )}
 
+        {/* 3. Sentence Doctor */}
         {activity.type === "sentence_doctor" && (
-          <div className="p-5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 mb-6">
-            <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300 mb-2">
+          <div className="p-6 rounded-3xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 mb-6">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300 mb-3">
               <AlertTriangle className="w-4 h-4" />
-              <span>Common Speaking Trap {currentIndex + 1} of {items.length}</span>
+              <span>Common Speaking Trap ({currentIndex + 1} of {items.length})</span>
             </div>
-            <div className="text-base font-bold text-rose-700 dark:text-rose-400 mb-2 line-through">
-              ❌ &ldquo;{currentItem.flawed}&rdquo;
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div className="p-3.5 rounded-2xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1">
+                  ❌ Trap to Avoid:
+                </span>
+                <div className="text-sm font-bold text-rose-900 dark:text-rose-200 line-through">
+                  &ldquo;{currentItem.flawed}&rdquo;
+                </div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+                  ✅ Correct Spoken Form:
+                </span>
+                <div className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                  &ldquo;{currentItem.corrected}&rdquo;
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              💡 {currentItem.reason}
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+              💡 <strong className="text-slate-800 dark:text-slate-200">Rule:</strong> {currentItem.reason}
             </p>
           </div>
         )}
 
+        {/* 4. Sentence Builder */}
         {activity.type === "sentence_builder" && (
-          <div className="p-5 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 mb-6 text-center">
+          <div className="p-6 rounded-3xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 mb-6 text-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-2">
-              Unscramble & Speak Aloud
+              Unscramble Words & Speak Aloud ({currentIndex + 1} of {items.length})
             </span>
-            <div className="flex flex-wrap items-center justify-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
               {(currentItem.jumbled || []).map((word: string, i: number) => (
                 <span
                   key={i}
-                  className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs shadow-sm"
+                  className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-purple-200 dark:border-slate-700 font-bold text-xs shadow-sm"
                 >
                   {word}
                 </span>
               ))}
             </div>
+            <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-purple-100 dark:border-slate-700 inline-block text-xs text-slate-600 dark:text-slate-400">
+              Target sentence to speak: <strong className="text-purple-700 dark:text-purple-300">&ldquo;{currentItem.target}&rdquo;</strong>
+            </div>
+          </div>
+        )}
+
+        {/* 5. Mini Lesson */}
+        {activity.type === "mini_lesson" && (
+          <div className="p-6 rounded-3xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 mb-6 text-left">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-2">
+              Grammar Practice ({currentIndex + 1} of {items.length})
+            </span>
+            {activity.data?.rule && (
+              <p className="text-xs text-slate-700 dark:text-slate-300 font-medium mb-4 bg-white dark:bg-slate-800 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                💡 {activity.data.rule}
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div className="p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1">
+                  ❌ Incorrect Form
+                </span>
+                <div className="text-xs sm:text-sm font-semibold text-rose-900 dark:text-rose-200 line-through">
+                  &ldquo;{currentItem.incorrect}&rdquo;
+                </div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+                  ✅ Correct Spoken Form
+                </span>
+                <div className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                  &ldquo;{currentItem.correct}&rdquo;
+                </div>
+              </div>
+            </div>
+            {currentItem.explanation && (
+              <p className="text-xs text-slate-600 dark:text-slate-400 italic">
+                Why: {currentItem.explanation}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 6. Fill In The Blanks */}
+        {activity.type === "fill_in_blanks" && (
+          <div className="p-6 rounded-3xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 mb-6 text-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-2">
+              Fill the Blank & Speak Aloud ({currentIndex + 1} of {items.length})
+            </span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-relaxed mb-4">
+              &ldquo;{currentItem.sentence}&rdquo;
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+              {(currentItem.options || []).map((opt: string, i: number) => (
+                <span
+                  key={i}
+                  className={`px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-sm border ${
+                    opt === currentItem.correct
+                      ? "bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-400/40"
+                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                  }`}
+                >
+                  {opt}
+                </span>
+              ))}
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Speak the complete sentence: <strong className="text-indigo-700 dark:text-indigo-300">&ldquo;{(currentItem.sentence || "").replace("_______", currentItem.correct || "")}&rdquo;</strong>
+            </p>
+          </div>
+        )}
+
+        {/* 7. Daily Expressions */}
+        {activity.type === "daily_expressions" && (
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-50/70 to-purple-50/70 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-800 mb-6">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-2">
+              Everyday Social Dialogue ({currentIndex + 1} of {items.length})
+            </span>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mb-4 text-left">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">When someone asks:</span>
+              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                &ldquo;{currentItem.trigger}&rdquo;
+              </div>
+            </div>
+            <div className="text-left space-y-2">
+              <span className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 block">
+                Natural Spoken Replies (Speak either one aloud):
+              </span>
+              {(currentItem.replies || []).map((rep: string, idx: number) => (
+                <div
+                  key={idx}
+                  className="p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-indigo-100 dark:border-indigo-900/50 text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2"
+                >
+                  <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                    {idx + 1}
+                  </span>
+                  <span>&ldquo;{rep}&rdquo;</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 8. Spoken Prompt */}
+        {activity.type === "spoken_prompt" && (
+          <div className="p-6 rounded-3xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 mb-6 text-left">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-1">
+              Spoken Response Challenge
+            </span>
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mb-4">
+              {currentItem.question || activity.instructions}
+            </h3>
+            {Array.isArray(currentItem.hints) && currentItem.hints.length > 0 && (
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Speaking Hints:</span>
+                {currentItem.hints.map((h: string, i: number) => (
+                  <div key={i} className="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <span className="text-indigo-600">•</span>
+                    <span>{h}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 9. Speaking Challenge */}
+        {activity.type === "speaking_challenge" && (
+          <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 border border-amber-300 dark:border-amber-800 mb-6 text-center">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[10px] font-extrabold uppercase tracking-wider mb-3">
+              <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+              <span>{currentItem.target_seconds || 30}-Second Speaking Sprint</span>
+            </div>
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mb-2 max-w-lg mx-auto leading-snug">
+              {currentItem.prompt || activity.instructions}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Tap the microphone below and speak smoothly without stopping!
+            </p>
+          </div>
+        )}
+
+        {/* 10. Level Capstone Test */}
+        {activity.type === "level_capstone_test" && (
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 dark:from-purple-950/30 dark:via-indigo-950/30 dark:to-pink-950/30 border border-purple-200 dark:border-purple-800 mb-6 text-left">
+            <div className="flex items-center justify-between mb-3">
+              <span className="px-3 py-1 rounded-full bg-purple-600 text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                <Award className="w-3 h-3" />
+                <span>Capstone Graduation Exam</span>
+              </span>
+              <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                Question {currentIndex + 1} of {items.length}
+              </span>
+            </div>
+            <div className="p-4 rounded-xl bg-white dark:bg-slate-800 border border-purple-100 dark:border-purple-900 shadow-sm mb-3">
+              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-relaxed">
+                &ldquo;{currentItem.prompt}&rdquo;
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-purple-800 dark:text-purple-300 font-semibold">
+              <Clock className="w-4 h-4" />
+              <span>Target speaking time: {currentItem.min_seconds || 20} seconds</span>
+            </div>
+          </div>
+        )}
+
+        {/* 11. Roleplay (Level 2+) */}
+        {activity.type === "roleplay" && (
+          <div className="p-6 rounded-3xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 mb-6 text-left">
+            <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              <span>Roleplay Scenario</span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mb-4 font-medium">
+              {currentItem.scenario || activity.instructions}
+            </p>
+            {currentItem.starter && (
+              <div className="p-4 rounded-xl bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-700/80 mb-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  Coach / Partner Speaks:
+                </span>
+                <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                  &ldquo;{currentItem.starter}&rdquo;
+                </div>
+              </div>
+            )}
+            {Array.isArray(currentItem.suggested_phrases) && currentItem.suggested_phrases.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block">
+                  Suggested Responses (Speak one aloud):
+                </span>
+                {currentItem.suggested_phrases.map((phrase: string, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-emerald-100 dark:border-emerald-900/60 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                  >
+                    &ldquo;{phrase}&rdquo;
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

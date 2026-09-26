@@ -59,8 +59,12 @@ export function LevelRoadmapView({
       {/* Levels Stack */}
       <div className="space-y-6">
         {levels.map((lvl) => {
-          const isUnlocked = lvl.is_unlocked;
-          const isCompleted = lvl.is_completed;
+          const prevLvl = levels.find((l) => l.level_number === lvl.level_number - 1);
+          const prevFinished = prevLvl
+            ? (prevLvl.progress_percentage >= 70 || prevLvl.capstone_passed || prevLvl.is_completed || prevLvl.completed_activities_count >= Math.max(1, prevLvl.total_activities_count - 2))
+            : true;
+          const isUnlocked = lvl.is_unlocked || lvl.level_number === 1 || prevFinished;
+          const isCompleted = lvl.is_completed || (lvl.progress_percentage >= 80 && lvl.completed_activities_count >= Math.max(1, lvl.total_activities_count - 2));
           const isCurrent = lvl.level_number === currentLevelNumber;
 
           return (
