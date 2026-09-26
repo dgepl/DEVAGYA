@@ -5,7 +5,8 @@ import {
   CoachLevel,
   CoachActivity,
   speakCoachText,
-  stopCoachSpeaking
+  stopCoachSpeaking,
+  cleanRepeatedPhrases
 } from "./types";
 import { critiqueSpokenResponse, completeCoachActivity } from "@/lib/api";
 import {
@@ -196,6 +197,9 @@ export function ActivityPlayer({
     });
   };
 
+  const hasEvaluatedRef = useRef(false);
+  const isLongForm = activity.type === "presentation_pitch" || activity.type === "speech_cadence";
+
   // Start recording with clean non-duplicating transcript and automatic silence detector
   const startRecording = () => {
     if (typeof window === "undefined") return;
@@ -210,9 +214,14 @@ export function ActivityPlayer({
       stopCoachSpeaking();
       setIsCoachSpeaking(false);
       setFeedback(null);
+      setSpokenText("");
+      latestSpokenRef.current = "";
+      hasEvaluatedRef.current = false;
 
       const rec = new SpeechRec();
-      rec.continuous = true;
+      // For short sentence drills (sentence builder, vocabulary, repeat, traps), continuous MUST be false.
+      // This prevents Chrome from emitting multi-phrase prefix loops and word stuttering!
+      rec.continuous = isLongForm;
       rec.interimResults = true;
       rec.lang = "en-IN";
 
@@ -221,21 +230,36 @@ export function ActivityPlayer({
       };
 
       rec.onresult = (event: any) => {
-        // Collect entire clean transcript without repeating
-        let fullTranscript = "";
-        for (let i = 0; i < event.results.length; ++i) {
-          fullTranscript += event.results[i][0].transcript + " ";
+        let text = "";
+        if (isLongForm) {
+          let finals = "";
+          let interim = "";
+          for (let i = 0; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finals += event.results[i][0].transcript + " ";
+            } else {
+              interim = event.results[i][0].transcript;
+            }
+          }
+          text = (finals + " " + interim).trim();
+        } else {
+          // For single sentence mode: Take the current active result cleanly
+          const lastIdx = event.results.length - 1;
+          if (lastIdx >= 0) {
+            text = event.results[lastIdx][0].transcript;
+          }
         }
-        const clean = fullTranscript.trim();
+
+        const clean = cleanRepeatedPhrases(text);
         if (clean) {
           setSpokenText(clean);
           latestSpokenRef.current = clean;
 
-          // Automatic Silence / VAD: If user has spoken at least 1 word and pauses for 1.8 seconds
+          // Automatic Silence / VAD: If user has spoken at least 1 word and pauses for 1.6 seconds
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             handleAutoFinishSpeaking(clean);
-          }, 1800);
+          }, 1600);
         }
       };
 
@@ -246,6 +270,11 @@ export function ActivityPlayer({
 
       rec.onend = () => {
         setIsRecording(false);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        const finalClean = cleanRepeatedPhrases(latestSpokenRef.current);
+        if (finalClean && finalClean.length > 0 && !hasEvaluatedRef.current) {
+          handleAutoFinishSpeaking(finalClean);
+        }
       };
 
       recognitionRef.current = rec;
@@ -270,25 +299,28 @@ export function ActivityPlayer({
     if (isRecording) {
       stopRecording();
       // If user manually stopped and text exists, evaluate
-      if (spokenText.trim()) {
-        executeEvaluation(spokenText.trim());
+      const clean = cleanRepeatedPhrases(spokenText);
+      if (clean && !hasEvaluatedRef.current) {
+        executeEvaluation(clean);
       }
     } else {
       startRecording();
     }
   };
 
-  // Called automatically when user pauses speaking for 1.8s
+  // Called automatically when user pauses speaking for 1.6s
   const handleAutoFinishSpeaking = (textToEvaluate: string) => {
     stopRecording();
-    if (textToEvaluate && textToEvaluate.trim().length > 0) {
-      executeEvaluation(textToEvaluate.trim());
+    const clean = cleanRepeatedPhrases(textToEvaluate);
+    if (clean && clean.length > 0 && !hasEvaluatedRef.current) {
+      executeEvaluation(clean);
     }
   };
 
   // Execute real AI evaluation and speak feedback out loud
   const executeEvaluation = async (text: string) => {
-    if (isAnalyzing) return;
+    if (isAnalyzing || hasEvaluatedRef.current) return;
+    hasEvaluatedRef.current = true;
     setIsAnalyzing(true);
     stopCoachSpeaking();
 

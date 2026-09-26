@@ -209,3 +209,53 @@ export function stopCoachSpeaking() {
     } catch (e) {}
   }
 }
+
+/**
+ * Strips speech recognizer repetitive word stuttering and multi-word loop artifacts.
+ * e.g., "she she writes she writes an email she writes an email" -> "she writes an email"
+ */
+export function cleanRepeatedPhrases(text: string): string {
+  if (!text) return "";
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+
+  // 1. Remove consecutive identical duplicate words ("she she" -> "she")
+  const rawWords = trimmed.split(/\s+/);
+  if (rawWords.length <= 1) return trimmed;
+
+  const dedupedWords: string[] = [];
+  for (let i = 0; i < rawWords.length; i++) {
+    const current = rawWords[i];
+    const prev = dedupedWords[dedupedWords.length - 1];
+    if (!prev || current.toLowerCase() !== prev.toLowerCase()) {
+      dedupedWords.push(current);
+    }
+  }
+
+  let result = dedupedWords.join(" ");
+
+  // 2. Loop to collapse repeated multi-word phrase patterns
+  for (let phraseLen = 8; phraseLen >= 2; phraseLen--) {
+    let words = result.split(/\s+/);
+    if (words.length < phraseLen * 2) continue;
+
+    let changed = false;
+    for (let i = 0; i <= words.length - phraseLen * 2; i++) {
+      const phraseA = words.slice(i, i + phraseLen).join(" ").toLowerCase();
+      const phraseB = words.slice(i + phraseLen, i + phraseLen * 2).join(" ").toLowerCase();
+
+      if (phraseA === phraseB) {
+        words.splice(i, phraseLen);
+        result = words.join(" ");
+        changed = true;
+        break;
+      }
+    }
+    if (changed) {
+      phraseLen++; // re-check at same length
+    }
+  }
+
+  return result.trim();
+}
+

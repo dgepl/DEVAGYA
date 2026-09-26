@@ -5,7 +5,8 @@ import {
   DiagnosticQuestion,
   SpokenAnswerItem,
   speakCoachText,
-  stopCoachSpeaking
+  stopCoachSpeaking,
+  cleanRepeatedPhrases
 } from "./types";
 import { fetchDiagnosticQuestions, submitDiagnosticAssessment } from "@/lib/api";
 import {
@@ -163,12 +164,17 @@ export function DiagnosticAssessment({
       };
 
       rec.onresult = (event: any) => {
-        // Collect full clean transcript from 0 to results.length (eliminates all duplicate repetition)
-        let fullTranscript = "";
+        let finals = "";
+        let interim = "";
         for (let i = 0; i < event.results.length; ++i) {
-          fullTranscript += event.results[i][0].transcript + " ";
+          if (event.results[i].isFinal) {
+            finals += event.results[i][0].transcript + " ";
+          } else {
+            interim = event.results[i][0].transcript;
+          }
         }
-        const clean = fullTranscript.trim();
+        const combined = (finals + " " + interim).trim();
+        const clean = cleanRepeatedPhrases(combined);
         if (clean) {
           setAnswers((prev) => ({
             ...prev,
