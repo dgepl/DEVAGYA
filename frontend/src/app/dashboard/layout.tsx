@@ -47,7 +47,7 @@ import {
   MessageSquarePlus
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { useToolConfigStore } from "@/store/useToolConfigStore";
+import { useToolConfigStore, isToolEnabled } from "@/store/useToolConfigStore";
 import { getApiBase } from "@/lib/api";
 import { useEffect, useState, Suspense } from "react";
 import { SmartSearchBar } from "@/components/search/SmartSearchBar";
@@ -62,7 +62,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, logout, initSession, syncProfileFromServer, setUser } = useAppStore();
-  const { isFeatureAllowed, fetchFromServer } = useToolConfigStore();
+  const { isFeatureAllowed, fetchFromServer, tools } = useToolConfigStore();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -99,11 +99,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         pathname === "/dashboard/student/revision" ? "Revision Studio" :
         pathname === "/dashboard/video-consultation" ? "Live Video AI Consultation" :
         pathname === "/dashboard/teacher-olympiad" ? "Teacher Skills Olympiad" :
+        pathname === "/dashboard/coming-soon" ? "Coming Soon Roadmap" :
         pathname.replace("/dashboard/", "").replace(/[-_/]/g, " ").toUpperCase();
 
       const featureId = agentParam ? `agent-${agentParam}` : pathname.replace("/dashboard/", "").replace(/[/]/g, "-") || "dashboard";
-      // Page route navigation is strictly a presence/navigation event, NOT a feature usage.
-      // Real feature usage is tracked only when user actually generates a paper, creates an assignment, takes a quiz, etc.
       const actionType = "navigate";
 
       const payload = {
@@ -125,7 +124,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       }).catch(() => {
-        // Fallback relative rewrite
         fetch("/api/v1/analytics/track", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -194,12 +192,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Note: If a feature is disabled by Admin, instead of redirecting away,
-    // the dashboard renders the Coming Soon experience in-place.
     const effectiveRole = (activeUser.role === "management" ? "school" : (activeUser.role || "")).toLowerCase();
 
     if (effectiveRole === "student") {
       const isStudentAllowed = 
+        pathname === "/dashboard/coming-soon" ||
         pathname.startsWith("/dashboard/student") ||
         pathname.startsWith("/dashboard/agents") ||
         pathname.startsWith("/dashboard/english-coach") ||
@@ -213,6 +210,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       }
     } else if (effectiveRole === "parent") {
       const isParentAllowed = 
+        pathname === "/dashboard/coming-soon" ||
         pathname.startsWith("/dashboard/parent") ||
         pathname.startsWith("/dashboard/agents") ||
         pathname === "/dashboard/suggestions" ||
@@ -223,6 +221,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       }
     } else if (effectiveRole === "school" || effectiveRole === "management") {
       const isSchoolAllowed = 
+        pathname === "/dashboard/coming-soon" ||
         pathname.startsWith("/dashboard/school") ||
         pathname === "/dashboard/suggestions" ||
         pathname === "/dashboard/profile";
@@ -232,6 +231,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       }
     } else if (effectiveRole === "teacher") {
       const isTeacherAllowed = 
+        pathname === "/dashboard/coming-soon" ||
         pathname === "/dashboard" ||
         pathname.startsWith("/dashboard/generator") ||
         pathname.startsWith("/dashboard/ppt-generator") ||
@@ -260,7 +260,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   // Role-based Nav Specifications — each agent is a direct sidebar link
-  let navItems = [
+  let navItems: { label: string; href: string; icon: any; badge?: string }[] = [
     { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "AI PPT Generator", href: "/dashboard/ppt-generator", icon: Sliders },
     { label: "Question Generator", href: "/dashboard/generator", icon: Sparkles },
@@ -299,9 +299,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       { label: "Parent Dashboard", href: "/dashboard/parent", icon: LayoutDashboard },
       { label: "Student Performance Report", href: "/dashboard/parent/analytics", icon: TrendingUp },
       { label: "My Children & Accounts", href: "/dashboard/parent/children", icon: Users },
-      // Parent AI Agents
       { label: "Parenting Coach", href: "/dashboard/agents?agent=parent_coach", icon: HeartHandshake },
-      // General AI Agents
       { label: "Research Assistant", href: "/dashboard/agents?agent=research_assistant", icon: Search },
       { label: "Suggestions", href: "/dashboard/suggestions", icon: MessageSquarePlus },
     ];
@@ -311,19 +309,33 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     navItems.push({ label: "Super Admin", href: "/admin", icon: ShieldCheck });
   }
 
-  // Retain all navigation items so users can see available features; disabled ones display a Coming Soon page
-  const visibleNavItems = navItems.map((item) => {
+  // Filter navigation items to ONLY show active/enabled features (no mixing with coming soon)
+  const activeNavItems = navItems.filter((item) => {
+    if (user.role === "super_admin") return true;
     const itemUrl = new URL(item.href, "http://x");
     const itemAgent = item.href.includes("agent=") ? item.href.split("agent=")[1] : undefined;
-    const isAllowed = user.role === "super_admin" ? true : isFeatureAllowed(itemUrl.pathname, itemAgent);
-    return {
-      ...item,
-      isComingSoon: !isAllowed
-    };
+    return isFeatureAllowed(itemUrl.pathname, itemAgent);
   });
 
-  // Check if current active route / agent is disabled by admin
-  const isCurrentFeatureDisabled = user.role !== "super_admin" && !isFeatureAllowed(pathname, agentParam || undefined);
+  // Calculate count of disabled tools for current role
+  const userRoleKey = user.role === "management" ? "school" : (user.role || "teacher");
+  const disabledCount = tools.filter(
+    (t) => !isToolEnabled(t.is_enabled) && (t.role === userRoleKey || t.role === "all")
+  ).length;
+
+  // Append dedicated Coming Soon navigation link
+  activeNavItems.push({
+    label: "Coming Soon",
+    href: "/dashboard/coming-soon",
+    icon: Sparkles,
+    badge: disabledCount > 0 ? `${disabledCount}` : undefined,
+  });
+
+  // Check if current active route / agent is disabled by admin (excluding Coming Soon page itself)
+  const isCurrentFeatureDisabled = 
+    pathname !== "/dashboard/coming-soon" &&
+    user.role !== "super_admin" && 
+    !isFeatureAllowed(pathname, agentParam || undefined);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row">
@@ -335,7 +347,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           <DevgyaLogo size="lg" className="scale-105 origin-left" showText={true} />
         </Link>
         <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
-          {visibleNavItems.map((item) => {
+          {activeNavItems.map((item) => {
             const itemUrl = new URL(item.href, "http://x");
             const isActive = item.href.includes("?") 
               ? pathname === itemUrl.pathname && itemUrl.search === `?${searchParams.toString()}`
@@ -355,9 +367,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                   <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-500'}`} />
                   <span className="truncate">{item.label}</span>
                 </div>
-                {item.isComingSoon && (
-                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                    Soon
+                {item.badge && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-700 shrink-0">
+                    {item.badge}
                   </span>
                 )}
               </Link>

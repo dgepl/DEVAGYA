@@ -46,10 +46,10 @@ export function MobileTeacherDashboard() {
     { name: "School Recruitment", sub: "Apply with PDF Resume", href: "/dashboard/recruitment", icon: Briefcase, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Recruitment" },
   ];
 
-  // All tools remain visible; disabled ones display Coming Soon on click
+  // Only active tools are displayed in the core tools grid (no mixing with coming soon)
   const allowedTools = useMemo(() => {
-    return allTools;
-  }, [allTools]);
+    return allTools.filter(t => isFeatureAllowed(t.href));
+  }, [allTools, isFeatureAllowed]);
 
   // Dynamic search matching
   const matchingTools = useMemo(() => {
@@ -287,7 +287,6 @@ export function MobileTeacherDashboard() {
             <div className="grid grid-cols-3 gap-2">
               {allowedTools.map((tool, idx) => {
                 const IconComp = tool.icon;
-                const isAllowed = isFeatureAllowed(tool.href);
                 return (
                   <Link
                     key={idx}
@@ -298,11 +297,6 @@ export function MobileTeacherDashboard() {
                       <div className={`w-9 h-9 rounded-xl ${tool.bg} ${tool.border} border flex items-center justify-center ${tool.color}`}>
                         <IconComp className="w-5 h-5" />
                       </div>
-                      {!isAllowed && (
-                        <span className="text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-                          Soon
-                        </span>
-                      )}
                     </div>
                     <div>
                       <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight line-clamp-2">{tool.name}</h3>
@@ -317,6 +311,23 @@ export function MobileTeacherDashboard() {
                 );
               })}
             </div>
+
+            {/* Quick Coming Soon Link */}
+            <Link
+              href="/dashboard/coming-soon"
+              className="flex items-center justify-between p-3 rounded-2xl bg-indigo-50/70 border border-indigo-100/80 text-indigo-700 active:scale-98 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-black text-indigo-950">Coming Soon Roadmap</p>
+                  <p className="text-[9px] text-indigo-600 font-semibold">View disabled & upcoming feature pipeline</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-indigo-500" />
+            </Link>
           </div>
 
           {/* 6. RECENT QUESTION PAPERS SECTION */}

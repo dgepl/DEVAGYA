@@ -15,7 +15,8 @@ import {
   ArrowRight,
   BookOpen,
   FileText,
-  Headphones
+  Headphones,
+  ChevronRight
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -34,10 +35,10 @@ export function MobileStudentDashboard() {
     { name: "Pomodoro Timer", sub: "25m Focus & Rest Cycles", href: "/dashboard/student/timer", icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", type: "Focus Timer" },
   ];
 
-  // All tools remain visible; disabled ones display Coming Soon on click
+  // Only active tools are displayed in the core tools grid (no mixing with coming soon)
   const allowedStudentTools = useMemo(() => {
-    return studentTools;
-  }, [studentTools]);
+    return studentTools.filter(t => isFeatureAllowed(t.href));
+  }, [studentTools, isFeatureAllowed]);
 
   // Dynamic search matching
   const matchingTools = useMemo(() => {
@@ -199,7 +200,6 @@ export function MobileStudentDashboard() {
             <div className="grid grid-cols-3 gap-2">
               {allowedStudentTools.map((tool, idx) => {
                 const IconComp = tool.icon;
-                const isAllowed = isFeatureAllowed(tool.href);
                 return (
                   <Link
                     key={idx}
@@ -210,11 +210,6 @@ export function MobileStudentDashboard() {
                       <div className={`w-9 h-9 rounded-xl ${tool.bg} border ${tool.border} flex items-center justify-center ${tool.color}`}>
                         <IconComp className="w-5 h-5" />
                       </div>
-                      {!isAllowed && (
-                        <span className="text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-                          Soon
-                        </span>
-                      )}
                     </div>
                     <div>
                       <h3 className="text-[11px] font-extrabold text-slate-900 leading-tight">{tool.name}</h3>
@@ -229,6 +224,23 @@ export function MobileStudentDashboard() {
                 );
               })}
             </div>
+
+            {/* Quick Coming Soon Link */}
+            <Link
+              href="/dashboard/coming-soon"
+              className="flex items-center justify-between p-3 rounded-2xl bg-purple-50/70 border border-purple-100/80 text-purple-700 active:scale-98 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-purple-600 text-white flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-black text-purple-950">Coming Soon Roadmap</p>
+                  <p className="text-[9px] text-purple-600 font-semibold">View disabled & upcoming student features</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-purple-500" />
+            </Link>
           </div>
 
           {/* 5. QUICK SOCRATIC PROMPT STARTERS */}

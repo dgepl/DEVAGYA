@@ -9,7 +9,8 @@ import {
   Search, 
   X, 
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  ChevronRight
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToolConfigStore } from "@/store/useToolConfigStore";
@@ -26,10 +27,10 @@ export function MobileParentDashboard() {
     { name: "Research Assistant", sub: "Stream & Exam Pathways", href: "/dashboard/agents?agent=research_assistant", icon: Search, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100", type: "Research" },
   ];
 
-  // All tools remain visible; disabled ones display Coming Soon on click
+  // Only active tools are displayed in the core tools grid (no mixing with coming soon)
   const parentTools = useMemo(() => {
-    return rawParentTools;
-  }, [rawParentTools]);
+    return rawParentTools.filter(t => isFeatureAllowed(t.href));
+  }, [rawParentTools, isFeatureAllowed]);
 
   // Dynamic search matching
   const matchingTools = useMemo(() => {
@@ -189,7 +190,6 @@ export function MobileParentDashboard() {
             <div className="grid grid-cols-2 gap-2.5">
               {parentTools.map((tool, idx) => {
                 const IconComp = tool.icon;
-                const isAllowed = isFeatureAllowed(tool.href);
                 return (
                   <Link
                     key={idx}
@@ -200,11 +200,6 @@ export function MobileParentDashboard() {
                       <div className={`w-10 h-10 rounded-xl ${tool.bg} border ${tool.border} flex items-center justify-center ${tool.color}`}>
                         <IconComp className="w-5 h-5" />
                       </div>
-                      {!isAllowed && (
-                        <span className="text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-                          Soon
-                        </span>
-                      )}
                     </div>
                     <div>
                       <h3 className="text-xs font-extrabold text-slate-900 leading-tight">{tool.name}</h3>
@@ -219,6 +214,23 @@ export function MobileParentDashboard() {
                 );
               })}
             </div>
+
+            {/* Quick Coming Soon Link */}
+            <Link
+              href="/dashboard/coming-soon"
+              className="flex items-center justify-between p-3 rounded-2xl bg-rose-50/70 border border-rose-100/80 text-rose-700 active:scale-98 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-black text-rose-950">Coming Soon Roadmap</p>
+                  <p className="text-[9px] text-rose-600 font-semibold">View disabled & upcoming parent features</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-rose-500" />
+            </Link>
           </div>
 
           {/* 5. QUICK PARENTING ADVICE STARTERS */}

@@ -39,7 +39,7 @@ import {
   MessageSquarePlus
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { useToolConfigStore } from "@/store/useToolConfigStore";
+import { useToolConfigStore, isToolEnabled } from "@/store/useToolConfigStore";
 import { DevgyaLogo } from "@/components/common/DevgyaLogo";
 
 export function MobileTopHeader() {
@@ -196,21 +196,30 @@ export function MobileTopHeader() {
     ];
   }
 
-  const { isFeatureAllowed } = useToolConfigStore();
+  const { isFeatureAllowed, tools } = useToolConfigStore();
 
   if (role === "super_admin") {
     navItems.push({ label: "Super Admin", href: "/admin", icon: ShieldCheck });
   }
 
-  // Keep all items visible in mobile drawer; disabled ones display Coming Soon page on tap
-  const mobileNavItems = navItems.map((item) => {
+  // Filter mobile navigation items to ONLY show active/enabled features (no mixing with coming soon)
+  const mobileNavItems: { label: string; href: string; icon: any; badge?: string }[] = navItems.filter((item) => {
+    if (role === "super_admin") return true;
     const itemUrl = new URL(item.href, "http://x");
     const itemAgent = item.href.includes("agent=") ? item.href.split("agent=")[1] : undefined;
-    const isAllowed = role === "super_admin" ? true : isFeatureAllowed(itemUrl.pathname, itemAgent);
-    return {
-      ...item,
-      isComingSoon: !isAllowed
-    };
+    return isFeatureAllowed(itemUrl.pathname, itemAgent);
+  });
+
+  const userRoleKey = role;
+  const disabledCount = tools.filter(
+    (t) => !isToolEnabled(t.is_enabled) && (t.role === userRoleKey || t.role === "all")
+  ).length;
+
+  mobileNavItems.push({
+    label: "Coming Soon",
+    href: "/dashboard/coming-soon",
+    icon: Sparkles,
+    badge: disabledCount > 0 ? `${disabledCount}` : undefined,
   });
 
   const filteredNotifs = activeFilter === "all" 
@@ -467,9 +476,9 @@ export function MobileTopHeader() {
                         <span>{item.label}</span>
                       </span>
                       <div className="flex items-center gap-2">
-                        {item.isComingSoon && (
-                          <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
-                            Soon
+                        {item.badge && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-700">
+                            {item.badge}
                           </span>
                         )}
                         <ChevronRight className={`w-4 h-4 ${isActive ? "text-indigo-600" : "text-slate-300"}`} />
