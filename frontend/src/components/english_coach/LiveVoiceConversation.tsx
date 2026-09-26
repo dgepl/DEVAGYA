@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   speakCoachText,
-  stopCoachSpeaking
+  stopCoachSpeaking,
+  cleanRepeatedPhrases
 } from "./types";
 import { sendCoachConversationTurn, fetchCoachSessionReport } from "@/lib/api";
 import {
@@ -76,6 +77,8 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [conversation, isCoachThinking]);
+  const silenceTimerRef = useRef<any>(null);
+  const latestSpokenRef = useRef<string>("");
 
   const startRecording = () => {
     if (typeof window === "undefined") return;
@@ -91,21 +94,24 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       stopCoachSpeaking();
       setIsCoachSpeaking(false);
       const rec = new SpeechRec();
-      rec.continuous = true;
+      rec.continuous = false;
       rec.interimResults = true;
       rec.lang = "en-IN";
 
       rec.onstart = () => setIsRecording(true);
 
       rec.onresult = (event: any) => {
-        let finalTranscript = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript + " ";
-          }
-        }
-        if (finalTranscript) {
-          setUserInput((prev) => (prev + " " + finalTranscript).trim());
+        const lastIdx = event.results.length - 1;
+        const raw = lastIdx >= 0 ? event.results[lastIdx][0].transcript : "";
+        const clean = cleanRepeatedPhrases(raw);
+        if (clean) {
+          setUserInput(clean);
+          latestSpokenRef.current = clean;
+
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = setTimeout(() => {
+            handleSendMessage(clean);
+          }, 1800);
         }
       };
 
@@ -114,7 +120,14 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
         setIsRecording(false);
       };
 
-      rec.onend = () => setIsRecording(false);
+      rec.onend = () => {
+        setIsRecording(false);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        const finalClean = cleanRepeatedPhrases(latestSpokenRef.current);
+        if (finalClean && finalClean.trim().length > 0) {
+          handleSendMessage(finalClean);
+        }
+      };
 
       recognitionRef.current = rec;
       rec.start();
@@ -125,6 +138,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   };
 
   const stopRecording = () => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -136,17 +150,22 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   const toggleRecording = () => {
     if (isRecording) {
       stopRecording();
+      const clean = cleanRepeatedPhrases(userInput);
+      if (clean) {
+        handleSendMessage(clean);
+      }
     } else {
       startRecording();
     }
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (textOverride?: string) => {
     stopRecording();
-    const textToSend = userInput.trim();
+    const textToSend = cleanRepeatedPhrases(textOverride || userInput).trim();
     if (!textToSend || isCoachThinking) return;
 
     setUserInput("");
+    latestSpokenRef.current = "";
     const newTurns: Turn[] = [...conversation, { sender: "user", text: textToSend }];
     setConversation(newTurns);
     setIsCoachThinking(true);
@@ -436,7 +455,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
             className="w-full px-4 py-3.5 pr-12 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
-            onClick={handleSendMessage}
+            onClick={() => handleSendMessage()}
             disabled={!userInput.trim() || isCoachThinking}
             className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-indigo-600 text-white disabled:opacity-30 disabled:pointer-events-none hover:bg-indigo-700 transition"
           >

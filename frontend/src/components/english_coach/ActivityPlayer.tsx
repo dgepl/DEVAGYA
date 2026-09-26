@@ -6,7 +6,9 @@ import {
   CoachActivity,
   speakCoachText,
   stopCoachSpeaking,
-  cleanRepeatedPhrases
+  cleanRepeatedPhrases,
+  setCoachVoicePreference,
+  getCoachVoicePreference
 } from "./types";
 import { critiqueSpokenResponse, completeCoachActivity } from "@/lib/api";
 import {
@@ -84,6 +86,7 @@ export function ActivityPlayer({
   const [completionResult, setCompletionResult] = useState<any>(null);
   const [itemScores, setItemScores] = useState<number[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
+  const [coachVoice, setCoachVoice] = useState<string>("en-IN-NeerjaNeural");
 
   const currentItem = items[currentIndex] || items[0] || {};
   const isMultiItem = items.length > 1;
@@ -188,13 +191,17 @@ export function ActivityPlayer({
     stopRecording();
     setIsCoachSpeaking(true);
 
-    speakCoachText(coachSpokenInstruction, () => {
-      setIsCoachSpeaking(false);
-      // Automatically open mic after coach finishes speaking
-      setTimeout(() => {
-        startRecording();
-      }, 300);
-    });
+    speakCoachText(
+      coachSpokenInstruction,
+      () => {
+        setIsCoachSpeaking(false);
+        // Automatically open mic after coach finishes speaking
+        setTimeout(() => {
+          startRecording();
+        }, 300);
+      },
+      coachVoice
+    );
   };
 
   const hasEvaluatedRef = useRef(false);
@@ -350,15 +357,19 @@ export function ActivityPlayer({
           : "Spot on! That was clear and natural.");
 
       setIsCoachSpeaking(true);
-      speakCoachText(scriptToSpeak, () => {
-        setIsCoachSpeaking(false);
-        // If passed with score >= 75% and more items remain, auto advance after 1.5 seconds!
-        if (!res.has_mistakes && isMultiItem && currentIndex < items.length - 1) {
-          setTimeout(() => {
-            handleAdvanceNext();
-          }, 1500);
-        }
-      });
+      speakCoachText(
+        scriptToSpeak,
+        () => {
+          setIsCoachSpeaking(false);
+          // If passed without mistakes and more items remain, auto advance after 1.5 seconds!
+          if (!res.has_mistakes && isMultiItem && currentIndex < items.length - 1) {
+            setTimeout(() => {
+              handleAdvanceNext();
+            }, 1500);
+          }
+        },
+        coachVoice
+      );
     } catch (err: any) {
       console.error("Evaluation error:", err);
       alert(err.message || "Failed to analyze speech.");
@@ -550,18 +561,69 @@ export function ActivityPlayer({
             </div>
           </div>
 
-          <button
-            onClick={handlePlayCoachSpeech}
-            disabled={isCoachSpeaking}
-            className={`px-4 py-2.5 rounded-xl border transition flex items-center justify-center gap-2 text-xs font-bold flex-shrink-0 ${
-              isCoachSpeaking
-                ? "bg-indigo-600 text-white border-indigo-600 animate-pulse shadow-md"
-                : "bg-white dark:bg-slate-800 hover:bg-slate-50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 shadow-sm"
-            }`}
-          >
-            <Volume2 className="w-4 h-4" />
-            <span>{isCoachSpeaking ? "Coach is Speaking..." : "Listen to Coach 🔊"}</span>
-          </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-start sm:self-center">
+            {/* Accent Selector */}
+            <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 p-1 rounded-xl border border-indigo-100 dark:border-indigo-900/60 text-[11px] font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setCoachVoice("en-IN-NeerjaNeural");
+                  setCoachVoicePreference("en-IN-NeerjaNeural");
+                }}
+                className={`px-2 py-1 rounded-lg transition ${
+                  coachVoice === "en-IN-NeerjaNeural"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
+                }`}
+                title="Natural Indian English Accent (Neerja)"
+              >
+                🇮🇳 Indian
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCoachVoice("en-GB-SoniaNeural");
+                  setCoachVoicePreference("en-GB-SoniaNeural");
+                }}
+                className={`px-2 py-1 rounded-lg transition ${
+                  coachVoice === "en-GB-SoniaNeural"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
+                }`}
+                title="Articulate British English Accent (Sonia)"
+              >
+                🇬🇧 British
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCoachVoice("en-US-JennyNeural");
+                  setCoachVoicePreference("en-US-JennyNeural");
+                }}
+                className={`px-2 py-1 rounded-lg transition ${
+                  coachVoice === "en-US-JennyNeural"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
+                }`}
+                title="Natural American Accent (Jenny)"
+              >
+                🇺🇸 US
+              </button>
+            </div>
+
+            <button
+              onClick={handlePlayCoachSpeech}
+              disabled={isCoachSpeaking}
+              className={`px-4 py-2.5 rounded-xl border transition flex items-center justify-center gap-2 text-xs font-bold flex-shrink-0 ${
+                isCoachSpeaking
+                  ? "bg-indigo-600 text-white border-indigo-600 animate-pulse shadow-md"
+                  : "bg-white dark:bg-slate-800 hover:bg-slate-50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 shadow-sm"
+              }`}
+            >
+              <Volume2 className="w-4 h-4" />
+              <span>{isCoachSpeaking ? "Coach Speaking..." : "Listen to Coach 🔊"}</span>
+            </button>
+          </div>
         </div>
 
         {/* Specific Visual Presentation based on activity type */}

@@ -1,3 +1,5 @@
+import { getApiBase } from "@/lib/api";
+
 export interface DiagnosticQuestion {
   id: number;
   category: string;
@@ -146,9 +148,89 @@ export function getBestEnglishVoice(): SpeechSynthesisVoice | null {
   return anyEn || null;
 }
 
-export function speakCoachText(text: string, onEnd?: () => void) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window) || !text || !text.trim()) {
+let currentCoachAudio: HTMLAudioElement | null = null;
+let currentVoiceId: string = "en-IN-NeerjaNeural"; // Studio Neural Voice (Indian English)
+
+export function setCoachVoicePreference(voiceId: string) {
+  currentVoiceId = voiceId;
+}
+
+export function getCoachVoicePreference(): string {
+  return currentVoiceId;
+}
+
+export function speakCoachText(
+  text: string,
+  onEnd?: () => void,
+  voicePreference?: string
+) {
+  stopCoachSpeaking();
+  if (!text || !text.trim()) {
     if (onEnd) onEnd();
+    return;
+  }
+
+  // Clean raw markdown, bold, emojis, quotes for crisp pronunciation
+  const clean = text
+    .replace(/[*_#`~>]/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!clean) {
+    if (onEnd) onEnd();
+    return;
+  }
+
+  let completed = false;
+  const finish = () => {
+    if (!completed) {
+      completed = true;
+      if (onEnd) onEnd();
+    }
+  };
+
+  const selectedVoice = voicePreference || currentVoiceId || "en-IN-NeerjaNeural";
+
+  // 1. Primary: Stream Studio-Quality Edge-TTS Neural Audio via Backend API
+  try {
+    const apiBase = getApiBase();
+    const streamUrl = `${apiBase}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&rate=+0%&text=${encodeURIComponent(clean)}`;
+    const audio = new Audio(streamUrl);
+    currentCoachAudio = audio;
+
+    audio.onended = () => {
+      currentCoachAudio = null;
+      finish();
+    };
+
+    audio.onerror = () => {
+      currentCoachAudio = null;
+      fallbackBrowserSpeech(clean, finish);
+    };
+
+    audio.play().catch(() => {
+      currentCoachAudio = null;
+      fallbackBrowserSpeech(clean, finish);
+    });
+
+    // Safety timeout in case audio playback stalls
+    const maxWaitMs = Math.max(3500, Math.min(25000, clean.length * 90));
+    setTimeout(() => {
+      if (!completed && currentCoachAudio) {
+        stopCoachSpeaking();
+        finish();
+      }
+    }, maxWaitMs);
+  } catch {
+    fallbackBrowserSpeech(clean, finish);
+  }
+}
+
+function fallbackBrowserSpeech(cleanText: string, onEnd: () => void) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    onEnd();
     return;
   }
 
@@ -160,7 +242,7 @@ export function speakCoachText(text: string, onEnd?: () => void) {
 
     setTimeout(() => {
       try {
-        const utterance = new SpeechSynthesisUtterance(text.trim());
+        const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = "en-IN";
         utterance.rate = 0.95;
         utterance.pitch = 1.02;
@@ -175,34 +257,39 @@ export function speakCoachText(text: string, onEnd?: () => void) {
         const complete = () => {
           if (!finished) {
             finished = true;
-            if (onEnd) onEnd();
+            onEnd();
           }
         };
 
         utterance.onend = complete;
         utterance.onerror = complete;
 
-        // Safety fallback timer if browser synthesis freezes (roughly 70ms per char)
-        const maxWaitMs = Math.max(3000, Math.min(20000, text.length * 90));
+        const maxWaitMs = Math.max(3000, Math.min(20000, cleanText.length * 90));
         setTimeout(() => {
-          if (!finished) {
-            complete();
-          }
+          if (!finished) complete();
         }, maxWaitMs);
 
         window.speechSynthesis.speak(utterance);
       } catch (err) {
-        console.warn("Speech speak error:", err);
-        if (onEnd) onEnd();
+        console.warn("Browser fallback speech error:", err);
+        onEnd();
       }
-    }, 50);
+    }, 40);
   } catch (err) {
     console.warn("Speech cancel error:", err);
-    if (onEnd) onEnd();
+    onEnd();
   }
 }
 
 export function stopCoachSpeaking() {
+  if (currentCoachAudio) {
+    try {
+      currentCoachAudio.pause();
+      currentCoachAudio.currentTime = 0;
+      currentCoachAudio.src = "";
+    } catch (e) {}
+    currentCoachAudio = null;
+  }
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
     try {
       window.speechSynthesis.cancel();
