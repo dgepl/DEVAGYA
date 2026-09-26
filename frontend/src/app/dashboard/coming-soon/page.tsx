@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { 
   Sparkles, 
@@ -25,7 +25,10 @@ import {
   Layers, 
   ChevronRight, 
   MessageSquarePlus,
-  Rocket
+  Rocket,
+  Users,
+  Building2,
+  Check
 } from "lucide-react";
 import { useToolConfigStore, ToolItem, isToolEnabled } from "@/store/useToolConfigStore";
 import { useAppStore } from "@/store/useAppStore";
@@ -49,28 +52,131 @@ const ICON_MAP: Record<string, any> = {
   Compass,
   Video,
   Layers,
-  Rocket
+  Rocket,
+  Users,
+  Building2
+};
+
+const PORTAL_META: Record<string, {
+  name: string;
+  badge: string;
+  title: string;
+  subtitle: string;
+  gradient: string;
+  returnPath: string;
+  roleLabel: string;
+}> = {
+  teacher: {
+    name: "Teacher Portal",
+    badge: "Teacher Portal • Upcoming Capabilities",
+    title: "Upcoming Teacher AI Features & Enhancements",
+    subtitle: "Explore upcoming CBSE & NCERT AI pedagogical tools currently being fine-tuned for teachers and classroom instruction.",
+    gradient: "from-[#0f172a] via-[#1e1b4b] to-[#172554]",
+    returnPath: "/dashboard",
+    roleLabel: "Teacher Tools"
+  },
+  student: {
+    name: "Student Portal",
+    badge: "Student Portal • Upcoming Capabilities",
+    title: "Upcoming Student AI Learning Tools",
+    subtitle: "Explore upcoming AI study companions, practice quizzes, and board exam tools being prepared for students.",
+    gradient: "from-[#090d16] via-[#172554] to-[#0f172a]",
+    returnPath: "/dashboard/student",
+    roleLabel: "Student Tools"
+  },
+  parent: {
+    name: "Parent Portal",
+    badge: "Parent Portal • Upcoming Capabilities",
+    title: "Upcoming Parent AI Coaching & Analytics",
+    subtitle: "Explore upcoming tools for parenting guidance, child academic tracking, and educational research.",
+    gradient: "from-[#1a0b16] via-[#3b0764] to-[#0f172a]",
+    returnPath: "/dashboard/parent",
+    roleLabel: "Parent Tools"
+  },
+  school: {
+    name: "School Portal",
+    badge: "School Portal • Upcoming Capabilities",
+    title: "Upcoming School & Institutional AI Tools",
+    subtitle: "Explore upcoming administrative, diagnostic assessment, and recruitment tools for school leaders.",
+    gradient: "from-[#022c22] via-[#064e3b] to-[#0f172a]",
+    returnPath: "/dashboard/school",
+    roleLabel: "School Tools"
+  },
+  all: {
+    name: "All Portals",
+    badge: "DEVGYA Innovation Roadmap",
+    title: "Upcoming AI Features & Enhancements",
+    subtitle: "Explore upcoming CBSE & NCERT AI pedagogical tools currently being fine-tuned for release across all portals.",
+    gradient: "from-[#0f172a] via-[#1e1b4b] to-[#172554]",
+    returnPath: "/dashboard",
+    roleLabel: "All Portals"
+  }
 };
 
 export default function ComingSoonHubPage() {
   const { tools } = useToolConfigStore();
   const { user } = useAppStore();
   
-  const [selectedRole, setSelectedRole] = useState<string>("all");
+  // Detect current user's portal
+  const userRole = (user?.role || "teacher").toLowerCase();
+  const userPortal = userRole === "management" ? "school" : userRole;
+  const isSuperAdmin = userRole === "super_admin";
+
+  // For super_admin: allow switcher between "all", "teacher", "student", "parent", "school"
+  // For standard portal users (teacher, student, parent, school): strictly bind to their own portal!
+  const [adminSelectedPortal, setAdminSelectedPortal] = useState<string>("all");
+  
+  // Also check URL search parameter if present (useful for direct testing or admin jump)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const requestedPortal = params.get("portal") || params.get("role");
+      if (requestedPortal && ["teacher", "student", "parent", "school", "all"].includes(requestedPortal)) {
+        if (isSuperAdmin) {
+          setAdminSelectedPortal(requestedPortal);
+        }
+      }
+    }
+  }, [isSuperAdmin]);
+
+  const activePortal = isSuperAdmin ? adminSelectedPortal : userPortal;
+  const portalInfo = PORTAL_META[activePortal] || PORTAL_META[userPortal] || PORTAL_META["teacher"];
+
+  // Filter tools strictly belonging to this portal (or "all")
+  const portalTools = useMemo(() => {
+    if (activePortal === "all") return tools;
+    return tools.filter((tool) => tool.role === activePortal || tool.role === "all");
+  }, [tools, activePortal]);
+
+  // Filter disabled (coming soon) tools for this portal
+  const portalDisabledTools = useMemo(() => {
+    return portalTools.filter((tool) => !isToolEnabled(tool.is_enabled));
+  }, [portalTools]);
+
+  // Unique categories for the active portal's upcoming tools
+  const availableCategories = useMemo(() => {
+    const cats = new Set<string>();
+    portalDisabledTools.forEach((t) => {
+      if (t.category) cats.add(t.category);
+    });
+    return Array.from(cats);
+  }, [portalDisabledTools]);
+
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [notifiedFeatures, setNotifiedFeatures] = useState<Record<string, boolean>>({});
 
-  // Filter ONLY tools that are disabled (coming soon) by the admin panel
-  const disabledTools = useMemo(() => {
-    return tools.filter((tool) => !isToolEnabled(tool.is_enabled));
-  }, [tools]);
+  // Reset category if portal changes
+  useEffect(() => {
+    setSelectedCategory("all");
+  }, [activePortal]);
 
-  // Filter by role and search
+  // Final filtered list with search and category
   const filteredDisabledTools = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return disabledTools.filter((tool) => {
-      // Role filter
-      if (selectedRole !== "all" && tool.role !== selectedRole && tool.role !== "all") {
+    return portalDisabledTools.filter((tool) => {
+      // Category filter
+      if (selectedCategory !== "all" && tool.category !== selectedCategory) {
         return false;
       }
       // Search filter
@@ -83,7 +189,7 @@ export default function ComingSoonHubPage() {
         (curated?.tagline && curated.tagline.toLowerCase().includes(q))
       );
     });
-  }, [disabledTools, selectedRole, searchQuery]);
+  }, [portalDisabledTools, selectedCategory, searchQuery]);
 
   const handleNotifyToggle = (toolId: string) => {
     setNotifiedFeatures((prev) => ({
@@ -95,23 +201,23 @@ export default function ComingSoonHubPage() {
   return (
     <div className="space-y-6 pb-20 max-w-6xl mx-auto px-1 sm:px-2 animate-in fade-in duration-300">
       
-      {/* 1. HERO BANNER: INNOVATION ROADMAP & COMING SOON */}
-      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#172554] text-white border border-indigo-900/60 shadow-xl space-y-4">
+      {/* 1. HERO BANNER: PORTAL ROADMAP & COMING SOON */}
+      <div className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-br ${portalInfo.gradient} text-white border border-white/10 shadow-xl space-y-4`}>
         {/* Glow Accents */}
         <div className="absolute -top-12 -right-12 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-[11px] font-extrabold uppercase tracking-wider text-indigo-200">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-300 animate-pulse" />
-              <span>DEVGYA Innovation Roadmap</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-[11px] font-extrabold uppercase tracking-wider text-white">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+              <span>{portalInfo.badge}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
-              Upcoming AI Features & Enhancements
+              {portalInfo.title}
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
-              Explore upcoming CBSE & NCERT AI pedagogical tools currently being fine-tuned for release. These features are scheduled for deployment soon.
+              {portalInfo.subtitle}
             </p>
           </div>
 
@@ -126,28 +232,63 @@ export default function ComingSoonHubPage() {
           </div>
         </div>
 
-        {/* STATS STRIP */}
+        {/* STATS STRIP SCOPED STRICTLY TO THE PORTAL */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10 relative z-10 text-xs">
           <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">In Development</p>
-            <p className="text-xl font-black text-amber-300">{disabledTools.length}</p>
+            <p className="text-xl font-black text-amber-300">{portalDisabledTools.length}</p>
           </div>
           <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total AI Suite</p>
-            <p className="text-xl font-black text-indigo-200">{tools.length}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {activePortal === "all" ? "Total AI Suite" : `${portalInfo.name} Suite`}
+            </p>
+            <p className="text-xl font-black text-indigo-200">{portalTools.length}</p>
           </div>
           <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Currently Active</p>
-            <p className="text-xl font-black text-emerald-400">{tools.length - disabledTools.length}</p>
+            <p className="text-xl font-black text-emerald-400">{portalTools.length - portalDisabledTools.length}</p>
           </div>
           <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Compliance</p>
-            <p className="text-xl font-black text-cyan-300">CBSE / NEP 2020</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Portal</p>
+            <p className="text-xl font-black text-cyan-300">{portalInfo.name.split(" ")[0]}</p>
           </div>
         </div>
       </div>
 
-      {/* 2. SEARCH & ROLE FILTERS */}
+      {/* 2. SUPER ADMIN PORTAL SWITCHER (ONLY DISPLAYED TO SUPER ADMIN) */}
+      {isSuperAdmin && (
+        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+            <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Super Admin View Switcher: Select which portal to inspect</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto scrollbar-none pb-1 sm:pb-0">
+            {[
+              { id: "all", label: "All Portals" },
+              { id: "teacher", label: "Teacher Portal" },
+              { id: "student", label: "Student Portal" },
+              { id: "parent", label: "Parent Portal" },
+              { id: "school", label: "School Portal" },
+            ].map((pTab) => (
+              <button
+                key={pTab.id}
+                type="button"
+                onClick={() => setAdminSelectedPortal(pTab.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  adminSelectedPortal === pTab.id
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                }`}
+              >
+                {pTab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. SEARCH & CATEGORY FILTERS */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
           {/* SEARCH BAR */}
@@ -157,46 +298,57 @@ export default function ComingSoonHubPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search upcoming tools, topics, capabilities..."
+              placeholder={`Search upcoming ${portalInfo.name.toLowerCase()} capabilities...`}
               className="w-full bg-transparent outline-none text-xs font-semibold text-slate-800 placeholder:text-slate-400"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase"
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase cursor-pointer"
               >
                 Clear
               </button>
             )}
           </div>
 
-          {/* ROLE FILTER TABS */}
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
-            {[
-              { id: "all", label: "All Upcoming" },
-              { id: "teacher", label: "Teacher Tools" },
-              { id: "student", label: "Student Tools" },
-              { id: "parent", label: "Parent Tools" },
-            ].map((tab) => (
+          {/* CATEGORY FILTER PILLS SCOPED TO THIS PORTAL */}
+          {availableCategories.length > 0 && (
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
               <button
-                key={tab.id}
                 type="button"
-                onClick={() => setSelectedRole(tab.id)}
+                onClick={() => setSelectedCategory("all")}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  selectedRole === tab.id
+                  selectedCategory === "all"
                     ? "bg-indigo-600 text-white shadow-xs"
                     : "bg-slate-100 hover:bg-slate-200 text-slate-600"
                 }`}
               >
-                {tab.label}
+                All Upcoming ({portalDisabledTools.length})
               </button>
-            ))}
-          </div>
+              {availableCategories.map((cat) => {
+                const catCount = portalDisabledTools.filter(t => t.category === cat).length;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      selectedCategory === cat
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {cat} ({catCount})
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 3. COMING SOON CARDS GRID */}
+      {/* 4. COMING SOON CARDS GRID */}
       {filteredDisabledTools.length === 0 ? (
         <div className="bg-white rounded-3xl p-10 border border-slate-200 shadow-xs text-center space-y-4 max-w-xl mx-auto my-8">
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
@@ -204,22 +356,22 @@ export default function ComingSoonHubPage() {
           </div>
           <div className="space-y-1">
             <h3 className="text-lg font-black text-slate-900">
-              {disabledTools.length === 0
-                ? "All AI Features Are Currently Live! 🎉"
+              {portalDisabledTools.length === 0
+                ? `All ${portalInfo.name} Features Are Currently Live! 🎉`
                 : "No matching upcoming features found"}
             </h3>
             <p className="text-xs text-slate-500 font-medium leading-relaxed">
-              {disabledTools.length === 0
-                ? "Every feature in the DEVGYA suite is active and accessible right now in your workspace."
-                : "Try adjusting your search terms or selecting a different category filter above."}
+              {portalDisabledTools.length === 0
+                ? `Every tool and capability in the ${portalInfo.name} is active and fully accessible right now in your workspace.`
+                : "Try adjusting your search terms or clearing the category filter above."}
             </p>
           </div>
           <div className="pt-2 flex items-center justify-center gap-3">
             <Link
-              href="/dashboard"
+              href={portalInfo.returnPath}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
             >
-              Return to Workspace
+              Return to {portalInfo.name}
             </Link>
             <Link
               href="/dashboard/suggestions"
@@ -260,7 +412,9 @@ export default function ComingSoonHubPage() {
                           <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
                             tool.role === "teacher" ? "bg-indigo-100 text-indigo-700" :
                             tool.role === "student" ? "bg-purple-100 text-purple-700" :
-                            tool.role === "parent" ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-700"
+                            tool.role === "parent" ? "bg-rose-100 text-rose-700" : 
+                            tool.role === "school" ? "bg-emerald-100 text-emerald-700" :
+                            "bg-slate-100 text-slate-700"
                           }`}>
                             {tool.role} • {tool.category}
                           </span>
@@ -345,10 +499,10 @@ export default function ComingSoonHubPage() {
         </div>
       )}
 
-      {/* 4. BOTTOM HELP CALLOUT */}
+      {/* 5. BOTTOM HELP CALLOUT */}
       <div className="p-5 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-center space-y-2">
         <p className="text-xs text-indigo-900 font-bold">
-          Want a specific curriculum tool or feature prioritized for your school?
+          Want a specific capability prioritized for your {portalInfo.name}?
         </p>
         <p className="text-[11px] text-slate-500 font-medium">
           Send us direct feedback or curriculum requirements. Our pedagogical engineering team releases updates weekly.

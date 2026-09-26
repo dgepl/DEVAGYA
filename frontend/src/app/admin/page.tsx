@@ -2503,6 +2503,7 @@ export default function SuperAdminPage() {
                     { key: "teacher", label: "Teacher Tools", count: tools.filter(t => t.role === "teacher").length },
                     { key: "student", label: "Student Tools", count: tools.filter(t => t.role === "student").length },
                     { key: "parent", label: "Parent Tools", count: tools.filter(t => t.role === "parent").length },
+                    { key: "school", label: "School Tools", count: tools.filter(t => t.role === "school").length },
                   ].map((pill) => (
                     <button
                       key={pill.key}

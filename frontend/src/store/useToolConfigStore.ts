@@ -5,7 +5,7 @@ import { getApiBase } from "@/lib/api";
 export interface ToolItem {
   id: string;
   name: string;
-  role: "teacher" | "student" | "parent" | "admin" | "all";
+  role: "teacher" | "student" | "parent" | "school" | "admin" | "all";
   category: string;
   path: string;
   badge: string;
@@ -252,6 +252,47 @@ export const INITIAL_TOOLS: ToolItem[] = [
     is_enabled: true,
     icon_name: "Search",
     color: "from-cyan-500 to-blue-600"
+  },
+
+  // --- SCHOOL & INSTITUTION TOOLS ---
+  {
+    id: "school_stream_assessment",
+    name: "Stream Assessment AI",
+    role: "school",
+    category: "Academic & Career Guidance",
+    path: "/dashboard/school/stream-assessment",
+    badge: "AI STREAM EVALUATOR",
+    description: "Generate authentic diagnostic assessment papers across Science, Commerce, and Humanities to determine student aptitude for Class 11-12 streams.",
+    greeting: "Evaluate secondary students across CBSE curriculum streams with authentic AI diagnostic papers.",
+    is_enabled: true,
+    icon_name: "Compass",
+    color: "from-blue-600 to-indigo-600"
+  },
+  {
+    id: "school_vacancies",
+    name: "Teacher Vacancy Manager",
+    role: "school",
+    category: "Hiring & Recruitment",
+    path: "/dashboard/school/vacancies",
+    badge: "FACULTY HIRING",
+    description: "Post teaching vacancies, review applications, and hire qualified verified educators across CBSE subjects.",
+    greeting: "Manage institutional teaching staff requisitions and public school job postings.",
+    is_enabled: true,
+    icon_name: "Briefcase",
+    color: "from-emerald-600 to-teal-700"
+  },
+  {
+    id: "school_applicants",
+    name: "Applicant & Resume AI Screening",
+    role: "school",
+    category: "Hiring & Recruitment",
+    path: "/dashboard/school/applicants",
+    badge: "RESUME MATCHER",
+    description: "Review applicant resumes with AI scoring against subject specializations and teaching credentials.",
+    greeting: "Screen educator applications and score teacher candidate competencies with AI.",
+    is_enabled: true,
+    icon_name: "Users",
+    color: "from-purple-600 to-indigo-700"
   }
 ];
 
@@ -262,7 +303,7 @@ interface ToolConfigState {
   // Actions
   updateTool: (id: string, updates: Partial<ToolItem>) => void;
   toggleFeatureAllowed: (id: string) => void;
-  setAllFeaturesAllowed: (role: "all" | "teacher" | "student" | "parent", isAllowed: boolean) => void;
+  setAllFeaturesAllowed: (role: "all" | "teacher" | "student" | "parent" | "school", isAllowed: boolean) => void;
   isFeatureAllowed: (path: string, agentCode?: string) => boolean;
   getToolById: (id: string) => ToolItem | undefined;
   getToolByPath: (path: string, agentCode?: string) => ToolItem | undefined;
