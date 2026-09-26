@@ -732,7 +732,7 @@ export default function SchoolStreamAssessmentPage() {
             <hr className="border-slate-200" />
 
             {/* Questions List */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {(assessmentPaper.questions || []).map((q: any) => {
                 const streamObj = assessmentPaper.stream_breakdown?.find(s => s.stream === q.stream);
                 const domainName = streamObj?.stream_name || `${q.stream} Domain`;
@@ -745,61 +745,60 @@ export default function SchoolStreamAssessmentPage() {
                     : "bg-purple-100 text-purple-800 border-purple-200";
 
                 return (
-                  <div key={q.id || q.question_number} className="space-y-2 p-4 rounded-2xl bg-slate-50/60 border border-slate-200/80">
+                  <div 
+                    key={q.id || q.question_number} 
+                    className="space-y-3 p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all"
+                  >
                     
                     {/* Question Header & Badges */}
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-slate-900">Q{q.question_number}.</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${badgeClass}`}>
+                        <span className="text-xs sm:text-sm font-black text-slate-900">Q{q.question_number}.</span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${badgeClass}`}>
                           {domainName}
                         </span>
                         {q.competency && (
-                          <span className="text-[10.5px] font-semibold text-slate-500 italic">
+                          <span className="text-[11px] font-semibold text-slate-500 italic hidden sm:inline">
                             &bull; {q.competency}
                           </span>
                         )}
                       </div>
-                      <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                      <span className="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg shadow-2xs">
                         {q.marks} Mark{q.marks > 1 ? "s" : ""}
                       </span>
                     </div>
 
                     {/* Case Passage if present */}
                     {q.case_passage && (
-                      <div className="p-3.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 leading-relaxed font-normal">
-                        <div className="font-bold text-slate-900 mb-1">CASE SCENARIO / CONTEXT:</div>
+                      <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-slate-800 leading-relaxed">
+                        <div className="font-black text-amber-900 mb-1.5 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+                          <span>📖</span>
+                          <span>Case Scenario / Context:</span>
+                        </div>
                         {q.case_passage}
                       </div>
                     )}
 
                     {/* Question Text */}
-                    <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
+                    <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed pt-0.5">
                       {q.question_text}
                     </p>
 
                     {/* MCQ Options */}
                     {q.question_type === "mcq" && q.options && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                        {q.options.map((opt: string, oIdx: number) => (
-                          <div key={oIdx} className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-800 flex items-center gap-2">
-                            <span>{opt}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Blank writing guide */}
-                    {q.question_type === "short" && (
-                      <div className="pt-1 text-[11px] text-slate-400 font-mono select-none">
-                        Answer: ...........................................................................................................................................................
-                      </div>
-                    )}
-
-                    {q.question_type === "long" && (
-                      <div className="pt-1 text-[11px] text-slate-400 font-mono select-none space-y-1">
-                        <div>Solution / Rationale: ............................................................................................................................................</div>
-                        <div>..................................................................................................................................................................</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1.5">
+                        {q.options.map((opt: string, oIdx: number) => {
+                          const optLabel = String.fromCharCode(65 + oIdx);
+                          const cleanText = opt.replace(/^[A-Da-d][.)]\s*/, "");
+                          return (
+                            <div key={oIdx} className="p-3 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200 text-xs font-semibold text-slate-800 flex items-start gap-2.5 transition-colors">
+                              <span className="w-5 h-5 rounded-md bg-white border border-slate-300 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0">
+                                {optLabel}
+                              </span>
+                              <span className="pt-0.5">{cleanText}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 

@@ -2765,22 +2765,9 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
                 for opt in clean_opts:
                     q_elems.append(Paragraph(opt, opt_style))
 
-        # Blank response space for students
-        if not include_answers:
-            if q.get("question_type") == "short":
-                q_elems.append(Spacer(1, 2))
-                q_elems.append(Paragraph("Answer: ............................................................................................................................................................................................................", write_line_style))
-                q_elems.append(Paragraph("........................................................................................................................................................................................................................", write_line_style))
-            elif q.get("question_type") == "long":
-                q_elems.append(Spacer(1, 2))
-                q_elems.append(Paragraph("Solution / Rationale: ..........................................................................................................................................................................................", write_line_style))
-                q_elems.append(Paragraph("........................................................................................................................................................................................................................", write_line_style))
-                q_elems.append(Paragraph("........................................................................................................................................................................................................................", write_line_style))
-                q_elems.append(Paragraph("........................................................................................................................................................................................................................", write_line_style))
-
-        # Teacher Model Answer & Scoring Guide
+        # Teacher Model Answer & Scoring Guide (only in Teacher / Answer Key Mode)
         if include_answers:
-            q_elems.append(Spacer(1, 2))
+            q_elems.append(Spacer(1, 3))
             ans_clean = re.sub(r'₹\s*', 'Rs. ', strip_emojis_for_pdf(str(q.get("answer", "Refer to standard solution.")))).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
             expl_clean = re.sub(r'₹\s*', 'Rs. ', strip_emojis_for_pdf(str(q.get("explanation", "")))).replace('\u20b9', 'Rs. ').replace('\u20a8', 'Rs. ')
             ans_text = html.escape(ans_clean).replace("\n", "<br/>")
@@ -2816,7 +2803,7 @@ def _generate_stream_assessment_pdf(self, paper: Any, include_answers: bool = Fa
             ]))
             q_elems.append(ans_table)
 
-        q_elems.append(Spacer(1, 5))
+        q_elems.append(Spacer(1, 7 if not include_answers else 5))
         return q_elems
 
     q_counter = 1
