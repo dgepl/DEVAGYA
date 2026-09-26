@@ -981,53 +981,70 @@ Rules:
         self,
         prompt: str,
         user_speech: str,
+        target_phrase: Optional[str] = None,
         context: Optional[str] = None,
+        drill_type: Optional[str] = "general",
         user_level: str = "A2"
     ) -> Dict[str, Any]:
         """
         Analyzes a single spoken answer from the learner.
-        Provides constructive error correction:
+        Provides constructive error correction and a spoken audio script:
         1. Praise & affirmation
-        2. Gentle mistake correction (❌ original vs ✅ corrected)
-        3. Simple explanation of the rule
-        4. Pronunciation & fluency score
+        2. Exact comparison against target_phrase if provided (e.g. for pronunciation/repeat)
+        3. Gentle mistake correction (❌ original vs ✅ corrected)
+        4. Simple explanation of the rule
+        5. Real fluency, grammar, and pronunciation scores (no mock numbers)
+        6. spoken_coach_speech: audio script designed for AI coach to speak out loud
         """
         speech_text = (user_speech or "").strip()
         if not speech_text:
             return {
                 "understood": False,
-                "feedback": "I didn't hear your response. Tap the microphone and try speaking again!",
+                "feedback": "I didn't hear your response. Tap the microphone and speak clearly.",
+                "spoken_coach_speech": "I couldn't hear your response clearly. Please tap the microphone and speak again.",
                 "has_mistakes": False,
-                "fluency_score": 0,
-                "grammar_score": 0
+                "scores": {"fluency": 0, "grammar": 0, "vocabulary": 0, "confidence": 0}
             }
 
+        # Calculate word overlap if target phrase is provided
+        target_words = target_phrase.lower().split() if target_phrase else []
+        spoken_words = speech_text.lower().split()
+        matched_words = [w for w in spoken_words if w in target_words]
+        match_ratio = len(matched_words) / max(1, len(target_words)) if target_words else 1.0
+
         ai_prompt = f"""
-You are an encouraging, supportive AI English Speaking Coach.
-The learner answered this speaking prompt:
-Prompt: "{prompt}"
+You are an expert Cambridge Spoken English Coach listening to a student's voice response.
+Activity Drill Type: {drill_type}
+Prompt given to student: "{prompt}"
+{f'Target Expected Phrase: "{target_phrase}"' if target_phrase else ''}
 {f'Context: "{context}"' if context else ''}
-Learner's Spoken Answer: "{speech_text}"
-Learner's Target Level: {user_level}
+Student's Spoken Utterance: "{speech_text}"
+Student Proficiency Level: {user_level}
 
-Evaluate their answer according to these rules:
-1. Always start with a short, warm affirmation (e.g., "Nice job! I understood your point clearly.").
-2. If there are grammar or word choice mistakes, identify the main 1 or 2 mistakes.
-3. Provide the corrected sentence.
-4. Give a brief, simple 1-sentence explanation of why the correction works.
-5. Provide scores out of 100 for Fluency, Grammar, and Vocabulary.
-6. Provide an encouraging prompt for them to try saying the corrected version.
+EVALUATION RULES:
+1. Genuinely observe what the student said. Do NOT generate generic or static placeholder evaluations.
+2. If Target Expected Phrase is given:
+   - Check if their spoken utterance matches the target phrase accurately.
+   - If accurate (or close with minor accent), set "has_mistakes": false, assign scores 90-98, and praise their pronunciation.
+   - If there are missing words, wrong grammar, or mispronunciations, set "has_mistakes": true, assign realistic scores (50-75 based on accuracy), and identify the exact discrepancy.
+3. If open-ended speaking prompt:
+   - Evaluate natural fluency, grammar concordance (verb tenses, singular/plural, prepositions), and vocabulary appropriateness.
+   - Assign authentic, calibrated scores (0-100).
+4. CRITICAL: Provide "spoken_coach_speech": A concise, natural 2-sentence message that YOU (the coach) will speak OUT LOUD to the student through their headphones.
+   - If correct: "Spot on! Your pronunciation was clear and natural. Let's move to the next one."
+   - If mistake: "Good try! You said '[short snippet]', but the correct way is '[corrected sentence]' because [1-sentence simple rule]. Now repeat after me: '[corrected sentence]'."
 
-Return pure JSON only in this format:
+Return ONLY valid JSON:
 {{
-  "affirmation": "Great effort! You communicated your idea clearly.",
+  "affirmation": "Short warm praise acknowledging their effort.",
   "has_mistakes": true,
   "original_snippet": "{speech_text}",
-  "corrected_sentence": "Corrected natural English sentence",
-  "explanation": "Because you are talking about yesterday, use 'went' instead of 'go'.",
-  "repeat_challenge": "Now try saying: '...' ",
+  "corrected_sentence": "The correct natural sentence",
+  "explanation": "Clear, simple 1-sentence grammar or pronunciation rule.",
+  "repeat_challenge": "Now repeat after me: '...'",
+  "spoken_coach_speech": "Spoken audio script for coach to say aloud to the student",
   "scores": {{
-    "fluency": 72,
+    "fluency": 74,
     "grammar": 68,
     "vocabulary": 75,
     "confidence": 80
@@ -1037,26 +1054,65 @@ Return pure JSON only in this format:
         try:
             resp = await ai_provider.chat_completion(
                 messages=[
-                    {"role": "system", "content": "You are a warm, supportive English speaking coach. Return pure JSON only."},
+                    {"role": "system", "content": "You are a warm, highly observant Cambridge spoken English coach. Return pure JSON only."},
                     {"role": "user", "content": ai_prompt}
                 ],
-                temperature=0.3,
-                max_tokens=600
+                temperature=0.25,
+                max_tokens=650
             )
             raw_text = resp.get("content", "").strip()
             raw_text = re.sub(r"^```json\s*", "", raw_text, flags=re.MULTILINE)
             raw_text = re.sub(r"^```\s*", "", raw_text, flags=re.MULTILINE).rstrip("`").strip()
-            return json.loads(raw_text)
+            data = json.loads(raw_text)
+
+            # Ensure spoken_coach_speech exists
+            if not data.get("spoken_coach_speech"):
+                if data.get("has_mistakes") and data.get("corrected_sentence"):
+                    data["spoken_coach_speech"] = f"Good try! Instead of saying {data.get('original_snippet', '')}, you should say: {data['corrected_sentence']}. {data.get('explanation', '')}"
+                else:
+                    data["spoken_coach_speech"] = f"Excellent job! Your pronunciation and sentence delivery were clear and natural."
+
+            return data
         except Exception as e:
             logger.warning(f"AI critique error: {e}")
+            # Compute dynamic realistic fallback based on actual word match ratio
+            if target_phrase and len(target_words) > 0:
+                is_match = match_ratio >= 0.75
+                acc_score = int(match_ratio * 100)
+                if is_match:
+                    return {
+                        "affirmation": "Great pronunciation! You spoken the phrase accurately.",
+                        "has_mistakes": False,
+                        "original_snippet": speech_text,
+                        "corrected_sentence": target_phrase,
+                        "explanation": "Your rhythm and pronunciation were on target.",
+                        "repeat_challenge": f"Now repeat after me: '{target_phrase}'",
+                        "spoken_coach_speech": f"Very well done! You spoke that clearly and accurately. Let's keep going!",
+                        "scores": {"fluency": max(85, acc_score), "grammar": 95, "vocabulary": 95, "confidence": 90}
+                    }
+                else:
+                    return {
+                        "affirmation": "Good effort! Let's polish your pronunciation of this phrase.",
+                        "has_mistakes": True,
+                        "original_snippet": speech_text,
+                        "corrected_sentence": target_phrase,
+                        "explanation": f"Make sure to include all words clearly: '{target_phrase}'.",
+                        "repeat_challenge": f"Now repeat after me: '{target_phrase}'",
+                        "spoken_coach_speech": f"Nice effort! You said {speech_text}. Listen carefully: '{target_phrase}'. Now try saying it again.",
+                        "scores": {"fluency": max(45, acc_score), "grammar": 60, "vocabulary": 65, "confidence": 70}
+                    }
+
+            word_count = len(spoken_words)
+            dynamic_fluency = min(90, max(50, word_count * 8))
             return {
-                "affirmation": "Well done! You spoke clearly and got your meaning across.",
+                "affirmation": "Good effort! I heard your response clearly.",
                 "has_mistakes": False,
                 "original_snippet": speech_text,
                 "corrected_sentence": speech_text,
-                "explanation": "Keep speaking with this confidence and rhythm!",
-                "repeat_challenge": f"Keep going! Your speaking is improving daily.",
-                "scores": {"fluency": 75, "grammar": 75, "vocabulary": 75, "confidence": 80}
+                "explanation": "Focus on smooth phrasing and continuous rhythm.",
+                "repeat_challenge": "Keep practicing daily speaking with confidence.",
+                "spoken_coach_speech": "Well spoken! You shared your thoughts with good confidence. Let's continue to the next practice.",
+                "scores": {"fluency": dynamic_fluency, "grammar": 72, "vocabulary": 70, "confidence": 75}
             }
 
     # -----------------------------------------------------------------

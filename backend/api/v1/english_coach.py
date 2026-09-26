@@ -38,7 +38,9 @@ class ActivityCompleteRequest(BaseModel):
 class SpokenCritiqueRequest(BaseModel):
     prompt: str
     user_speech: str
+    target_phrase: Optional[str] = None
     context: Optional[str] = None
+    drill_type: Optional[str] = "general"
     user_level: Optional[str] = "A2"
 
 
@@ -150,7 +152,9 @@ async def critique_spoken_response(payload: SpokenCritiqueRequest):
         result = await english_coach_service.critique_spoken_response(
             prompt=payload.prompt,
             user_speech=payload.user_speech,
+            target_phrase=payload.target_phrase,
             context=payload.context,
+            drill_type=payload.drill_type or "general",
             user_level=payload.user_level or "A2"
         )
         return result

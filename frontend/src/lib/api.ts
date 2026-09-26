@@ -1335,7 +1335,9 @@ export async function completeCoachActivity(payload: {
 export async function critiqueSpokenResponse(payload: {
   prompt: string;
   user_speech: string;
+  target_phrase?: string;
   context?: string;
+  drill_type?: string;
   user_level?: string;
 }): Promise<{
   affirmation: string;
@@ -1344,6 +1346,7 @@ export async function critiqueSpokenResponse(payload: {
   corrected_sentence?: string;
   explanation?: string;
   repeat_challenge?: string;
+  spoken_coach_speech?: string;
   scores: { fluency: number; grammar: number; vocabulary: number; confidence: number };
 }> {
   const res = await fetch(`${getApiBase()}/english-coach/critique-spoken-response`, {

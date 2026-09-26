@@ -101,33 +101,111 @@ export type CoachView =
   | "activity"
   | "live_voice";
 
-// Speech synthesis helper
+// Cached voices
+let cachedVoices: SpeechSynthesisVoice[] = [];
+
+if (typeof window !== "undefined" && "speechSynthesis" in window) {
+  const loadVoices = () => {
+    try {
+      cachedVoices = window.speechSynthesis.getVoices();
+    } catch (e) {}
+  };
+  loadVoices();
+  if (window.speechSynthesis.onvoiceschanged !== undefined) {
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+}
+
+export function getBestEnglishVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+  if (!cachedVoices || cachedVoices.length === 0) {
+    try {
+      cachedVoices = window.speechSynthesis.getVoices();
+    } catch (e) {}
+  }
+  if (!cachedVoices || cachedVoices.length === 0) return null;
+
+  // Priority order: Natural/Neural en-IN -> en-GB -> en-US -> generic en
+  const naturalIn = cachedVoices.find(
+    (v) => (v.lang === "en-IN" || v.lang.startsWith("en-IN")) && (v.name.includes("Natural") || v.name.includes("Online"))
+  );
+  if (naturalIn) return naturalIn;
+
+  const anyIn = cachedVoices.find((v) => v.lang === "en-IN" || v.lang.startsWith("en-IN"));
+  if (anyIn) return anyIn;
+
+  const naturalGb = cachedVoices.find(
+    (v) => (v.lang === "en-GB" || v.lang.startsWith("en-GB")) && (v.name.includes("Natural") || v.name.includes("Online"))
+  );
+  if (naturalGb) return naturalGb;
+
+  const anyGb = cachedVoices.find((v) => v.lang === "en-GB" || v.lang.startsWith("en-GB"));
+  if (anyGb) return anyGb;
+
+  const anyEn = cachedVoices.find((v) => v.lang.startsWith("en"));
+  return anyEn || null;
+}
+
 export function speakCoachText(text: string, onEnd?: () => void) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window) || !text || !text.trim()) {
     if (onEnd) onEnd();
     return;
   }
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-IN"; // Warm Indian/English tone
-  utterance.rate = 0.95;
-  utterance.pitch = 1.05;
 
-  const voices = window.speechSynthesis.getVoices();
-  const enVoice = voices.find(
-    (v) => v.lang.includes("en-IN") || v.lang.includes("en-GB") || v.name.includes("Natural") || v.lang.includes("en")
-  );
-  if (enVoice) utterance.voice = enVoice;
+  try {
+    window.speechSynthesis.cancel();
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
 
-  if (onEnd) {
-    utterance.onend = onEnd;
-    utterance.onerror = onEnd;
+    setTimeout(() => {
+      try {
+        const utterance = new SpeechSynthesisUtterance(text.trim());
+        utterance.lang = "en-IN";
+        utterance.rate = 0.95;
+        utterance.pitch = 1.02;
+
+        const voice = getBestEnglishVoice();
+        if (voice) {
+          utterance.voice = voice;
+          utterance.lang = voice.lang;
+        }
+
+        let finished = false;
+        const complete = () => {
+          if (!finished) {
+            finished = true;
+            if (onEnd) onEnd();
+          }
+        };
+
+        utterance.onend = complete;
+        utterance.onerror = complete;
+
+        // Safety fallback timer if browser synthesis freezes (roughly 70ms per char)
+        const maxWaitMs = Math.max(3000, Math.min(20000, text.length * 90));
+        setTimeout(() => {
+          if (!finished) {
+            complete();
+          }
+        }, maxWaitMs);
+
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn("Speech speak error:", err);
+        if (onEnd) onEnd();
+      }
+    }, 50);
+  } catch (err) {
+    console.warn("Speech cancel error:", err);
+    if (onEnd) onEnd();
   }
-  window.speechSynthesis.speak(utterance);
 }
 
 export function stopCoachSpeaking() {
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {}
   }
 }

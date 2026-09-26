@@ -138,6 +138,8 @@ export function DiagnosticAssessment({
     );
   };
 
+  const silenceTimerRef = useRef<any>(null);
+
   const startRecording = () => {
     if (typeof window === "undefined") return;
     const SpeechRec =
@@ -161,20 +163,25 @@ export function DiagnosticAssessment({
       };
 
       rec.onresult = (event: any) => {
-        let finalTranscript = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript + " ";
-          }
+        // Collect full clean transcript from 0 to results.length (eliminates all duplicate repetition)
+        let fullTranscript = "";
+        for (let i = 0; i < event.results.length; ++i) {
+          fullTranscript += event.results[i][0].transcript + " ";
         }
-        if (finalTranscript) {
-          setAnswers((prev) => {
-            const existing = prev[currentQ.id] || "";
-            return {
-              ...prev,
-              [currentQ.id]: (existing + " " + finalTranscript).trim()
-            };
-          });
+        const clean = fullTranscript.trim();
+        if (clean) {
+          setAnswers((prev) => ({
+            ...prev,
+            [currentQ.id]: clean
+          }));
+
+          // Reset silence detection timer (auto stop after 2.0s pause)
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          if (clean.split(" ").filter(Boolean).length >= 2) {
+            silenceTimerRef.current = setTimeout(() => {
+              stopRecording();
+            }, 2000);
+          }
         }
       };
 
@@ -196,6 +203,9 @@ export function DiagnosticAssessment({
   };
 
   const stopRecording = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
