@@ -141,9 +141,26 @@ export default function SchoolStreamAssessmentPage() {
     schoolProfile?.logo_url || user?.schoolLogo || ""
   );
   const [className, setClassName] = useState<string>("Class 10");
-  const [subject, setSubject] = useState<string>("");
+  const [showMobilePaperModal, setShowMobilePaperModal] = useState<boolean>(false);
   const activeStage = getStageForClass(className);
   const isStreamAssessment = activeStage.stage === "senior_secondary";
+
+  const getDefaultSubjectForClass = (cls: string): string => {
+    const stage = getStageForClass(cls);
+    if (stage.stage === "senior_secondary") {
+      return "Stream Aptitude Assessment (Science, Commerce, Humanities)";
+    }
+    if (stage.stage === "secondary") {
+      return `${cls} Multidisciplinary & Competency Assessment`;
+    }
+    if (stage.stage === "middle") {
+      return `${cls} Middle Stage Core Assessment`;
+    }
+    if (stage.stage === "preparatory") {
+      return `${cls} Preparatory Stage Conceptual Assessment`;
+    }
+    return `${cls} Foundational Stage FLN Assessment`;
+  };
 
   const [title, setTitle] = useState("Class 10 Secondary Stage Competency & Diagnostic Assessment");
   const [timeAllowedMins, setTimeAllowedMins] = useState<number>(90);
@@ -160,15 +177,6 @@ export default function SchoolStreamAssessmentPage() {
   const [numSectionC, setNumSectionC] = useState<number>(3);
 
   const [customInstructions, setCustomInstructions] = useState("");
-
-  // Common subject suggestions per NEP 2020 stage
-  const STAGE_SUBJECT_SUGGESTIONS: Record<string, string[]> = {
-    foundational: ["English", "Hindi", "Mathematics", "EVS & Nature", "General Awareness"],
-    preparatory: ["Mathematics", "Environmental Studies (EVS)", "English", "Hindi", "Social Studies"],
-    middle: ["Science", "Mathematics", "Social Science", "English", "Hindi", "Computer Science"],
-    secondary: ["Science (Physics/Chem/Bio)", "Mathematics (Standard/Basic)", "Social Science", "English Language & Lit", "Hindi Course A"],
-    senior_secondary: ["Comprehensive Stream Aptitude", "Science (STEM) Focus", "Commerce & Finance Focus", "Humanities & Social Focus"]
-  };
 
   // Stage-specific section configurations
   const getSectionConfig = (stageKey: string) => {
@@ -246,7 +254,7 @@ export default function SchoolStreamAssessmentPage() {
     if (isStream) {
       setTitle(`${newCls} Stream Allocation & Aptitude Diagnostic Assessment`);
     } else {
-      setTitle(`${newCls} ${subject ? subject + " " : ""}Assessment Paper`);
+      setTitle(`${newCls} NEP 2020 Competency Assessment Paper`);
       if (newStage.stage === "foundational") {
         setNumSectionA(5);
         setNumSectionB(3);
@@ -366,15 +374,13 @@ export default function SchoolStreamAssessmentPage() {
       const effectiveSchoolName = schoolName || schoolProfile?.school_name || user?.schoolName || "";
       const effectiveSchoolLogo = schoolLogo || schoolProfile?.logo_url || user?.schoolLogo || "";
 
-      const defaultSubject = isStreamAssessment
-        ? `${activeStage.name} Stream Assessment (${activeStage.domains.join(" • ")})`
-        : `${className} Comprehensive Assessment`;
+      const defaultSubject = getDefaultSubjectForClass(className);
 
       const payload: StreamAssessmentPayload = {
         title,
         class_name: className,
         nep_stage: activeStage.stage,
-        subject: subject || defaultSubject,
+        subject: defaultSubject,
         school_name: effectiveSchoolName,
         school_logo: effectiveSchoolLogo,
         time_allowed_mins: Number(timeAllowedMins),
@@ -404,6 +410,7 @@ export default function SchoolStreamAssessmentPage() {
         result.school_name = effectiveSchoolName;
       }
       setAssessmentPaper(result);
+      setShowMobilePaperModal(true);
       setViewMode("generator");
       setActiveTab("paper");
       // Refresh cloud history after saving to Supabase
@@ -483,6 +490,462 @@ export default function SchoolStreamAssessmentPage() {
     );
   });
 
+  const renderPaperWorkspace = (isModal: boolean = false) => {
+    if (!assessmentPaper) return null;
+    const paperIsStream = assessmentPaper.nep_stage === "senior_secondary" || assessmentPaper.class_name?.includes("11") || assessmentPaper.class_name?.includes("12");
+
+    return (
+      <div className="space-y-6">
+        
+        {/* ACTION & DOWNLOAD BAR */}
+        <div className={`bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl ${isModal ? 'p-4' : 'p-5'} text-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg`}>
+          <div className="space-y-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Saved to Supabase Database &bull; Ready for Print
+            </span>
+            <h2 className="text-lg sm:text-xl font-black text-white">{assessmentPaper.title}</h2>
+            <p className="text-xs text-slate-300">
+              {assessmentPaper.total_marks} Marks &bull; {assessmentPaper.time_allowed_mins} Mins &bull; {assessmentPaper.questions?.length || 0} Questions
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Download Student Paper PDF */}
+            <button
+              onClick={() => handleDownloadPDF(assessmentPaper, false)}
+              disabled={downloadingStudentPdf}
+              className="px-4 py-2.5 rounded-xl font-bold text-xs bg-white text-slate-900 hover:bg-slate-100 active:scale-98 transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-60"
+            >
+              {downloadingStudentPdf ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+              ) : (
+                <Download className="w-3.5 h-3.5 text-indigo-600" />
+              )}
+              <span>Download Student Paper (PDF)</span>
+            </button>
+
+            {/* Download Teacher Key & Counseling Matrix PDF */}
+            <button
+              onClick={() => handleDownloadPDF(assessmentPaper, true)}
+              disabled={downloadingTeacherPdf}
+              className="px-4 py-2.5 rounded-xl font-bold text-xs bg-indigo-600 text-white hover:bg-indigo-500 active:scale-98 transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-60"
+            >
+              {downloadingTeacherPdf ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileText className="w-3.5 h-3.5" />
+              )}
+              <span>Download Teacher Key & Rubric (PDF)</span>
+            </button>
+
+            {/* Quick Print */}
+            <button
+              onClick={() => window.print()}
+              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white transition-colors cursor-pointer"
+              title="Print Paper"
+            >
+              <Printer className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => {
+                setAssessmentPaper(null);
+                setShowMobilePaperModal(false);
+              }}
+              className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors cursor-pointer"
+            >
+              + New Paper
+            </button>
+          </div>
+        </div>
+
+        {/* 3 NEP STAGE DOMAIN SUMMARY TILES */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {assessmentPaper.stream_breakdown && assessmentPaper.stream_breakdown.length >= 3 ? (
+            assessmentPaper.stream_breakdown.slice(0, 3).map((b, bIdx) => {
+              const tileThemes = [
+                { bg: "bg-blue-50/70", border: "border-blue-200/80", text: "text-blue-900", badge: "bg-blue-600", desc: "text-blue-800", icon: Atom },
+                { bg: "bg-emerald-50/70", border: "border-emerald-200/80", text: "text-emerald-900", badge: "bg-emerald-600", desc: "text-emerald-800", icon: DollarSign },
+                { bg: "bg-purple-50/70", border: "border-purple-200/80", text: "text-purple-900", badge: "bg-purple-600", desc: "text-purple-800", icon: BookOpen }
+              ];
+              const theme = tileThemes[bIdx % 3];
+              const Icon = theme.icon;
+              return (
+                <div key={bIdx} className={`p-4 rounded-3xl ${theme.bg} border ${theme.border} space-y-2`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-black ${theme.text} flex items-center gap-1.5 uppercase tracking-wide line-clamp-1`}>
+                      <Icon className="w-4 h-4 shrink-0" /> {b.stream_name || b.stream}
+                    </span>
+                    <span className={`text-xs font-black px-2 py-0.5 rounded-full ${theme.badge} text-white shrink-0`}>
+                      {b.total_marks} Marks
+                    </span>
+                  </div>
+                  <p className={`text-[11px] ${theme.desc} leading-relaxed`}>
+                    {b.key_competencies && b.key_competencies.length > 0
+                      ? b.key_competencies.join(" • ")
+                      : "Core domain competency, reasoning, and conceptual mastery."}
+                  </p>
+                </div>
+              );
+            })
+          ) : (
+            <>
+              <div className="p-4 rounded-3xl bg-blue-50/70 border border-blue-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-blue-900 flex items-center gap-1.5 uppercase tracking-wide">
+                    <Atom className="w-4 h-4 text-blue-600" /> Science (STEM)
+                  </span>
+                  <span className="text-xs font-black px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                    {marksPerStream} Marks
+                  </span>
+                </div>
+                <p className="text-[11px] text-blue-800 leading-relaxed">
+                  Physics mechanics, chemical kinetics, biology systems & mathematical logic.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-3xl bg-emerald-50/70 border border-emerald-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-emerald-900 flex items-center gap-1.5 uppercase tracking-wide">
+                    <DollarSign className="w-4 h-4 text-emerald-600" /> Commerce & Finance
+                  </span>
+                  <span className="text-xs font-black px-2 py-0.5 rounded-full bg-emerald-600 text-white">
+                    {marksPerStream} Marks
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                  Market dynamics, price elasticity, balance sheet logic & managerial trade-offs.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-3xl bg-purple-50/70 border border-purple-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-purple-900 flex items-center gap-1.5 uppercase tracking-wide">
+                    <BookOpen className="w-4 h-4 text-purple-600" /> Humanities & Social
+                  </span>
+                  <span className="text-xs font-black px-2 py-0.5 rounded-full bg-purple-600 text-white">
+                    {marksPerStream} Marks
+                  </span>
+                </div>
+                <p className="text-[11px] text-purple-800 leading-relaxed">
+                  Constitutional rights, ethical evaluation, historical perspective & critical rhetoric.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* VIEW SWITCHER TABS */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <button
+            onClick={() => setActiveTab("paper")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "paper" 
+                ? "bg-indigo-600 text-white shadow-xs" 
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            Student Question Paper
+          </button>
+          <button
+            onClick={() => setActiveTab("key")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "key" 
+                ? "bg-indigo-600 text-white shadow-xs" 
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            Teacher Answer Key & Scoring Guide
+          </button>
+          <button
+            onClick={() => setActiveTab("counseling")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "counseling" 
+                ? "bg-indigo-600 text-white shadow-xs" 
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            {(assessmentPaper?.nep_stage === "senior_secondary" || assessmentPaper?.class_name?.includes("11") || assessmentPaper?.class_name?.includes("12"))
+              ? "School Counseling & Stream Matrix"
+              : "Competency & Learning Rubric"}
+          </button>
+        </div>
+
+        {/* TAB CONTENT 1: STUDENT QUESTION PAPER */}
+        {activeTab === "paper" && (
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8 space-y-6">
+            
+            {/* Paper Top Branding */}
+            <div className="text-center space-y-1.5 border-b border-slate-200 pb-5">
+              {(assessmentPaper.school_logo || schoolLogo || user.schoolLogo) && (
+                <div className="flex justify-center mb-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={assessmentPaper.school_logo || schoolLogo || user.schoolLogo}
+                    alt="School Logo"
+                    className="w-14 h-14 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-2xs"
+                  />
+                </div>
+              )}
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                {assessmentPaper.school_name}
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                {assessmentPaper.title}
+              </h3>
+              <p className="text-xs font-bold text-indigo-700">
+                {assessmentPaper.stream_breakdown && assessmentPaper.stream_breakdown.length > 0
+                  ? assessmentPaper.stream_breakdown.map(b => b.stream_name || b.stream).join(" • ")
+                  : "Science (STEM) • Commerce & Finance • Humanities & Social Sciences"}
+              </p>
+            </div>
+
+            {/* STUDENT INFO BOX: ONLY NAME OF STUDENT, MAX TIME, MAX MARKS */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-bold">
+              <div className="flex-1">
+                Name of Student: ____________________________________________________
+              </div>
+              <div className="shrink-0 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
+                Max Marks: {assessmentPaper.total_marks}
+              </div>
+              <div className="shrink-0 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
+                Max Time: {assessmentPaper.time_allowed_mins} Minutes
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="space-y-1.5 text-xs text-slate-600">
+              <div className="font-bold text-slate-800">General Instructions:</div>
+              {(assessmentPaper.instructions || [
+                "All questions are compulsory across Science, Commerce, and Humanities sections.",
+                "Section A consists of Objective MCQs (1 Mark each). Select the single most appropriate option.",
+                "Section B consists of Short Analytical Questions (3 Marks each). Write concise, structured explanations.",
+                "Section C consists of Long Scenario & Case-Based Questions (5 Marks each). Demonstrate analytical depth."
+              ]).map((inst, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className="text-indigo-600 font-bold">&bull;</span>
+                  <span>{inst}</span>
+                </div>
+              ))}
+            </div>
+
+            <hr className="border-slate-200" />
+
+            {/* Questions List */}
+            <div className="space-y-6">
+              {(assessmentPaper.questions || []).map((q: any) => {
+                const streamObj = assessmentPaper.stream_breakdown?.find(s => s.stream === q.stream);
+                const domainName = streamObj?.stream_name || `${q.stream} Domain`;
+
+                const streamIdx = assessmentPaper.stream_breakdown?.findIndex(s => s.stream === q.stream);
+                const badgeClass = streamIdx === 0 
+                  ? "bg-blue-100 text-blue-800 border-blue-200" 
+                  : streamIdx === 1 
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-200" 
+                    : "bg-purple-100 text-purple-800 border-purple-200";
+
+                return (
+                  <div key={q.id || q.question_number} className="space-y-2 p-4 rounded-2xl bg-slate-50/60 border border-slate-200/80">
+                    
+                    {/* Question Header & Badges */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-slate-900">Q{q.question_number}.</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${badgeClass}`}>
+                          {domainName}
+                        </span>
+                        {q.competency && (
+                          <span className="text-[10.5px] font-semibold text-slate-500 italic">
+                            &bull; {q.competency}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                        {q.marks} Mark{q.marks > 1 ? "s" : ""}
+                      </span>
+                    </div>
+
+                    {/* Case Passage if present */}
+                    {q.case_passage && (
+                      <div className="p-3.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 leading-relaxed font-normal">
+                        <div className="font-bold text-slate-900 mb-1">CASE SCENARIO / CONTEXT:</div>
+                        {q.case_passage}
+                      </div>
+                    )}
+
+                    {/* Question Text */}
+                    <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
+                      {q.question_text}
+                    </p>
+
+                    {/* MCQ Options */}
+                    {q.question_type === "mcq" && q.options && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        {q.options.map((opt: string, oIdx: number) => (
+                          <div key={oIdx} className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-800 flex items-center gap-2">
+                            <span>{opt}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Blank writing guide */}
+                    {q.question_type === "short" && (
+                      <div className="pt-1 text-[11px] text-slate-400 font-mono select-none">
+                        Answer: ...........................................................................................................................................................
+                      </div>
+                    )}
+
+                    {q.question_type === "long" && (
+                      <div className="pt-1 text-[11px] text-slate-400 font-mono select-none space-y-1">
+                        <div>Solution / Rationale: ............................................................................................................................................</div>
+                        <div>..................................................................................................................................................................</div>
+                      </div>
+                    )}
+
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+        )}
+
+        {/* TAB CONTENT 2: TEACHER ANSWER KEY */}
+        {activeTab === "key" && (
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8 space-y-6">
+            
+            <div className="border-b border-slate-200 pb-4">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Teacher Evaluation Key
+              </span>
+              <h3 className="text-xl font-black text-slate-900 mt-1">Complete Model Answers & Marking Rubrics</h3>
+              <p className="text-xs text-slate-500">Step-by-step scoring guidance and diagnostic competence notes for school evaluators.</p>
+            </div>
+
+            <div className="space-y-6">
+              {(assessmentPaper.questions || []).map((q: any) => (
+                <div key={q.id || q.question_number} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-slate-900">Q{q.question_number}.</span>
+                      <span className="text-xs font-bold text-indigo-700">
+                        [{assessmentPaper.stream_breakdown?.find(s => s.stream === q.stream)?.stream_name || `${q.stream} Domain`}]
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-600">{q.marks} Marks</span>
+                  </div>
+
+                  <p className="text-xs font-semibold text-slate-900">{q.question_text}</p>
+
+                  <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-1.5 text-xs">
+                    <div className="font-extrabold text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Model Solution / Marking Key:</span>
+                    </div>
+                    <p className="text-emerald-950 font-medium whitespace-pre-line">{q.answer}</p>
+
+                    {q.explanation && (
+                      <div className="pt-1.5 text-[11px] text-emerald-800 border-t border-emerald-200/60">
+                        <span className="font-bold">Aptitude Insight: </span>{q.explanation}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+        )}
+
+        {/* TAB CONTENT 3: COUNSELING MATRIX */}
+        {activeTab === "counseling" && (
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8 space-y-6">
+            
+            <div className="border-b border-slate-200 pb-4">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                {paperIsStream ? "Diagnostic Counseling & Stream Allocation Guide" : "Competency & Learning Outcomes Rubric"}
+              </span>
+              <h3 className="text-xl font-black text-slate-900 mt-1">
+                {assessmentPaper.class_name || "Student"} {paperIsStream ? "Stream Diagnostic Rubric" : "Evaluation Matrix"}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {paperIsStream
+                  ? "Framework for educators and academic advisors to evaluate student readiness and stream domain strengths."
+                  : "Framework for teachers to evaluate learning outcomes, conceptual clarity, application depth, and problem-solving mastery."}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Domain 1 / Section A Scorecard */}
+              <div className="p-5 rounded-3xl bg-blue-50/80 border border-blue-200 space-y-3">
+                <div className="flex items-center gap-2 text-blue-900 font-black text-sm">
+                  <Atom className="w-5 h-5 text-blue-600" />
+                  <span>{assessmentPaper.stream_breakdown?.[0]?.stream_name || "Section A / Domain 1"}</span>
+                </div>
+                <div className="text-xs text-blue-950 leading-relaxed">
+                  {assessmentPaper.diagnostic_matrix?.domain_1_indicators || assessmentPaper.diagnostic_matrix?.science_indicators || "Score >= 75%: High proficiency in foundational concepts and factual recall."}
+                </div>
+                <div className="pt-2 border-t border-blue-200 text-[11px] font-bold text-blue-800">
+                  {paperIsStream
+                    ? "Core Pathway: Advanced STEM, Engineering, Research, Analytics & Logic."
+                    : "Competency Focus: Core concept comprehension, definition accuracy & objective reasoning."}
+                </div>
+              </div>
+
+              {/* Domain 2 / Section B Scorecard */}
+              <div className="p-5 rounded-3xl bg-emerald-50/80 border border-emerald-200 space-y-3">
+                <div className="flex items-center gap-2 text-emerald-900 font-black text-sm">
+                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                  <span>{assessmentPaper.stream_breakdown?.[1]?.stream_name || "Section B / Domain 2"}</span>
+                </div>
+                <div className="text-xs text-emerald-950 leading-relaxed">
+                  {assessmentPaper.diagnostic_matrix?.domain_2_indicators || assessmentPaper.diagnostic_matrix?.commerce_indicators || "Score >= 75%: Strong acumen for structured step-by-step problem solving and application."}
+                </div>
+                <div className="pt-2 border-t border-emerald-200 text-[11px] font-bold text-emerald-800">
+                  {paperIsStream
+                    ? "Core Pathway: Finance, Commerce, Enterprise Systems, Economics & Planning."
+                    : "Competency Focus: Multi-step calculation, scientific explanation & procedural clarity."}
+                </div>
+              </div>
+
+              {/* Domain 3 / Section C Scorecard */}
+              <div className="p-5 rounded-3xl bg-purple-50/80 border border-purple-200 space-y-3">
+                <div className="flex items-center gap-2 text-purple-900 font-black text-sm">
+                  <BookOpen className="w-5 h-5 text-purple-600" />
+                  <span>{assessmentPaper.stream_breakdown?.[2]?.stream_name || "Section C / Domain 3"}</span>
+                </div>
+                <div className="text-xs text-purple-950 leading-relaxed">
+                  {assessmentPaper.diagnostic_matrix?.domain_3_indicators || assessmentPaper.diagnostic_matrix?.humanities_indicators || "Score >= 75%: Outstanding higher-order synthesis and case-based problem solving."}
+                </div>
+                <div className="pt-2 border-t border-purple-200 text-[11px] font-bold text-purple-800">
+                  {paperIsStream
+                    ? "Core Pathway: Social Sciences, Law, Civil Policy, Humanities & Communications."
+                    : "Competency Focus: Critical evaluation, case interpretation & real-world application."}
+                </div>
+              </div>
+            </div>
+
+            {/* Summary & Recommendations */}
+            <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 space-y-2">
+              <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                {paperIsStream ? "Cross-Disciplinary & Counseling Advice" : "Pedagogical Recommendations & Next Steps"}
+              </h4>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {assessmentPaper.diagnostic_matrix?.balanced_recommendation ||
+                  (paperIsStream
+                    ? "Candidates demonstrating balanced performance across multiple streams should consider interdisciplinary combinations such as Economics with Mathematics, Legal Studies, or Cognitive Computing."
+                    : "Students should focus on bridging any conceptual gaps in multi-step problem solving while continuing to reinforce foundational definitions and regular application practice.")}
+              </p>
+            </div>
+
+          </div>
+        )}
+
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
       
@@ -508,8 +971,8 @@ export default function SchoolStreamAssessmentPage() {
           </p>
         </div>
 
-        {/* View Switcher: Generator vs Cloud History */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* View Switcher: Generator vs Cloud History (Desktop/Tablet only) */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
           <button
             onClick={() => { setViewMode("generator"); }}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer ${
@@ -542,6 +1005,29 @@ export default function SchoolStreamAssessmentPage() {
           </button>
         </div>
       </div>
+
+      {/* MOBILE QUICK ACTION: ACTIVE GENERATED PAPER MODAL BANNER */}
+      {assessmentPaper && (
+        <div className="lg:hidden p-4 rounded-2xl bg-gradient-to-r from-indigo-900 via-indigo-950 to-purple-900 text-white flex items-center justify-between gap-3 shadow-md animate-in fade-in">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-amber-300" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-black truncate">{assessmentPaper.title}</h4>
+              <p className="text-[10px] text-indigo-200 font-medium truncate">
+                {assessmentPaper.class_name} • {assessmentPaper.total_marks} Marks • Ready
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowMobilePaperModal(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-white text-indigo-900 font-extrabold text-xs shadow-xs hover:bg-slate-100 transition-colors shrink-0 cursor-pointer active:scale-95"
+          >
+            View Paper
+          </button>
+        </div>
+      )}
 
       {deleteSuccessNotice && (
         <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-2xs">
@@ -790,12 +1276,17 @@ export default function SchoolStreamAssessmentPage() {
                     </div>
                   </div>
 
-                  {/* 1. Target Class & Subject Focus (NEP 2020 Structure) */}
-                  <div className="space-y-1.5 sm:col-span-1">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Target Class (Class 1 to 12)</span>
-                    </label>
+                  {/* 1. Target Class (NEP 2020 Structure - Syllabus & Domains Automatically Attached) */}
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Target Class (Class 1 to 12)</span>
+                      </label>
+                      <span className="text-[11px] font-semibold text-indigo-600">
+                        Paper Syllabus & Domains Automatically Attached
+                      </span>
+                    </div>
                     <select
                       value={className}
                       onChange={(e) => handleClassChange(e.target.value)}
@@ -825,56 +1316,6 @@ export default function SchoolStreamAssessmentPage() {
                         <option value="Class 11-12">Class 11–12 (Full Stream Allocation Assessment)</option>
                       </optgroup>
                     </select>
-                  </div>
-
-                  <div className="space-y-1.5 sm:col-span-1">
-                    <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>{isStreamAssessment ? "Stream Focus (Optional)" : "Subject / Focus Area"}</span>
-                      </span>
-                      {subject && (
-                        <button
-                          type="button"
-                          onClick={() => setSubject("")}
-                          className="text-[10px] text-slate-400 hover:text-rose-500 font-semibold cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                      placeholder={isStreamAssessment ? "e.g. Science • Commerce • Humanities" : "e.g. Mathematics, Science, English..."}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
-                    />
-                    {/* Quick Subject Suggestions for the Active Stage */}
-                    {STAGE_SUBJECT_SUGGESTIONS[activeStage.stage] && (
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        <span className="text-[10px] font-bold text-slate-400">Quick Select:</span>
-                        {STAGE_SUBJECT_SUGGESTIONS[activeStage.stage].map((sName) => (
-                          <button
-                            key={sName}
-                            type="button"
-                            onClick={() => {
-                              setSubject(sName);
-                              if (!isStreamAssessment) {
-                                setTitle(`${className} ${sName} Assessment Paper`);
-                              }
-                            }}
-                            className={`px-2 py-0.5 rounded-lg text-[10.5px] font-semibold border transition-all cursor-pointer ${
-                              subject.toLowerCase() === sName.toLowerCase()
-                                ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
-                                : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
-                            }`}
-                          >
-                            {sName}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
                   {/* NEP 2020 Stage Architecture Guidance Banner */}
@@ -1142,7 +1583,7 @@ export default function SchoolStreamAssessmentPage() {
                     placeholder={
                       isStreamAssessment
                         ? "e.g. Focus on practical real-world applications, NEP 2020 competency-based reasoning, and financial literacy."
-                        : `e.g. Focus on ${subject || 'core syllabus'} chapters, real-world examples, step-by-step problem solving, and CBSE competency patterns.`
+                        : "e.g. Focus on core syllabus chapters, real-world examples, step-by-step problem solving, and CBSE competency patterns."
                     }
                     rows={2}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 resize-none"
@@ -1164,7 +1605,7 @@ export default function SchoolStreamAssessmentPage() {
                     <>
                       <Sparkles className="w-4 h-4" />
                       <span>
-                        Generate {className} {subject ? `${subject} ` : ""}({isStreamAssessment ? "Stream Assessment" : activeStage.name.split(" (")[0]}) Paper
+                        Generate {className} ({isStreamAssessment ? "Stream Assessment" : activeStage.name.split(" (")[0]}) Paper
                       </span>
                     </>
                   )}
@@ -1173,8 +1614,8 @@ export default function SchoolStreamAssessmentPage() {
               </div>
             </div>
 
-            {/* RIGHT 1 COLUMN: LIVE SUMMARY & CLOUD SYNCED PAPERS */}
-            <div className="space-y-6">
+            {/* RIGHT 1 COLUMN: LIVE SUMMARY & CLOUD SYNCED PAPERS (DESKTOP ONLY - HIDDEN ON MOBILE) */}
+            <div className="hidden lg:block space-y-6">
               
               {/* Real-time Paper Summary Card */}
               <div className="bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60 rounded-3xl border border-indigo-100 p-5 space-y-4 shadow-xs">
@@ -1343,460 +1784,107 @@ export default function SchoolStreamAssessmentPage() {
         ) : (
           
           /* 3. GENERATED PAPER WORKSPACE & PDF DOWNLOADS */
-          <div className="space-y-6">
-            
-            {/* ACTION & DOWNLOAD BAR */}
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 text-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
-              <div className="space-y-1">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Saved to Supabase Database &bull; Ready for Print
-                </span>
-                <h2 className="text-lg sm:text-xl font-black text-white">{assessmentPaper.title}</h2>
-                <p className="text-xs text-slate-300">
-                  {assessmentPaper.total_marks} Marks &bull; {assessmentPaper.time_allowed_mins} Mins &bull; {assessmentPaper.questions?.length || 0} Questions
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5">
-                {/* Download Student Paper PDF */}
-                <button
-                  onClick={() => handleDownloadPDF(assessmentPaper, false)}
-                  disabled={downloadingStudentPdf}
-                  className="px-4 py-2.5 rounded-xl font-bold text-xs bg-white text-slate-900 hover:bg-slate-100 active:scale-98 transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-60"
-                >
-                  {downloadingStudentPdf ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                  ) : (
-                    <Download className="w-3.5 h-3.5 text-indigo-600" />
-                  )}
-                  <span>Download Student Paper (PDF)</span>
-                </button>
-
-                {/* Download Teacher Key & Counseling Matrix PDF */}
-                <button
-                  onClick={() => handleDownloadPDF(assessmentPaper, true)}
-                  disabled={downloadingTeacherPdf}
-                  className="px-4 py-2.5 rounded-xl font-bold text-xs bg-indigo-600 text-white hover:bg-indigo-500 active:scale-98 transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-60"
-                >
-                  {downloadingTeacherPdf ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <FileText className="w-3.5 h-3.5" />
-                  )}
-                  <span>Download Teacher Key & Rubric (PDF)</span>
-                </button>
-
-                {/* Quick Print */}
-                <button
-                  onClick={() => window.print()}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white transition-colors"
-                  title="Print Paper"
-                >
-                  <Printer className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={() => setAssessmentPaper(null)}
-                  className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors cursor-pointer"
-                >
-                  + New Paper
-                </button>
-              </div>
+          <div>
+            {/* Desktop Full Workspace */}
+            <div className="hidden lg:block">
+              {renderPaperWorkspace(false)}
             </div>
 
-            {/* 3 NEP STAGE DOMAIN SUMMARY TILES */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {assessmentPaper.stream_breakdown && assessmentPaper.stream_breakdown.length >= 3 ? (
-                assessmentPaper.stream_breakdown.slice(0, 3).map((b, bIdx) => {
-                  const tileThemes = [
-                    { bg: "bg-blue-50/70", border: "border-blue-200/80", text: "text-blue-900", badge: "bg-blue-600", desc: "text-blue-800", icon: Atom },
-                    { bg: "bg-emerald-50/70", border: "border-emerald-200/80", text: "text-emerald-900", badge: "bg-emerald-600", desc: "text-emerald-800", icon: DollarSign },
-                    { bg: "bg-purple-50/70", border: "border-purple-200/80", text: "text-purple-900", badge: "bg-purple-600", desc: "text-purple-800", icon: BookOpen }
-                  ];
-                  const theme = tileThemes[bIdx % 3];
-                  const Icon = theme.icon;
-                  return (
-                    <div key={bIdx} className={`p-4 rounded-3xl ${theme.bg} border ${theme.border} space-y-2`}>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-xs font-black ${theme.text} flex items-center gap-1.5 uppercase tracking-wide line-clamp-1`}>
-                          <Icon className="w-4 h-4 shrink-0" /> {b.stream_name || b.stream}
-                        </span>
-                        <span className={`text-xs font-black px-2 py-0.5 rounded-full ${theme.badge} text-white shrink-0`}>
-                          {b.total_marks} Marks
-                        </span>
-                      </div>
-                      <p className={`text-[11px] ${theme.desc} leading-relaxed`}>
-                        {b.key_competencies && b.key_competencies.length > 0
-                          ? b.key_competencies.join(" • ")
-                          : "Core domain competency, reasoning, and conceptual mastery."}
-                      </p>
-                    </div>
-                  );
-                })
-              ) : (
-                <>
-                  <div className="p-4 rounded-3xl bg-blue-50/70 border border-blue-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-blue-900 flex items-center gap-1.5 uppercase tracking-wide">
-                        <Atom className="w-4 h-4 text-blue-600" /> Science (STEM)
-                      </span>
-                      <span className="text-xs font-black px-2 py-0.5 rounded-full bg-blue-600 text-white">
-                        {marksPerStream} Marks
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-blue-800 leading-relaxed">
-                      Physics mechanics, chemical kinetics, biology systems & mathematical logic.
-                    </p>
-                  </div>
+            {/* Mobile View: Alert Banner + Pop-up Modal Re-open Button */}
+            <div className="lg:hidden space-y-4">
+              <div className="bg-white rounded-3xl border border-indigo-200 p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Saved to Supabase Database
+                  </span>
+                  <button
+                    onClick={() => { setAssessmentPaper(null); setShowMobilePaperModal(false); }}
+                    className="text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                  >
+                    + New Paper
+                  </button>
+                </div>
 
-                  <div className="p-4 rounded-3xl bg-emerald-50/70 border border-emerald-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-emerald-900 flex items-center gap-1.5 uppercase tracking-wide">
-                        <DollarSign className="w-4 h-4 text-emerald-600" /> Commerce & Finance
-                      </span>
-                      <span className="text-xs font-black px-2 py-0.5 rounded-full bg-emerald-600 text-white">
-                        {marksPerStream} Marks
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-emerald-800 leading-relaxed">
-                      Market dynamics, price elasticity, balance sheet logic & managerial trade-offs.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-3xl bg-purple-50/70 border border-purple-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-purple-900 flex items-center gap-1.5 uppercase tracking-wide">
-                        <BookOpen className="w-4 h-4 text-purple-600" /> Humanities & Social
-                      </span>
-                      <span className="text-xs font-black px-2 py-0.5 rounded-full bg-purple-600 text-white">
-                        {marksPerStream} Marks
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-purple-800 leading-relaxed">
-                      Constitutional rights, ethical evaluation, historical perspective & critical rhetoric.
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* VIEW SWITCHER TABS */}
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-              <button
-                onClick={() => setActiveTab("paper")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "paper" 
-                    ? "bg-indigo-600 text-white shadow-xs" 
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Student Question Paper
-              </button>
-              <button
-                onClick={() => setActiveTab("key")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "key" 
-                    ? "bg-indigo-600 text-white shadow-xs" 
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Teacher Answer Key & Scoring Guide
-              </button>
-              <button
-                onClick={() => setActiveTab("counseling")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "counseling" 
-                    ? "bg-indigo-600 text-white shadow-xs" 
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {(assessmentPaper?.nep_stage === "senior_secondary" || assessmentPaper?.class_name?.includes("11") || assessmentPaper?.class_name?.includes("12"))
-                  ? "School Counseling & Stream Matrix"
-                  : "Competency & Learning Rubric"}
-              </button>
-            </div>
-
-            {/* TAB CONTENT 1: STUDENT QUESTION PAPER */}
-            {activeTab === "paper" && (
-              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8 space-y-6">
-                
-                {/* Paper Top Branding */}
-                <div className="text-center space-y-1.5 border-b border-slate-200 pb-5">
-                  {(assessmentPaper.school_logo || schoolLogo || user.schoolLogo) && (
-                    <div className="flex justify-center mb-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={assessmentPaper.school_logo || schoolLogo || user.schoolLogo}
-                        alt="School Logo"
-                        className="w-14 h-14 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-2xs"
-                      />
-                    </div>
-                  )}
-                  <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                    {assessmentPaper.school_name}
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                    {assessmentPaper.title}
-                  </h3>
-                  <p className="text-xs font-bold text-indigo-700">
-                    {assessmentPaper.stream_breakdown && assessmentPaper.stream_breakdown.length > 0
-                      ? assessmentPaper.stream_breakdown.map(b => b.stream_name || b.stream).join(" • ")
-                      : "Science (STEM) • Commerce & Finance • Humanities & Social Sciences"}
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 line-clamp-2">{assessmentPaper.title}</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {assessmentPaper.total_marks} Marks &bull; {assessmentPaper.time_allowed_mins} Mins &bull; {assessmentPaper.questions?.length || 0} Questions
                   </p>
                 </div>
 
-                {/* STUDENT INFO BOX: ONLY NAME OF STUDENT, MAX TIME, MAX MARKS */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-bold">
-                  <div className="flex-1">
-                    Name of Student: ____________________________________________________
-                  </div>
-                  <div className="shrink-0 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
-                    Max Marks: {assessmentPaper.total_marks}
-                  </div>
-                  <div className="shrink-0 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
-                    Max Time: {assessmentPaper.time_allowed_mins} Minutes
-                  </div>
+                <button
+                  onClick={() => setShowMobilePaperModal(true)}
+                  className="w-full py-3.5 px-4 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-md active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>Open Question Paper in Pop-up Modal</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() => handleDownloadPDF(assessmentPaper, false)}
+                    disabled={downloadingStudentPdf}
+                    className="py-2.5 px-3 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    {downloadingStudentPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : <Download className="w-3.5 h-3.5 text-indigo-600" />}
+                    <span>Student PDF</span>
+                  </button>
+                  <button
+                    onClick={() => handleDownloadPDF(assessmentPaper, true)}
+                    disabled={downloadingTeacherPdf}
+                    className="py-2.5 px-3 rounded-xl font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  >
+                    {downloadingTeacherPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5 text-indigo-600" />}
+                    <span>Teacher Key</span>
+                  </button>
                 </div>
-
-                {/* Instructions */}
-                <div className="space-y-1.5 text-xs text-slate-600">
-                  <div className="font-bold text-slate-800">General Instructions:</div>
-                  {(assessmentPaper.instructions || [
-                    "All questions are compulsory across Science, Commerce, and Humanities sections.",
-                    "Section A consists of Objective MCQs (1 Mark each). Select the single most appropriate option.",
-                    "Section B consists of Short Analytical Questions (3 Marks each). Write concise, structured explanations.",
-                    "Section C consists of Long Scenario & Case-Based Questions (5 Marks each). Demonstrate analytical depth."
-                  ]).map((inst, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <span className="text-indigo-600 font-bold">&bull;</span>
-                      <span>{inst}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <hr className="border-slate-200" />
-
-                {/* Questions List */}
-                <div className="space-y-6">
-                  {(assessmentPaper.questions || []).map((q: any) => {
-                    const streamObj = assessmentPaper.stream_breakdown?.find(s => s.stream === q.stream);
-                    const domainName = streamObj?.stream_name || `${q.stream} Domain`;
-
-                    const streamIdx = assessmentPaper.stream_breakdown?.findIndex(s => s.stream === q.stream);
-                    const badgeClass = streamIdx === 0 
-                      ? "bg-blue-100 text-blue-800 border-blue-200" 
-                      : streamIdx === 1 
-                        ? "bg-emerald-100 text-emerald-800 border-emerald-200" 
-                        : "bg-purple-100 text-purple-800 border-purple-200";
-
-                    return (
-                      <div key={q.id || q.question_number} className="space-y-2 p-4 rounded-2xl bg-slate-50/60 border border-slate-200/80">
-                        
-                        {/* Question Header & Badges */}
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-slate-900">Q{q.question_number}.</span>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${badgeClass}`}>
-                              {domainName}
-                            </span>
-                            {q.competency && (
-                              <span className="text-[10.5px] font-semibold text-slate-500 italic">
-                                &bull; {q.competency}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shadow-2xs">
-                            {q.marks} Mark{q.marks > 1 ? "s" : ""}
-                          </span>
-                        </div>
-
-                        {/* Case Passage if present */}
-                        {q.case_passage && (
-                          <div className="p-3.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 leading-relaxed font-normal">
-                            <div className="font-bold text-slate-900 mb-1">CASE SCENARIO / CONTEXT:</div>
-                            {q.case_passage}
-                          </div>
-                        )}
-
-                        {/* Question Text */}
-                        <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
-                          {q.question_text}
-                        </p>
-
-                        {/* MCQ Options */}
-                        {q.question_type === "mcq" && q.options && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                            {q.options.map((opt: string, oIdx: number) => (
-                              <div key={oIdx} className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-800 flex items-center gap-2">
-                                <span>{opt}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Blank writing guide */}
-                        {q.question_type === "short" && (
-                          <div className="pt-1 text-[11px] text-slate-400 font-mono select-none">
-                            Answer: ...........................................................................................................................................................
-                          </div>
-                        )}
-
-                        {q.question_type === "long" && (
-                          <div className="pt-1 text-[11px] text-slate-400 font-mono select-none space-y-1">
-                            <div>Solution / Rationale: ............................................................................................................................................</div>
-                            <div>..................................................................................................................................................................</div>
-                          </div>
-                        )}
-
-                      </div>
-                    );
-                  })}
-                </div>
-
               </div>
-            )}
 
-            {/* TAB CONTENT 2: TEACHER ANSWER KEY */}
-            {activeTab === "key" && (
-              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8 space-y-6">
-                
-                <div className="border-b border-slate-200 pb-4">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    Teacher Evaluation Key
-                  </span>
-                  <h3 className="text-xl font-black text-slate-900 mt-1">Complete Model Answers & Marking Rubrics</h3>
-                  <p className="text-xs text-slate-500">Step-by-step scoring guidance and diagnostic competence notes for school evaluators.</p>
-                </div>
-
-                <div className="space-y-6">
-                  {(assessmentPaper.questions || []).map((q: any) => (
-                    <div key={q.id || q.question_number} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-slate-900">Q{q.question_number}.</span>
-                          <span className="text-xs font-bold text-indigo-700">
-                            [{assessmentPaper.stream_breakdown?.find(s => s.stream === q.stream)?.stream_name || `${q.stream} Domain`}]
-                          </span>
-                        </div>
-                        <span className="text-xs font-bold text-slate-600">{q.marks} Marks</span>
-                      </div>
-
-                      <p className="text-xs font-semibold text-slate-900">{q.question_text}</p>
-
-                      <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-1.5 text-xs">
-                        <div className="font-extrabold text-emerald-900 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Model Solution / Marking Key:</span>
-                        </div>
-                        <p className="text-emerald-950 font-medium whitespace-pre-line">{q.answer}</p>
-
-                        {q.explanation && (
-                          <div className="pt-1.5 text-[11px] text-emerald-800 border-t border-emerald-200/60">
-                            <span className="font-bold">Aptitude Insight: </span>{q.explanation}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
+              {/* Render paper content underneath on mobile as well */}
+              <div className="pt-2">
+                {renderPaperWorkspace(false)}
               </div>
-            )}
-
-            {/* TAB CONTENT 3: COUNSELING MATRIX */}
-            {activeTab === "counseling" && (
-              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8 space-y-6">
-                
-                {(() => {
-                  const paperIsStream = assessmentPaper.nep_stage === "senior_secondary" || assessmentPaper.class_name?.includes("11") || assessmentPaper.class_name?.includes("12");
-                  return (
-                    <>
-                      <div className="border-b border-slate-200 pb-4">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200">
-                          {paperIsStream ? "Diagnostic Counseling & Stream Allocation Guide" : "Competency & Learning Outcomes Rubric"}
-                        </span>
-                        <h3 className="text-xl font-black text-slate-900 mt-1">
-                          {assessmentPaper.class_name || "Student"} {paperIsStream ? "Stream Diagnostic Rubric" : "Evaluation Matrix"}
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          {paperIsStream
-                            ? "Framework for educators and academic advisors to evaluate student readiness and stream domain strengths."
-                            : "Framework for teachers to evaluate learning outcomes, conceptual clarity, application depth, and problem-solving mastery."}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Domain 1 / Section A Scorecard */}
-                        <div className="p-5 rounded-3xl bg-blue-50/80 border border-blue-200 space-y-3">
-                          <div className="flex items-center gap-2 text-blue-900 font-black text-sm">
-                            <Atom className="w-5 h-5 text-blue-600" />
-                            <span>{assessmentPaper.stream_breakdown?.[0]?.stream_name || "Section A / Domain 1"}</span>
-                          </div>
-                          <div className="text-xs text-blue-950 leading-relaxed">
-                            {assessmentPaper.diagnostic_matrix?.domain_1_indicators || assessmentPaper.diagnostic_matrix?.science_indicators || "Score >= 75%: High proficiency in foundational concepts and factual recall."}
-                          </div>
-                          <div className="pt-2 border-t border-blue-200 text-[11px] font-bold text-blue-800">
-                            {paperIsStream
-                              ? "Core Pathway: Advanced STEM, Engineering, Research, Analytics & Logic."
-                              : "Competency Focus: Core concept comprehension, definition accuracy & objective reasoning."}
-                          </div>
-                        </div>
-
-                        {/* Domain 2 / Section B Scorecard */}
-                        <div className="p-5 rounded-3xl bg-emerald-50/80 border border-emerald-200 space-y-3">
-                          <div className="flex items-center gap-2 text-emerald-900 font-black text-sm">
-                            <DollarSign className="w-5 h-5 text-emerald-600" />
-                            <span>{assessmentPaper.stream_breakdown?.[1]?.stream_name || "Section B / Domain 2"}</span>
-                          </div>
-                          <div className="text-xs text-emerald-950 leading-relaxed">
-                            {assessmentPaper.diagnostic_matrix?.domain_2_indicators || assessmentPaper.diagnostic_matrix?.commerce_indicators || "Score >= 75%: Strong acumen for structured step-by-step problem solving and application."}
-                          </div>
-                          <div className="pt-2 border-t border-emerald-200 text-[11px] font-bold text-emerald-800">
-                            {paperIsStream
-                              ? "Core Pathway: Finance, Commerce, Enterprise Systems, Economics & Planning."
-                              : "Competency Focus: Multi-step calculation, scientific explanation & procedural clarity."}
-                          </div>
-                        </div>
-
-                        {/* Domain 3 / Section C Scorecard */}
-                        <div className="p-5 rounded-3xl bg-purple-50/80 border border-purple-200 space-y-3">
-                          <div className="flex items-center gap-2 text-purple-900 font-black text-sm">
-                            <BookOpen className="w-5 h-5 text-purple-600" />
-                            <span>{assessmentPaper.stream_breakdown?.[2]?.stream_name || "Section C / Domain 3"}</span>
-                          </div>
-                          <div className="text-xs text-purple-950 leading-relaxed">
-                            {assessmentPaper.diagnostic_matrix?.domain_3_indicators || assessmentPaper.diagnostic_matrix?.humanities_indicators || "Score >= 75%: Outstanding higher-order synthesis and case-based problem solving."}
-                          </div>
-                          <div className="pt-2 border-t border-purple-200 text-[11px] font-bold text-purple-800">
-                            {paperIsStream
-                              ? "Core Pathway: Social Sciences, Law, Civil Policy, Humanities & Communications."
-                              : "Competency Focus: Critical evaluation, case interpretation & real-world application."}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Summary & Recommendations */}
-                      <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 space-y-2">
-                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">
-                          {paperIsStream ? "Cross-Disciplinary & Counseling Advice" : "Pedagogical Recommendations & Next Steps"}
-                        </h4>
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                          {assessmentPaper.diagnostic_matrix?.balanced_recommendation ||
-                            (paperIsStream
-                              ? "Candidates demonstrating balanced performance across multiple streams should consider interdisciplinary combinations such as Economics with Mathematics, Legal Studies, or Cognitive Computing."
-                              : "Students should focus on bridging any conceptual gaps in multi-step problem solving while continuing to reinforce foundational definitions and regular application practice.")}
-                        </p>
-                      </div>
-                    </>
-                  );
-                })()}
-
-              </div>
-            )}
-
+            </div>
           </div>
 
         )
+      )}
+
+      {/* FULL-SCREEN MOBILE QUESTION PAPER POP-UP MODAL */}
+      {showMobilePaperModal && assessmentPaper && (
+        <div className="lg:hidden fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex flex-col p-2 sm:p-4 pb-20 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl flex flex-col h-full overflow-hidden max-w-2xl mx-auto w-full animate-in zoom-in-95 duration-200">
+            
+            {/* MODAL TOP BAR */}
+            <div className="p-4 bg-gradient-to-r from-indigo-900 to-purple-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5 text-amber-300" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black truncate">{assessmentPaper.title}</h3>
+                  <p className="text-[11px] text-indigo-200 font-medium truncate">
+                    {assessmentPaper.class_name} • {assessmentPaper.total_marks} Marks • {assessmentPaper.time_allowed_mins} Mins
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowMobilePaperModal(false)}
+                className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors cursor-pointer shrink-0"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* MODAL BODY (PAPER WORKSPACE) */}
+            <div className="flex-1 overflow-y-auto p-2 sm:p-4 overscroll-contain">
+              {renderPaperWorkspace(true)}
+            </div>
+
+          </div>
+        </div>
       )}
 
       {/* PERMANENT DATABASE DELETE CONFIRMATION MODAL */}
