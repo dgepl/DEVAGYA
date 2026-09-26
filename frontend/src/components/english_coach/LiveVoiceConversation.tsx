@@ -259,7 +259,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
               className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center shadow-sm"
             >
               <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-                {item.score}%
+                {item.score ?? 0}%
               </div>
               <div className="text-[11px] font-bold uppercase text-slate-400 mt-1">
                 {item.label}

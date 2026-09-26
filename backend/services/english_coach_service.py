@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 import httpx
+import difflib
 from dotenv import load_dotenv
 
 from services.ai_provider import ai_provider
@@ -813,29 +814,32 @@ STUDENT ASSESSMENT METRICS:
 Here are the 10 questions and the learner's actual spoken responses:
 {chr(10).join(transcript_lines)}
 
-STRICT CEFR EXAMINER RULES:
+STRICT CEFR EXAMINER RULES & INDEPENDENT RUBRICS:
 1. Genuinely observe what the student actually spoke. DO NOT award high, mock, or imaginary marks.
 2. For each question with [No answer / Skipped], award 0 marks.
 3. The overall_score CANNOT exceed {max_allowed_score}! If the student answered {total_answered} questions, their score must be proportional.
-4. If words are fragmented, elementary, or full of grammatical mistakes, score authentically within CEFR bands:
-   - A1 (Beginner): 0–30
-   - A2 (Elementary): 31–50
-   - B1 (Intermediate): 51–68
-   - B2 (Upper Intermediate): 69–82
-   - C1 (Advanced): 83–100
+4. INDEPENDENT RUBRIC PER COMPETENCY (Score each independently between 0 and {max_allowed_score}):
+   - fluency (0 to {max_allowed_score}): Assess flow, pacing, rhythm, and absence of broken hesitations across answered questions. If answers are 1-2 words or disjointed, score 10-35. If answers have smooth continuity, score 65-90.
+   - grammar (0 to {max_allowed_score}): Assess verb tenses, subject-verb agreement, auxiliary verbs, and syntax. If student makes basic tense mistakes or omits verbs, score 15-45. If grammatically structured with minor slips, score 60-80. If flawless, score 85-95.
+   - vocabulary (0 to {max_allowed_score}): Assess lexical range and precision. If learner repeats simple words ('good', 'yes') or lacks words, score 15-40. If diverse, context-rich words, score 65-85.
+   - pronunciation (0 to {max_allowed_score}): Phonetic clarity and intelligibility.
+   - speaking (0 to {max_allowed_score}): General communicative ability.
+   - confidence (0 to {max_allowed_score}): Sentence completeness vs hesitation.
+   - conversation (0 to {max_allowed_score}): Relevance to the specific questions asked.
+5. NEVER assign identical numbers across all skills. Differentiate each score based on their actual answers.
 
 Return ONLY a valid JSON object matching this schema:
 {{
   "overall_level": "A1 | A2 | B1 | B2 | C1",
-  "overall_score": {min(max_allowed_score, max(10, total_words * 2))},
+  "overall_score": <integer between 0 and {max_allowed_score}>,
   "skills": {{
-    "speaking": {min(max_allowed_score, max(10, total_words * 2))},
-    "grammar": {min(max_allowed_score, max(10, total_words * 2))},
-    "vocabulary": {min(max_allowed_score, max(10, total_words * 2))},
-    "pronunciation": {min(max_allowed_score, max(10, total_words * 2))},
-    "fluency": {min(max_allowed_score, max(10, total_words * 2))},
-    "confidence": {min(max_allowed_score, max(10, total_words * 2))},
-    "conversation": {min(max_allowed_score, max(10, total_words * 2))}
+    "speaking": <integer between 0 and {max_allowed_score}>,
+    "grammar": <integer between 0 and {max_allowed_score}>,
+    "vocabulary": <integer between 0 and {max_allowed_score}>,
+    "pronunciation": <integer between 0 and {max_allowed_score}>,
+    "fluency": <integer between 0 and {max_allowed_score}>,
+    "confidence": <integer between 0 and {max_allowed_score}>,
+    "conversation": <integer between 0 and {max_allowed_score}>
   }},
   "strengths": [
     "Genuine strength observed from their actual spoken answers",
@@ -863,7 +867,7 @@ Return ONLY a valid JSON object matching this schema:
             try:
                 resp = await ai_provider.chat_completion(
                     messages=[
-                        {"role": "system", "content": "You are a professional Cambridge CEFR spoken English examiner. Strictly accurate, non-inflated scoring. Return pure JSON only."},
+                        {"role": "system", "content": "You are a professional Cambridge CEFR spoken English examiner. Strictly accurate, non-inflated, distinct scoring for fluency, grammar, and vocabulary. Return pure JSON only."},
                         {"role": "user", "content": prompt_content}
                     ],
                     temperature=0.2,
@@ -900,23 +904,34 @@ Return ONLY a valid JSON object matching this schema:
 
             except Exception as e:
                 logger.error(f"AI evaluation failed for diagnostic: {e}")
-                # Authentic fallback proportional to questions answered
-                base_score = min(max_allowed_score, max(0, int(total_words * 1.5 * (total_answered / 10.0))))
-                level = "A1" if base_score <= 30 else ("A2" if base_score <= 50 else "B1")
+                # Authentic linguistic computation based on actual answered content
+                unique_words = len(set(" ".join(valid_answers).lower().split()))
+                avg_words = total_words / max(1, total_answered)
+                coverage_factor = total_answered / 10.0
+
+                calc_fluency = min(max_allowed_score, max(0, int(min(1.0, avg_words / 12.0) * max_allowed_score)))
+                calc_vocab = min(max_allowed_score, max(0, int(min(1.0, unique_words / 30.0) * max_allowed_score)))
+                calc_grammar = min(max_allowed_score, max(0, int(min(1.0, avg_words / 10.0) * max_allowed_score * 0.9)))
+                calc_pron = min(max_allowed_score, max(0, int((calc_fluency + calc_vocab) / 2)))
+                calc_conf = min(max_allowed_score, max(0, int(coverage_factor * 85)))
+                calc_conv = min(max_allowed_score, max(0, int((calc_grammar + calc_vocab) / 2)))
+                calc_overall = min(max_allowed_score, max(0, int((calc_fluency + calc_grammar + calc_vocab + calc_pron) / 4)))
+
+                level = "A1" if calc_overall <= 30 else ("A2" if calc_overall <= 50 else "B1")
                 analysis_data = {
                     "overall_level": level,
-                    "overall_score": base_score,
+                    "overall_score": calc_overall,
                     "skills": {
-                        "speaking": base_score,
-                        "grammar": max(0, base_score - 4),
-                        "vocabulary": max(0, base_score - 2),
-                        "pronunciation": max(0, base_score - 3),
-                        "fluency": max(0, base_score - 5),
-                        "confidence": max(0, base_score),
-                        "conversation": max(0, base_score - 2)
+                        "speaking": calc_overall,
+                        "grammar": calc_grammar,
+                        "vocabulary": calc_vocab,
+                        "pronunciation": calc_pron,
+                        "fluency": calc_fluency,
+                        "confidence": calc_conf,
+                        "conversation": calc_conv
                     },
-                    "strengths": [f"Answered {total_answered} of 10 diagnostic questions"],
-                    "weaknesses": [f"{10 - total_answered} questions were skipped or left unanswered"],
+                    "strengths": [f"Attempted {total_answered} of 10 speaking questions", f"Spoke {total_words} words across responses"],
+                    "weaknesses": [f"{10 - total_answered} questions were skipped or left unanswered", "Need more expanded sentences to show vocabulary and fluency depth"],
                     "coach_feedback": {
                         "what_you_are_good_at": f"You attempted {total_answered} speaking questions.",
                         "what_we_need_to_improve": "Consistency across all speaking prompts and full sentence responses.",
@@ -1165,11 +1180,17 @@ Return ONLY a valid JSON object matching this schema:
                 "scores": {"fluency": 0, "grammar": 0, "vocabulary": 0, "confidence": 0}
             }
 
-        # Calculate word overlap if target phrase is provided
-        target_words = target_phrase.lower().split() if target_phrase else []
-        spoken_words = speech_text.lower().split()
-        matched_words = [w for w in spoken_words if w in target_words]
-        match_ratio = len(matched_words) / max(1, len(target_words)) if target_words else 1.0
+        # Clean and extract tokens for genuine linguistic comparison
+        spoken_clean_words = [re.sub(r"[^\w]", "", w.lower()) for w in speech_text.split() if re.sub(r"[^\w]", "", w.lower())]
+        word_count = len(spoken_clean_words)
+
+        target_clean_words = []
+        similarity_ratio = 1.0
+        if target_phrase:
+            target_clean_words = [re.sub(r"[^\w]", "", w.lower()) for w in target_phrase.split() if re.sub(r"[^\w]", "", w.lower())]
+            clean_spoken_str = " ".join(spoken_clean_words)
+            clean_target_str = " ".join(target_clean_words)
+            similarity_ratio = difflib.SequenceMatcher(None, clean_spoken_str, clean_target_str).ratio() if clean_target_str else 1.0
 
         ai_prompt = f"""
 You are an expert Cambridge Spoken English Coach listening to a student's voice response.
@@ -1178,20 +1199,36 @@ Prompt given to student: "{prompt}"
 {f'Target Expected Phrase: "{target_phrase}"' if target_phrase else ''}
 {f'Context: "{context}"' if context else ''}
 Student's Spoken Utterance: "{speech_text}"
+Spoken Word Count: {word_count}
+{f'Lexical Match Ratio: {int(similarity_ratio * 100)}%' if target_phrase else ''}
 Student Proficiency Level: {user_level}
 
-EVALUATION RULES:
-1. Genuinely observe what the student said. Do NOT generate generic or static placeholder evaluations.
-2. If Target Expected Phrase is given:
-   - Check if their spoken utterance matches the target phrase accurately.
-   - If accurate (or close with minor accent), set "has_mistakes": false, assign scores 90-98, and praise their pronunciation.
-   - If there are missing words, wrong grammar, or mispronunciations, set "has_mistakes": true, assign realistic scores (50-75 based on accuracy), and identify the exact discrepancy.
-3. If open-ended speaking prompt:
-   - Evaluate natural fluency, grammar concordance (verb tenses, singular/plural, prepositions), and vocabulary appropriateness.
-   - Assign authentic, calibrated scores (0-100).
-4. CRITICAL: Provide "spoken_coach_speech": A concise, natural 2-sentence message that YOU (the coach) will speak OUT LOUD to the student through their headphones.
-   - If correct: "Spot on! Your pronunciation was clear and natural. Let's move to the next one."
-   - If mistake: "Good try! You said '[short snippet]', but the correct way is '[corrected sentence]' because [1-sentence simple rule]. Now repeat after me: '[corrected sentence]'."
+GENUINE SCORING RUBRICS (Each metric MUST be independently scored 0 to 100 based on what they actually said):
+1. fluency (0-100):
+   - Measures speech flow, natural pacing, and continuous rhythm.
+   - 0 words spoken: 0.
+   - 1 isolated word: 10-30 max.
+   - 2-4 words with hesitation/fragmentation: 35-55.
+   - Complete sentence with natural flow and continuity: 75-95.
+2. grammar (0-100):
+   - Measures syntactic accuracy: verb tenses, subject-verb agreement, auxiliary verbs, prepositions, articles.
+   - If target phrase is given: Does their spoken response match the target grammar?
+   - Broken syntax or major missing verbs: 20-50.
+   - 1 minor grammatical slip: 60-75.
+   - Grammatically correct and complete: 85-98.
+3. vocabulary (0-100):
+   - Measures lexical appropriateness, word precision, and range.
+   - If target phrase was given: Score strictly proportional to target words accurately spoken ({int(similarity_ratio * 100)}%).
+   - If open-ended: Score based on appropriate vocabulary versus elementary/garbled words.
+4. confidence (0-100):
+   - Measures assertiveness, completeness, and clarity.
+
+CRITICAL INSTRUCTIONS:
+- Do NOT give fake, mock, or identical numbers across all metrics.
+- Genuinely critique the exact spoken text: "{speech_text}".
+- Provide "spoken_coach_speech": A concise, warm, natural spoken message (1-2 sentences) that YOU will speak aloud to the student through their headphones.
+  - If good: "Spot on! Your sentence delivery was clear and natural."
+  - If mistake: "Good try! You said '[short snippet]', but the correct way is '[corrected sentence]'. Let's repeat it together: '[corrected sentence]'."
 
 Return ONLY valid JSON:
 {{
@@ -1203,20 +1240,20 @@ Return ONLY valid JSON:
   "repeat_challenge": "Now repeat after me: '...'",
   "spoken_coach_speech": "Spoken audio script for coach to say aloud to the student",
   "scores": {{
-    "fluency": 74,
-    "grammar": 68,
-    "vocabulary": 75,
-    "confidence": 80
+    "fluency": <integer 0-100 based on fluency criteria>,
+    "grammar": <integer 0-100 based on grammar criteria>,
+    "vocabulary": <integer 0-100 based on vocabulary criteria>,
+    "confidence": <integer 0-100 based on confidence criteria>
   }}
 }}
 """
         try:
             resp = await ai_provider.chat_completion(
                 messages=[
-                    {"role": "system", "content": "You are a warm, highly observant Cambridge spoken English coach. Return pure JSON only."},
+                    {"role": "system", "content": "You are a warm, highly observant Cambridge spoken English coach. Accurately and strictly score fluency, grammar, and vocabulary without mock numbers. Return pure JSON only."},
                     {"role": "user", "content": ai_prompt}
                 ],
-                temperature=0.25,
+                temperature=0.2,
                 max_tokens=650
             )
             raw_text = resp.get("content", "").strip()
@@ -1231,48 +1268,80 @@ Return ONLY valid JSON:
                 else:
                     data["spoken_coach_speech"] = f"Excellent job! Your pronunciation and sentence delivery were clear and natural."
 
+            # Real-world sanity calibrations on returned scores
+            scores = data.get("scores", {})
+            raw_fluency = int(scores.get("fluency", 50))
+            raw_grammar = int(scores.get("grammar", 50))
+            raw_vocab = int(scores.get("vocabulary", 50))
+            raw_conf = int(scores.get("confidence", 50))
+
+            if word_count == 0:
+                data["scores"] = {"fluency": 0, "grammar": 0, "vocabulary": 0, "confidence": 0}
+            elif word_count == 1:
+                data["scores"] = {
+                    "fluency": min(30, raw_fluency),
+                    "grammar": min(35, raw_grammar),
+                    "vocabulary": min(40, raw_vocab) if not target_phrase else min(int(similarity_ratio * 100), raw_vocab),
+                    "confidence": min(50, raw_conf)
+                }
+            elif target_phrase and len(target_clean_words) > 0:
+                lexical_pct = int(similarity_ratio * 100)
+                data["scores"] = {
+                    "fluency": min(100, max(10, raw_fluency)),
+                    "grammar": min(100, max(15, raw_grammar if lexical_pct > 30 else int(lexical_pct * 0.7))),
+                    "vocabulary": min(100, max(10, int(lexical_pct * 0.75 + raw_vocab * 0.25))),
+                    "confidence": min(100, max(15, raw_conf))
+                }
+            else:
+                data["scores"] = {
+                    "fluency": min(100, max(10, raw_fluency)),
+                    "grammar": min(100, max(10, raw_grammar)),
+                    "vocabulary": min(100, max(10, raw_vocab)),
+                    "confidence": min(100, max(10, raw_conf))
+                }
+
             return data
         except Exception as e:
             logger.warning(f"AI critique error: {e}")
-            # Compute dynamic realistic fallback based on actual word match ratio
-            if target_phrase and len(target_words) > 0:
-                is_match = match_ratio >= 0.75
-                acc_score = int(match_ratio * 100)
-                if is_match:
-                    return {
-                        "affirmation": "Great pronunciation! You spoken the phrase accurately.",
-                        "has_mistakes": False,
-                        "original_snippet": speech_text,
-                        "corrected_sentence": target_phrase,
-                        "explanation": "Your rhythm and pronunciation were on target.",
-                        "repeat_challenge": f"Now repeat after me: '{target_phrase}'",
-                        "spoken_coach_speech": f"Very well done! You spoke that clearly and accurately. Let's keep going!",
-                        "scores": {"fluency": max(85, acc_score), "grammar": 95, "vocabulary": 95, "confidence": 90}
+            # Authentic linguistic computation based on actual spoken words
+            if target_phrase and len(target_clean_words) > 0:
+                sim_pct = int(similarity_ratio * 100)
+                has_err = sim_pct < 80
+                return {
+                    "affirmation": "Good effort!" if has_err else "Excellent pronunciation!",
+                    "has_mistakes": has_err,
+                    "original_snippet": speech_text,
+                    "corrected_sentence": target_phrase,
+                    "explanation": f"Make sure to speak all target words clearly: '{target_phrase}'." if has_err else "Your rhythm and pronunciation were accurate.",
+                    "repeat_challenge": f"Now repeat after me: '{target_phrase}'",
+                    "spoken_coach_speech": f"Nice effort! You said '{speech_text}'. Listen carefully and repeat: '{target_phrase}'." if has_err else "Great job! You spoke that accurately and clearly.",
+                    "scores": {
+                        "fluency": min(95, max(15, int(sim_pct * 0.95))),
+                        "grammar": min(98, max(20, int(sim_pct * 0.98))) if not has_err else min(70, max(25, int(sim_pct * 0.8))),
+                        "vocabulary": min(100, max(10, sim_pct)),
+                        "confidence": min(90, max(30, int(min(1.0, word_count / len(target_clean_words)) * 85)))
                     }
-                else:
-                    return {
-                        "affirmation": "Good effort! Let's polish your pronunciation of this phrase.",
-                        "has_mistakes": True,
-                        "original_snippet": speech_text,
-                        "corrected_sentence": target_phrase,
-                        "explanation": f"Make sure to include all words clearly: '{target_phrase}'.",
-                        "repeat_challenge": f"Now repeat after me: '{target_phrase}'",
-                        "spoken_coach_speech": f"Nice effort! You said {speech_text}. Listen carefully: '{target_phrase}'. Now try saying it again.",
-                        "scores": {"fluency": max(45, acc_score), "grammar": 60, "vocabulary": 65, "confidence": 70}
+                }
+            else:
+                fluency_score = min(92, max(20, word_count * 9))
+                grammar_score = min(88, max(30, 45 + (15 if word_count >= 5 else 0)))
+                vocab_score = min(90, max(25, len(set(spoken_clean_words)) * 8))
+                conf_score = min(90, max(30, 30 + word_count * 7))
+                return {
+                    "affirmation": "Good effort! I heard your response clearly.",
+                    "has_mistakes": False,
+                    "original_snippet": speech_text,
+                    "corrected_sentence": speech_text,
+                    "explanation": "Practice connecting your ideas with smooth phrases like 'because' and 'for example'.",
+                    "repeat_challenge": "Keep practicing daily speaking with confidence.",
+                    "spoken_coach_speech": "Well spoken! You shared your thoughts with good confidence. Let's continue to the next practice.",
+                    "scores": {
+                        "fluency": fluency_score,
+                        "grammar": grammar_score,
+                        "vocabulary": vocab_score,
+                        "confidence": conf_score
                     }
-
-            word_count = len(spoken_words)
-            dynamic_fluency = min(90, max(50, word_count * 8))
-            return {
-                "affirmation": "Good effort! I heard your response clearly.",
-                "has_mistakes": False,
-                "original_snippet": speech_text,
-                "corrected_sentence": speech_text,
-                "explanation": "Focus on smooth phrasing and continuous rhythm.",
-                "repeat_challenge": "Keep practicing daily speaking with confidence.",
-                "spoken_coach_speech": "Well spoken! You shared your thoughts with good confidence. Let's continue to the next practice.",
-                "scores": {"fluency": dynamic_fluency, "grammar": 72, "vocabulary": 70, "confidence": 75}
-            }
+                }
 
     # -----------------------------------------------------------------
     # REAL-TIME CONVERSATIONAL VOICE AGENT (LEVEL 5)
@@ -1344,41 +1413,65 @@ Rules for your response:
         category: str = "Casual"
     ) -> Dict[str, Any]:
         """Generates an end-of-session performance report after a conversation."""
-        user_utterances = [t.get("text", "") for t in conversation_turns if t.get("sender") == "user"]
+        user_utterances = [t.get("text", "").strip() for t in conversation_turns if t.get("sender") == "user" and t.get("text", "").strip()]
         total_words = sum(len(u.split()) for u in user_utterances)
+        unique_words = len(set(" ".join(user_utterances).lower().split())) if user_utterances else 0
+        turn_count = len(user_utterances)
+
+        if turn_count == 0 or total_words == 0:
+            return {
+                "fluency": 0,
+                "grammar": 0,
+                "vocabulary": 0,
+                "pronunciation": 0,
+                "confidence": 0,
+                "you_did_well": ["Started the conversation practice"],
+                "improve_next": ["Speak your answers aloud into the microphone to receive feedback"],
+                "coach_closing_message": "I didn't detect any spoken words during this session. Please check your microphone and speak with me next time!"
+            }
 
         ai_prompt = f"""
 Evaluate this full voice conversation session between a student and their English coach:
 Conversation domain: {category}
-Student's spoken sentences:
-{chr(10).join(f"- {u}" for u in user_utterances if u)}
+Total Student Turns: {turn_count}
+Total Spoken Words: {total_words}
+Student's actual spoken sentences:
+{chr(10).join(f"- {u}" for u in user_utterances)}
+
+GENUINE SCORING RUBRICS (Each score 0-100 independently based on what was actually spoken):
+1. fluency (0-100): Flow, rhythm, response pacing, absence of broken fragments across turns.
+2. grammar (0-100): Tense accuracy, subject-verb agreement, sentence completeness.
+3. vocabulary (0-100): Lexical richness and contextual appropriateness.
+4. pronunciation (0-100): Clarity and phonetic intelligibility.
+5. confidence (0-100): Conversational assertiveness.
+
+Do NOT award identical numbers or generic mock scores.
 
 Provide an End-of-Session Performance Report as pure JSON:
 {{
-  "fluency": 78,
-  "grammar": 74,
-  "vocabulary": 82,
-  "pronunciation": 75,
-  "confidence": 85,
+  "fluency": <integer 0-100 based on fluency rubric>,
+  "grammar": <integer 0-100 based on grammar rubric>,
+  "vocabulary": <integer 0-100 based on vocabulary rubric>,
+  "pronunciation": <integer 0-100 based on pronunciation rubric>,
+  "confidence": <integer 0-100 based on confidence rubric>,
   "you_did_well": [
-    "Used great descriptive vocabulary",
-    "Quick responses with minimal pause",
-    "Expressive and confident delivery"
+    "Genuine strength observed from their actual responses",
+    "Second genuine strength"
   ],
   "improve_next": [
-    "Past tense consistency on irregular verbs",
-    "Try forming longer compound sentences"
+    "Specific grammar or vocabulary improvement area observed",
+    "Second specific improvement area"
   ],
-  "coach_closing_message": "Fantastic conversation today! You maintained great rhythm and spoke with authentic confidence. Tomorrow we will work on fine-tuning irregular past-tense verbs."
+  "coach_closing_message": "Personalized 2-sentence closing encouragement referencing their actual conversation."
 }}
 """
         try:
             resp = await ai_provider.chat_completion(
                 messages=[
-                    {"role": "system", "content": "You are an expert spoken English coach. Return pure JSON only."},
+                    {"role": "system", "content": "You are an expert spoken English coach evaluating a conversation. Strictly score real fluency, grammar, and vocabulary without mock numbers. Return pure JSON only."},
                     {"role": "user", "content": ai_prompt}
                 ],
-                temperature=0.3,
+                temperature=0.2,
                 max_tokens=600
             )
             raw = resp.get("content", "").strip()
@@ -1386,15 +1479,22 @@ Provide an End-of-Session Performance Report as pure JSON:
             raw = re.sub(r"^```\s*", "", raw, flags=re.MULTILINE).rstrip("`").strip()
             return json.loads(raw)
         except Exception:
+            # Authentic dynamic computation based on conversation statistics
+            avg_w = total_words / max(1, turn_count)
+            calc_f = min(92, max(20, int(min(1.0, avg_w / 10.0) * 85)))
+            calc_v = min(92, max(20, int(min(1.0, unique_words / 25.0) * 85)))
+            calc_g = min(90, max(25, int(min(1.0, avg_w / 8.0) * 80)))
+            calc_p = min(90, max(25, int((calc_f + calc_v) / 2)))
+            calc_c = min(95, max(30, int(min(1.0, turn_count / 5.0) * 85)))
             return {
-                "fluency": 75,
-                "grammar": 72,
-                "vocabulary": 80,
-                "pronunciation": 74,
-                "confidence": 80,
-                "you_did_well": ["Maintained clear flow", "Responded naturally to questions"],
-                "improve_next": ["Expanding sentences with connective words"],
-                "coach_closing_message": "Wonderful speaking session today! Keep up this daily consistency."
+                "fluency": calc_f,
+                "grammar": calc_g,
+                "vocabulary": calc_v,
+                "pronunciation": calc_p,
+                "confidence": calc_c,
+                "you_did_well": [f"Completed {turn_count} conversational turns", f"Spoke {total_words} total words in English"],
+                "improve_next": ["Expanding sentences with connective words like 'because' and 'for instance'"],
+                "coach_closing_message": "Good effort practicing today! Continue having daily conversations to build effortless speaking flow."
             }
 
     # -----------------------------------------------------------------

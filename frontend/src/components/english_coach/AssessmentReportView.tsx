@@ -29,16 +29,18 @@ export function AssessmentReportView({
   onContinueToDashboard,
   onRetakeTest
 }: Props) {
-  const level = profile.overall_level || "A2";
-  const score = profile.overall_score || 65;
-  const skills = profile.skills || {
-    speaking: 60,
-    grammar: 55,
-    vocabulary: 65,
-    pronunciation: 60,
-    fluency: 50,
-    confidence: 70,
-    conversation: 55
+  const level = profile.overall_level || reportData?.overall_level || "A1";
+  const score = typeof profile.overall_score === "number" 
+    ? profile.overall_score 
+    : (typeof reportData?.overall_score === "number" ? reportData.overall_score : 0);
+  const skills = profile.skills || reportData?.skills || {
+    speaking: 0,
+    grammar: 0,
+    vocabulary: 0,
+    pronunciation: 0,
+    fluency: 0,
+    confidence: 0,
+    conversation: 0
   };
 
   const getLevelBadgeInfo = (lvl: string) => {
@@ -170,7 +172,7 @@ export function AssessmentReportView({
                 <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.max(10, skillScore))}%` }}
+                    style={{ width: `${Math.min(100, Math.max(0, skillScore))}%` }}
                   />
                 </div>
               </div>

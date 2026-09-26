@@ -381,10 +381,11 @@ export function ActivityPlayer({
 
       setFeedback(res);
 
-      // Track item score
-      const avg = Math.round(
-        ((res.scores?.fluency || 70) + (res.scores?.grammar || 70) + (res.scores?.vocabulary || 70)) / 3
-      );
+      // Track authentic item score
+      const itemFluency = typeof res.scores?.fluency === "number" ? res.scores.fluency : 50;
+      const itemGrammar = typeof res.scores?.grammar === "number" ? res.scores.grammar : 50;
+      const itemVocab = typeof res.scores?.vocabulary === "number" ? res.scores.vocabulary : 50;
+      const avg = Math.round((itemFluency + itemGrammar + itemVocab) / 3);
       setItemScores((prev) => [...prev, avg]);
 
       // CRITICAL: The AI Coach SPEAKS the critique and correction OUT LOUD to the user ONCE
@@ -438,9 +439,10 @@ export function ActivityPlayer({
     if (itemScores.length > 0) {
       finalScore = Math.round(itemScores.reduce((a, b) => a + b, 0) / itemScores.length);
     } else if (feedback?.scores) {
-      finalScore = Math.round(
-        ((feedback.scores.fluency || 75) + (feedback.scores.grammar || 75) + (feedback.scores.vocabulary || 75)) / 3
-      );
+      const fbFluency = typeof feedback.scores.fluency === "number" ? feedback.scores.fluency : 50;
+      const fbGrammar = typeof feedback.scores.grammar === "number" ? feedback.scores.grammar : 50;
+      const fbVocab = typeof feedback.scores.vocabulary === "number" ? feedback.scores.vocabulary : 50;
+      finalScore = Math.round((fbFluency + fbGrammar + fbVocab) / 3);
     }
 
     try {
@@ -1073,21 +1075,21 @@ export function ActivityPlayer({
               <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
                 <div>
                   <div className="text-lg font-black text-indigo-600 dark:text-indigo-400">
-                    {feedback.scores.fluency || 80}%
+                    {feedback.scores.fluency ?? 0}%
                   </div>
                   <div className="text-[10px] font-bold uppercase text-slate-400">Fluency</div>
                 </div>
                 <div>
                   <div className="text-lg font-black text-purple-600 dark:text-purple-400">
-                    {feedback.scores.grammar || 80}%
+                    {feedback.scores.grammar ?? 0}%
                   </div>
                   <div className="text-[10px] font-bold uppercase text-slate-400">Grammar</div>
                 </div>
                 <div>
                   <div className="text-lg font-black text-pink-600 dark:text-pink-400">
-                    {feedback.scores.vocabulary || 80}%
+                    {feedback.scores.vocabulary ?? 0}%
                   </div>
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Accuracy</div>
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Vocabulary</div>
                 </div>
               </div>
             )}
