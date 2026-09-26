@@ -1212,11 +1212,28 @@ Return ONLY a valid JSON object matching this schema:
 
         target_clean_words = []
         similarity_ratio = 1.0
+        clean_spoken_str = " ".join(spoken_clean_words)
+        clean_target_str = ""
         if target_phrase:
             target_clean_words = [re.sub(r"[^\w]", "", w.lower()) for w in target_phrase.split() if re.sub(r"[^\w]", "", w.lower())]
-            clean_spoken_str = " ".join(spoken_clean_words)
             clean_target_str = " ".join(target_clean_words)
             similarity_ratio = difflib.SequenceMatcher(None, clean_spoken_str, clean_target_str).ratio() if clean_target_str else 1.0
+
+            # Substring / sub-sentence match check:
+            # If the target_phrase has a title prefix (e.g. "Suggest. I suggest we practice speaking daily.")
+            # or if the user spoke the primary sentence within target_phrase:
+            if clean_spoken_str and (clean_spoken_str in clean_target_str or clean_target_str in clean_spoken_str) and word_count >= 3:
+                similarity_ratio = max(similarity_ratio, 0.95)
+
+            # Check individual sentence clauses in target phrase
+            sentences = [s.strip() for s in re.split(r"[.!?]", target_phrase) if s.strip()]
+            for s in sentences:
+                s_words = [re.sub(r"[^\w]", "", w.lower()) for w in s.split() if re.sub(r"[^\w]", "", w.lower())]
+                if s_words and len(s_words) >= 2:
+                    s_clean = " ".join(s_words)
+                    s_ratio = difflib.SequenceMatcher(None, clean_spoken_str, s_clean).ratio()
+                    if s_ratio > similarity_ratio:
+                        similarity_ratio = s_ratio
 
         # Detect trivial greeting/filler when prompt requires a substantial response
         clean_text_lower = re.sub(r"[^\w\s]", "", speech_text.lower()).strip()
@@ -1236,20 +1253,21 @@ Student Proficiency Level: {user_level}
 
 CRITICAL COACHING & RELEVANCE RULES:
 1. Genuinely observe what the student said: "{speech_text}".
-2. Did the student actually answer or complete the prompt?
-   - If the student only gave a trivial greeting (like 'hello' or 'hi') when asked to explain, describe, or answer a question: They did NOT complete the activity!
-   - Set "passed": false, "has_mistakes": true, and "relevance_verdict": "Off-topic / Incomplete response".
-   - Assign authentic low scores: fluency 15-25, grammar 20-30, vocabulary 10-20, confidence 30-40.
-   - For "spoken_coach_speech", explain kindly and constructively:
-     "You said '{speech_text}', but our question asks you to {prompt.lower().rstrip('.')}. A complete answer would be: '[give a great 1-sentence example answer]'. Please try answering the question again!"
-3. If Target Expected Phrase was given:
-   - If spoken response matches the target phrase accurately: Set "passed": true, "has_mistakes": false, scores 88-98, praise their pronunciation.
-   - If words are missing, wrong, or mismatch: Set "passed": false, "has_mistakes": true, explain the exact discrepancy, and in "spoken_coach_speech" say:
-     "Nice effort! You said '{speech_text}', but our target phrase was '{target_phrase}'. Listen carefully and repeat after me: '{target_phrase}'."
-4. If open-ended speaking question was answered properly:
-   - Set "passed": true if overall communication is clear (score >= 60), else false.
-   - Note specific grammar, verb tense, or vocabulary choices.
-   - In "spoken_coach_speech", give 2 sentences of genuine coaching: acknowledge what they said, polish any grammatical slip, and encourage them.
+2. Did the student speak the required sentence or answer the prompt?
+   - In vocabulary or sentence drills: If the student spoke the example sentence naturally and accurately (e.g. they said "I suggest we practice speaking daily" when learning the word "Suggest"), that is 100% SUCCESSFUL!
+   - NEVER penalize the student for not repeating the isolated word title or heading before the sentence.
+   - If their spoken utterance matches the target phrase or example sentence (lexical match >= 70% or full sentence match), set:
+     "passed": true
+     "has_mistakes": false
+     "relevance_verdict": "Clear & Accurate Delivery"
+     Scores: 85-98.
+     "spoken_coach_speech": "Spot on! That was fluent, clear, and perfectly spoken."
+3. Only mark "has_mistakes": true or "passed": false if:
+   - The user spoke something completely different, off-topic, or gave a single-word greeting like 'hello' when a sentence was expected.
+   - Or they omitted key words or made significant grammatical errors in the sentence.
+4. If the user said an off-topic greeting or filler (like 'hello' when asked to describe or repeat a sentence):
+   - Set "passed": false, "has_mistakes": true, and explain:
+     "You said '{speech_text}', but our question asks: '{prompt}'. A complete answer would be: '[example answer]'. Please try answering the question again!"
 5. NEVER give generic, static praise if the student said something irrelevant or incomplete.
 
 Return ONLY valid JSON:
@@ -1334,7 +1352,7 @@ Return ONLY valid JSON:
                     "vocabulary": min(100, max(10, int(lexical_pct * 0.75 + raw_vocab * 0.25))),
                     "confidence": min(100, max(15, raw_conf))
                 }
-                if lexical_pct < 70:
+                if lexical_pct < 65:
                     data["passed"] = False
                     data["has_mistakes"] = True
             else:
@@ -1346,7 +1364,23 @@ Return ONLY valid JSON:
                 }
 
             avg_score = int((data["scores"]["fluency"] + data["scores"]["grammar"] + data["scores"]["vocabulary"]) / 3)
-            data["passed"] = data.get("passed", True) and avg_score >= 50 and not (is_greeting_filler and not prompt_expects_greeting)
+
+            # Auto-pass if the student accurately spoke the sentence (e.g. 70%+ similarity or average score >= 70%)
+            is_sentence_match = (
+                similarity_ratio >= 0.70
+                or (clean_spoken_str and clean_target_str and clean_spoken_str in clean_target_str and word_count >= 3)
+                or (avg_score >= 70 and word_count >= 3 and not is_greeting_filler)
+            )
+
+            if is_sentence_match:
+                data["passed"] = True
+                data["has_mistakes"] = False
+                data["relevance_verdict"] = "Clear & Accurate Delivery"
+                coach_msg = data.get("spoken_coach_speech", "")
+                if "target phrase was" in coach_msg.lower() or "suggest. i suggest" in coach_msg.lower():
+                    data["spoken_coach_speech"] = "Spot on! That was fluent, clear, and perfectly spoken."
+            elif not (data.get("passed", True) and avg_score >= 50 and not (is_greeting_filler and not prompt_expects_greeting)):
+                data["passed"] = False
 
             return data
         except Exception as e:

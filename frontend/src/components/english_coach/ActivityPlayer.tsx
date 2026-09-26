@@ -121,9 +121,9 @@ export function ActivityPlayer({
       const word = data.word || "";
       const example = data.example || "";
       const meaning = data.meaning || "";
-      const spokenText = example ? `${word}. For example: ${example}` : word;
+      const spokenText = example ? `Practice using ${word}. For example: ${example}` : `Practice pronouncing: ${word}`;
       return {
-        targetPhrase: example ? `${word}. ${example}` : word,
+        targetPhrase: example || word,
         coachSpokenInstruction: spokenText,
         displayPrompt: `${word} — ${meaning}`
       };
@@ -172,7 +172,7 @@ export function ActivityPlayer({
       const trigger = data.trigger || "";
       const replies = data.replies || [];
       return {
-        targetPhrase: replies.join(" OR "),
+        targetPhrase: replies[0] || trigger,
         coachSpokenInstruction: trigger,
         displayPrompt: trigger
       };
@@ -189,7 +189,7 @@ export function ActivityPlayer({
 
     if (type === "roleplay") {
       const starter = data.starter || "";
-      const suggested = (data.suggested_phrases || []).join(" OR ");
+      const suggested = (data.suggested_phrases || [])[0] || "";
       return {
         targetPhrase: suggested,
         coachSpokenInstruction: starter,
@@ -1030,131 +1030,154 @@ export function ActivityPlayer({
               </div>
             )}
 
-            {/* Relevance or Incomplete Warning */}
-            {feedback.passed === false && (
-              <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-                <div>
-                  <span className="font-bold">Coach Status: </span>
-                  <span>{feedback.relevance_verdict || "This answer needs more practice. Please listen to the coach and try again to pass!"}</span>
-                </div>
-              </div>
-            )}
+            {/* Relevance or Incomplete Warning (Only if truly failed with low score) */}
+            {(() => {
+              const currentAvg = Math.round(
+                ((feedback.scores?.fluency ?? 0) + (feedback.scores?.grammar ?? 0) + (feedback.scores?.vocabulary ?? 0)) / 3
+              );
+              const isTrulyPassed = (feedback.passed !== false || currentAvg >= 70) && currentAvg >= 50;
 
-            {/* Praise or Mistake Correction */}
-            {!feedback.has_mistakes && feedback.passed !== false ? (
-              <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-left flex items-start gap-2.5">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-emerald-800 dark:text-emerald-200 text-xs block mb-0.5">
-                    Clear & Accurate Delivery ✅
-                  </span>
-                  <p className="text-xs text-emerald-900 dark:text-emerald-300">
-                    {feedback.affirmation || "Spot on! Your response was clear, natural, and directly answered the prompt."}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-left space-y-2.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>Coach Correction:</span>
-                </div>
+              return (
+                <>
+                  {!isTrulyPassed && (
+                    <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                      <div>
+                        <span className="font-bold">Coach Status: </span>
+                        <span>{feedback.relevance_verdict || "This answer needs more practice. Please listen to the coach and try again to pass!"}</span>
+                      </div>
+                    </div>
+                  )}
 
-                {feedback.original_snippet && (
-                  <div className="text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2 bg-rose-50/60 dark:bg-rose-950/40 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900">
-                    <span className="font-bold flex-shrink-0">❌ You Said:</span>
-                    <span>&ldquo;{feedback.original_snippet}&rdquo;</span>
-                  </div>
-                )}
+                  {/* Praise or Mistake Correction */}
+                  {isTrulyPassed && !feedback.has_mistakes ? (
+                    <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-left flex items-start gap-2.5">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-emerald-800 dark:text-emerald-200 text-xs block mb-0.5">
+                          Clear & Accurate Delivery ✅
+                        </span>
+                        <p className="text-xs text-emerald-900 dark:text-emerald-300">
+                          {feedback.affirmation || "Spot on! Your response was clear, natural, and directly answered the prompt."}
+                        </p>
+                      </div>
+                    </div>
+                  ) : isTrulyPassed ? (
+                    <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-left flex items-start gap-2.5">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-emerald-800 dark:text-emerald-200 text-xs block mb-0.5">
+                          Passing Performance ({currentAvg}%) ✅
+                        </span>
+                        <p className="text-xs text-emerald-900 dark:text-emerald-300">
+                          {feedback.affirmation || "Good work! You spoke the core sentence accurately."}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-left space-y-2.5">
+                      <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>Coach Correction:</span>
+                      </div>
 
-                <div className="text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2 bg-emerald-50/60 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900">
-                  <span className="font-bold flex-shrink-0">✅ Target Form:</span>
-                  <span className="font-semibold">&ldquo;{feedback.corrected_sentence}&rdquo;</span>
-                </div>
+                      {feedback.original_snippet && (
+                        <div className="text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2 bg-rose-50/60 dark:bg-rose-950/40 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900">
+                          <span className="font-bold flex-shrink-0">❌ You Said:</span>
+                          <span>&ldquo;{feedback.original_snippet}&rdquo;</span>
+                        </div>
+                      )}
 
-                {feedback.explanation && (
-                  <p className="text-xs text-slate-600 dark:text-slate-400 italic">
-                    💡 <span className="font-semibold">Rule:</span> {feedback.explanation}
-                  </p>
-                )}
-              </div>
-            )}
+                      <div className="text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2 bg-emerald-50/60 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900">
+                        <span className="font-bold flex-shrink-0">✅ Target Form:</span>
+                        <span className="font-semibold">&ldquo;{feedback.corrected_sentence}&rdquo;</span>
+                      </div>
 
-            {/* True Accurate Scores Display */}
-            {feedback.scores && (
-              <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
-                <div>
-                  <div className="text-lg font-black text-indigo-600 dark:text-indigo-400">
-                    {feedback.scores.fluency ?? 0}%
-                  </div>
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Fluency</div>
-                </div>
-                <div>
-                  <div className="text-lg font-black text-purple-600 dark:text-purple-400">
-                    {feedback.scores.grammar ?? 0}%
-                  </div>
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Grammar</div>
-                </div>
-                <div>
-                  <div className="text-lg font-black text-pink-600 dark:text-pink-400">
-                    {feedback.scores.vocabulary ?? 0}%
-                  </div>
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Vocabulary</div>
-                </div>
-              </div>
-            )}
+                      {feedback.explanation && (
+                        <p className="text-xs text-slate-600 dark:text-slate-400 italic">
+                          💡 <span className="font-semibold">Rule:</span> {feedback.explanation}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-            {/* Bottom Actions: Prioritize repeating if not passed */}
-            {feedback.passed === false ? (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setFeedback(null);
-                    setSpokenText("");
-                    startRecording();
-                  }}
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2"
-                >
-                  <Mic className="w-4 h-4" />
-                  <span>Practice & Try Again to Pass</span>
-                </button>
+                  {/* True Accurate Scores Display */}
+                  {feedback.scores && (
+                    <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
+                      <div>
+                        <div className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+                          {feedback.scores.fluency ?? 0}%
+                        </div>
+                        <div className="text-[10px] font-bold uppercase text-slate-400">Fluency</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-black text-purple-600 dark:text-purple-400">
+                          {feedback.scores.grammar ?? 0}%
+                        </div>
+                        <div className="text-[10px] font-bold uppercase text-slate-400">Grammar</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-black text-pink-600 dark:text-pink-400">
+                          {feedback.scores.vocabulary ?? 0}%
+                        </div>
+                        <div className="text-[10px] font-bold uppercase text-slate-400">Vocabulary</div>
+                      </div>
+                    </div>
+                  )}
 
-                <button
-                  onClick={handleAdvanceNext}
-                  className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium underline flex items-center gap-1"
-                >
-                  <span>Skip challenge for now</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setFeedback(null);
-                    setSpokenText("");
-                    startRecording();
-                  }}
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Repeat & Polish</span>
-                </button>
+                  {/* Bottom Actions: Prioritize repeating only if not passed */}
+                  {!isTrulyPassed ? (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                      <button
+                        onClick={() => {
+                          setFeedback(null);
+                          setSpokenText("");
+                          startRecording();
+                        }}
+                        className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2"
+                      >
+                        <Mic className="w-4 h-4" />
+                        <span>Practice & Try Again to Pass</span>
+                      </button>
 
-                <button
-                  onClick={handleAdvanceNext}
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5"
-                >
-                  <span>
-                    {isMultiItem && currentIndex < items.length - 1
-                      ? `Next (${currentIndex + 2} of ${items.length})`
-                      : "Finish Activity & Save Progress"}
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+                      <button
+                        onClick={handleAdvanceNext}
+                        className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium underline flex items-center gap-1"
+                      >
+                        <span>Skip challenge for now</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                      <button
+                        onClick={() => {
+                          setFeedback(null);
+                          setSpokenText("");
+                          startRecording();
+                        }}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Repeat & Polish</span>
+                      </button>
+
+                      <button
+                        onClick={handleAdvanceNext}
+                        className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5"
+                      >
+                        <span>
+                          {isMultiItem && currentIndex < items.length - 1
+                            ? `Next (${currentIndex + 2} of ${items.length})`
+                            : "Finish Activity & Save Progress"}
+                        </span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </div>
