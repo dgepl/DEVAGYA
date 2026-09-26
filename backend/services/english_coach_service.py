@@ -30,6 +30,33 @@ SUPABASE_HEADERS = {
     "Prefer": "return=representation"
 }
 
+def _extract_ai_response_text(resp: Any) -> str:
+    """Safely extracts text string from ai_provider chat_completion response (handles str, dict, or object)."""
+    if isinstance(resp, dict):
+        return (resp.get("content") or resp.get("text") or "").strip()
+    return str(resp or "").strip()
+
+
+def _clean_and_parse_json(resp: Any) -> Optional[Dict[str, Any]]:
+    """Strips markdown code fences and safely parses valid JSON from LLM output."""
+    raw = _extract_ai_response_text(resp)
+    if not raw:
+        return None
+    raw = re.sub(r"^```json\s*", "", raw, flags=re.MULTILINE)
+    raw = re.sub(r"^```\s*", "", raw, flags=re.MULTILINE).rstrip("`").strip()
+    try:
+        return json.loads(raw)
+    except Exception:
+        # Search for first complete JSON object block
+        m = re.search(r"(\{[\s\S]*\})", raw)
+        if m:
+            try:
+                return json.loads(m.group(1))
+            except Exception:
+                pass
+    return None
+
+
 # In-memory/file fallback cache
 COACH_TRACK_CACHE: Dict[str, Dict[str, Any]] = {}
 
@@ -874,10 +901,9 @@ Return ONLY a valid JSON object matching this schema:
                     max_tokens=1200
                 )
 
-                raw_text = resp.get("content", "").strip()
-                raw_text = re.sub(r"^```json\s*", "", raw_text, flags=re.MULTILINE)
-                raw_text = re.sub(r"^```\s*", "", raw_text, flags=re.MULTILINE).rstrip("`").strip()
-                analysis_data = json.loads(raw_text)
+                analysis_data = _clean_and_parse_json(resp)
+                if not analysis_data:
+                    raise ValueError("Failed to parse diagnostic analysis JSON from model")
 
                 # Calibrate score against maximum allowed score
                 raw_score = int(analysis_data.get("overall_score", 0))
@@ -1192,6 +1218,11 @@ Return ONLY a valid JSON object matching this schema:
             clean_target_str = " ".join(target_clean_words)
             similarity_ratio = difflib.SequenceMatcher(None, clean_spoken_str, clean_target_str).ratio() if clean_target_str else 1.0
 
+        # Detect trivial greeting/filler when prompt requires a substantial response
+        clean_text_lower = re.sub(r"[^\w\s]", "", speech_text.lower()).strip()
+        is_greeting_filler = clean_text_lower in {"hello", "hi", "hey", "yes", "no", "ok", "okay", "bye", "test", "testing", "good"}
+        prompt_expects_greeting = "greet" in prompt.lower() or "hello" in prompt.lower() or "introduce" in prompt.lower()
+
         ai_prompt = f"""
 You are an expert Cambridge Spoken English Coach listening to a student's voice response.
 Activity Drill Type: {drill_type}
@@ -1203,40 +1234,33 @@ Spoken Word Count: {word_count}
 {f'Lexical Match Ratio: {int(similarity_ratio * 100)}%' if target_phrase else ''}
 Student Proficiency Level: {user_level}
 
-GENUINE SCORING RUBRICS (Each metric MUST be independently scored 0 to 100 based on what they actually said):
-1. fluency (0-100):
-   - Measures speech flow, natural pacing, and continuous rhythm.
-   - 0 words spoken: 0.
-   - 1 isolated word: 10-30 max.
-   - 2-4 words with hesitation/fragmentation: 35-55.
-   - Complete sentence with natural flow and continuity: 75-95.
-2. grammar (0-100):
-   - Measures syntactic accuracy: verb tenses, subject-verb agreement, auxiliary verbs, prepositions, articles.
-   - If target phrase is given: Does their spoken response match the target grammar?
-   - Broken syntax or major missing verbs: 20-50.
-   - 1 minor grammatical slip: 60-75.
-   - Grammatically correct and complete: 85-98.
-3. vocabulary (0-100):
-   - Measures lexical appropriateness, word precision, and range.
-   - If target phrase was given: Score strictly proportional to target words accurately spoken ({int(similarity_ratio * 100)}%).
-   - If open-ended: Score based on appropriate vocabulary versus elementary/garbled words.
-4. confidence (0-100):
-   - Measures assertiveness, completeness, and clarity.
-
-CRITICAL INSTRUCTIONS:
-- Do NOT give fake, mock, or identical numbers across all metrics.
-- Genuinely critique the exact spoken text: "{speech_text}".
-- Provide "spoken_coach_speech": A concise, warm, natural spoken message (1-2 sentences) that YOU will speak aloud to the student through their headphones.
-  - If good: "Spot on! Your sentence delivery was clear and natural."
-  - If mistake: "Good try! You said '[short snippet]', but the correct way is '[corrected sentence]'. Let's repeat it together: '[corrected sentence]'."
+CRITICAL COACHING & RELEVANCE RULES:
+1. Genuinely observe what the student said: "{speech_text}".
+2. Did the student actually answer or complete the prompt?
+   - If the student only gave a trivial greeting (like 'hello' or 'hi') when asked to explain, describe, or answer a question: They did NOT complete the activity!
+   - Set "passed": false, "has_mistakes": true, and "relevance_verdict": "Off-topic / Incomplete response".
+   - Assign authentic low scores: fluency 15-25, grammar 20-30, vocabulary 10-20, confidence 30-40.
+   - For "spoken_coach_speech", explain kindly and constructively:
+     "You said '{speech_text}', but our question asks you to {prompt.lower().rstrip('.')}. A complete answer would be: '[give a great 1-sentence example answer]'. Please try answering the question again!"
+3. If Target Expected Phrase was given:
+   - If spoken response matches the target phrase accurately: Set "passed": true, "has_mistakes": false, scores 88-98, praise their pronunciation.
+   - If words are missing, wrong, or mismatch: Set "passed": false, "has_mistakes": true, explain the exact discrepancy, and in "spoken_coach_speech" say:
+     "Nice effort! You said '{speech_text}', but our target phrase was '{target_phrase}'. Listen carefully and repeat after me: '{target_phrase}'."
+4. If open-ended speaking question was answered properly:
+   - Set "passed": true if overall communication is clear (score >= 60), else false.
+   - Note specific grammar, verb tense, or vocabulary choices.
+   - In "spoken_coach_speech", give 2 sentences of genuine coaching: acknowledge what they said, polish any grammatical slip, and encourage them.
+5. NEVER give generic, static praise if the student said something irrelevant or incomplete.
 
 Return ONLY valid JSON:
 {{
-  "affirmation": "Short warm praise acknowledging their effort.",
-  "has_mistakes": true,
+  "passed": true | false,
+  "has_mistakes": true | false,
+  "relevance_verdict": "On-topic | Off-topic | Incomplete | Target phrase mismatch",
+  "affirmation": "Coach observation acknowledging their effort or identifying the gap.",
   "original_snippet": "{speech_text}",
-  "corrected_sentence": "The correct natural sentence",
-  "explanation": "Clear, simple 1-sentence grammar or pronunciation rule.",
+  "corrected_sentence": "The complete, ideal sentence answering the prompt",
+  "explanation": "Clear 1-sentence grammar, vocabulary, or phrasing rule.",
   "repeat_challenge": "Now repeat after me: '...'",
   "spoken_coach_speech": "Spoken audio script for coach to say aloud to the student",
   "scores": {{
@@ -1256,15 +1280,14 @@ Return ONLY valid JSON:
                 temperature=0.2,
                 max_tokens=650
             )
-            raw_text = resp.get("content", "").strip()
-            raw_text = re.sub(r"^```json\s*", "", raw_text, flags=re.MULTILINE)
-            raw_text = re.sub(r"^```\s*", "", raw_text, flags=re.MULTILINE).rstrip("`").strip()
-            data = json.loads(raw_text)
+            data = _clean_and_parse_json(resp)
+            if not data:
+                raise ValueError("Failed to parse critique JSON response from model")
 
             # Ensure spoken_coach_speech exists
             if not data.get("spoken_coach_speech"):
                 if data.get("has_mistakes") and data.get("corrected_sentence"):
-                    data["spoken_coach_speech"] = f"Good try! Instead of saying {data.get('original_snippet', '')}, you should say: {data['corrected_sentence']}. {data.get('explanation', '')}"
+                    data["spoken_coach_speech"] = f"Good try! Instead of saying '{data.get('original_snippet', '')}', you should say: '{data['corrected_sentence']}'. {data.get('explanation', '')}"
                 else:
                     data["spoken_coach_speech"] = f"Excellent job! Your pronunciation and sentence delivery were clear and natural."
 
@@ -1275,8 +1298,24 @@ Return ONLY valid JSON:
             raw_vocab = int(scores.get("vocabulary", 50))
             raw_conf = int(scores.get("confidence", 50))
 
+            # Deterministic reality checks based on actual spoken text
             if word_count == 0:
                 data["scores"] = {"fluency": 0, "grammar": 0, "vocabulary": 0, "confidence": 0}
+                data["passed"] = False
+                data["has_mistakes"] = True
+            elif is_greeting_filler and not prompt_expects_greeting:
+                # Student just said 'hello', 'hi', etc. to an activity that asks for an answer
+                data["passed"] = False
+                data["has_mistakes"] = True
+                data["relevance_verdict"] = "Off-topic or incomplete response"
+                data["scores"] = {
+                    "fluency": min(25, raw_fluency),
+                    "grammar": min(30, raw_grammar),
+                    "vocabulary": min(20, raw_vocab),
+                    "confidence": min(40, raw_conf)
+                }
+                if not data.get("spoken_coach_speech") or "well spoken" in data["spoken_coach_speech"].lower():
+                    data["spoken_coach_speech"] = f"You said '{speech_text}', but the question asks you to {prompt.lower().rstrip('.')}. A complete answer would be: '{data.get('corrected_sentence', '...') }'. Please try answering the question again!"
             elif word_count == 1:
                 data["scores"] = {
                     "fluency": min(30, raw_fluency),
@@ -1284,6 +1323,9 @@ Return ONLY valid JSON:
                     "vocabulary": min(40, raw_vocab) if not target_phrase else min(int(similarity_ratio * 100), raw_vocab),
                     "confidence": min(50, raw_conf)
                 }
+                if not target_phrase or similarity_ratio < 0.8:
+                    data["passed"] = False
+                    data["has_mistakes"] = True
             elif target_phrase and len(target_clean_words) > 0:
                 lexical_pct = int(similarity_ratio * 100)
                 data["scores"] = {
@@ -1292,6 +1334,9 @@ Return ONLY valid JSON:
                     "vocabulary": min(100, max(10, int(lexical_pct * 0.75 + raw_vocab * 0.25))),
                     "confidence": min(100, max(15, raw_conf))
                 }
+                if lexical_pct < 70:
+                    data["passed"] = False
+                    data["has_mistakes"] = True
             else:
                 data["scores"] = {
                     "fluency": min(100, max(10, raw_fluency)),
@@ -1299,6 +1344,9 @@ Return ONLY valid JSON:
                     "vocabulary": min(100, max(10, raw_vocab)),
                     "confidence": min(100, max(10, raw_conf))
                 }
+
+            avg_score = int((data["scores"]["fluency"] + data["scores"]["grammar"] + data["scores"]["vocabulary"]) / 3)
+            data["passed"] = data.get("passed", True) and avg_score >= 50 and not (is_greeting_filler and not prompt_expects_greeting)
 
             return data
         except Exception as e:
@@ -1308,8 +1356,10 @@ Return ONLY valid JSON:
                 sim_pct = int(similarity_ratio * 100)
                 has_err = sim_pct < 80
                 return {
-                    "affirmation": "Good effort!" if has_err else "Excellent pronunciation!",
+                    "passed": not has_err,
                     "has_mistakes": has_err,
+                    "relevance_verdict": "Target phrase matched" if not has_err else "Target phrase mismatch",
+                    "affirmation": "Good effort!" if has_err else "Excellent pronunciation!",
                     "original_snippet": speech_text,
                     "corrected_sentence": target_phrase,
                     "explanation": f"Make sure to speak all target words clearly: '{target_phrase}'." if has_err else "Your rhythm and pronunciation were accurate.",
@@ -1322,19 +1372,40 @@ Return ONLY valid JSON:
                         "confidence": min(90, max(30, int(min(1.0, word_count / len(target_clean_words)) * 85)))
                     }
                 }
+            elif is_greeting_filler and not prompt_expects_greeting:
+                return {
+                    "passed": False,
+                    "has_mistakes": True,
+                    "relevance_verdict": "Off-topic or incomplete response",
+                    "affirmation": f"You said '{speech_text}'.",
+                    "original_snippet": speech_text,
+                    "corrected_sentence": f"Please answer the question: {prompt}",
+                    "explanation": f"The activity asks you to {prompt.lower().rstrip('.')}. Single-word greetings do not answer the question.",
+                    "repeat_challenge": "Answer the question with a full sentence.",
+                    "spoken_coach_speech": f"You said '{speech_text}', but the question asks you to {prompt.lower().rstrip('.')}. Please try answering with a full sentence.",
+                    "scores": {
+                        "fluency": 20,
+                        "grammar": 25,
+                        "vocabulary": 15,
+                        "confidence": 35
+                    }
+                }
             else:
                 fluency_score = min(92, max(20, word_count * 9))
                 grammar_score = min(88, max(30, 45 + (15 if word_count >= 5 else 0)))
                 vocab_score = min(90, max(25, len(set(spoken_clean_words)) * 8))
                 conf_score = min(90, max(30, 30 + word_count * 7))
+                avg_score = int((fluency_score + grammar_score + vocab_score) / 3)
                 return {
+                    "passed": avg_score >= 50,
+                    "has_mistakes": avg_score < 60,
+                    "relevance_verdict": "Attempted speaking prompt",
                     "affirmation": "Good effort! I heard your response clearly.",
-                    "has_mistakes": False,
                     "original_snippet": speech_text,
                     "corrected_sentence": speech_text,
                     "explanation": "Practice connecting your ideas with smooth phrases like 'because' and 'for example'.",
                     "repeat_challenge": "Keep practicing daily speaking with confidence.",
-                    "spoken_coach_speech": "Well spoken! You shared your thoughts with good confidence. Let's continue to the next practice.",
+                    "spoken_coach_speech": "Well spoken! Let's continue practicing.",
                     "scores": {
                         "fluency": fluency_score,
                         "grammar": grammar_score,
@@ -1392,10 +1463,10 @@ Rules for your response:
                 temperature=0.6,
                 max_tokens=350
             )
-            raw = resp.get("content", "").strip()
-            raw = re.sub(r"^```json\s*", "", raw, flags=re.MULTILINE)
-            raw = re.sub(r"^```\s*", "", raw, flags=re.MULTILINE).rstrip("`").strip()
-            return json.loads(raw)
+            data = _clean_and_parse_json(resp)
+            if not data or not data.get("reply"):
+                raise ValueError("Failed to parse conversation turn JSON from model")
+            return data
         except Exception as e:
             logger.warning(f"Conversation turn fallback: {e}")
             return {
@@ -1474,10 +1545,10 @@ Provide an End-of-Session Performance Report as pure JSON:
                 temperature=0.2,
                 max_tokens=600
             )
-            raw = resp.get("content", "").strip()
-            raw = re.sub(r"^```json\s*", "", raw, flags=re.MULTILINE)
-            raw = re.sub(r"^```\s*", "", raw, flags=re.MULTILINE).rstrip("`").strip()
-            return json.loads(raw)
+            report_data = _clean_and_parse_json(resp)
+            if not report_data:
+                raise ValueError("Failed to parse session report JSON from model")
+            return report_data
         except Exception:
             # Authentic dynamic computation based on conversation statistics
             avg_w = total_words / max(1, turn_count)

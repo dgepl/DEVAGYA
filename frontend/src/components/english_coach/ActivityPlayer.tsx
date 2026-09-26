@@ -1030,16 +1030,27 @@ export function ActivityPlayer({
               </div>
             )}
 
+            {/* Relevance or Incomplete Warning */}
+            {feedback.passed === false && (
+              <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <span className="font-bold">Coach Status: </span>
+                  <span>{feedback.relevance_verdict || "This answer needs more practice. Please listen to the coach and try again to pass!"}</span>
+                </div>
+              </div>
+            )}
+
             {/* Praise or Mistake Correction */}
-            {!feedback.has_mistakes ? (
+            {!feedback.has_mistakes && feedback.passed !== false ? (
               <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-left flex items-start gap-2.5">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-emerald-800 dark:text-emerald-200 text-xs block mb-0.5">
-                    Pronunciation Verified ✅
+                    Clear & Accurate Delivery ✅
                   </span>
                   <p className="text-xs text-emerald-900 dark:text-emerald-300">
-                    {feedback.affirmation || "Spot on! Your pronunciation was accurate and natural."}
+                    {feedback.affirmation || "Spot on! Your response was clear, natural, and directly answered the prompt."}
                   </p>
                 </div>
               </div>
@@ -1058,7 +1069,7 @@ export function ActivityPlayer({
                 )}
 
                 <div className="text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2 bg-emerald-50/60 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900">
-                  <span className="font-bold flex-shrink-0">✅ Correct Form:</span>
+                  <span className="font-bold flex-shrink-0">✅ Target Form:</span>
                   <span className="font-semibold">&ldquo;{feedback.corrected_sentence}&rdquo;</span>
                 </div>
 
@@ -1094,32 +1105,56 @@ export function ActivityPlayer({
               </div>
             )}
 
-            {/* Bottom Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-              <button
-                onClick={() => {
-                  setFeedback(null);
-                  setSpokenText("");
-                  startRecording();
-                }}
-                className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Repeat & Try Again</span>
-              </button>
+            {/* Bottom Actions: Prioritize repeating if not passed */}
+            {feedback.passed === false ? (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setFeedback(null);
+                    setSpokenText("");
+                    startRecording();
+                  }}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2"
+                >
+                  <Mic className="w-4 h-4" />
+                  <span>Practice & Try Again to Pass</span>
+                </button>
 
-              <button
-                onClick={handleAdvanceNext}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5"
-              >
-                <span>
-                  {isMultiItem && currentIndex < items.length - 1
-                    ? `Next (${currentIndex + 2} of ${items.length})`
-                    : "Finish Activity & Save Progress"}
-                </span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
+                <button
+                  onClick={handleAdvanceNext}
+                  className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium underline flex items-center gap-1"
+                >
+                  <span>Skip challenge for now</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setFeedback(null);
+                    setSpokenText("");
+                    startRecording();
+                  }}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Repeat & Polish</span>
+                </button>
+
+                <button
+                  onClick={handleAdvanceNext}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5"
+                >
+                  <span>
+                    {isMultiItem && currentIndex < items.length - 1
+                      ? `Next (${currentIndex + 2} of ${items.length})`
+                      : "Finish Activity & Save Progress"}
+                  </span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
