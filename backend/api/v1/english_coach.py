@@ -1,130 +1,87 @@
 import logging
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from services.english_coach_service import english_coach_service, get_curriculum_modules
+from services.english_coach_service import english_coach_service
 
 logger = logging.getLogger("english_coach_api")
 router = APIRouter(prefix="/english-coach", tags=["English Speaking Coach"])
 
 
-class DiagnosticSubmitRequest(BaseModel):
-    user_id: str
-    user_role: str = "student"
-    answers: Dict[str, int] = Field(..., description="Mapping of question id string to selected option index")
-
-
-class LectureStepCompleteRequest(BaseModel):
-    user_id: str
-    user_role: str = "student"
-    module_index: int
-    step_id: str
-
-
-class PublicSpeakingCritiqueRequest(BaseModel):
-    user_id: str
-    speech_text: str
-    topic: str
-    user_level: str = "Intermediate"
-
-
-class SpeakCritiqueRequest(BaseModel):
-    user_id: Optional[str] = "guest_user"
-    prompt: str
-    sample_answer: Optional[str] = None
-    user_speech: str
-    user_level: Optional[str] = "Intermediate"
-
-
-class FinalizeReportRequest(BaseModel):
-    user_id: str
-    user_role: str = "student"
-    student_name: str = "Student"
-    capstone_transcript: str
-
-
-class ResetCycleRequest(BaseModel):
-    user_id: str
-    user_role: str = "student"
-
-
-class DialogueTurnRequest(BaseModel):
-    user_message: str
-    history: Optional[List[Dict[str, str]]] = []
-    coach_starter: Optional[str] = ""
-    user_level: Optional[str] = "Intermediate"
-    target_focus: Optional[str] = "Spoken English Fluency"
-
-
-class RegenerateCurriculumRequest(BaseModel):
-    user_id: str
-    user_role: str = "student"
-
-
-class EvaluateSpeechRequest(BaseModel):
-    user_id: Optional[str] = "guest_user"
-    target_phrase: str
-    spoken_text: str
+# ---------------------------------------------------------------------
+# PYDANTIC SCHEMAS
+# ---------------------------------------------------------------------
+class SpokenAnswerItem(BaseModel):
+    question_id: int
+    category: str = "General"
+    prompt: str = ""
+    transcript: str = ""
     duration_seconds: Optional[float] = None
 
 
+class DiagnosticSubmitRequest(BaseModel):
+    user_id: str
+    user_role: str = "student"
+    answers: List[SpokenAnswerItem] = Field(..., description="List of 10 spoken answer transcripts from learner")
+
+
+class ActivityCompleteRequest(BaseModel):
+    user_id: str
+    user_role: str = "student"
+    level_number: int
+    activity_id: str
+    score: int = 100
+    mistakes: Optional[List[Dict[str, Any]]] = None
+
+
+class SpokenCritiqueRequest(BaseModel):
+    prompt: str
+    user_speech: str
+    context: Optional[str] = None
+    user_level: Optional[str] = "A2"
+
+
+class ConversationTurnRequest(BaseModel):
+    user_message: str
+    conversation_history: Optional[List[Dict[str, str]]] = []
+    category: Optional[str] = "Casual"
+    user_level: Optional[str] = "B1"
+
+
+class SessionReportRequest(BaseModel):
+    conversation_turns: List[Dict[str, str]]
+    category: Optional[str] = "Casual"
+
+
+class ResetProfileRequest(BaseModel):
+    user_id: str
+    user_role: str = "student"
+
+
+# ---------------------------------------------------------------------
+# ENDPOINTS
+# ---------------------------------------------------------------------
+
 @router.get("/diagnostic-questions")
 async def get_diagnostic_questions():
-    """Returns the 10 fixed questions without the answer key for the user's initial test."""
+    """Returns the 10 spoken diagnostic assessment questions."""
     questions = english_coach_service.get_diagnostic_questions_for_client()
     return {"questions": questions, "total": len(questions)}
 
 
-@router.get("/state")
-async def get_coach_state(user_id: str, user_role: str = "student"):
-    """Fetches user's current progress, diagnostic status, unlocked lectures, and 30-day expiry timer."""
-    track = english_coach_service.get_user_track(user_id, user_role=user_role)
-    modules = track.get("custom_modules")
-
-    # Migrate legacy modules or missing focus_areas
-    is_legacy = False
-    if modules and isinstance(modules, list):
-        for mod in modules:
-            if not isinstance(mod, dict):
-                is_legacy = True
-                break
-            if "focus_areas" not in mod or not isinstance(mod.get("focus_areas"), list):
-                mod["focus_areas"] = ["Cadence & Diction", "Spoken Accuracy", "Fluency & Poise"]
-            steps = mod.get("steps", [])
-            # If old 5-step format with deprecated types
-            if len(steps) == 5 and any(s.get("type") in ["listen", "repeat", "game", "present"] for s in steps):
-                is_legacy = True
-                break
-
-    if not modules or is_legacy:
-        modules = get_curriculum_modules(
-            track.get("fluency_level", "Intermediate"),
-            track.get("weak_points", [])
-        )
-        if track.get("diagnostic_completed"):
-            track["custom_modules"] = modules
-            english_coach_service.save_user_track(user_id, track, user_role=user_role)
-
-    # Ensure every module has focus_areas
-    for mod in modules:
-        if isinstance(mod, dict) and ("focus_areas" not in mod or not isinstance(mod.get("focus_areas"), list)):
-            mod["focus_areas"] = ["Cadence & Diction", "Spoken Accuracy", "Fluency & Poise"]
-
-    return {
-        "track": track,
-        "modules": modules
-    }
-
-
 @router.post("/diagnostic-submit")
 async def submit_diagnostic_test(payload: DiagnosticSubmitRequest):
-    """Grades the 10-mark test, detects weak points, unlocks module 1, and initializes roadmap."""
+    """
+    Submits user's 10 spoken responses for deep AI analysis.
+    Computes CEFR Level, skill scores, strengths, weaknesses, and weekly roadmap.
+    """
     try:
-        result = await english_coach_service.submit_diagnostic(
+        answers_dicts = [a.model_dump() for a in payload.answers]
+        result = await english_coach_service.evaluate_diagnostic_assessment(
             user_id=payload.user_id,
-            user_answers=payload.answers,
-            user_role=payload.user_role
+            user_role=payload.user_role,
+            answers=answers_dicts
         )
         return result
     except Exception as e:
@@ -132,160 +89,139 @@ async def submit_diagnostic_test(payload: DiagnosticSubmitRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/regenerate-curriculum")
-async def regenerate_curriculum(payload: RegenerateCurriculumRequest):
-    """Regenerates the AI curriculum based on the user's existing diagnostic results and weak points."""
+@router.get("/profile")
+async def get_coach_profile(user_id: str, user_role: str = "student", user_name: str = "Learner"):
+    """Fetches user's current coach profile and progression stats."""
+    profile = english_coach_service.get_or_create_profile(user_id=user_id, user_role=user_role, user_name=user_name)
+    return {"status": "success", "profile": profile}
+
+
+@router.get("/state")
+async def get_coach_state(user_id: str, user_role: str = "student", user_name: str = "Learner"):
+    """Compatibility alias for get_coach_profile."""
+    profile = english_coach_service.get_or_create_profile(user_id=user_id, user_role=user_role, user_name=user_name)
+    levels = english_coach_service.get_levels_for_user(user_id=user_id, user_role=user_role)
+    return {
+        "status": "success",
+        "profile": profile,
+        "track": profile,
+        "levels": levels
+    }
+
+
+@router.get("/levels")
+async def get_levels(user_id: str, user_role: str = "student"):
+    """Returns all 5 levels with personalized lock states and progress percentages."""
+    levels = english_coach_service.get_levels_for_user(user_id=user_id, user_role=user_role)
+    profile = english_coach_service.get_or_create_profile(user_id=user_id, user_role=user_role)
+    return {
+        "status": "success",
+        "current_level": profile.get("current_level", 1),
+        "unlocked_levels": profile.get("unlocked_levels", [1]),
+        "levels": levels
+    }
+
+
+@router.post("/complete-activity")
+async def complete_activity(payload: ActivityCompleteRequest):
+    """Marks an activity complete, awards XP, and unlocks next level if 80%+ and capstone passed."""
     try:
-        track = english_coach_service.get_user_track(payload.user_id, user_role=payload.user_role)
-        score = track.get("diagnostic_score", 5)
-        level = track.get("fluency_level", "Intermediate (B1 Conversational)")
-        weak_points = track.get("weak_points", [])
-
-        modules = await english_coach_service.generate_personalized_curriculum_with_ai(
-            score=score,
-            level=level,
-            weak_points=weak_points,
-            detailed_breakdown=[],
-            user_role=payload.user_role
-        )
-        track["custom_modules"] = modules
-        english_coach_service.save_user_track(payload.user_id, track, user_role=payload.user_role)
-        return {"status": "success", "modules": modules, "track": track}
-    except Exception as e:
-        logger.error(f"Error regenerating curriculum: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/evaluate-speech")
-async def evaluate_speech(payload: EvaluateSpeechRequest):
-    """Evaluates user's spoken audio against target phrase with word alignment, pacing WPM, and filler detection."""
-    try:
-        result = english_coach_service.evaluate_speech(
-            target_phrase=payload.target_phrase,
-            spoken_text=payload.spoken_text,
-            duration_seconds=payload.duration_seconds
-        )
-        return result
-    except Exception as e:
-        logger.error(f"Error evaluating speech: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/lecture-complete")
-async def complete_lecture_step(payload: LectureStepCompleteRequest):
-    """Marks step complete, strictly prevents skipping, and unlocks next module when done."""
-    try:
-        result = english_coach_service.complete_lecture_step(
+        result = english_coach_service.complete_activity(
             user_id=payload.user_id,
-            module_index=payload.module_index,
-            step_id=payload.step_id,
-            user_role=payload.user_role
-        )
-        return result
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        logger.error(f"Error completing lecture step: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/dialogue-turn")
-async def process_dialogue_turn(payload: DialogueTurnRequest):
-    """High-speed spoken conversational turn for LRSI step with immediate live spoken correction."""
-    try:
-        result = await english_coach_service.process_dialogue_turn(
-            user_message=payload.user_message,
-            history=payload.history,
-            coach_starter=payload.coach_starter or "",
-            user_level=payload.user_level or "Intermediate",
-            target_focus=payload.target_focus or "Spoken English Fluency"
-        )
-        return result
-    except Exception as e:
-        logger.error(f"Error in dialogue turn: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/speak-critique")
-async def critique_speak_stage(payload: SpeakCritiqueRequest):
-    """AI adjudicator evaluates spoken answer in Speak stage for positive & negative points, and improvements."""
-    try:
-        evaluation = await english_coach_service.evaluate_speak_stage(
-            prompt=payload.prompt,
-            sample_answer=payload.sample_answer,
-            user_speech=payload.user_speech,
-            user_level=payload.user_level or "Intermediate"
-        )
-        return evaluation
-    except Exception as e:
-        logger.error(f"Error evaluating speak stage: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/public-speaking-critique")
-async def critique_public_speaking(payload: PublicSpeakingCritiqueRequest):
-    """AI adjudicator evaluates spoken presentation for fillers, grammar, and live corrections."""
-    try:
-        evaluation = await english_coach_service.evaluate_public_speaking(
-            speech_text=payload.speech_text,
-            topic=payload.topic,
-            user_level=payload.user_level
-        )
-        return evaluation
-    except Exception as e:
-        logger.error(f"Error evaluating public speaking: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/finalize-report")
-async def finalize_mastery_report(payload: FinalizeReportRequest):
-    """Generates official Spoken English Mastery Report Card after the final capstone."""
-    try:
-        report = await english_coach_service.generate_mastery_report(
-            user_id=payload.user_id,
-            capstone_transcript=payload.capstone_transcript,
             user_role=payload.user_role,
-            student_name=payload.student_name
+            level_number=payload.level_number,
+            activity_id=payload.activity_id,
+            score=payload.score,
+            mistakes=payload.mistakes
         )
-        return report
+        return result
     except Exception as e:
-        logger.error(f"Error finalizing mastery report: {e}")
+        logger.error(f"Error completing activity: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/critique-spoken-response")
+async def critique_spoken_response(payload: SpokenCritiqueRequest):
+    """
+    Analyzes single spoken utterance with constructive praise, error correction
+    (❌ original vs ✅ corrected), rule explanation, and fluency scores.
+    """
+    try:
+        result = await english_coach_service.critique_spoken_response(
+            prompt=payload.prompt,
+            user_speech=payload.user_speech,
+            context=payload.context,
+            user_level=payload.user_level or "A2"
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error critiquing spoken response: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/conversation-turn")
+async def process_conversation_turn(payload: ConversationTurnRequest):
+    """Real-time voice conversation turn with natural human response and gentle speaking note."""
+    try:
+        result = await english_coach_service.process_conversation_turn(
+            user_message=payload.user_message,
+            conversation_history=payload.conversation_history or [],
+            category=payload.category or "Casual",
+            user_level=payload.user_level or "B1"
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error in conversation turn: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/session-report")
+async def generate_session_report(payload: SessionReportRequest):
+    """Generates an end-of-session performance report after a conversation."""
+    try:
+        result = await english_coach_service.generate_session_report(
+            conversation_turns=payload.conversation_turns,
+            category=payload.category or "Casual"
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error in session report: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reset")
+@router.post("/reset-cycle")
+async def reset_coach_cycle(payload: ResetProfileRequest):
+    """Resets progress so user can restart and retake the diagnostic assessment."""
+    fresh_profile = english_coach_service.reset_profile(payload.user_id, user_role=payload.user_role)
+    return {
+        "status": "success",
+        "message": "Coach progress reset. You can now take the Spoken Diagnostic Assessment.",
+        "profile": fresh_profile
+    }
 
 
 @router.get("/parent-report/{student_id}")
 async def get_parent_report(student_id: str):
     """Returns child's latest English speaking diagnostic and mastery report for parent portal."""
-    track = english_coach_service.get_user_track(student_id, user_role="student")
-    report = track.get("mastery_report") or track.get("final_report")
+    profile = english_coach_service.get_or_create_profile(student_id, user_role="student")
+    levels = english_coach_service.get_levels_for_user(student_id, user_role="student")
+    completed_levels = len([l for l in levels if l.get("is_completed")])
     return {
         "status": "success",
         "student_id": student_id,
-        "diagnostic_completed": track.get("diagnostic_completed", False),
-        "diagnostic_score": track.get("diagnostic_score", 0),
-        "fluency_level": track.get("fluency_level", "Unassessed"),
-        "weak_points": track.get("weak_points", []),
-        "completed_modules": track.get("unlocked_module_index", 0),
-        "completed_modules_count": track.get("unlocked_module_index", 0),
-        "total_modules_count": 4,
-        "mastery_report": report,
-        "final_report": report,
-        "cycle_valid_until": track.get("expires_at"),
-        "is_expired": track.get("is_expired", False)
+        "diagnostic_completed": profile.get("has_taken_diagnostic", False),
+        "overall_level": profile.get("overall_level", "Unassessed"),
+        "overall_score": profile.get("overall_score", 0),
+        "skills": profile.get("skills", {}),
+        "strengths": profile.get("strengths", []),
+        "weaknesses": profile.get("weaknesses", []),
+        "priority_focus": profile.get("priority_focus", []),
+        "personalized_roadmap": profile.get("personalized_roadmap", []),
+        "current_level": profile.get("current_level", 1),
+        "completed_levels": completed_levels,
+        "total_levels": 5,
+        "daily_streak": profile.get("daily_streak", 1),
+        "xp": profile.get("xp", 0),
+        "words_learned": profile.get("words_learned", 0)
     }
-
-
-@router.post("/reset-cycle")
-async def reset_coach_cycle(payload: ResetCycleRequest):
-    """Resets progress so user can restart the 30-day mastery cycle and re-take the diagnostic test."""
-    track = english_coach_service.get_user_track(payload.user_id, user_role=payload.user_role)
-    track["diagnostic_completed"] = False
-    track["diagnostic_score"] = 0
-    track["current_module_index"] = 0
-    track["unlocked_module_index"] = 0
-    track["completed_steps"] = []
-    track["mastery_report"] = None
-    track["is_expired"] = False
-    track["expires_at"] = english_coach_service._get_expiry_iso()
-    english_coach_service.save_user_track(payload.user_id, track, user_role=payload.user_role)
-    return {"status": "success", "message": "English speaking cycle has been reset. Please retake the diagnostic test."}

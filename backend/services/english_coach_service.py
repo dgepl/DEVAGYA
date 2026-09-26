@@ -29,1027 +29,1170 @@ SUPABASE_HEADERS = {
     "Prefer": "return=representation"
 }
 
-# In-memory/file fallback cache to ensure zero loss if network fails
+# In-memory/file fallback cache
 COACH_TRACK_CACHE: Dict[str, Dict[str, Any]] = {}
 
 # =====================================================================
-# 1. 10-MARK DIAGNOSTIC QUESTION BANK
+# 1. 10-QUESTION SPOKEN DIAGNOSTIC ASSESSMENT
 # =====================================================================
-DIAGNOSTIC_QUESTIONS = [
+SPOKEN_DIAGNOSTIC_QUESTIONS = [
     {
         "id": 1,
-        "category": "Tenses & Duration",
-        "question": "She _______ to London three times this year for academic conferences.",
-        "options": ["has gone", "has been", "went", "was going"],
-        "correct_index": 1,
-        "explanation": "'Has been' is used for completed visits with return, indicating life experience in an unfinished time period (this year).",
-        "weakness_tag": "Present Perfect vs Past Simple"
+        "category": "Introduction",
+        "prompt": "Tell me about yourself.",
+        "instruction": "Introduce yourself naturally — your name, where you are from, and what you do or like to study.",
+        "time_limit_seconds": 60,
+        "skill_focus": "Basic sentence construction, self-description, speech speed",
+        "sample_answer": "Hello! My name is Rahul. I am from Delhi, and I am currently working on improving my spoken English communication."
     },
     {
         "id": 2,
-        "category": "Prepositions of Time & Place",
-        "question": "The annual science symposium is scheduled to begin _______ 10:00 AM on Monday.",
-        "options": ["in", "on", "at", "by"],
-        "correct_index": 2,
-        "explanation": "We use 'at' for precise clock times (at 10:00 AM) and 'on' for specific days (on Monday).",
-        "weakness_tag": "Time & Place Prepositions"
+        "category": "Daily Life",
+        "prompt": "Describe what you usually do during a normal day.",
+        "instruction": "Talk about your morning routine, your work or classes, and how you spend your evenings.",
+        "time_limit_seconds": 60,
+        "skill_focus": "Simple present tense, frequency adverbs (usually, often), time prepositions",
+        "sample_answer": "On a typical day, I wake up at 7 AM, have tea, and head to my classes. In the evening, I enjoy reading and spending time with my family."
     },
     {
         "id": 3,
-        "category": "Subject-Verb Agreement",
-        "question": "Neither of the two candidate teachers _______ ready to take over the class.",
-        "options": ["were", "was", "are", "have been"],
-        "correct_index": 1,
-        "explanation": "'Neither of' takes a singular verb ('was') in formal standard English.",
-        "weakness_tag": "Singular vs Plural Concord"
+        "category": "Past Experience",
+        "prompt": "Tell me about something interesting that happened to you recently.",
+        "instruction": "Share a memorable event, trip, or moment from the last few weeks or months.",
+        "time_limit_seconds": 60,
+        "skill_focus": "Past simple & past continuous tenses, irregular verb forms, chronological order",
+        "sample_answer": "Last month, I visited Jaipur with my friends. We explored the Amber Fort and tasted amazing traditional cuisine."
     },
     {
         "id": 4,
-        "category": "Connectors & Flow",
-        "question": "She practiced speaking every single day, _______ she was still nervous before her speech.",
-        "options": ["because", "yet", "so", "therefore"],
-        "correct_index": 1,
-        "explanation": "'Yet' introduces a surprising contrast between daily practice and nervousness.",
-        "weakness_tag": "Contrasting Conjunctions & Flow"
+        "category": "Future Goals",
+        "prompt": "What are your goals for the next few years?",
+        "instruction": "Talk about your personal, academic, or career aspirations and what you plan to accomplish.",
+        "time_limit_seconds": 60,
+        "skill_focus": "Future tenses ('will', 'going to', 'plan to'), modal verbs, expressing intention",
+        "sample_answer": "Over the next three years, I want to master fluent spoken English, lead major projects in my field, and travel to new countries."
     },
     {
         "id": 5,
-        "category": "Vocabulary & Collocations",
-        "question": "Could you please _______ a quick look at my project presentation slides?",
-        "options": ["make", "take", "do", "give"],
-        "correct_index": 1,
-        "explanation": "The natural English collocation is 'take a look' or 'have a look'.",
-        "weakness_tag": "Natural Collocations & Word Choice"
+        "category": "Opinion",
+        "prompt": "Do you think learning English is important? Why?",
+        "instruction": "State your viewpoint clearly and give at least one or two reasons to support it.",
+        "time_limit_seconds": 60,
+        "skill_focus": "Expressing opinions, causal connectors ('because', 'since', 'therefore'), persuasive clarity",
+        "sample_answer": "Yes, I believe English is very important because it connects us globally, opens up career opportunities, and allows us to access vast knowledge."
     },
     {
         "id": 6,
-        "category": "Pronunciation & Phonetics",
-        "question": "Which of the following words contains a silent consonant letter?",
-        "options": ["Doubt", "Rapid", "Silver", "Planet"],
-        "correct_index": 0,
-        "explanation": "In 'Doubt', the letter 'b' is silent (/daʊt/).",
-        "weakness_tag": "Silent Consonants & Articulation"
+        "category": "Social Situation",
+        "prompt": "You are meeting a new person for the first time. How would you introduce yourself?",
+        "instruction": "Imagine you are at a workshop or gathering. Introduce yourself warmly and start a polite conversation.",
+        "time_limit_seconds": 60,
+        "skill_focus": "Social etiquette, polite greetings, question formulation ('What about you?')",
+        "sample_answer": "Hi there! Nice to meet you. I'm Amit. Are you also attending today's session? How has your experience been so far?"
     },
     {
         "id": 7,
-        "category": "Conversational Etiquette",
-        "question": "What is the most polite, professional way to interject in a group discussion?",
-        "options": [
-            "Stop talking, hear my point.",
-            "May I add a quick observation here?",
-            "You are wrong about that.",
-            "Listen to me right now."
-        ],
-        "correct_index": 1,
-        "explanation": "'May I add a quick observation here?' maintains diplomatic tact and respect.",
-        "weakness_tag": "Diplomatic Interjection & Etiquette"
+        "category": "Problem Solving",
+        "prompt": "You are at a restaurant and your order is wrong. What would you say?",
+        "instruction": "Speak to the server politely but clearly to explain the mistake and ask for it to be corrected.",
+        "time_limit_seconds": 60,
+        "skill_focus": "Polite requests, assertive communication, modal expressions ('Could you please', 'I ordered')",
+        "sample_answer": "Excuse me, I think there might be a small mix-up. I had ordered the grilled paneer sandwich, but this is a vegetable wrap. Could you check this for me, please?"
     },
     {
         "id": 8,
-        "category": "Conditionals & Hypotheticals",
-        "question": "If I _______ more opportunities to practice public speaking, I would be much more confident.",
-        "options": ["have", "had", "would have", "will have"],
-        "correct_index": 1,
-        "explanation": "Second conditional for hypothetical situations uses 'If + past simple (had) ... would + base verb'.",
-        "weakness_tag": "Hypothetical Conditionals"
+        "category": "Storytelling",
+        "prompt": "Tell me about a memorable experience from your life.",
+        "instruction": "Narrate an experience from beginning to end with details on what happened and how you felt.",
+        "time_limit_seconds": 90,
+        "skill_focus": "Narrative flow, descriptive adjectives, emotional expression, cohesive devices",
+        "sample_answer": "One memorable experience was when I gave a presentation in front of 200 people. I was terrified at first, but once I started speaking, the audience cheered and I felt an immense sense of accomplishment."
     },
     {
         "id": 9,
-        "category": "Modals & Persuasion",
-        "question": "To persuade the audience effectively, a speaker _______ maintain steady eye contact.",
-        "options": ["ought to", "might to", "could to", "would to"],
-        "correct_index": 0,
-        "explanation": "'Ought to' expresses best practice or recommendation without needing an extra preposition.",
-        "weakness_tag": "Modal Verbs of Advice"
+        "category": "Advanced Opinion",
+        "prompt": "Do you think technology has made communication better or worse? Explain.",
+        "instruction": "Discuss both sides or state your stance with arguments on digital vs in-person communication.",
+        "time_limit_seconds": 90,
+        "skill_focus": "Complex sentence structures, balancing contrasting ideas ('On one hand... on the other hand')",
+        "sample_answer": "In my opinion, technology has made communication much faster and accessible across the globe, though sometimes it reduces face-to-face personal warmth."
     },
     {
         "id": 10,
-        "category": "Public Speaking Hooks",
-        "question": "Which of the following is the most powerful opening hook for a public speech?",
-        "options": [
-            "A startling question, relatable story, or compelling fact.",
-            "Reading the agenda slide word for word.",
-            "Apologizing that you didn't prepare enough.",
-            "Saying 'My name is X and my topic is Y'."
-        ],
-        "correct_index": 0,
-        "explanation": "Compelling speeches hook audience attention immediately with an emotional story, startling statistic, or thought-provoking question.",
-        "weakness_tag": "Public Speaking Hook & Structure"
+        "category": "Free Speaking",
+        "prompt": "Speak about any topic you like for 1–2 minutes.",
+        "instruction": "Pick any hobby, book, place, dream, or passion and speak freely with confidence.",
+        "time_limit_seconds": 120,
+        "skill_focus": "Sustained monologue, spontaneous fluency, vocabulary richness, thought coherence",
+        "sample_answer": "I would love to speak about my passion for music. Music helps me unwind after a long day, sparks creativity, and connects people across cultures."
     }
 ]
 
 # =====================================================================
-# 2. MULTI-DIMENSIONAL SPEECH ALIGNMENT & PERFORMANCE ENGINE
+# 2. 5-LEVEL PROGRESSIVE CURRICULUM DEFINITIONS
 # =====================================================================
-def _clean_word(w: str) -> str:
-    return re.sub(r'[^a-zA-Z0-9]', '', w).lower()
-
-def _levenshtein(s1: str, s2: str) -> int:
-    if len(s1) < len(s2):
-        return _levenshtein(s2, s1)
-    if len(s2) == 0:
-        return len(s1)
-    previous_row = list(range(len(s2) + 1))
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-    return previous_row[-1]
-
-def evaluate_speech_alignment(target_phrase: str, spoken_text: str, duration_seconds: Optional[float] = None) -> Dict[str, Any]:
-    """
-    Evaluates spoken transcript against the target phrase:
-    - Word-by-word status: 'correct' (green), 'hesitant' (amber), 'missed' (red)
-    - Pacing (Words Per Minute)
-    - Filler word detection (um, uh, like, actually, basically, you know, i mean)
-    - Spoken critique ready for Edge-TTS audio playback
-    """
-    target_tokens = target_phrase.strip().split()
-    spoken_tokens = spoken_text.strip().split()
-    clean_spoken = [_clean_word(w) for w in spoken_tokens if _clean_word(w)]
-
-    word_matches = []
-    correct_count = 0
-    hesitant_count = 0
-    missed_words = []
-
-    spoken_search_idx = 0
-    for orig_w in target_tokens:
-        cw = _clean_word(orig_w)
-        if not cw:
-            word_matches.append({"word": orig_w, "status": "correct"})
-            continue
-
-        matched_status = "missed"
-        window_start = max(0, spoken_search_idx - 2)
-        window_end = min(len(clean_spoken), spoken_search_idx + 6)
-        candidates = clean_spoken[window_start:window_end]
-
-        best_dist = 999
-        best_cand_idx = -1
-        for idx_offset, cand in enumerate(candidates):
-            if cand == cw:
-                best_dist = 0
-                best_cand_idx = window_start + idx_offset
-                break
-            d = _levenshtein(cw, cand)
-            if d < best_dist:
-                best_dist = d
-                best_cand_idx = window_start + idx_offset
-
-        if best_dist == 0:
-            matched_status = "correct"
-            correct_count += 1
-            spoken_search_idx = best_cand_idx + 1
-        elif best_dist == 1 or (len(cw) >= 6 and best_dist <= 2):
-            matched_status = "hesitant"
-            hesitant_count += 1
-            spoken_search_idx = best_cand_idx + 1
-        else:
-            matched_status = "missed"
-            missed_words.append(orig_w)
-
-        word_matches.append({
-            "word": orig_w,
-            "status": matched_status
-        })
-
-    total_words = max(len([w for w in target_tokens if _clean_word(w)]), 1)
-    accuracy_score = min(100, round(((correct_count + (0.5 * hesitant_count)) / total_words) * 100))
-
-    # Pacing / WPM calculation
-    num_spoken_words = len(spoken_tokens)
-    if duration_seconds and duration_seconds > 0:
-        wpm = round((num_spoken_words / duration_seconds) * 60)
-    else:
-        wpm = round(min(145, max(95, num_spoken_words * 14)))
-
-    if wpm < 110:
-        pace_status = "Pace: Measured / Deliberate (Target: 120-150 WPM)"
-    elif 110 <= wpm <= 155:
-        pace_status = "Pace: Masterclass Cadence (Optimal)"
-    else:
-        pace_status = "Pace: Rapid / Hurried (Target: 120-150 WPM)"
-
-    # Filler words detection
-    filler_vocab = ["um", "uh", "like", "actually", "basically", "you know", "i mean", "sort of", "literally"]
-    lower_spoken = spoken_text.lower()
-    filler_occurrences = []
-    for f in filler_vocab:
-        count = lower_spoken.count(f)
-        if count > 0:
-            filler_occurrences.append({"filler": f, "count": count})
-
-    total_fillers = sum(item["count"] for item in filler_occurrences)
-
-    # Audio Critique Generator for Edge-TTS
-    if accuracy_score >= 85 and total_fillers == 0:
-        critique = f"Outstanding delivery! Your diction was razor sharp and pacing was {wpm} words per minute. Flawless cadence!"
-    elif accuracy_score >= 70:
-        critique = f"Great execution with a {accuracy_score} percent score. Keep practicing your vowel transitions and final consonants."
-    elif accuracy_score >= 50:
-        critique = f"Good attempt! Focus on pronouncing {', '.join(missed_words[:3]) or 'word transitions'} clearly, and pause slightly before key phrases."
-    else:
-        critique = f"Good vocal effort! Slow down your speech, relax your jaw, and let's run this drill once more."
-
-    return {
-        "accuracy_score": accuracy_score,
-        "word_matches": word_matches,
-        "wpm": wpm,
-        "pace_status": pace_status,
-        "filler_words": filler_occurrences,
-        "total_fillers": total_fillers,
-        "spoken_coach_critique": critique
-    }
-
-# =====================================================================
-# =====================================================================
-# 3. CLEAN FALLBACK MODULE GENERATOR (4 DISTINCT PEDAGOGICAL ARCHETYPES)
-# =====================================================================
-def get_clean_curriculum_fallback(level: str, weak_points: List[str]) -> List[Dict[str, Any]]:
-    """
-    4 DISTINCT MODULE ARCHETYPES:
-    - Module 1: Vocal Cadence, Diction & Accent Sculpting (Warmup -> Mimicry -> Chitchat)
-    - Module 2: The Grammar Doctor & Indianism Eradicator (Doctor Masterclass -> Flaw Detective -> Polite Request)
-    - Module 3: Executive Public Speaking & Persuasion (30s Hook -> STAR Delivery -> Keynote Scorecard)
-    - Module 4: The Live AI Lounge (Unrestricted Rapid Voice Sparring on ANY topic + Graduation)
-    """
-    weak_str = ', '.join(weak_points[:3]) if weak_points else 'Tense consistency and natural cadence'
-    return [
-        {
-            "id": "module_1",
-            "title": "Module 1: Vocal Cadence, Diction & Accent Sculpting",
-            "methodology": "Acoustic Cadence & Diaphragmatic Breath",
-            "description": "Overcome vocal hesitation, master diaphragmatic breath placement, and eliminate trailing murmurs.",
-            "focus_areas": ["Diaphragmatic Breath Placement", "Downward Terminal Inflection", "Daily Conversational Flow"],
-            "steps": [
-                {
-                    "step_id": "m1_s1",
-                    "type": "coach_masterclass",
-                    "title": "Stage 1: Vocal Cadence & Breath Placement Warmup",
-                    "prompt": "Study the coach's vocal breakdown, then record the mandatory Vocal Warmup phrase to unlock the next stage.",
-                    "masterclass_lecture": {
-                        "topic": "The Physics of Confident Spoken Cadence",
-                        "duration": "Executive 10-Minute Deep Dive",
-                        "summary": "Master speakers use diaphragmatic breathing and terminal downward inflection to project authority rather than rushing.",
-                        "vocal_mechanics": "1. Diaphragmatic Breath: Inhale deeply before speaking your initial clause.\n2. Downward Terminal Inflection: Avoid turning statements into questions by ending with a grounded tone.\n3. Syllable Bridges: Link vowel sounds smoothly.",
-                        "key_formulas": [
-                            "The Warmth Opener: [Warm Greeting] + [Sincere Emotion] + [Purpose Statement]",
-                            "The Momentum Transition: [Context Bridge] + [Conjunctive Pause] + [Action Step]"
-                        ],
-                        "common_traps": [
-                            "Trap: Saying 'Myself Rahul' -> Correction: 'I am Rahul' or 'My name is Rahul'",
-                            "Trap: Trailing off weakly at sentence ends -> Correction: Crisp closure on final consonant"
-                        ],
-                        "model_audio_text": "Good morning everyone! It is a genuine pleasure to connect with all of you today. Let us get started on our discussion."
-                    },
-                    "vocal_warmup_phrase": "Good morning everyone! It is a genuine pleasure to connect with all of you today."
-                },
-                {
-                    "step_id": "m1_s2",
-                    "type": "vocal_mimicry",
-                    "title": "Stage 2: Vocal Mimicry Echo (Cadence & Intonation)",
-                    "prompt": "Listen to the coach's natural inflection, then speak the phrase into your microphone. AI evaluates your accuracy, WPM, and cadence.",
-                    "target_phrase": "It is a genuine pleasure to connect with all of you today."
-                },
-                {
-                    "step_id": "m1_s3",
-                    "type": "daily_chitchat",
-                    "title": "Stage 3: Daily Chitchat Spontaneous Response",
-                    "prompt": "Answer spontaneously in 2-3 sentences: 'Tell me about an interesting place in your town or what you did yesterday.' Click mic, speak, then click AI Review.",
-                    "sample_answer": "Yesterday was quite productive. I spent the afternoon reading an inspiring book at a local coffee shop, and then connected with an old friend.",
-                    "topic": "An interesting place in your town or your activities yesterday"
-                }
-            ]
-        },
-        {
-            "id": "module_2",
-            "title": "Module 2: The Grammar Doctor & Indianism Eradicator",
-            "methodology": "Syntax Clinic & Polite Workplace Diplomacy",
-            "description": f"Targeted corrections for common Indian English slips and your diagnostic gaps: {weak_str}.",
-            "focus_areas": ["Preposition Precision", "Duration & Tenses", "Polite Negotiation Phrasing"],
-            "steps": [
-                {
-                    "step_id": "m2_s1",
-                    "type": "coach_masterclass",
-                    "title": "Stage 1: Indianism Doctor & Tense Accuracy Masterclass",
-                    "prompt": "Absorb the grammar rules below, then record the mandatory Vocal Warmup phrase to unlock the Flaw Detective.",
-                    "masterclass_lecture": {
-                        "topic": "Tense Bridges & Eliminating Literal Hindi-to-English Translations",
-                        "duration": "Executive 10-Minute Deep Dive",
-                        "summary": "In Indian languages, present continuous is often used for ongoing past duration. Translating this literally as 'I am working here since 5 years' is the #1 grammatical slip in Indian spoken English.",
-                        "vocal_mechanics": "1. Perfect Continuous Arc: Use 'have been + [verb]-ing' with 'for' (duration) or 'since' (starting point).\n2. Diplomatic Softeners: Use modal cushions ('Could we consider...', 'Would it be possible...').\n3. Preposition Accuracy: Use 'at' for precise clock times and 'on' for calendar days.",
-                        "key_formulas": [
-                            "The Duration Formula: [Subject] + [have/has been] + [verb-ing] + [for + duration]",
-                            "The Diplomatic Suggestion: 'Would you be open to...' + [verb-ing / noun]?"
-                        ],
-                        "common_traps": [
-                            "Trap: 'I am working here since 5 years' -> Correction: 'I have been working here for 5 years'",
-                            "Trap: 'Please revert back' -> Correction: 'Please reply' or 'Please get back to me'",
-                            "Trap: 'Can we prepone the meeting?' -> Correction: 'Can we move the meeting forward?'"
-                        ],
-                        "model_audio_text": "I have been working on this educational research for the past six months, and the results are remarkable."
-                    },
-                    "vocal_warmup_phrase": "I have been working on this educational research for the past six months, and the results are remarkable."
-                },
-                {
-                    "step_id": "m2_s2",
-                    "type": "sentence_doctor",
-                    "title": "Stage 2: Flaw Detective: Spot & Speak The Correction",
-                    "prompt": "Notice the common Indian English flaw below. Speak the grammatically pristine version aloud into your microphone!",
-                    "flawed_sentence": "I am working here since five years and I will revert back tomorrow.",
-                    "corrected_sentence": "I have been working here for five years and I will reply tomorrow.",
-                    "explanation": "Use 'have been working ... for five years' for duration, and say 'reply' instead of the redundant 'revert back'."
-                },
-                {
-                    "step_id": "m2_s3",
-                    "type": "polite_request",
-                    "title": "Stage 3: Situational Polite Request (Workplace Diplomacy)",
-                    "prompt": "Spoken Challenge: You need an urgent 2-day leave or deadline extension from your senior. Speak a polite, professional request into the mic, then click AI Review.",
-                    "sample_answer": "Good afternoon Mr. Sharma. Due to an unforeseen personal matter, would it be possible for me to request two days of leave next week? I have ensured all my urgent tasks are completed.",
-                    "topic": "Requesting a polite leave or deadline extension from your senior"
-                }
-            ]
-        },
-        {
-            "id": "module_3",
-            "title": "Module 3: Executive Public Speaking & Persuasion",
-            "methodology": "TED-Style Keynote & STAR Storytelling",
-            "description": "Master stage gravitas, 30-second opening hooks, structured STAR delivery, and impromptu poise.",
-            "focus_areas": ["The 30-Second Attention Hook", "The STAR Method", "Keynote Scorecard & Zero-Fillers"],
-            "steps": [
-                {
-                    "step_id": "m3_s1",
-                    "type": "coach_masterclass",
-                    "title": "Stage 1: The 30-Second Attention Hook & Power Pause",
-                    "prompt": "Study the TED-style hook formula, then record the mandatory Vocal Warmup phrase to unlock STAR delivery.",
-                    "masterclass_lecture": {
-                        "topic": "The 3-Part Architecture of High-Impact Public Speaking",
-                        "duration": "Executive 10-Minute Deep Dive",
-                        "summary": "World-class speakers do not start with slides or logistical apologies. They start with an unforgettable emotional or cognitive hook that reshapes audience attention in the first 15 seconds.",
-                        "vocal_mechanics": "1. The Power Pause: Pause for a full two seconds immediately after your opening hook.\n2. Pitch Modulation: Use resonant low frequencies for authoritative proof and higher inflection for calls to action.\n3. Eliminating Verbal Fillers: Replace 'um' and 'you know' with silent breath pauses.",
-                        "key_formulas": [
-                            "The Visionary Grabber: 'Imagine a world where...' + [compelling counter-intuitive reality]",
-                            "The Proof Contrast: 'Our evidence shows that when...' + [contrasting metrics]"
-                        ],
-                        "common_traps": [
-                            "Trap: Opening with 'Today my topic is...' -> Correction: Open with a provocative question or story",
-                            "Trap: Speaking in a monotone flat frequency -> Correction: Inflect upward on key adjectives"
-                        ],
-                        "model_audio_text": "Imagine a world where learning is not about memorizing answers, but about discovering questions that change lives."
-                    },
-                    "vocal_warmup_phrase": "Imagine a world where learning is not about memorizing answers, but about discovering questions that change lives."
-                },
-                {
-                    "step_id": "m3_s2",
-                    "type": "star_method",
-                    "title": "Stage 2: STAR Framework Executive Delivery",
-                    "prompt": "Listen to the executive STAR response, then echo it into your microphone with crisp metrics and downward inflection.",
-                    "target_phrase": "When faced with tight project deadlines, I reorganized our milestones, communicated daily updates, and delivered two days ahead of schedule."
-                },
-                {
-                    "step_id": "m3_s3",
-                    "type": "spoken_capstone",
-                    "title": "Stage 3: 60-Second Keynote Adjudication Scorecard",
-                    "prompt": "Deliver a 60-second speech on: 'Why Failure is the Best Stepping Stone to Mastery'. DEVGYA AI evaluates your filler words, cadence, and grammar!",
-                    "topic": "Why Failure is the Best Stepping Stone to Mastery"
-                }
-            ]
-        },
-        {
-            "id": "module_4",
-            "title": "Module 4: The Live AI Lounge & Official Graduation",
-            "methodology": "Unrestricted Rapid Voice Sparring & Certification",
-            "description": "Engage in unrestricted live voice conversation with your AI coach on ANY topic. Fast sub-second replies, then generate your official certificate.",
-            "focus_areas": ["Unrestricted Live Voice Dialogue", "Sub-Second Conversational Flow", "Spoken English Mastery Certification"],
-            "steps": [
-                {
-                    "step_id": "m4_s1",
-                    "type": "live_lounge",
-                    "title": "Stage 1: The Live AI Lounge (Unrestricted Rapid Voice Sparring)",
-                    "prompt": "Talk to your AI coach freely on ANY topic: career goals, Indian education, technology, daily life, or debate. Speak via microphone—the coach responds in seconds with voice and tips!",
-                    "coach_starter": "Welcome to the Live AI Lounge! You can talk with me about absolutely anything. What is on your mind today?"
-                },
-                {
-                    "step_id": "m4_s2",
-                    "type": "mastery_graduation",
-                    "title": "Stage 2: Official Spoken English Mastery Certification",
-                    "prompt": "Deliver your final spoken graduation statement summarizing your learning journey and communication vision to receive your verified Devgya certificate.",
-                    "topic": "My Spoken English Transformation & Communication Vision"
-                }
-            ]
-        }
-    ]
-
-# Alias for backward compatibility
-get_curriculum_modules = get_clean_curriculum_fallback
-
-# =====================================================================
-# 4. 100% PURE AI CURRICULUM GENERATOR (ZERO MANUAL WRITTEN DRILLS)
-# =====================================================================
-async def generate_pure_ai_curriculum(
-    score: int,
-    level: str,
-    weak_points: List[str],
-    failed_topics: List[str],
-    user_role: str = "student",
-    user_name: str = "Learner"
-) -> List[Dict[str, Any]]:
-    """
-    Calls Groq LLM to synthesize a 100% bespoke, personalized 4-module spoken English curriculum.
-    NO HARDCODED SENTENCES, NO REPETITIVE 5-DRILLS TEMPLATE.
-    Every module has its OWN DISTINCT, progressive pedagogical archetype tailored to the learner's gaps:
-    - Module 1: Vocal Cadence, Diction & Accent Sculpting (Warmup -> Mimicry -> Daily Chitchat)
-    - Module 2: The Grammar Doctor & Indianism Eradicator (Doctor Masterclass -> Flaw Detective -> Polite Request)
-    - Module 3: Executive Public Speaking & Persuasion (30s Hook -> STAR Delivery -> Keynote Scorecard)
-    - Module 4: The Live AI Lounge & Official Graduation (Unrestricted Rapid Voice Sparring -> Certification)
-    """
-    weak_summary = ", ".join(weak_points) if weak_points else "Natural sentence cadence and verb tenses"
-    failed_summary = ", ".join(failed_topics) if failed_topics else "General conversational polish and preposition precision"
-
-    prompt = f"""You are the Chief Speech Pathologist & Executive Vocal Coach at DEVGYA.
-Synthesize a 100% personalized, premium 4-module Spoken English Curriculum for:
-- Learner Name: {user_name} ({user_role.capitalize()})
-- Diagnostic Score: {score}/10
-- Assessed Fluency Level: {level}
-- Weak Points Identified: {weak_summary}
-- Failed Diagnostic Topics: {failed_summary}
-
-ABSOLUTE ARCHITECTURAL RULES (CRITICAL):
-1. ZERO PASSIVE LISTENING STEPS. The learner MUST speak in every single stage.
-2. DO NOT use "Drill 1, Drill 2, Drill 3" or practice item arrays! Each step is a focused, high-stakes coaching experience.
-3. Every module MUST have its OWN UNIQUE, DISTINCT pedagogical steps (DO NOT repeat the same 5 steps across all modules!):
-
-- Module 1: "Vocal Cadence, Diction & Accent Sculpting"
-  - Step 1 ("coach_masterclass"): Cadence Masterclass & Breath Placement Warmup. Must include "masterclass_lecture" and "vocal_warmup_phrase".
-  - Step 2 ("vocal_mimicry"): Vocal Mimicry Echo (target_phrase designed to rewire learner's specific weak points).
-  - Step 3 ("daily_chitchat"): Daily Chitchat Spontaneous Response. Provocative everyday prompt asking the user to answer in 2-3 sentences.
-
-- Module 2: "The Grammar Doctor & Indianism Eradicator"
-  - Step 1 ("coach_masterclass"): Indianism Doctor Masterclass targeting {failed_summary}. Must include "masterclass_lecture" and "vocal_warmup_phrase".
-  - Step 2 ("sentence_doctor"): Flaw Detective: Spot & Speak The Correction. Must include "flawed_sentence", "corrected_sentence", and "explanation".
-  - Step 3 ("polite_request"): Situational Polite Request (workplace or academic diplomacy, e.g. asking boss for leave or deadline extension).
-
-- Module 3: "Executive Public Speaking & Persuasion"
-  - Step 1 ("coach_masterclass"): The 30-Second Attention Hook. Must include "masterclass_lecture" and "vocal_warmup_phrase".
-  - Step 2 ("star_method"): STAR Framework Executive Delivery (Situation, Task, Action, Result model sentence for the user to echo).
-  - Step 3 ("spoken_capstone"): 60-Second Keynote Adjudication Scorecard on a deep challenge topic.
-
-- Module 4: "The Live AI Lounge & Official Graduation"
-  - Step 1 ("live_lounge"): Unrestricted Rapid Voice Sparring on ANY topic. Include an engaging "coach_starter" prompt.
-  - Step 2 ("mastery_graduation"): Official Spoken English Mastery Certification statement.
-
-4. Return ONLY a valid JSON array of 4 module objects. No markdown backticks, no preamble.
-"""
-    messages = [
-        {"role": "system", "content": "You are Devgya Chief Speech Pathologist. Return ONLY a valid JSON array of 4 bespoke module objects with the 4 distinct pedagogical archetypes."},
-        {"role": "user", "content": prompt}
-    ]
-
-    try:
-        raw = await ai_provider.chat_completion(messages, temperature=0.35, response_format_json=True)
-        mods = None
-        if isinstance(data, list) and len(data) >= 4:
-            mods = data
-        elif isinstance(data, dict) and "modules" in data and isinstance(data["modules"], list) and len(data["modules"]) >= 4:
-            mods = data["modules"]
-
-        if mods:
-            for mod in mods:
-                if isinstance(mod, dict) and ("focus_areas" not in mod or not isinstance(mod.get("focus_areas"), list)):
-                    mod["focus_areas"] = ["Cadence & Diction", "Spoken Accuracy", "Fluency & Poise"]
-            return mods
-    except Exception as e:
-        logger.warning(f"Groq pure AI curriculum generation fallback: {e}")
-
-    return get_clean_curriculum_fallback(level, weak_points)
-
-
-# =====================================================================
-# 5. ENTERPRISE SERVICE IMPLEMENTATION
-# =====================================================================
-class EnglishCoachService:
-    """Enterprise-grade service managing diagnostic assessments, 100% dynamic AI generation, and speech evaluation."""
-
-    CYCLE_DURATION_DAYS = 30
-
-    def get_diagnostic_questions_for_client(self) -> List[Dict[str, Any]]:
-        """Returns the 10 diagnostic questions without the answer key for frontend assessment."""
-        return [
+LEVELS_CONFIG = [
+    {
+        "level_number": 1,
+        "title": "English Foundations",
+        "tagline": "Master basic sentence building, common vocabulary & everyday expressions",
+        "badge": "FOUNDATIONS",
+        "accent_color": "indigo",
+        "gradient": "from-blue-600 via-indigo-600 to-purple-600",
+        "pass_percentage": 80,
+        "focus_areas": ["Sentence Formation", "Common Vocabulary", "Present & Past Verbs", "Pronunciation Basics"],
+        "activities": [
             {
-                "id": q["id"],
-                "category": q["category"],
-                "question": q["question"],
-                "options": q["options"],
-                "weakness_tag": q["weakness_tag"]
+                "id": "l1_act_1",
+                "type": "vocabulary",
+                "title": "Everyday Verbs & Action Words",
+                "duration": "4 mins",
+                "xp": 25,
+                "instructions": "Learn and pronounce high-frequency daily action verbs.",
+                "data": {
+                    "words": [
+                        {"word": "Explain", "meaning": "To make something clear or easy to understand", "example": "She will explain the lesson clearly."},
+                        {"word": "Suggest", "meaning": "To propose an idea or plan", "example": "I suggest we practice speaking daily."},
+                        {"word": "Prepare", "meaning": "To get ready for something", "example": "He needs to prepare for tomorrow's class."},
+                        {"word": "Improve", "meaning": "To make or become better", "example": "Regular speaking helps you improve quickly."}
+                    ]
+                }
+            },
+            {
+                "id": "l1_act_2",
+                "type": "sentence_builder",
+                "title": "Subject + Verb + Object Mastery",
+                "duration": "5 mins",
+                "xp": 30,
+                "instructions": "Construct clear, grammatically sound basic sentences.",
+                "data": {
+                    "drills": [
+                        {"target": "She writes an email every morning.", "jumbled": ["an email", "writes", "She", "every morning"]},
+                        {"target": "They practice speaking English together.", "jumbled": ["together", "They", "speaking English", "practice"]},
+                        {"target": "I prepared a delicious dinner yesterday.", "jumbled": ["yesterday", "prepared", "a delicious dinner", "I"]}
+                    ]
+                }
+            },
+            {
+                "id": "l1_act_3",
+                "type": "mini_lesson",
+                "title": "Grammar: Past Simple vs Present Simple",
+                "duration": "4 mins",
+                "xp": 20,
+                "instructions": "Understand when to use 'went' vs 'go', 'did' vs 'do'.",
+                "data": {
+                    "rule": "Use Present Simple (I go, she goes) for routines. Use Past Simple (I went, she went) for completed past events.",
+                    "examples": [
+                        {"incorrect": "Yesterday I go to the store.", "correct": "Yesterday I went to the store.", "explanation": "Completed past action requires 'went'."},
+                        {"incorrect": "Everyday he is coming by bus.", "correct": "Everyday he comes by bus.", "explanation": "Regular routines take simple present 'comes'."}
+                    ]
+                }
+            },
+            {
+                "id": "l1_act_4",
+                "type": "repeat_after_coach",
+                "title": "Pronunciation: Clear Vowel & Consonant Sounds",
+                "duration": "5 mins",
+                "xp": 35,
+                "instructions": "Listen to the coach, then speak each phrase clearly into your microphone.",
+                "data": {
+                    "phrases": [
+                        {"text": "Good morning! How are you doing today?", "phonetic_tip": "Keep the 'oo' in 'good' soft, and stress 'morning'."},
+                        {"text": "I am working on my spoken English fluency.", "phonetic_tip": "Notice the clean 'f' and 'l' in 'fluency'."},
+                        {"text": "Could you please give me a quick example?", "phonetic_tip": "The 'l' in 'could' is silent (/kʊd/)."}
+                    ]
+                }
+            },
+            {
+                "id": "l1_act_5",
+                "type": "sentence_doctor",
+                "title": "Sentence Doctor: Fix 5 Common Speaking Traps",
+                "duration": "5 mins",
+                "xp": 30,
+                "instructions": "Find the spoken mistake and tap or say the corrected version.",
+                "data": {
+                    "traps": [
+                        {"flawed": "Myself Rahul from Mumbai.", "corrected": "I am Rahul from Mumbai.", "reason": "Never introduce yourself using 'Myself'. Use 'I am' or 'My name is'."},
+                        {"flawed": "She is knowing the answer.", "corrected": "She knows the answer.", "reason": "'Know' is a stative verb and is rarely used in continuous tense."},
+                        {"flawed": "I didn't saw him yesterday.", "corrected": "I didn't see him yesterday.", "reason": "After 'did not', always use the base form of the verb ('see', not 'saw')."}
+                    ]
+                }
+            },
+            {
+                "id": "l1_act_6",
+                "type": "spoken_prompt",
+                "title": "Spoken Challenge: My Favourite Morning Routine",
+                "duration": "5 mins",
+                "xp": 40,
+                "instructions": "Answer using your microphone. Aim for 30–45 seconds of natural speech.",
+                "data": {
+                    "question": "What is the very first thing you do in the morning, and why do you like it?",
+                    "hints": ["Start with 'The first thing I usually do is...'", "Mention how it makes you feel.", "Use simple present verbs."]
+                }
+            },
+            {
+                "id": "l1_act_7",
+                "type": "fill_in_blanks",
+                "title": "Prepositions in Action: At, On, In",
+                "duration": "4 mins",
+                "xp": 25,
+                "instructions": "Master time and place prepositions through spoken sentences.",
+                "data": {
+                    "questions": [
+                        {"sentence": "Our morning meeting starts _______ 9:30 AM.", "options": ["at", "on", "in"], "correct": "at"},
+                        {"sentence": "We are presenting our project _______ Monday.", "options": ["at", "on", "in"], "correct": "on"},
+                        {"sentence": "She was born _______ November.", "options": ["at", "on", "in"], "correct": "in"}
+                    ]
+                }
+            },
+            {
+                "id": "l1_act_8",
+                "type": "daily_expressions",
+                "title": "Everyday Social Greetings & Polite Replies",
+                "duration": "4 mins",
+                "xp": 30,
+                "instructions": "Learn how native speakers naturally greet and respond.",
+                "data": {
+                    "expressions": [
+                        {"trigger": "How's your day going?", "replies": ["Pretty good, thanks! How about yours?", "It's going well, just keeping busy."]},
+                        {"trigger": "Thanks for your help!", "replies": ["You're very welcome!", "Happy to help anytime!"]}
+                    ]
+                }
+            },
+            {
+                "id": "l1_act_9",
+                "type": "speaking_challenge",
+                "title": "Daily Speaking Challenge: 30-Second Self-Introduction",
+                "duration": "5 mins",
+                "xp": 45,
+                "instructions": "Deliver a crisp, confident 30-second introduction without stopping.",
+                "data": {
+                    "target_seconds": 30,
+                    "prompt": "Introduce yourself to a friendly colleague you meet for the first time."
+                }
+            },
+            {
+                "id": "l1_act_10",
+                "type": "level_capstone_test",
+                "title": "Level 1 Spoken Capstone Assessment",
+                "duration": "8 mins",
+                "xp": 100,
+                "instructions": "Comprehensive speaking exam. Score 80%+ to unlock Level 2: Everyday English.",
+                "data": {
+                    "questions": [
+                        {"prompt": "Tell me about your home town and why you enjoy living there.", "min_seconds": 30},
+                        {"prompt": "Describe what you did last weekend from morning until evening.", "min_seconds": 30},
+                        {"prompt": "Say this sentence correctly: 'Yesterday I (see) a movie and I (feel) happy.'", "min_seconds": 15}
+                    ]
+                }
             }
-            for q in DIAGNOSTIC_QUESTIONS
         ]
+    },
+    {
+        "level_number": 2,
+        "title": "Everyday English",
+        "tagline": "Comfortable daily interactions, asking questions, ordering food & natural roleplays",
+        "badge": "CONVERSATIONS",
+        "accent_color": "emerald",
+        "gradient": "from-emerald-600 via-teal-600 to-cyan-600",
+        "pass_percentage": 80,
+        "focus_areas": ["Daily Conversations", "Roleplays & Real Situations", "Question Asking", "Vocabulary Expansion"],
+        "activities": [
+            {
+                "id": "l2_act_1",
+                "type": "roleplay",
+                "title": "Roleplay: Ordering Food at a Restaurant",
+                "duration": "6 mins",
+                "xp": 40,
+                "instructions": "The AI is your waiter. Ask for the menu, place your order, and ask for the bill.",
+                "data": {
+                    "scenario": "You are having lunch at a cafe.",
+                    "starter": "Welcome to Bistro Green! What can I get started for you today?",
+                    "suggested_phrases": ["Could I please see the vegetarian options?", "I'd like to order...", "Could we please have the bill?"]
+                }
+            },
+            {
+                "id": "l2_act_2",
+                "type": "roleplay",
+                "title": "Roleplay: Asking for Directions & Commuting",
+                "duration": "5 mins",
+                "xp": 35,
+                "instructions": "Ask a passerby for directions to the metro station.",
+                "data": {
+                    "scenario": "You are slightly lost in a new city.",
+                    "starter": "Hello! You look like you're looking for something. Can I help?",
+                    "suggested_phrases": ["Excuse me, could you point me towards the nearest metro?", "Is it within walking distance?"]
+                }
+            },
+            {
+                "id": "l2_act_3",
+                "type": "sentence_doctor",
+                "title": "Fix Direct Native Translation Habits",
+                "duration": "5 mins",
+                "xp": 30,
+                "instructions": "Replace Hindi/native thought patterns with natural English phrases.",
+                "data": {
+                    "traps": [
+                        {"flawed": "Open the light.", "corrected": "Turn on the light.", "reason": "For electrical switches, use 'turn on' or 'switch on', not 'open'."},
+                        {"flawed": "I am eating my dinner right now. (when talking about routine)", "corrected": "I usually have dinner at 8 PM.", "reason": "Use simple present for regular dining times."},
+                        {"flawed": "Tell me what is your good name?", "corrected": "May I know your name, please?", "reason": "'Good name' is an Indianism translated from 'shubh naam'. Native English uses 'May I have your name?'"}
+                    ]
+                }
+            },
+            {
+                "id": "l2_act_4",
+                "type": "spoken_prompt",
+                "title": "Talking About Hobbies & Passions",
+                "duration": "5 mins",
+                "xp": 40,
+                "instructions": "Explain your favourite hobby and why it brings you joy.",
+                "data": {
+                    "question": "What is one activity you can do for hours without getting bored?",
+                    "hints": ["Explain how you got started.", "Describe what skills it requires.", "Use phrases like 'I'm passionate about...'"]
+                }
+            },
+            {
+                "id": "l2_act_5",
+                "type": "roleplay",
+                "title": "Roleplay: Shopping & Bargaining Politely",
+                "duration": "6 mins",
+                "xp": 40,
+                "instructions": "Inquire about sizes, prices, and return policies at a clothing store.",
+                "data": {
+                    "scenario": "Shopping for a smart jacket.",
+                    "starter": "Hi there! Looking for anything specific today?",
+                    "suggested_phrases": ["Do you have this in a medium size?", "Is there any seasonal discount available?"]
+                }
+            },
+            {
+                "id": "l2_act_6",
+                "type": "speaking_challenge",
+                "title": "60-Second Challenge: My Ideal Weekend",
+                "duration": "5 mins",
+                "xp": 45,
+                "instructions": "Speak continuously for 60 seconds describing your dream Saturday and Sunday.",
+                "data": {"target_seconds": 60, "prompt": "Describe your ideal relaxing weekend from start to finish."}
+            },
+            {
+                "id": "l2_act_7",
+                "type": "level_capstone_test",
+                "title": "Level 2 Spoken Capstone Assessment",
+                "duration": "8 mins",
+                "xp": 100,
+                "instructions": "Conversational test. Score 80%+ to unlock Level 3: Fluent Speaking.",
+                "data": {
+                    "questions": [
+                        {"prompt": "Roleplay: You are returning a defective item to a shop. Explain the issue politely.", "min_seconds": 45},
+                        {"prompt": "Describe an unforgettable meal you had at a restaurant.", "min_seconds": 45}
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "level_number": 3,
+        "title": "Fluent Speaking",
+        "tagline": "Eliminate pauses, master connective words & speak spontaneously with speed",
+        "badge": "FLUENCY",
+        "accent_color": "purple",
+        "gradient": "from-purple-600 via-indigo-600 to-pink-600",
+        "pass_percentage": 80,
+        "focus_areas": ["Speaking Speed", "Thought Connectors", "Storytelling", "Spontaneous Monologues"],
+        "activities": [
+            {
+                "id": "l3_act_1",
+                "type": "spontaneous_speaking",
+                "title": "1-Minute Spontaneous Speaking: Random Topic",
+                "duration": "6 mins",
+                "xp": 50,
+                "instructions": "AI gives you a surprise topic. Speak for 60 seconds with zero preparation.",
+                "data": {
+                    "topics": [
+                        "Why do you think travel changes a person's perspective?",
+                        "If you could invent one gadget to help humanity, what would it be?",
+                        "Is it better to read a book or watch the movie adaptation?"
+                    ]
+                }
+            },
+            {
+                "id": "l3_act_2",
+                "type": "connectors",
+                "title": "Thought Connectors: Although, However & Furthermore",
+                "duration": "5 mins",
+                "xp": 35,
+                "instructions": "Connect two contrasting ideas smoothly without long pauses.",
+                "data": {
+                    "drills": [
+                        {"prompt": "Contrast: Working hard vs Not getting immediate results.", "model": "Although he worked tirelessly, he understood that major results take time."},
+                        {"prompt": "Contrast: Technology saves time vs It creates distractions.", "model": "Technology undeniably saves time; however, it can also become a source of distraction."}
+                    ]
+                }
+            },
+            {
+                "id": "l3_act_3",
+                "type": "storytelling",
+                "title": "Narrative Arc: The Unexpected Journey",
+                "duration": "7 mins",
+                "xp": 45,
+                "instructions": "Narrate an eventful story with a clear beginning, climax, and lesson learned.",
+                "data": {
+                    "starter": "It was raining heavily, and the last train had already departed...",
+                    "guidelines": ["Describe the setting", "Introduce a sudden obstacle", "Explain how you resolved it"]
+                }
+            },
+            {
+                "id": "l3_act_4",
+                "type": "sentence_expansion",
+                "title": "Sentence Expansion: From 4 Words to 16 Words",
+                "duration": "5 mins",
+                "xp": 40,
+                "instructions": "Transform simple sentences into rich, expressive statements.",
+                "data": {
+                    "base": "The presentation went well.",
+                    "expanded": "Despite the unexpected projector glitch, our team delivered a thoroughly engaging and impactful presentation."
+                }
+            },
+            {
+                "id": "l3_act_5",
+                "type": "level_capstone_test",
+                "title": "Level 3 Spoken Capstone Assessment",
+                "duration": "8 mins",
+                "xp": 100,
+                "instructions": "High-fluency assessment. Score 80%+ to unlock Level 4: Real-World English.",
+                "data": {
+                    "questions": [
+                        {"prompt": "Speak for 75 seconds on: 'What qualities make someone a great communicator?'", "min_seconds": 60},
+                        {"prompt": "Tell a 60-second story about a time you had to adapt quickly to unexpected news.", "min_seconds": 50}
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "level_number": 4,
+        "title": "Real-World English",
+        "tagline": "Professional interviews, presentations, debates & workplace communication",
+        "badge": "PROFESSIONAL",
+        "accent_color": "amber",
+        "gradient": "from-amber-600 via-orange-600 to-red-600",
+        "pass_percentage": 80,
+        "focus_areas": ["Job Interviews", "Business Presentations", "Polite Disagreement", "Debating Complex Ideas"],
+        "activities": [
+            {
+                "id": "l4_act_1",
+                "type": "interview_simulation",
+                "title": "Job Interview Simulation: 'Tell Me About Yourself'",
+                "duration": "6 mins",
+                "xp": 50,
+                "instructions": "Deliver a professional 90-second career narrative suitable for top hiring managers.",
+                "data": {
+                    "role": "Senior Consultant / Educator",
+                    "coach_prompt": "Welcome to our final interview round. Could you walk me through your journey, core strengths, and why you are excited about this position?"
+                }
+            },
+            {
+                "id": "l4_act_2",
+                "type": "interview_simulation",
+                "title": "STAR Method: Handling Workplace Challenges",
+                "duration": "7 mins",
+                "xp": 55,
+                "instructions": "Explain a difficult situation using Situation, Task, Action, and Result.",
+                "data": {
+                    "coach_prompt": "Tell me about a time you had a major disagreement with a team member. How did you resolve it?"
+                }
+            },
+            {
+                "id": "l4_act_3",
+                "type": "presentation_pitch",
+                "title": "2-Minute Project Pitch",
+                "duration": "6 mins",
+                "xp": 50,
+                "instructions": "Pitch a new project or teaching methodology with a captivating hook and call to action.",
+                "data": {
+                    "prompt": "Pitch an innovative educational idea to a panel of school principals."
+                }
+            },
+            {
+                "id": "l4_act_4",
+                "type": "debate_sparring",
+                "title": "Debate Sparring: Artificial Intelligence in Education",
+                "duration": "7 mins",
+                "xp": 50,
+                "instructions": "The coach presents counter-arguments. Defend your point with poise and professional evidence.",
+                "data": {
+                    "coach_starter": "Many argue that AI will replace human teachers and diminish social connection. How do you respond?"
+                }
+            },
+            {
+                "id": "l4_act_5",
+                "type": "level_capstone_test",
+                "title": "Level 4 Spoken Capstone Assessment",
+                "duration": "10 mins",
+                "xp": 100,
+                "instructions": "Executive spoken assessment. Score 80%+ to unlock Level 5: AI Conversation Mastery.",
+                "data": {
+                    "questions": [
+                        {"prompt": "Deliver a 90-second executive summary pitching your background and leadership philosophy.", "min_seconds": 75},
+                        {"prompt": "Respond professionally to a critical client whose delivery deadline was missed.", "min_seconds": 60}
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "level_number": 5,
+        "title": "AI Conversation Mastery",
+        "tagline": "Real-time, dynamic voice conversation partner with adaptive native fluency",
+        "badge": "MASTERY 🎙️",
+        "accent_color": "rose",
+        "gradient": "from-rose-600 via-pink-600 to-purple-700",
+        "pass_percentage": 85,
+        "focus_areas": ["Live Voice Interaction", "Natural Turn-Taking", "Context Retention", "Fluid Conversational Mastery"],
+        "activities": [
+            {
+                "id": "l5_act_1",
+                "type": "live_voice_lounge",
+                "title": "Casual Spoken Lounge: Life, Hobbies & Travel",
+                "duration": "Live Conversation",
+                "xp": 60,
+                "instructions": "Have an unscripted, natural voice conversation with your AI coach.",
+                "data": {
+                    "category": "Casual",
+                    "initial_prompt": "Hey there! It's wonderful to practice with you today. How has your week been treating you so far?"
+                }
+            },
+            {
+                "id": "l5_act_2",
+                "type": "live_voice_lounge",
+                "title": "Intermediate Lounge: Culture, Society & Tech",
+                "duration": "Live Conversation",
+                "xp": 70,
+                "instructions": "Discuss emerging trends, society, and your perspectives with real-time feedback.",
+                "data": {
+                    "category": "Intermediate",
+                    "initial_prompt": "I was just reading an article about how reading habits are shifting toward short digital video summaries. What do you think about that?"
+                }
+            },
+            {
+                "id": "l5_act_3",
+                "type": "live_voice_lounge",
+                "title": "Advanced Mastery Lounge: Global Issues & Philosophy",
+                "duration": "Live Conversation",
+                "xp": 80,
+                "instructions": "Engage in deep, nuanced debate on leadership, economics, and human psychology.",
+                "data": {
+                    "category": "Advanced",
+                    "initial_prompt": "Welcome to our Master's dialogue! Today, let's explore what truly defines ethical leadership in the 21st century. What's your take?"
+                }
+            }
+        ]
+    }
+]
 
-    def _get_now_iso(self) -> str:
-        return datetime.now(timezone.utc).isoformat()
 
-    def _get_expiry_iso(self) -> str:
-        return (datetime.now(timezone.utc) + timedelta(days=self.CYCLE_DURATION_DAYS)).isoformat()
+class EnglishCoachService:
+    def __init__(self):
+        self.supabase_url = SUPABASE_URL
+        self.service_key = SERVICE_KEY
+        self.headers = SUPABASE_HEADERS
 
-    def _is_expired(self, expires_at: Optional[str]) -> bool:
-        if not expires_at:
-            return False
-        try:
-            exp = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-            return datetime.now(timezone.utc) > exp
-        except Exception:
-            return False
+    # -----------------------------------------------------------------
+    # DIAGNOSTIC QUESTIONS
+    # -----------------------------------------------------------------
+    def get_diagnostic_questions_for_client(self) -> List[Dict[str, Any]]:
+        """Returns the 10 spoken diagnostic assessment questions."""
+        return SPOKEN_DIAGNOSTIC_QUESTIONS
 
-    def get_user_track(self, user_id: str, user_role: str = "student") -> Dict[str, Any]:
-        """Loads user's active English speaking track from Supabase, checking for 30-day expiry."""
-        if not user_id:
-            user_id = "guest_user"
+    # -----------------------------------------------------------------
+    # USER PROFILE & PROGRESS STATE
+    # -----------------------------------------------------------------
+    def get_or_create_profile(self, user_id: str, user_role: str = "student", user_name: str = "Learner") -> Dict[str, Any]:
+        """Fetches user's coach profile or initializes default state."""
+        clean_id = (user_id or "guest_learner").strip().lower()
+        cache_key = f"{clean_id}_{user_role}"
 
-        track = None
-        if SUPABASE_URL and SERVICE_KEY:
+        # 1. Try Supabase cloud fetch
+        if self.supabase_url and self.service_key:
             try:
-                url = f"{SUPABASE_URL}/rest/v1/chat_conversations?user_id=eq.{user_id}&agent_code=eq.english_coach_track&order=created_at.desc&limit=1"
-                with httpx.Client(timeout=5.0) as client:
-                    res = client.get(url, headers=SUPABASE_HEADERS)
-                    if res.status_code == 200:
-                        rows = res.json()
-                        if rows:
-                            row = rows[0]
-                            title = row.get("title") or "{}"
-                            try:
-                                track = json.loads(title)
-                            except Exception:
-                                pass
+                with httpx.Client(timeout=4.0) as client:
+                    resp = client.get(
+                        f"{self.supabase_url}/rest/v1/english_coach_profiles",
+                        headers=self.headers,
+                        params={"user_id": f"eq.{clean_id}", "user_role": f"eq.{user_role}"}
+                    )
+                    if resp.status_code == 200:
+                        rows = resp.json()
+                        if rows and len(rows) > 0:
+                            data = rows[0]
+                            COACH_TRACK_CACHE[cache_key] = data
+                            return data
             except Exception as e:
-                logger.warning(f"Supabase get_user_track notice: {e}")
+                logger.warning(f"Supabase fetch profile failed for {clean_id}: {e}")
 
-        if not track:
-            track = COACH_TRACK_CACHE.get(user_id)
+        # 2. Return cached if present
+        if cache_key in COACH_TRACK_CACHE:
+            return COACH_TRACK_CACHE[cache_key]
 
-        if track:
-            if self._is_expired(track.get("expires_at")):
-                logger.info(f"User {user_id} English coach track expired. Resetting cycle.")
-                track["is_expired"] = True
-                track["diagnostic_completed"] = False
-                track["current_module_index"] = 0
-                track["unlocked_module_index"] = 0
-                track["completed_steps"] = []
-                self.save_user_track(user_id, track, user_role=user_role)
-            return track
-
-        fresh_state = {
-            "user_id": user_id,
+        # 3. Initialize fresh profile
+        initial_profile = {
+            "user_id": clean_id,
             "user_role": user_role,
-            "diagnostic_completed": False,
-            "diagnostic_score": 0,
-            "diagnostic_total": 10,
-            "weak_points": [],
-            "fluency_level": "Unassessed",
-            "current_module_index": 0,
-            "unlocked_module_index": 0,
-            "completed_steps": [],
-            "public_speaking_feedback": None,
-            "mastery_report": None,
-            "custom_modules": None,
-            "created_at": self._get_now_iso(),
-            "expires_at": self._get_expiry_iso(),
-            "is_expired": False
+            "user_name": user_name,
+            "has_taken_diagnostic": False,
+            "overall_level": "Unassessed", # A1, A2, B1, B2, C1
+            "overall_score": 0,
+            "skills": {
+                "speaking": 0,
+                "grammar": 0,
+                "vocabulary": 0,
+                "pronunciation": 0,
+                "fluency": 0,
+                "confidence": 0,
+                "conversation": 0
+            },
+            "strengths": [],
+            "weaknesses": [],
+            "priority_focus": ["Speaking Fluency", "Sentence Formation", "Everyday Vocabulary"],
+            "personalized_roadmap": [],
+            "current_level": 1,
+            "unlocked_levels": [1],
+            "completed_activities": [],
+            "activity_scores": {},
+            "common_mistakes": [],
+            "words_learned": 0,
+            "daily_streak": 1,
+            "xp": 0,
+            "last_active": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
-        COACH_TRACK_CACHE[user_id] = fresh_state
-        return fresh_state
 
-    def save_user_track(self, user_id: str, track: Dict[str, Any], user_role: str = "student") -> bool:
-        """Saves user track to Supabase Cloud and local memory cache."""
-        if not user_id:
-            user_id = "guest_user"
+        COACH_TRACK_CACHE[cache_key] = initial_profile
+        self._persist_profile_async(initial_profile)
+        return initial_profile
 
-        track["user_id"] = user_id
-        track["user_role"] = user_role
-        track["updated_at"] = self._get_now_iso()
-        COACH_TRACK_CACHE[user_id] = track
-
-        if not SUPABASE_URL or not SERVICE_KEY:
-            return True
-
+    def _persist_profile_async(self, profile: Dict[str, Any]):
+        """Persists profile to Supabase cloud table."""
+        if not self.supabase_url or not self.service_key:
+            return
         try:
-            payload_json = json.dumps(track)
-            conv_id = f"coach-track-{user_id}"
-
-            url = f"{SUPABASE_URL}/rest/v1/chat_conversations?id=eq.{conv_id}"
-            with httpx.Client(timeout=6.0) as client:
-                check_res = client.get(url, headers=SUPABASE_HEADERS)
-                if check_res.status_code == 200 and check_res.json():
-                    patch_url = f"{SUPABASE_URL}/rest/v1/chat_conversations?id=eq.{conv_id}"
-                    client.patch(patch_url, headers=SUPABASE_HEADERS, json={
-                        "title": payload_json,
-                        "updated_at": self._get_now_iso()
-                    })
-                else:
-                    post_url = f"{SUPABASE_URL}/rest/v1/chat_conversations"
-                    client.post(post_url, headers=SUPABASE_HEADERS, json={
-                        "id": conv_id,
-                        "user_id": user_id,
-                        "title": payload_json,
-                        "agent_code": "english_coach_track",
-                        "language": "english",
-                        "created_at": self._get_now_iso(),
-                        "updated_at": self._get_now_iso()
-                    })
-            return True
+            with httpx.Client(timeout=4.0) as client:
+                client.post(
+                    f"{self.supabase_url}/rest/v1/english_coach_profiles",
+                    headers={**self.headers, "Prefer": "resolution=merge-duplicates"},
+                    json=profile
+                )
         except Exception as e:
-            logger.warning(f"Failed to persist coach track to Supabase: {e}")
-            return False
+            logger.debug(f"Cloud profile sync fallback: {e}")
 
-    async def submit_diagnostic(self, user_id: str, user_answers: Dict[str, int], user_role: str = "student") -> Dict[str, Any]:
+    # -----------------------------------------------------------------
+    # EVALUATE 10-QUESTION SPOKEN ASSESSMENT
+    # -----------------------------------------------------------------
+    async def evaluate_diagnostic_assessment(
+        self,
+        user_id: str,
+        user_role: str,
+        answers: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
-        Grades diagnostic test, extracts exact weak points, and triggers 100% pure AI curriculum generation.
+        Analyzes the learner's 10 spoken responses using Groq AI.
+        Computes CEFR Level, skill scores, strengths, weaknesses, and weekly roadmap.
         """
-        score = 0
-        weak_points = []
-        failed_topics = []
-        detailed_breakdown = []
+        clean_id = (user_id or "guest_learner").strip().lower()
+        profile = self.get_or_create_profile(clean_id, user_role=user_role)
 
-        for q in DIAGNOSTIC_QUESTIONS:
-            q_id = str(q["id"])
-            user_ans = user_answers.get(q_id)
-            correct_ans = q["correct_index"]
-            is_correct = (user_ans == correct_ans)
+        # Build prompt transcript of 10 answers
+        transcript_lines = []
+        for idx, item in enumerate(answers, 1):
+            q_id = item.get("question_id", idx)
+            category = item.get("category", f"Question {idx}")
+            prompt = item.get("prompt", "")
+            transcript = item.get("transcript", "").strip() or "[No answer / Skipped]"
+            transcript_lines.append(f"Question {idx} [{category}]: \"{prompt}\"\nLearner Spoken Response: \"{transcript}\"")
 
-            if is_correct:
-                score += 1
-            else:
-                weak_points.append(q["weakness_tag"])
-                failed_topics.append(f"{q['category']}: {q['weakness_tag']}")
+        prompt_content = f"""
+You are an expert Cambridge & CEFR Spoken English Master Coach.
+Evaluate this student's initial 10-question Spoken English Assessment carefully and constructively.
 
-            detailed_breakdown.append({
-                "question_id": q["id"],
-                "category": q["category"],
-                "weakness_tag": q["weakness_tag"],
-                "is_correct": is_correct,
-                "user_selected": user_ans,
-                "correct_option": correct_ans,
-                "explanation": q["explanation"]
+Here are the 10 questions and the learner's spoken responses:
+{chr(10).join(transcript_lines)}
+
+Evaluate their spoken English thoroughly and return ONLY a valid JSON object matching this schema:
+{{
+  "overall_level": "A1 | A2 | B1 | B2 | C1",
+  "overall_score": 65,
+  "skills": {{
+    "speaking": 60,
+    "grammar": 58,
+    "vocabulary": 66,
+    "pronunciation": 62,
+    "fluency": 52,
+    "confidence": 70,
+    "conversation": 55
+  }},
+  "strengths": [
+    "Short encouraging bullet describing a genuine strength",
+    "Second genuine strength"
+  ],
+  "weaknesses": [
+    "Specific linguistic weakness (e.g. past tense verbs, frequent pauses)",
+    "Second specific weakness"
+  ],
+  "coach_feedback": {{
+    "what_you_are_good_at": "Encouraging explanation of what they already do well.",
+    "what_we_need_to_improve": "Clear, gentle breakdown of their primary speaking hurdle.",
+    "your_biggest_focus": "The concrete skills we will train together over the next few weeks."
+  }},
+  "priority_focus": ["Speaking Fluency", "Sentence Formation", "Everyday Vocabulary"],
+  "personalized_roadmap": [
+    {{"week": 1, "theme": "Basic Sentence Formation & Daily Speaking", "focus": "Present & Past simple verbs, reducing mid-sentence pauses"}},
+    {{"week": 2, "theme": "Everyday Vocabulary & Conversation", "focus": "Shopping, dining, travel phrases & active listening"}},
+    {{"week": 3, "theme": "Grammar Correction & Fluid Connectors", "focus": "Because, although, however, and narrative sequencing"}},
+    {{"week": 4, "theme": "Storytelling & Spontaneous Speaking", "focus": "1-minute speaking without pause, natural expression"}}
+  ],
+  "recommended_level": 1
+}}
+
+Rules:
+1. Be warm, motivating, and strictly accurate. Never embarrass the student.
+2. If answers are short or elementary, assign A1 or A2. If conversational with minor errors, assign B1 or B2.
+3. Recommend Level 1 for A1/A2, Level 2 for B1, Level 3 for B2.
+4. Output pure JSON without markdown code blocks.
+"""
+
+        analysis_data = None
+        try:
+            resp = await ai_provider.chat_completion(
+                messages=[
+                    {"role": "system", "content": "You are a professional CEFR Spoken English examiner. Return pure JSON only."},
+                    {"role": "user", "content": prompt_content}
+                ],
+                temperature=0.3,
+                max_tokens=1200
+            )
+
+            raw_text = resp.get("content", "").strip()
+            # Clean possible markdown blocks
+            raw_text = re.sub(r"^```json\s*", "", raw_text, flags=re.MULTILINE)
+            raw_text = re.sub(r"^```\s*", "", raw_text, flags=re.MULTILINE).rstrip("`").strip()
+            analysis_data = json.loads(raw_text)
+        except Exception as e:
+            logger.error(f"AI evaluation failed for diagnostic: {e}")
+            # Reliable fallback analysis based on transcript length and vocabulary
+            total_words = sum(len(a.get("transcript", "").split()) for a in answers)
+            base_score = min(85, max(45, total_words * 2))
+            level = "B1" if base_score > 65 else ("A2" if base_score > 50 else "A1")
+            analysis_data = {
+                "overall_level": level,
+                "overall_score": base_score,
+                "skills": {
+                    "speaking": base_score,
+                    "grammar": max(40, base_score - 5),
+                    "vocabulary": max(45, base_score + 4),
+                    "pronunciation": max(40, base_score - 2),
+                    "fluency": max(38, base_score - 8),
+                    "confidence": max(50, base_score + 6),
+                    "conversation": base_score
+                },
+                "strengths": ["Eagerness to communicate ideas", "Good basic vocabulary comprehension"],
+                "weaknesses": ["Sentence continuity and pauses", "Past tense verb consistency"],
+                "coach_feedback": {
+                    "what_you_are_good_at": "You have a solid natural willingness to speak and share your thoughts.",
+                    "what_we_need_to_improve": "Pauses between words and finding the right verb tense.",
+                    "your_biggest_focus": "We will build confidence through structured sentence patterns and daily speaking challenges."
+                },
+                "priority_focus": ["Speaking Fluency", "Sentence Formation", "Everyday Vocabulary"],
+                "personalized_roadmap": [
+                    {"week": 1, "theme": "Basic Sentence Formation & Daily Speaking", "focus": "Present & Past simple verbs"},
+                    {"week": 2, "theme": "Everyday Vocabulary & Conversation", "focus": "Daily social scenarios"},
+                    {"week": 3, "theme": "Thought Connectors & Flow", "focus": "Connecting ideas smoothly"},
+                    {"week": 4, "theme": "Spontaneous Speaking", "focus": "60-second speaking challenges"}
+                ],
+                "recommended_level": 1
+            }
+
+        # Update and save profile
+        profile["has_taken_diagnostic"] = True
+        profile["overall_level"] = analysis_data.get("overall_level", "A2")
+        profile["overall_score"] = analysis_data.get("overall_score", 60)
+        profile["skills"] = analysis_data.get("skills", profile["skills"])
+        profile["strengths"] = analysis_data.get("strengths", [])
+        profile["weaknesses"] = analysis_data.get("weaknesses", [])
+        profile["coach_feedback"] = analysis_data.get("coach_feedback", {})
+        profile["priority_focus"] = analysis_data.get("priority_focus", [])
+        profile["personalized_roadmap"] = analysis_data.get("personalized_roadmap", [])
+        profile["current_level"] = 1 # Always start at Level 1 per strict locked progression flow
+        profile["unlocked_levels"] = [1]
+        profile["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        cache_key = f"{clean_id}_{user_role}"
+        COACH_TRACK_CACHE[cache_key] = profile
+        self._persist_profile_async(profile)
+
+        return {
+            "status": "success",
+            "profile": profile,
+            "report": analysis_data
+        }
+
+    # -----------------------------------------------------------------
+    # GET CURRICULUM & LEVEL LOCKS
+    # -----------------------------------------------------------------
+    def get_levels_for_user(self, user_id: str, user_role: str = "student") -> List[Dict[str, Any]]:
+        """
+        Returns all 5 levels with personalized lock states, progress percentages,
+        and completion statuses according to the user's profile.
+        """
+        profile = self.get_or_create_profile(user_id, user_role=user_role)
+        unlocked_set = set(profile.get("unlocked_levels") or [1])
+        completed_activities_set = set(profile.get("completed_activities") or [])
+
+        result_levels = []
+        for l_cfg in LEVELS_CONFIG:
+            lvl_num = l_cfg["level_number"]
+            is_unlocked = lvl_num in unlocked_set
+
+            activities = l_cfg.get("activities", [])
+            total_acts = len(activities)
+            completed_in_lvl = sum(1 for a in activities if a["id"] in completed_activities_set)
+            progress_pct = int((completed_in_lvl / total_acts) * 100) if total_acts > 0 else 0
+
+            # Level capstone status
+            capstone_act = next((a for a in activities if a.get("type") == "level_capstone_test"), None)
+            capstone_passed = False
+            if capstone_act:
+                capstone_score = profile.get("activity_scores", {}).get(capstone_act["id"], 0)
+                capstone_passed = capstone_score >= l_cfg.get("pass_percentage", 80)
+
+            is_completed = (progress_pct >= 90) and capstone_passed
+
+            # Enrich activities with completion flag
+            enriched_acts = []
+            for act in activities:
+                act_copy = dict(act)
+                act_copy["is_completed"] = act["id"] in completed_activities_set
+                act_copy["user_score"] = profile.get("activity_scores", {}).get(act["id"])
+                enriched_acts.append(act_copy)
+
+            result_levels.append({
+                "level_number": lvl_num,
+                "title": l_cfg["title"],
+                "tagline": l_cfg["tagline"],
+                "badge": l_cfg["badge"],
+                "accent_color": l_cfg["accent_color"],
+                "gradient": l_cfg["gradient"],
+                "focus_areas": l_cfg["focus_areas"],
+                "pass_percentage": l_cfg["pass_percentage"],
+                "is_unlocked": is_unlocked,
+                "is_completed": is_completed,
+                "progress_percentage": progress_pct,
+                "completed_activities_count": completed_in_lvl,
+                "total_activities_count": total_acts,
+                "capstone_passed": capstone_passed,
+                "unlock_requirement": f"Complete {l_cfg['pass_percentage']}% of Level {lvl_num - 1} activities and pass Level {lvl_num - 1} Capstone Exam" if lvl_num > 1 else "Unlocked by default",
+                "activities": enriched_acts
             })
 
-        if score >= 8:
-            level = "Advanced (C1 Spoken Fluency)"
-        elif score >= 5:
-            level = "Intermediate (B1 Conversational)"
-        else:
-            level = "Foundation (A2 Expressive Basics)"
+        return result_levels
 
-        # Generate 100% pure AI personalized curriculum
-        modules = await generate_pure_ai_curriculum(
-            score=score,
-            level=level,
-            weak_points=weak_points,
-            failed_topics=failed_topics,
-            user_role=user_role
-        )
+    # -----------------------------------------------------------------
+    # COMPLETE AN ACTIVITY & CHECK LEVEL UNLOCK
+    # -----------------------------------------------------------------
+    def complete_activity(
+        self,
+        user_id: str,
+        user_role: str,
+        level_number: int,
+        activity_id: str,
+        score: int = 100,
+        mistakes: Optional[List[Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
+        """
+        Marks an activity as completed, updates XP, daily streak, and checks
+        if the next progressive level should be unlocked.
+        """
+        clean_id = (user_id or "guest_learner").strip().lower()
+        profile = self.get_or_create_profile(clean_id, user_role=user_role)
 
-        track = self.get_user_track(user_id, user_role=user_role)
-        track["diagnostic_completed"] = True
-        track["diagnostic_score"] = score
-        track["diagnostic_total"] = 10
-        track["weak_points"] = weak_points
-        track["fluency_level"] = level
-        track["current_module_index"] = 0
-        track["unlocked_module_index"] = 0
-        track["completed_steps"] = []
-        track["mastery_report"] = None
-        track["custom_modules"] = modules
-        track["created_at"] = self._get_now_iso()
-        track["expires_at"] = self._get_expiry_iso()
-        track["is_expired"] = False
+        completed_list = list(profile.get("completed_activities") or [])
+        if activity_id not in completed_list:
+            completed_list.append(activity_id)
 
-        self.save_user_track(user_id, track, user_role=user_role)
+        scores_map = dict(profile.get("activity_scores") or {})
+        scores_map[activity_id] = max(scores_map.get(activity_id, 0), score)
 
-        return {
-            "score": score,
-            "total": 10,
-            "percentage": (score / 10) * 100,
-            "fluency_level": level,
-            "weak_points": weak_points,
-            "detailed_breakdown": detailed_breakdown,
-            "modules": modules,
-            "track": track
-        }
+        # Log mistakes for adaptive practice
+        common_mistakes = list(profile.get("common_mistakes") or [])
+        if mistakes:
+            for m in mistakes:
+                if m not in common_mistakes:
+                    common_mistakes.append(m)
 
-    async def regenerate_curriculum(self, user_id: str, user_role: str = "student", user_name: str = "Learner") -> Dict[str, Any]:
-        """Regenerates a fresh AI curriculum on-demand based on existing profile."""
-        track = self.get_user_track(user_id, user_role=user_role)
-        score = track.get("diagnostic_score", 6)
-        level = track.get("fluency_level", "Intermediate (B1 Conversational)")
-        weak_points = track.get("weak_points", [])
+        # Update XP
+        earned_xp = max(20, int(score * 0.5))
+        profile["xp"] = profile.get("xp", 0) + earned_xp
+        profile["completed_activities"] = completed_list
+        profile["activity_scores"] = scores_map
+        profile["common_mistakes"] = common_mistakes[-20:] # Keep last 20
 
-        modules = await generate_pure_ai_curriculum(
-            score=score,
-            level=level,
-            weak_points=weak_points,
-            failed_topics=weak_points,
-            user_role=user_role,
-            user_name=user_name
-        )
+        # Check level unlock logic
+        unlocked_levels = list(profile.get("unlocked_levels") or [1])
+        level_cfg = next((l for l in LEVELS_CONFIG if l["level_number"] == level_number), None)
+        next_level_unlocked = False
 
-        track["custom_modules"] = modules
-        self.save_user_track(user_id, track, user_role=user_role)
-        return {
-            "status": "success",
-            "modules": modules,
-            "track": track
-        }
+        if level_cfg and level_number < 5:
+            acts = level_cfg.get("activities", [])
+            capstone = next((a for a in acts if a.get("type") == "level_capstone_test"), None)
+            total_count = len(acts)
+            completed_count = sum(1 for a in acts if a["id"] in completed_list)
+            prog_pct = int((completed_count / total_count) * 100) if total_count > 0 else 0
 
-    def complete_lecture_step(self, user_id: str, module_index: int, step_id: str, user_role: str = "student") -> Dict[str, Any]:
-        """Validates that user completes prerequisites before advancing. Strictly prevents skipping."""
-        track = self.get_user_track(user_id, user_role=user_role)
+            capstone_passed = False
+            if capstone:
+                capstone_score = scores_map.get(capstone["id"], 0)
+                capstone_passed = capstone_score >= level_cfg.get("pass_percentage", 80)
 
-        if not track.get("diagnostic_completed"):
-            raise ValueError("You must complete the Diagnostic Assessment before entering lectures.")
+            # If requirements met, unlock next level
+            if prog_pct >= 80 and capstone_passed:
+                next_lvl = level_number + 1
+                if next_lvl not in unlocked_levels:
+                    unlocked_levels.append(next_lvl)
+                    next_level_unlocked = True
+                    profile["current_level"] = next_lvl
 
-        unlocked_idx = track.get("unlocked_module_index", 0)
-        if module_index > unlocked_idx:
-            raise ValueError(f"Skipping is strictly disabled. You must complete Module {unlocked_idx + 1} first.")
+        profile["unlocked_levels"] = sorted(unlocked_levels)
+        profile["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        completed_steps = track.get("completed_steps", [])
-        if step_id not in completed_steps:
-            completed_steps.append(step_id)
-            track["completed_steps"] = completed_steps
-
-        modules = track.get("custom_modules") or get_clean_curriculum_fallback(track.get("fluency_level", "Intermediate"), track.get("weak_points", []))
-        if module_index < len(modules):
-            current_mod = modules[module_index]
-            required_step_ids = [s["step_id"] for s in current_mod.get("steps", [])]
-            all_done = all(sid in completed_steps for sid in required_step_ids)
-            if all_done and module_index == unlocked_idx:
-                track["unlocked_module_index"] = min(unlocked_idx + 1, len(modules) - 1)
-                track["current_module_index"] = track["unlocked_module_index"]
-
-        self.save_user_track(user_id, track, user_role=user_role)
+        cache_key = f"{clean_id}_{user_role}"
+        COACH_TRACK_CACHE[cache_key] = profile
+        self._persist_profile_async(profile)
 
         return {
             "status": "success",
-            "unlocked_module_index": track.get("unlocked_module_index", 0),
-            "completed_steps": track.get("completed_steps", []),
-            "track": track
+            "earned_xp": earned_xp,
+            "next_level_unlocked": next_level_unlocked,
+            "unlocked_level": level_number + 1 if next_level_unlocked else None,
+            "profile": profile
         }
 
-    def evaluate_speech(self, target_phrase: str, spoken_text: str, duration_seconds: Optional[float] = None) -> Dict[str, Any]:
-        """Evaluates spoken speech alignment against target phrase."""
-        return evaluate_speech_alignment(target_phrase=target_phrase, spoken_text=spoken_text, duration_seconds=duration_seconds)
-
-    async def evaluate_speak_stage(
+    # -----------------------------------------------------------------
+    # EVALUATE SINGLE SPOKEN RESPONSE & ERROR CORRECTION
+    # -----------------------------------------------------------------
+    async def critique_spoken_response(
         self,
         prompt: str,
-        sample_answer: Optional[str],
         user_speech: str,
-        user_level: str = "Intermediate"
+        context: Optional[str] = None,
+        user_level: str = "A2"
     ) -> Dict[str, Any]:
-        """Evaluates student's spoken answer with positives, negatives, improvements, and Edge-TTS feedback."""
-        clean_speech = (user_speech or "").strip()
-        if not clean_speech or len(clean_speech.split()) < 3:
+        """
+        Analyzes a single spoken answer from the learner.
+        Provides constructive error correction:
+        1. Praise & affirmation
+        2. Gentle mistake correction (❌ original vs ✅ corrected)
+        3. Simple explanation of the rule
+        4. Pronunciation & fluency score
+        """
+        speech_text = (user_speech or "").strip()
+        if not speech_text:
             return {
-                "positive_points": ["Willingness to attempt spoken English"],
-                "negative_points": ["Response was too short (under 3 words) to assess sentence flow."],
-                "how_to_improve": "Try speaking at least 2 full sentences using a clear subject, verb, and object.",
-                "polished_version": sample_answer or "Good morning everyone! It is a true pleasure to speak with you today.",
-                "spoken_feedback": "Good attempt! Next time, try to speak two complete sentences so we can evaluate your rhythm and grammar."
+                "understood": False,
+                "feedback": "I didn't hear your response. Tap the microphone and try speaking again!",
+                "has_mistakes": False,
+                "fluency_score": 0,
+                "grammar_score": 0
             }
 
-        eval_prompt = f"""You are Devgya Spoken English Coach.
-A student (Level: {user_level}) was given this speaking prompt:
+        ai_prompt = f"""
+You are an encouraging, supportive AI English Speaking Coach.
+The learner answered this speaking prompt:
 Prompt: "{prompt}"
-Reference Sample: "{sample_answer or 'N/A'}"
+{f'Context: "{context}"' if context else ''}
+Learner's Spoken Answer: "{speech_text}"
+Learner's Target Level: {user_level}
 
-Student's Spoken Answer:
-\"\"\"{clean_speech}\"\"\"
+Evaluate their answer according to these rules:
+1. Always start with a short, warm affirmation (e.g., "Nice job! I understood your point clearly.").
+2. If there are grammar or word choice mistakes, identify the main 1 or 2 mistakes.
+3. Provide the corrected sentence.
+4. Give a brief, simple 1-sentence explanation of why the correction works.
+5. Provide scores out of 100 for Fluency, Grammar, and Vocabulary.
+6. Provide an encouraging prompt for them to try saying the corrected version.
 
-Analyze their spoken English and return a JSON object with EXACTLY these keys:
-1. "positive_points": A list of 2-3 concise bullet points praising their vocabulary, confidence, grammar correctness, or clear delivery.
-2. "negative_points": A list of 1-2 concise bullet points pointing out grammar slips, awkward Indianisms (e.g., 'revert back', 'since 5 years', 'today morning'), misplaced prepositions, or hesitation.
-3. "how_to_improve": 1-2 actionable sentences telling the student how to fix the issue and sound more natural.
-4. "polished_version": A beautifully natural, native-sounding 1-2 sentence version of what they intended to say.
-5. "spoken_feedback": A spoken coaching message (max 35 words) that MUST clearly tell the student: 1) How they are doing, 2) What they should enhance, and 3) An encouraging finish.
+Return pure JSON only in this format:
+{{
+  "affirmation": "Great effort! You communicated your idea clearly.",
+  "has_mistakes": true,
+  "original_snippet": "{speech_text}",
+  "corrected_sentence": "Corrected natural English sentence",
+  "explanation": "Because you are talking about yesterday, use 'went' instead of 'go'.",
+  "repeat_challenge": "Now try saying: '...' ",
+  "scores": {{
+    "fluency": 72,
+    "grammar": 68,
+    "vocabulary": 75,
+    "confidence": 80
+  }}
+}}
 """
-        messages = [
-            {"role": "system", "content": "You are an expert spoken English coach. Return ONLY valid JSON."},
-            {"role": "user", "content": eval_prompt}
-        ]
-
         try:
-            raw = await ai_provider.chat_completion(messages, temperature=0.3, response_format_json=True)
-            data = json.loads(raw)
-            return {
-                "positive_points": data.get("positive_points", ["Good vocal confidence", "Clear attempt at conveying ideas"]),
-                "negative_points": data.get("negative_points", ["Check sentence connector and verb agreement"]),
-                "how_to_improve": data.get("how_to_improve", "Focus on speaking in complete phrases without rushing."),
-                "polished_version": data.get("polished_version", sample_answer or clean_speech),
-                "spoken_feedback": data.get("spoken_feedback", "You are doing great with your vocabulary! To enhance your fluency, practice connecting sentences smoothly.")
-            }
+            resp = await ai_provider.chat_completion(
+                messages=[
+                    {"role": "system", "content": "You are a warm, supportive English speaking coach. Return pure JSON only."},
+                    {"role": "user", "content": ai_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=600
+            )
+            raw_text = resp.get("content", "").strip()
+            raw_text = re.sub(r"^```json\s*", "", raw_text, flags=re.MULTILINE)
+            raw_text = re.sub(r"^```\s*", "", raw_text, flags=re.MULTILINE).rstrip("`").strip()
+            return json.loads(raw_text)
         except Exception as e:
-            logger.warning(f"Speak stage AI critique error: {e}")
+            logger.warning(f"AI critique error: {e}")
             return {
-                "positive_points": ["Strong spoken confidence", "Relevant response to the question"],
-                "negative_points": ["Minor grammatical agreement or phrasing slip"],
-                "how_to_improve": "Practice pausing slightly at commas to give your sentence natural breathing room.",
-                "polished_version": sample_answer or clean_speech,
-                "spoken_feedback": "You are doing great with your ideas! To enhance your speech, listen to the native model and refine your phrasing."
+                "affirmation": "Well done! You spoke clearly and got your meaning across.",
+                "has_mistakes": False,
+                "original_snippet": speech_text,
+                "corrected_sentence": speech_text,
+                "explanation": "Keep speaking with this confidence and rhythm!",
+                "repeat_challenge": f"Keep going! Your speaking is improving daily.",
+                "scores": {"fluency": 75, "grammar": 75, "vocabulary": 75, "confidence": 80}
             }
 
-    async def evaluate_public_speaking(self, speech_text: str, topic: str, user_level: str) -> Dict[str, Any]:
-        """Evaluates 1-minute public speaking presentation for fillers, structure, and corrections."""
-        clean_speech = speech_text.strip()
-        if not clean_speech or len(clean_speech.split()) < 5:
-            return {
-                "filler_count": 0,
-                "wpm_pacing": "Too brief",
-                "grammar_score": 50,
-                "overall_score": 50,
-                "what_was_wrong": "Speech was too brief (under 15 words). Give a fuller answer with at least 3-4 sentences.",
-                "live_correction": "Try starting with: 'Curiosity is the engine that drives all human discovery...'",
-                "praise": "Good attempt stepping up to the microphone!",
-                "spoken_feedback": "Good attempt! To enhance your public speaking, speak for at least 3 complete sentences so we can evaluate your pacing."
-            }
-
-        filler_words = ["um", "uh", "like", "actually", "basically", "you know", "i mean", "sort of"]
-        lower = clean_speech.lower()
-        filler_count = sum(lower.count(f) for f in filler_words)
-
-        prompt = f"""You are Devgya Chief Public Speaking Coach.
-Analyze the student's 1-minute public speech on topic: "{topic}".
-Student Spoken Transcript:
-\"\"\"{clean_speech}\"\"\"
-Student Level: {user_level}
-
-Evaluate strictly and return JSON with keys:
-1. "grammar_score": integer 1-100
-2. "confidence_score": integer 1-100
-3. "overall_score": integer 1-100
-4. "what_was_wrong": 1-2 concise bullet points explaining grammatical slips, awkward pauses, or lack of structure.
-5. "live_correction": Rephrase the student's speech into a polished, powerful 2-3 sentence speech version they can read aloud.
-6. "praise": 1 energetic sentence praising their best point.
-7. "spoken_feedback": A warm spoken message (max 35 words) telling the student: 1) Whether they are doing great or need improvement, 2) Exactly what they should enhance, and 3) A short encouraging sentence.
-"""
-        messages = [
-            {"role": "system", "content": "You are a professional spoken English and public speaking adjudicator. Return ONLY a valid JSON object."},
-            {"role": "user", "content": prompt}
-        ]
-
-        try:
-            raw = await ai_provider.chat_completion(messages, temperature=0.3, response_format_json=True)
-            data = json.loads(raw)
-            data["filler_count"] = filler_count
-            if not data.get("spoken_feedback"):
-                data["spoken_feedback"] = f"You are doing great with your presence! To enhance your presentation, focus on: {data.get('what_was_wrong', 'pacing')}."
-            return data
-        except Exception as ex:
-            logger.warning(f"Public speaking AI critique notice: {ex}")
-            return {
-                "filler_count": filler_count,
-                "grammar_score": 80,
-                "confidence_score": 85,
-                "overall_score": 82,
-                "what_was_wrong": "Good enthusiasm, but make sure to use transition words like 'Furthermore' and 'In conclusion'.",
-                "live_correction": "Curiosity sparks discovery. When students ask 'why', they begin to truly learn. That is why curiosity is our greatest mentor.",
-                "praise": "Great passion and clear voice projection!",
-                "spoken_feedback": "You did great on projection and vocal energy! To enhance your speech, cut down on filler pauses."
-            }
-
-    async def process_dialogue_turn(
+    # -----------------------------------------------------------------
+    # REAL-TIME CONVERSATIONAL VOICE AGENT (LEVEL 5)
+    # -----------------------------------------------------------------
+    async def process_conversation_turn(
         self,
         user_message: str,
-        history: List[Dict[str, str]] = None,
-        coach_starter: str = "",
-        user_level: str = "Intermediate",
-        target_focus: str = "Spoken English Fluency"
+        conversation_history: List[Dict[str, str]],
+        category: str = "Casual",
+        user_level: str = "B1"
     ) -> Dict[str, Any]:
-        """Ultra-fast conversational sparring turn with immediate live grammar correction."""
-        clean_msg = (user_message or "").strip()
-        system_prompt = f"""You are Devgya Spoken English Coach in a live 1-on-1 spoken practice session with an Indian learner (Level: {user_level}, Focus: {target_focus}).
+        """
+        Conducts a fluid, natural conversation turn with the AI coach.
+        Returns:
+        1. Conversational natural reply
+        2. In-line gentle speech notes (if any major mistake was made)
+        3. End of session metrics if requested
+        """
+        speech_text = (user_message or "").strip()
 
-CRITICAL INSTRUCTIONS FOR SPOKEN DIALOGUE:
-1. Keep your reply conversational, warm, energetic, and BRIEF (15-25 words max) so it sounds natural when spoken aloud.
-2. If the student made any grammatical error in their speech, immediately give the gentle spoken fix first: e.g., 'Nice point! Say "I saw" instead of "I seen".'
-3. Conclude with 1 engaging question to keep the student talking.
-4. Do NOT use markdown asterisks (*), bullet points, or complex formatting—write pure plain spoken text.
-5. Return JSON with:
-   - "reply": The short natural spoken response (max 25 words).
-   - "correction": A brief grammar correction string if any error was spotted, otherwise null.
-   - "praise_word": e.g. "Brilliant!", "Spot on!", "Fantastic!", or "Great try!"
+        history_formatted = []
+        for turn in conversation_history[-6:]:
+            role = "user" if turn.get("sender") == "user" else "assistant"
+            history_formatted.append({"role": role, "content": turn.get("text", "")})
+
+        system_instruction = f"""
+You are DEVGYA's AI English Speaking Coach, engaging in an authentic, natural voice conversation with an Indian learner.
+Topic Domain: {category}
+Learner Proficiency: {user_level}
+
+Rules for your response:
+1. Speak warmly, naturally, and concisely (2–3 sentences max) so it sounds like real human dialogue.
+2. Ask one engaging follow-up question to keep the conversation flowing.
+3. If the user made a noticeable grammatical error, include a gentle correction in the "correction" field, but NEVER let it break the natural flow of your spoken conversation.
+4. Return pure JSON:
+{{
+  "reply": "Your natural spoken reply and follow-up question here.",
+  "gentle_correction": "Optional small note: 'By the way, you can say went instead of go.' or empty string",
+  "topic_insight": "Encouraging remark on their vocabulary or sentence structure."
+}}
 """
-        convo_messages = [{"role": "system", "content": system_prompt}]
-        if coach_starter:
-            convo_messages.append({"role": "assistant", "content": coach_starter})
-
-        if history:
-            for h in history[-6:]:
-                role = "user" if h.get("sender") == "user" else "assistant"
-                convo_messages.append({"role": role, "content": h.get("text", "")})
-
-        convo_messages.append({"role": "user", "content": clean_msg or "Hello coach!"})
+        history_formatted.insert(0, {"role": "system", "content": system_instruction})
+        history_formatted.append({"role": "user", "content": speech_text})
 
         try:
-            raw = await ai_provider.chat_completion(convo_messages, temperature=0.3, response_format_json=True)
-            data = json.loads(raw)
-            return {
-                "status": "success",
-                "reply": data.get("reply", "That is an insightful observation! Tell me more about why you feel that way."),
-                "correction": data.get("correction"),
-                "praise_word": data.get("praise_word", "Well said!")
-            }
+            resp = await ai_provider.chat_completion(
+                messages=history_formatted,
+                temperature=0.6,
+                max_tokens=350
+            )
+            raw = resp.get("content", "").strip()
+            raw = re.sub(r"^```json\s*", "", raw, flags=re.MULTILINE)
+            raw = re.sub(r"^```\s*", "", raw, flags=re.MULTILINE).rstrip("`").strip()
+            return json.loads(raw)
         except Exception as e:
-            logger.warning(f"Dialogue turn error: {e}")
+            logger.warning(f"Conversation turn fallback: {e}")
             return {
-                "status": "success",
-                "reply": "Well said! That makes complete sense. How do your friends or colleagues react when you share that?",
-                "correction": None,
-                "praise_word": "Great job!"
+                "reply": "That's very interesting! Could you tell me a little bit more about why you feel that way?",
+                "gentle_correction": "",
+                "topic_insight": "Good confidence in expressing your thoughts."
             }
 
-    async def generate_mastery_report(self, user_id: str, capstone_transcript: str, user_role: str = "student", student_name: str = "Student") -> Dict[str, Any]:
-        """Synthesizes the official Spoken English Mastery Report Card."""
-        track = self.get_user_track(user_id, user_role=user_role)
-        score = track.get("diagnostic_score", 7)
-        level = track.get("fluency_level", "Intermediate")
-        weak_points = track.get("weak_points", [])
+    # -----------------------------------------------------------------
+    # END-OF-SESSION PERFORMANCE REPORT (LEVEL 5)
+    # -----------------------------------------------------------------
+    async def generate_session_report(
+        self,
+        conversation_turns: List[Dict[str, str]],
+        category: str = "Casual"
+    ) -> Dict[str, Any]:
+        """Generates an end-of-session performance report after a conversation."""
+        user_utterances = [t.get("text", "") for t in conversation_turns if t.get("sender") == "user"]
+        total_words = sum(len(u.split()) for u in user_utterances)
 
-        prompt = f"""Generate an official Devgya Spoken English Mastery Report for:
-Learner Name: {student_name} ({user_role.capitalize()})
-Diagnostic Score: {score}/10
-Initial Level: {level}
-Identified Weak Points: {', '.join(weak_points) if weak_points else 'Minor filler words'}
-Capstone Spoken Presentation:
-\"\"\"{capstone_transcript}\"\"\"
+        ai_prompt = f"""
+Evaluate this full voice conversation session between a student and their English coach:
+Conversation domain: {category}
+Student's spoken sentences:
+{chr(10).join(f"- {u}" for u in user_utterances if u)}
 
-Generate a formal JSON report with keys:
-1. "fluency_band": e.g. "B2 Independent Communicator" or "C1 Advanced Speaker"
-2. "pronunciation_rating": integer 80-98
-3. "grammar_accuracy": integer 80-98
-4. "public_speaking_confidence": integer 80-98
-5. "strengths": list of 3 bullet points
-6. "weaknesses_resolved": list of 2-3 weak points successfully addressed during lectures
-7. "coach_recommendation_for_parents": 2-3 warm sentences advising parents how to encourage speaking at home.
-8. "coach_recommendation_for_teachers": 2-3 actionable sentences advising the teacher on participation.
-9. "certificate_id": string like "DEVGYA-ENG-{uuid.uuid4().hex[:6].upper()}"
+Provide an End-of-Session Performance Report as pure JSON:
+{{
+  "fluency": 78,
+  "grammar": 74,
+  "vocabulary": 82,
+  "pronunciation": 75,
+  "confidence": 85,
+  "you_did_well": [
+    "Used great descriptive vocabulary",
+    "Quick responses with minimal pause",
+    "Expressive and confident delivery"
+  ],
+  "improve_next": [
+    "Past tense consistency on irregular verbs",
+    "Try forming longer compound sentences"
+  ],
+  "coach_closing_message": "Fantastic conversation today! You maintained great rhythm and spoke with authentic confidence. Tomorrow we will work on fine-tuning irregular past-tense verbs."
+}}
 """
-        messages = [
-            {"role": "system", "content": "You are Devgya Academic English Director. Return ONLY valid JSON."},
-            {"role": "user", "content": prompt}
-        ]
-
-        report_data = {}
         try:
-            raw = await ai_provider.chat_completion(messages, temperature=0.4, response_format_json=True)
-            report_data = json.loads(raw)
-        except Exception as e:
-            logger.warning(f"Mastery report synthesis notice: {e}")
-            report_data = {
-                "fluency_band": "B2 Confident Communicator",
-                "pronunciation_rating": 88,
-                "grammar_accuracy": 86,
-                "public_speaking_confidence": 90,
-                "strengths": [
-                    "Articulates complete sentences with natural cadence",
-                    "Overcame hesitation when presenting arguments",
-                    "Strong use of opening hooks"
+            resp = await ai_provider.chat_completion(
+                messages=[
+                    {"role": "system", "content": "You are an expert spoken English coach. Return pure JSON only."},
+                    {"role": "user", "content": ai_prompt}
                 ],
-                "weaknesses_resolved": [
-                    "Past vs Present Perfect tenses mastered",
-                    "Filler words reduced by over 70%"
-                ],
-                "coach_recommendation_for_parents": f"Encourage {student_name} to explain one interesting topic in English at the dinner table every evening for 2 minutes.",
-                "coach_recommendation_for_teachers": f"Invite {student_name} to lead morning announcements or moderate peer group discussions.",
-                "certificate_id": f"DEVGYA-ENG-{uuid.uuid4().hex[:6].upper()}"
+                temperature=0.3,
+                max_tokens=600
+            )
+            raw = resp.get("content", "").strip()
+            raw = re.sub(r"^```json\s*", "", raw, flags=re.MULTILINE)
+            raw = re.sub(r"^```\s*", "", raw, flags=re.MULTILINE).rstrip("`").strip()
+            return json.loads(raw)
+        except Exception:
+            return {
+                "fluency": 75,
+                "grammar": 72,
+                "vocabulary": 80,
+                "pronunciation": 74,
+                "confidence": 80,
+                "you_did_well": ["Maintained clear flow", "Responded naturally to questions"],
+                "improve_next": ["Expanding sentences with connective words"],
+                "coach_closing_message": "Wonderful speaking session today! Keep up this daily consistency."
             }
 
-        report_data["student_name"] = student_name
-        report_data["user_id"] = user_id
-        report_data["user_role"] = user_role
-        report_data["diagnostic_score"] = score
-        report_data["generated_at"] = self._get_now_iso()
-        report_data["cycle_valid_until"] = track.get("expires_at", self._get_expiry_iso())
+    # -----------------------------------------------------------------
+    # RESET TRACK (FOR RETAKING DIAGNOSTIC)
+    # -----------------------------------------------------------------
+    def reset_profile(self, user_id: str, user_role: str = "student") -> Dict[str, Any]:
+        """Resets diagnostic status and level progression to allow a fresh start."""
+        clean_id = (user_id or "guest_learner").strip().lower()
+        cache_key = f"{clean_id}_{user_role}"
+        if cache_key in COACH_TRACK_CACHE:
+            del COACH_TRACK_CACHE[cache_key]
 
-        report_data["overall_fluency_band"] = report_data.get("fluency_band", "B2 Confident Communicator")
-        report_data["pronunciation_accuracy_percent"] = report_data.get("pronunciation_rating", 88)
-        report_data["grammar_structure_percent"] = report_data.get("grammar_accuracy", 86)
-        report_data["public_speaking_confidence_percent"] = report_data.get("public_speaking_confidence", 90)
-        report_data["parent_recommendations"] = [
-            report_data.get("coach_recommendation_for_parents", f"Encourage {student_name} to speak English for 2 minutes every day at home.")
-        ]
-        report_data["teacher_recommendations"] = [
-            report_data.get("coach_recommendation_for_teachers", f"Provide {student_name} opportunities to speak in front of the classroom.")
-        ]
-        report_data["mastered_competencies"] = report_data.get("strengths", [])
-        report_data["areas_for_continued_practice"] = report_data.get("weaknesses_resolved", [])
-
-        track["mastery_report"] = report_data
-        track["final_report"] = report_data
-        self.save_user_track(user_id, track, user_role=user_role)
-        return report_data
+        return self.get_or_create_profile(clean_id, user_role=user_role)
 
 
 english_coach_service = EnglishCoachService()

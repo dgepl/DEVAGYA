@@ -1159,5 +1159,268 @@ export async function deletePPTDeck(deckId: string, userId: string): Promise<{ s
   return res.json();
 }
 
+// ============================================================================
+// ENGLISH SPEAKING COACH API
+// ============================================================================
+
+export interface DiagnosticQuestion {
+  id: number;
+  category: string;
+  prompt: string;
+  instruction: string;
+  time_limit_seconds: number;
+  skill_focus: string;
+  sample_answer: string;
+}
+
+export interface SpokenAnswerItem {
+  question_id: number;
+  category: string;
+  prompt: string;
+  transcript: string;
+  duration_seconds?: number;
+}
+
+export interface CoachProfile {
+  user_id: string;
+  user_role: string;
+  user_name: string;
+  has_taken_diagnostic: boolean;
+  overall_level: string; // A1, A2, B1, B2, C1
+  overall_score: number;
+  skills: {
+    speaking: number;
+    grammar: number;
+    vocabulary: number;
+    pronunciation: number;
+    fluency: number;
+    confidence: number;
+    conversation: number;
+  };
+  strengths: string[];
+  weaknesses: string[];
+  coach_feedback?: {
+    what_you_are_good_at?: string;
+    what_we_need_to_improve?: string;
+    your_biggest_focus?: string;
+  };
+  priority_focus: string[];
+  personalized_roadmap: Array<{
+    week: number;
+    theme: string;
+    focus: string;
+  }>;
+  current_level: number;
+  unlocked_levels: number[];
+  completed_activities: string[];
+  activity_scores: Record<string, number>;
+  common_mistakes?: Array<{
+    type?: string;
+    original: string;
+    corrected: string;
+    rule: string;
+  }>;
+  words_learned: number;
+  daily_streak: number;
+  xp: number;
+  updated_at?: string;
+}
+
+export interface CoachActivity {
+  id: string;
+  type: string;
+  title: string;
+  duration: string;
+  xp: number;
+  instructions: string;
+  data: any;
+  is_completed?: boolean;
+  user_score?: number;
+}
+
+export interface CoachLevel {
+  level_number: number;
+  title: string;
+  tagline: string;
+  badge: string;
+  accent_color: string;
+  gradient: string;
+  focus_areas: string[];
+  pass_percentage: number;
+  is_unlocked: boolean;
+  is_completed: boolean;
+  progress_percentage: number;
+  completed_activities_count: number;
+  total_activities_count: number;
+  capstone_passed: boolean;
+  unlock_requirement: string;
+  activities: CoachActivity[];
+}
+
+export async function fetchDiagnosticQuestions(): Promise<{ questions: DiagnosticQuestion[]; total: number }> {
+  const res = await fetch(`${getApiBase()}/english-coach/diagnostic-questions`);
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to load diagnostic questions"));
+  }
+  return res.json();
+}
+
+export async function submitDiagnosticAssessment(payload: {
+  user_id: string;
+  user_role: string;
+  answers: SpokenAnswerItem[];
+}): Promise<{ status: string; profile: CoachProfile; report: any }> {
+  const res = await fetch(`${getApiBase()}/english-coach/diagnostic-submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to analyze spoken diagnostic"));
+  }
+  return res.json();
+}
+
+export async function fetchCoachProfile(
+  userId: string,
+  userRole: string = "student",
+  userName: string = "Learner"
+): Promise<{ status: string; profile: CoachProfile }> {
+  const res = await fetch(
+    `${getApiBase()}/english-coach/profile?user_id=${encodeURIComponent(userId)}&user_role=${encodeURIComponent(userRole)}&user_name=${encodeURIComponent(userName)}`
+  );
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to load coach profile"));
+  }
+  return res.json();
+}
+
+export async function fetchCoachLevels(
+  userId: string,
+  userRole: string = "student"
+): Promise<{ status: string; current_level: number; unlocked_levels: number[]; levels: CoachLevel[] }> {
+  const res = await fetch(
+    `${getApiBase()}/english-coach/levels?user_id=${encodeURIComponent(userId)}&user_role=${encodeURIComponent(userRole)}`
+  );
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to load learning levels"));
+  }
+  return res.json();
+}
+
+export async function completeCoachActivity(payload: {
+  user_id: string;
+  user_role: string;
+  level_number: number;
+  activity_id: string;
+  score?: number;
+  mistakes?: any[];
+}): Promise<{ status: string; earned_xp: number; next_level_unlocked: boolean; unlocked_level?: number; profile: CoachProfile }> {
+  const res = await fetch(`${getApiBase()}/english-coach/complete-activity`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to record activity completion"));
+  }
+  return res.json();
+}
+
+export async function critiqueSpokenResponse(payload: {
+  prompt: string;
+  user_speech: string;
+  context?: string;
+  user_level?: string;
+}): Promise<{
+  affirmation: string;
+  has_mistakes: boolean;
+  original_snippet?: string;
+  corrected_sentence?: string;
+  explanation?: string;
+  repeat_challenge?: string;
+  scores: { fluency: number; grammar: number; vocabulary: number; confidence: number };
+}> {
+  const res = await fetch(`${getApiBase()}/english-coach/critique-spoken-response`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to evaluate spoken response"));
+  }
+  return res.json();
+}
+
+export async function sendCoachConversationTurn(payload: {
+  user_message: string;
+  conversation_history?: Array<{ sender: string; text: string }>;
+  category?: string;
+  user_level?: string;
+}): Promise<{
+  reply: string;
+  gentle_correction?: string;
+  topic_insight?: string;
+}> {
+  const res = await fetch(`${getApiBase()}/english-coach/conversation-turn`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to process conversation turn"));
+  }
+  return res.json();
+}
+
+export async function fetchCoachSessionReport(payload: {
+  conversation_turns: Array<{ sender: string; text: string }>;
+  category?: string;
+}): Promise<{
+  fluency: number;
+  grammar: number;
+  vocabulary: number;
+  pronunciation: number;
+  confidence: number;
+  you_did_well: string[];
+  improve_next: string[];
+  coach_closing_message: string;
+}> {
+  const res = await fetch(`${getApiBase()}/english-coach/session-report`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to generate session performance report"));
+  }
+  return res.json();
+}
+
+export async function resetCoachProfile(
+  userId: string,
+  userRole: string = "student"
+): Promise<{ status: string; message: string; profile: CoachProfile }> {
+  const res = await fetch(`${getApiBase()}/english-coach/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId, user_role: userRole })
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(parseErrorMessage(errData, "Failed to reset coach profile"));
+  }
+  return res.json();
+}
+
+
 
 

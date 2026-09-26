@@ -1,11 +1,11 @@
-import { EnglishSpeakingCoach } from "@/components/teacher/EnglishSpeakingCoach";
+import { EnglishCoachContainer } from "@/components/english_coach/EnglishCoachContainer";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "English Speaking Coach | DEVGYA Educator Studio",
-  description: "Live interactive spoken English fluency coach for teachers with authentic Indian accent neural voices."
+  title: "AI English Speaking Coach | DEVGYA",
+  description: "Personal AI-powered English Speaking Coach with spoken diagnostic evaluation, 5 progressive locked levels, and live voice conversation partner."
 };
 
 export default function EnglishCoachPage() {
-  return <EnglishSpeakingCoach />;
+  return <EnglishCoachContainer />;
 }
