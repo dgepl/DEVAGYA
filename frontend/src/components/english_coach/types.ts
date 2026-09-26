@@ -184,11 +184,27 @@ export function speakCoachText(
   }
 
   let completed = false;
+  let fallbackAttempted = false;
+
   const finish = () => {
     if (!completed) {
       completed = true;
       if (onEnd) onEnd();
     }
+  };
+
+  const triggerFallback = () => {
+    if (fallbackAttempted || completed) return;
+    fallbackAttempted = true;
+    if (currentCoachAudio) {
+      try {
+        currentCoachAudio.pause();
+        currentCoachAudio.currentTime = 0;
+        currentCoachAudio.src = "";
+      } catch (e) {}
+      currentCoachAudio = null;
+    }
+    fallbackBrowserSpeech(clean, finish);
   };
 
   const selectedVoice = voicePreference || currentVoiceId || "en-IN-NeerjaNeural";
@@ -206,14 +222,16 @@ export function speakCoachText(
     };
 
     audio.onerror = () => {
-      currentCoachAudio = null;
-      fallbackBrowserSpeech(clean, finish);
+      triggerFallback();
     };
 
-    audio.play().catch(() => {
-      currentCoachAudio = null;
-      fallbackBrowserSpeech(clean, finish);
-    });
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((err) => {
+        console.warn("Edge-TTS stream error, using fallback:", err);
+        triggerFallback();
+      });
+    }
 
     // Safety timeout in case audio playback stalls
     const maxWaitMs = Math.max(3500, Math.min(25000, clean.length * 90));
@@ -224,7 +242,7 @@ export function speakCoachText(
       }
     }, maxWaitMs);
   } catch {
-    fallbackBrowserSpeech(clean, finish);
+    triggerFallback();
   }
 }
 
@@ -242,6 +260,9 @@ function fallbackBrowserSpeech(cleanText: string, onEnd: () => void) {
 
     setTimeout(() => {
       try {
+        // Cancel again to ensure queue is completely empty
+        window.speechSynthesis.cancel();
+
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = "en-IN";
         utterance.rate = 0.95;
@@ -274,7 +295,7 @@ function fallbackBrowserSpeech(cleanText: string, onEnd: () => void) {
         console.warn("Browser fallback speech error:", err);
         onEnd();
       }
-    }, 40);
+    }, 50);
   } catch (err) {
     console.warn("Speech cancel error:", err);
     onEnd();

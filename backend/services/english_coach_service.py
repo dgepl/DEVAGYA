@@ -735,120 +735,207 @@ class EnglishCoachService:
         clean_id = (user_id or "guest_learner").strip().lower()
         profile = self.get_or_create_profile(clean_id, user_role=user_role)
 
-        # Build prompt transcript of 10 answers
+        # Identify genuine responses provided by the user
+        valid_answers = []
         transcript_lines = []
         for idx, item in enumerate(answers, 1):
             q_id = item.get("question_id", idx)
             category = item.get("category", f"Question {idx}")
             prompt = item.get("prompt", "")
-            transcript = item.get("transcript", "").strip() or "[No answer / Skipped]"
-            transcript_lines.append(f"Question {idx} [{category}]: \"{prompt}\"\nLearner Spoken Response: \"{transcript}\"")
+            raw_transcript = (item.get("transcript") or "").strip()
 
-        prompt_content = f"""
-You are an expert Cambridge & CEFR Spoken English Master Coach.
-Evaluate this student's initial 10-question Spoken English Assessment carefully and constructively.
+            is_valid = bool(raw_transcript) and raw_transcript.lower() not in [
+                "[no answer / skipped]",
+                "skipped",
+                "no answer",
+                "undefined",
+                "null",
+                "[skipped]",
+                "none"
+            ]
 
-Here are the 10 questions and the learner's spoken responses:
-{chr(10).join(transcript_lines)}
+            if is_valid:
+                words = [w for w in raw_transcript.split() if len(w) > 1]
+                if len(words) >= 1:
+                    valid_answers.append(item)
+                    transcript_lines.append(f"Question {idx} [{category}]: \"{prompt}\"\nLearner Spoken Response: \"{raw_transcript}\"")
+                else:
+                    transcript_lines.append(f"Question {idx} [{category}]: \"{prompt}\"\nLearner Spoken Response: [No answer / Skipped]")
+            else:
+                transcript_lines.append(f"Question {idx} [{category}]: \"{prompt}\"\nLearner Spoken Response: [No answer / Skipped]")
 
-Evaluate their spoken English thoroughly and return ONLY a valid JSON object matching this schema:
-{{
-  "overall_level": "A1 | A2 | B1 | B2 | C1",
-  "overall_score": 65,
-  "skills": {{
-    "speaking": 60,
-    "grammar": 58,
-    "vocabulary": 66,
-    "pronunciation": 62,
-    "fluency": 52,
-    "confidence": 70,
-    "conversation": 55
-  }},
-  "strengths": [
-    "Short encouraging bullet describing a genuine strength",
-    "Second genuine strength"
-  ],
-  "weaknesses": [
-    "Specific linguistic weakness (e.g. past tense verbs, frequent pauses)",
-    "Second specific weakness"
-  ],
-  "coach_feedback": {{
-    "what_you_are_good_at": "Encouraging explanation of what they already do well.",
-    "what_we_need_to_improve": "Clear, gentle breakdown of their primary speaking hurdle.",
-    "your_biggest_focus": "The concrete skills we will train together over the next few weeks."
-  }},
-  "priority_focus": ["Speaking Fluency", "Sentence Formation", "Everyday Vocabulary"],
-  "personalized_roadmap": [
-    {{"week": 1, "theme": "Basic Sentence Formation & Daily Speaking", "focus": "Present & Past simple verbs, reducing mid-sentence pauses"}},
-    {{"week": 2, "theme": "Everyday Vocabulary & Conversation", "focus": "Shopping, dining, travel phrases & active listening"}},
-    {{"week": 3, "theme": "Grammar Correction & Fluid Connectors", "focus": "Because, although, however, and narrative sequencing"}},
-    {{"week": 4, "theme": "Storytelling & Spontaneous Speaking", "focus": "1-minute speaking without pause, natural expression"}}
-  ],
-  "recommended_level": 1
-}}
+        total_answered = len(valid_answers)
+        total_words = sum(len((a.get("transcript") or "").split()) for a in valid_answers)
 
-Rules:
-1. Be warm, motivating, and strictly accurate. Never embarrass the student.
-2. If answers are short or elementary, assign A1 or A2. If conversational with minor errors, assign B1 or B2.
-3. Recommend Level 1 for A1/A2, Level 2 for B1, Level 3 for B2.
-4. Output pure JSON without markdown code blocks.
-"""
-
-        analysis_data = None
-        try:
-            resp = await ai_provider.chat_completion(
-                messages=[
-                    {"role": "system", "content": "You are a professional CEFR Spoken English examiner. Return pure JSON only."},
-                    {"role": "user", "content": prompt_content}
-                ],
-                temperature=0.3,
-                max_tokens=1200
-            )
-
-            raw_text = resp.get("content", "").strip()
-            # Clean possible markdown blocks
-            raw_text = re.sub(r"^```json\s*", "", raw_text, flags=re.MULTILINE)
-            raw_text = re.sub(r"^```\s*", "", raw_text, flags=re.MULTILINE).rstrip("`").strip()
-            analysis_data = json.loads(raw_text)
-        except Exception as e:
-            logger.error(f"AI evaluation failed for diagnostic: {e}")
-            # Reliable fallback analysis based on transcript length and vocabulary
-            total_words = sum(len(a.get("transcript", "").split()) for a in answers)
-            base_score = min(85, max(45, total_words * 2))
-            level = "B1" if base_score > 65 else ("A2" if base_score > 50 else "A1")
+        # STRICT ZERO SCORE CHECK: If student answered 0 questions or uttered fewer than 3 words
+        if total_answered == 0 or total_words < 3:
             analysis_data = {
-                "overall_level": level,
-                "overall_score": base_score,
+                "overall_level": "A1",
+                "overall_score": 0,
                 "skills": {
-                    "speaking": base_score,
-                    "grammar": max(40, base_score - 5),
-                    "vocabulary": max(45, base_score + 4),
-                    "pronunciation": max(40, base_score - 2),
-                    "fluency": max(38, base_score - 8),
-                    "confidence": max(50, base_score + 6),
-                    "conversation": base_score
+                    "speaking": 0,
+                    "grammar": 0,
+                    "vocabulary": 0,
+                    "pronunciation": 0,
+                    "fluency": 0,
+                    "confidence": 0,
+                    "conversation": 0
                 },
-                "strengths": ["Eagerness to communicate ideas", "Good basic vocabulary comprehension"],
-                "weaknesses": ["Sentence continuity and pauses", "Past tense verb consistency"],
+                "strengths": ["Initiated the diagnostic assessment"],
+                "weaknesses": ["No voice responses detected — all 10 diagnostic questions were skipped or left silent."],
                 "coach_feedback": {
-                    "what_you_are_good_at": "You have a solid natural willingness to speak and share your thoughts.",
-                    "what_we_need_to_improve": "Pauses between words and finding the right verb tense.",
-                    "your_biggest_focus": "We will build confidence through structured sentence patterns and daily speaking challenges."
+                    "what_you_are_good_at": "You opened the diagnostic assessment, but no voice responses were detected.",
+                    "what_we_need_to_improve": "To evaluate your English accurately, you must speak into your microphone and answer each question aloud.",
+                    "your_biggest_focus": "Start from Level 1: English Foundations to build vocabulary, correct pronunciation, and basic speaking habits."
                 },
-                "priority_focus": ["Speaking Fluency", "Sentence Formation", "Everyday Vocabulary"],
+                "priority_focus": ["Speaking Confidence", "Everyday Vocabulary", "Pronunciation Fundamentals"],
                 "personalized_roadmap": [
-                    {"week": 1, "theme": "Basic Sentence Formation & Daily Speaking", "focus": "Present & Past simple verbs"},
-                    {"week": 2, "theme": "Everyday Vocabulary & Conversation", "focus": "Daily social scenarios"},
-                    {"week": 3, "theme": "Thought Connectors & Flow", "focus": "Connecting ideas smoothly"},
-                    {"week": 4, "theme": "Spontaneous Speaking", "focus": "60-second speaking challenges"}
+                    {"week": 1, "theme": "Foundations & First Words", "focus": "Speaking basic greetings and everyday verbs with confidence"},
+                    {"week": 2, "theme": "Simple Sentence Patterns", "focus": "Subject + Verb + Object structure"},
+                    {"week": 3, "theme": "Daily Life Scenarios", "focus": "Short 15-second speaking drills"},
+                    {"week": 4, "theme": "Spontaneous Fluency", "focus": "30-second speaking challenges"}
                 ],
                 "recommended_level": 1
             }
+        else:
+            max_allowed_score = int((total_answered / 10.0) * 100)
+            prompt_content = f"""
+You are an expert Cambridge & CEFR Spoken English Master Examiner.
+You are evaluating a student's real spoken diagnostic responses.
+
+STUDENT ASSESSMENT METRICS:
+- Total Questions: 10
+- Answered Questions: {total_answered} of 10
+- Skipped / Silent Questions: {10 - total_answered} of 10
+- Total Words Spoken: {total_words}
+- MAXIMUM POSSIBLE OVERALL SCORE: {max_allowed_score} (strictly capped because student only answered {total_answered}/10 questions)
+
+Here are the 10 questions and the learner's actual spoken responses:
+{chr(10).join(transcript_lines)}
+
+STRICT CEFR EXAMINER RULES:
+1. Genuinely observe what the student actually spoke. DO NOT award high, mock, or imaginary marks.
+2. For each question with [No answer / Skipped], award 0 marks.
+3. The overall_score CANNOT exceed {max_allowed_score}! If the student answered {total_answered} questions, their score must be proportional.
+4. If words are fragmented, elementary, or full of grammatical mistakes, score authentically within CEFR bands:
+   - A1 (Beginner): 0–30
+   - A2 (Elementary): 31–50
+   - B1 (Intermediate): 51–68
+   - B2 (Upper Intermediate): 69–82
+   - C1 (Advanced): 83–100
+
+Return ONLY a valid JSON object matching this schema:
+{{
+  "overall_level": "A1 | A2 | B1 | B2 | C1",
+  "overall_score": {min(max_allowed_score, max(10, total_words * 2))},
+  "skills": {{
+    "speaking": {min(max_allowed_score, max(10, total_words * 2))},
+    "grammar": {min(max_allowed_score, max(10, total_words * 2))},
+    "vocabulary": {min(max_allowed_score, max(10, total_words * 2))},
+    "pronunciation": {min(max_allowed_score, max(10, total_words * 2))},
+    "fluency": {min(max_allowed_score, max(10, total_words * 2))},
+    "confidence": {min(max_allowed_score, max(10, total_words * 2))},
+    "conversation": {min(max_allowed_score, max(10, total_words * 2))}
+  }},
+  "strengths": [
+    "Genuine strength observed from their actual spoken answers",
+    "Second genuine strength"
+  ],
+  "weaknesses": [
+    "Specific linguistic weakness observed from their actual spoken answers",
+    "Second specific weakness"
+  ],
+  "coach_feedback": {{
+    "what_you_are_good_at": "Honest explanation of what was good in their spoken answers.",
+    "what_we_need_to_improve": "Specific linguistic hurdles identified from their speech.",
+    "your_biggest_focus": "The concrete skills we will train together in Level 1."
+  }},
+  "priority_focus": ["Speaking Fluency", "Sentence Formation", "Everyday Vocabulary"],
+  "personalized_roadmap": [
+    {{"week": 1, "theme": "Basic Sentence Formation & Daily Speaking", "focus": "Present & Past simple verbs"}},
+    {{"week": 2, "theme": "Everyday Vocabulary & Conversation", "focus": "Shopping, dining, travel phrases"}},
+    {{"week": 3, "theme": "Grammar Correction & Fluid Connectors", "focus": "Because, although, however"}},
+    {{"week": 4, "theme": "Storytelling & Spontaneous Speaking", "focus": "1-minute speaking without pause"}}
+  ],
+  "recommended_level": 1
+}}
+"""
+            try:
+                resp = await ai_provider.chat_completion(
+                    messages=[
+                        {"role": "system", "content": "You are a professional Cambridge CEFR spoken English examiner. Strictly accurate, non-inflated scoring. Return pure JSON only."},
+                        {"role": "user", "content": prompt_content}
+                    ],
+                    temperature=0.2,
+                    max_tokens=1200
+                )
+
+                raw_text = resp.get("content", "").strip()
+                raw_text = re.sub(r"^```json\s*", "", raw_text, flags=re.MULTILINE)
+                raw_text = re.sub(r"^```\s*", "", raw_text, flags=re.MULTILINE).rstrip("`").strip()
+                analysis_data = json.loads(raw_text)
+
+                # Calibrate score against maximum allowed score
+                raw_score = int(analysis_data.get("overall_score", 0))
+                calibrated_score = min(max_allowed_score, max(0, raw_score))
+                analysis_data["overall_score"] = calibrated_score
+
+                # Calibrate skills
+                skills = analysis_data.get("skills", {})
+                for k in ["speaking", "grammar", "vocabulary", "pronunciation", "fluency", "confidence", "conversation"]:
+                    skills[k] = min(max_allowed_score, max(0, int(skills.get(k, calibrated_score))))
+                analysis_data["skills"] = skills
+
+                # Assign authentic CEFR level
+                if calibrated_score <= 30:
+                    analysis_data["overall_level"] = "A1"
+                elif calibrated_score <= 50:
+                    analysis_data["overall_level"] = "A2"
+                elif calibrated_score <= 70:
+                    analysis_data["overall_level"] = "B1"
+                elif calibrated_score <= 85:
+                    analysis_data["overall_level"] = "B2"
+                else:
+                    analysis_data["overall_level"] = "C1"
+
+            except Exception as e:
+                logger.error(f"AI evaluation failed for diagnostic: {e}")
+                # Authentic fallback proportional to questions answered
+                base_score = min(max_allowed_score, max(0, int(total_words * 1.5 * (total_answered / 10.0))))
+                level = "A1" if base_score <= 30 else ("A2" if base_score <= 50 else "B1")
+                analysis_data = {
+                    "overall_level": level,
+                    "overall_score": base_score,
+                    "skills": {
+                        "speaking": base_score,
+                        "grammar": max(0, base_score - 4),
+                        "vocabulary": max(0, base_score - 2),
+                        "pronunciation": max(0, base_score - 3),
+                        "fluency": max(0, base_score - 5),
+                        "confidence": max(0, base_score),
+                        "conversation": max(0, base_score - 2)
+                    },
+                    "strengths": [f"Answered {total_answered} of 10 diagnostic questions"],
+                    "weaknesses": [f"{10 - total_answered} questions were skipped or left unanswered"],
+                    "coach_feedback": {
+                        "what_you_are_good_at": f"You attempted {total_answered} speaking questions.",
+                        "what_we_need_to_improve": "Consistency across all speaking prompts and full sentence responses.",
+                        "your_biggest_focus": "We will build daily speaking habits and vocabulary in Level 1."
+                    },
+                    "priority_focus": ["Speaking Consistency", "Sentence Formation", "Everyday Vocabulary"],
+                    "personalized_roadmap": [
+                        {"week": 1, "theme": "Basic Sentence Formation & Daily Speaking", "focus": "Present & Past simple verbs"},
+                        {"week": 2, "theme": "Everyday Vocabulary & Conversation", "focus": "Daily social scenarios"},
+                        {"week": 3, "theme": "Thought Connectors & Flow", "focus": "Connecting ideas smoothly"},
+                        {"week": 4, "theme": "Spontaneous Speaking", "focus": "60-second speaking challenges"}
+                    ],
+                    "recommended_level": 1
+                }
 
         # Update and save profile
         profile["has_taken_diagnostic"] = True
-        profile["overall_level"] = analysis_data.get("overall_level", "A2")
-        profile["overall_score"] = analysis_data.get("overall_score", 60)
+        profile["overall_level"] = analysis_data.get("overall_level", "A1")
+        profile["overall_score"] = analysis_data.get("overall_score", 0)
         profile["skills"] = analysis_data.get("skills", profile["skills"])
         profile["strengths"] = analysis_data.get("strengths", [])
         profile["weaknesses"] = analysis_data.get("weaknesses", [])

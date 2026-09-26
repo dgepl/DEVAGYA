@@ -101,13 +101,6 @@ export function DiagnosticAssessment({
     setShowSample(false);
     stopCoachSpeaking();
     setIsCoachSpeaking(false);
-
-    // Speak prompt automatically to guide user warmly
-    const timer = setTimeout(() => {
-      handleListenPrompt();
-    }, 400);
-
-    return () => clearTimeout(timer);
   }, [currentIndex, currentQ?.id]);
 
   // Timer countdown when recording
