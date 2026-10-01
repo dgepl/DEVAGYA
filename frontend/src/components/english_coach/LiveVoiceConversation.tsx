@@ -53,12 +53,25 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [isHandsFree, setIsHandsFree] = useState(true);
+  const isHandsFreeRef = useRef(true);
+
+  // Keep ref synchronized with state
   useEffect(() => {
-    // Speak initial starter
+    isHandsFreeRef.current = isHandsFree;
+  }, [isHandsFree]);
+
+  useEffect(() => {
+    // Speak initial starter with Gemini-quality natural voice and then auto-listen
     const starter = conversation[0].text;
     const timer = setTimeout(() => {
       setIsCoachSpeaking(true);
-      speakCoachText(starter, () => setIsCoachSpeaking(false));
+      speakCoachText(starter, () => {
+        setIsCoachSpeaking(false);
+        if (isHandsFreeRef.current) {
+          startRecording();
+        }
+      });
     }, 400);
 
     return () => {
@@ -77,6 +90,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [conversation, isCoachThinking]);
+
   const silenceTimerRef = useRef<any>(null);
   const latestSpokenRef = useRef<string>("");
 
@@ -96,6 +110,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       const rec = new SpeechRec();
       rec.continuous = false;
       rec.interimResults = true;
+      rec.maxAlternatives = 5;
       rec.lang = "en-IN";
 
       rec.onstart = () => setIsRecording(true);
@@ -108,10 +123,11 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
           setUserInput(clean);
           latestSpokenRef.current = clean;
 
+          // Fast 650ms silence detection for live fluid dialogue
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             handleSendMessage(clean);
-          }, 1800);
+          }, 650);
         }
       };
 
@@ -150,7 +166,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   const toggleRecording = () => {
     if (isRecording) {
       stopRecording();
-      const clean = cleanRepeatedPhrases(userInput);
+      const clean = cleanRepeatedPhrases(userInput || latestSpokenRef.current);
       if (clean) {
         handleSendMessage(clean);
       }
@@ -191,9 +207,17 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
 
       setConversation((prev) => [...prev, coachTurn]);
 
-      // Speak AI reply aloud naturally
+      // Speak AI reply aloud naturally with Gemini-quality voice and then auto-listen
       setIsCoachSpeaking(true);
-      speakCoachText(coachTurn.text, () => setIsCoachSpeaking(false));
+      speakCoachText(coachTurn.text, () => {
+        setIsCoachSpeaking(false);
+        // Hands-free conversational loop: Coach finishes speaking, automatically listens to user!
+        if (isHandsFreeRef.current) {
+          setTimeout(() => {
+            startRecording();
+          }, 250);
+        }
+      });
     } catch (err: any) {
       console.error("Conversation turn error:", err);
     } finally {
@@ -353,6 +377,29 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
           ))}
         </div>
 
+        {/* Hands-Free Live Mode Toggle */}
+        <button
+          type="button"
+          onClick={() => {
+            const next = !isHandsFree;
+            setIsHandsFree(next);
+            if (next && !isCoachSpeaking && !isRecording) {
+              startRecording();
+            } else if (!next && isRecording) {
+              stopRecording();
+            }
+          }}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+            isHandsFree
+              ? "bg-emerald-600 text-white shadow-emerald-500/20"
+              : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+          }`}
+          title="Toggle hands-free live conversation mode"
+        >
+          <span className={`w-2 h-2 rounded-full ${isHandsFree ? "bg-white animate-ping" : "bg-slate-400"}`} />
+          <span>{isHandsFree ? "Hands-Free Live Call: ON" : "Push to Talk"}</span>
+        </button>
+
         <button
           onClick={handleEndSession}
           disabled={isGeneratingReport || conversation.length < 2}
@@ -363,7 +410,35 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
         </button>
       </div>
 
-      {/* Conversation Transcript Feed */}
+      {/* Realtime Live Conversation Status Banner */}
+      <div className="pt-3">
+        {isCoachSpeaking ? (
+          <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white flex items-center justify-between text-xs font-bold shadow-md animate-pulse">
+            <div className="flex items-center gap-2">
+              <Volume2 className="w-4 h-4 animate-bounce" />
+              <span>AI Coach Speaking Aloud (Gemini Live Voice)...</span>
+            </div>
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
+              Live Voice
+            </span>
+          </div>
+        ) : isRecording ? (
+          <div className="p-3 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 text-white flex items-center justify-between text-xs font-bold shadow-md animate-pulse">
+            <div className="flex items-center gap-2">
+              <Mic className="w-4 h-4 animate-ping" />
+              <span>Coach is Listening to You... Speak Freely</span>
+            </div>
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
+              Hands-Free Active
+            </span>
+          </div>
+        ) : isCoachThinking ? (
+          <div className="p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 flex items-center gap-2 text-xs font-bold">
+            <Sparkles className="w-4 h-4 text-indigo-500 animate-spin" />
+            <span>Coach is responding instantly...</span>
+          </div>
+        ) : null}
+      </div>
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto py-6 space-y-4 px-2 scroll-smooth"

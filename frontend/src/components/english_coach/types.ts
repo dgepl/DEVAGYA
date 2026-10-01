@@ -127,29 +127,31 @@ export function getBestEnglishVoice(): SpeechSynthesisVoice | null {
   }
   if (!cachedVoices || cachedVoices.length === 0) return null;
 
-  // Priority order: Natural/Neural en-IN -> en-GB -> en-US -> generic en
-  const naturalIn = cachedVoices.find(
-    (v) => (v.lang === "en-IN" || v.lang.startsWith("en-IN")) && (v.name.includes("Natural") || v.name.includes("Online"))
+  // Priority order: Ultra-natural Gemini-like voices (Google US English, Natural en-US, Natural en-GB, Natural en-IN)
+  const naturalUs = cachedVoices.find(
+    (v) => (v.lang === "en-US" || v.lang.startsWith("en-US")) && (v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Google") || v.name.includes("Neural"))
   );
-  if (naturalIn) return naturalIn;
-
-  const anyIn = cachedVoices.find((v) => v.lang === "en-IN" || v.lang.startsWith("en-IN"));
-  if (anyIn) return anyIn;
+  if (naturalUs) return naturalUs;
 
   const naturalGb = cachedVoices.find(
-    (v) => (v.lang === "en-GB" || v.lang.startsWith("en-GB")) && (v.name.includes("Natural") || v.name.includes("Online"))
+    (v) => (v.lang === "en-GB" || v.lang.startsWith("en-GB")) && (v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Google"))
   );
   if (naturalGb) return naturalGb;
 
-  const anyGb = cachedVoices.find((v) => v.lang === "en-GB" || v.lang.startsWith("en-GB"));
-  if (anyGb) return anyGb;
+  const naturalIn = cachedVoices.find(
+    (v) => (v.lang === "en-IN" || v.lang.startsWith("en-IN")) && (v.name.includes("Natural") || v.name.includes("Online") || v.name.includes("Google"))
+  );
+  if (naturalIn) return naturalIn;
+
+  const anyUs = cachedVoices.find((v) => v.lang === "en-US" || v.lang.startsWith("en-US"));
+  if (anyUs) return anyUs;
 
   const anyEn = cachedVoices.find((v) => v.lang.startsWith("en"));
   return anyEn || null;
 }
 
 let currentCoachAudio: HTMLAudioElement | null = null;
-let currentVoiceId: string = "en-IN-NeerjaNeural"; // Studio Neural Voice (Indian English)
+let currentVoiceId: string = "en-US-AvaNeural"; // Ultra-natural Gemini-quality Studio Voice
 
 export function setCoachVoicePreference(voiceId: string) {
   currentVoiceId = voiceId;
@@ -207,7 +209,7 @@ export function speakCoachText(
     fallbackBrowserSpeech(clean, finish);
   };
 
-  const selectedVoice = voicePreference || currentVoiceId || "en-IN-NeerjaNeural";
+  const selectedVoice = voicePreference || currentVoiceId || "en-US-AvaNeural";
 
   // 1. Primary: Stream Studio-Quality Edge-TTS Neural Audio via Backend API
   try {

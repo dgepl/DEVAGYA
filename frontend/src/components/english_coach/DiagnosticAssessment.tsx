@@ -94,13 +94,27 @@ export function DiagnosticAssessment({
 
   const currentQ = questions[currentIndex];
 
-  // Handle countdown timer & question transition
+  // Handle countdown timer & question transition + AUTO-SPEAK QUESTION
   useEffect(() => {
     if (!currentQ) return;
     setTimeRemaining(currentQ.time_limit_seconds || 60);
     setShowSample(false);
     stopCoachSpeaking();
     setIsCoachSpeaking(false);
+
+    // Auto-speak question prompt aloud immediately
+    const autoPlayTimer = setTimeout(() => {
+      setIsCoachSpeaking(true);
+      speakCoachText(
+        `${currentQ.category}. ${currentQ.prompt}`,
+        () => setIsCoachSpeaking(false)
+      );
+    }, 350);
+
+    return () => {
+      clearTimeout(autoPlayTimer);
+      stopCoachSpeaking();
+    };
   }, [currentIndex, currentQ?.id]);
 
   // Timer countdown when recording
@@ -125,6 +139,7 @@ export function DiagnosticAssessment({
 
   const handleListenPrompt = () => {
     if (!currentQ) return;
+    stopRecording();
     setIsCoachSpeaking(true);
     speakCoachText(
       `${currentQ.category}. ${currentQ.prompt}`,
@@ -150,6 +165,7 @@ export function DiagnosticAssessment({
       const rec = new SpeechRec();
       rec.continuous = true;
       rec.interimResults = true;
+      rec.maxAlternatives = 5;
       rec.lang = "en-IN";
 
       rec.onstart = () => {
@@ -174,12 +190,12 @@ export function DiagnosticAssessment({
             [currentQ.id]: clean
           }));
 
-          // Reset silence detection timer (auto stop after 2.0s pause)
+          // Reset silence detection timer (auto stop after 800ms pause)
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           if (clean.split(" ").filter(Boolean).length >= 2) {
             silenceTimerRef.current = setTimeout(() => {
               stopRecording();
-            }, 2000);
+            }, 800);
           }
         }
       };
@@ -390,21 +406,22 @@ export function DiagnosticAssessment({
           </div>
 
           <div className="flex items-center gap-2 self-start">
-            <button
-              onClick={handleListenPrompt}
-              disabled={isCoachSpeaking}
-              className={`p-3 rounded-2xl border transition flex items-center gap-2 text-xs font-semibold ${
-                isCoachSpeaking
-                  ? "bg-indigo-600 text-white border-indigo-600 animate-pulse"
-                  : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700"
-              }`}
-              title="Listen to coach ask this question"
-            >
-              <Volume2 className="w-4 h-4" />
-              <span className="hidden sm:inline">
-                {isCoachSpeaking ? "Speaking..." : "Read Aloud"}
-              </span>
-            </button>
+            {isCoachSpeaking ? (
+              <div className="px-3.5 py-2 rounded-2xl bg-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow-md animate-pulse">
+                <Volume2 className="w-4 h-4 animate-bounce" />
+                <span className="hidden sm:inline">Coach Speaking...</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleListenPrompt}
+                className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 text-xs font-semibold shadow-2xs cursor-pointer"
+                title="Replay coach audio for this question"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Replay</span>
+              </button>
+            )}
           </div>
         </div>
 

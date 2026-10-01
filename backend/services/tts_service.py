@@ -8,20 +8,36 @@ logger = logging.getLogger("tts_service")
 
 # High-Fidelity Natural Conversational & Indian Neural Voices (Microsoft Edge Speech)
 INDIAN_VOICES: Dict[str, Dict[str, str]] = {
-    "en-US-JennyNeural": {
-        "id": "en-US-JennyNeural",
-        "name": "Female Voice (Girl)",
+    "en-US-AvaNeural": {
+        "id": "en-US-AvaNeural",
+        "name": "Gemini Live Natural (Ava)",
         "gender": "Female",
         "lang": "en-US",
-        "label": "Female Voice (Girl) — Natural Human Accent",
+        "label": "Gemini Studio (Ava) — Ultra-Natural Human Voice",
+        "description": "Warm, expressive, high-clarity conversational AI voice identical to Gemini Live."
+    },
+    "en-US-AndrewNeural": {
+        "id": "en-US-AndrewNeural",
+        "name": "Gemini Live Natural (Andrew)",
+        "gender": "Male",
+        "lang": "en-US",
+        "label": "Gemini Studio (Andrew) — Ultra-Natural Human Voice",
+        "description": "Warm, professional, articulate conversational AI voice identical to Gemini Live."
+    },
+    "en-US-JennyNeural": {
+        "id": "en-US-JennyNeural",
+        "name": "Jenny (Conversational)",
+        "gender": "Female",
+        "lang": "en-US",
+        "label": "Natural English — Conversational (Female)",
         "description": "Ultra-natural, crisp, and fluent conversational human voice."
     },
     "en-US-GuyNeural": {
         "id": "en-US-GuyNeural",
-        "name": "Male Voice (Boy)",
+        "name": "Guy (Conversational)",
         "gender": "Male",
         "lang": "en-US",
-        "label": "Male Voice (Boy) — Natural Human Accent",
+        "label": "Natural English — Conversational (Male)",
         "description": "Warm, engaging, and professional natural conversational human voice."
     },
     "en-GB-SoniaNeural": {
@@ -66,7 +82,7 @@ INDIAN_VOICES: Dict[str, Dict[str, str]] = {
     }
 }
 
-DEFAULT_VOICE = "en-US-JennyNeural"
+DEFAULT_VOICE = "en-US-AvaNeural"
 
 def clean_text_for_tts(raw: str) -> str:
     """Strips Markdown syntax, emojis, URLs, and code blocks so synthesized speech sounds natural."""

@@ -669,34 +669,77 @@ class EnglishCoachService:
         data["unlocked_levels"] = sorted(list(set(unlocked))) if unlocked else [1]
         return data
 
+    def _get_local_file_path(self) -> str:
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+        os.makedirs(data_dir, exist_ok=True)
+        return os.path.join(data_dir, "english_coach_profiles.json")
+
+    def _read_local_profiles(self) -> Dict[str, Any]:
+        path = self._get_local_file_path()
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.warning(f"Error reading local coach profiles: {e}")
+        return {}
+
+    def _write_local_profiles(self, profiles_map: Dict[str, Any]):
+        path = self._get_local_file_path()
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(profiles_map, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Error writing local coach profiles: {e}")
+
     def get_or_create_profile(self, user_id: str, user_role: str = "student", user_name: str = "Learner") -> Dict[str, Any]:
-        """Fetches user's coach profile or initializes default state."""
+        """Fetches user's coach profile with robust 3-tier persistence (Supabase Cloud + Local File + In-Memory)."""
         clean_id = (user_id or "guest_learner").strip().lower()
         cache_key = f"{clean_id}_{user_role}"
 
-        # 1. Try Supabase cloud fetch
+        # 1. Return cached in-memory if present
+        if cache_key in COACH_TRACK_CACHE:
+            return self._normalize_profile(COACH_TRACK_CACHE[cache_key])
+
+        session_tag = f"ENGLISH_COACH_PROFILE:{clean_id}:{user_role}"
+
+        # 2. Try Supabase cloud fetch from ai_conversations
         if self.supabase_url and self.service_key:
             try:
                 with httpx.Client(timeout=4.0) as client:
                     resp = client.get(
-                        f"{self.supabase_url}/rest/v1/english_coach_profiles",
+                        f"{self.supabase_url}/rest/v1/ai_conversations",
                         headers=self.headers,
-                        params={"user_id": f"eq.{clean_id}", "user_role": f"eq.{user_role}"}
+                        params={"session_title": f"eq.{session_tag}", "limit": "1"}
                     )
                     if resp.status_code == 200:
                         rows = resp.json()
                         if rows and len(rows) > 0:
-                            data = self._normalize_profile(rows[0])
-                            COACH_TRACK_CACHE[cache_key] = data
-                            return data
+                            raw_history = rows[0].get("chat_history")
+                            if isinstance(raw_history, str):
+                                try:
+                                    raw_history = json.loads(raw_history)
+                                except Exception:
+                                    raw_history = {}
+                            if isinstance(raw_history, dict) and raw_history.get("current_level"):
+                                data = self._normalize_profile(raw_history)
+                                COACH_TRACK_CACHE[cache_key] = data
+                                # Sync to local file as well
+                                local_map = self._read_local_profiles()
+                                local_map[cache_key] = data
+                                self._write_local_profiles(local_map)
+                                return data
             except Exception as e:
                 logger.warning(f"Supabase fetch profile failed for {clean_id}: {e}")
 
-        # 2. Return cached if present
-        if cache_key in COACH_TRACK_CACHE:
-            return self._normalize_profile(COACH_TRACK_CACHE[cache_key])
+        # 3. Try reading from persistent local file
+        local_map = self._read_local_profiles()
+        if cache_key in local_map:
+            data = self._normalize_profile(local_map[cache_key])
+            COACH_TRACK_CACHE[cache_key] = data
+            return data
 
-        # 3. Initialize fresh profile
+        # 4. Initialize fresh profile for first-time user
         initial_profile = {
             "user_id": clean_id,
             "user_role": user_role,
@@ -730,20 +773,58 @@ class EnglishCoachService:
         }
 
         COACH_TRACK_CACHE[cache_key] = initial_profile
+        local_map[cache_key] = initial_profile
+        self._write_local_profiles(local_map)
         self._persist_profile_async(initial_profile)
         return initial_profile
 
     def _persist_profile_async(self, profile: Dict[str, Any]):
-        """Persists profile to Supabase cloud table."""
+        """Persists profile to Supabase cloud and local file storage."""
+        clean_id = (profile.get("user_id") or "guest_learner").strip().lower()
+        user_role = profile.get("user_role") or "student"
+        cache_key = f"{clean_id}_{user_role}"
+
+        # 1. Update in-memory cache
+        COACH_TRACK_CACHE[cache_key] = profile
+
+        # 2. Update local persistent file
+        try:
+            local_map = self._read_local_profiles()
+            local_map[cache_key] = profile
+            self._write_local_profiles(local_map)
+        except Exception as e:
+            logger.warning(f"Error persisting to local file: {e}")
+
+        # 3. Persist to Supabase cloud table (ai_conversations)
         if not self.supabase_url or not self.service_key:
             return
+        session_tag = f"ENGLISH_COACH_PROFILE:{clean_id}:{user_role}"
         try:
             with httpx.Client(timeout=4.0) as client:
-                client.post(
-                    f"{self.supabase_url}/rest/v1/english_coach_profiles",
-                    headers={**self.headers, "Prefer": "resolution=merge-duplicates"},
-                    json=profile
+                # Check if existing row exists
+                chk = client.get(
+                    f"{self.supabase_url}/rest/v1/ai_conversations",
+                    headers=self.headers,
+                    params={"session_title": f"eq.{session_tag}", "select": "id", "limit": "1"}
                 )
+                if chk.status_code == 200 and chk.json() and len(chk.json()) > 0:
+                    row_id = chk.json()[0]["id"]
+                    client.patch(
+                        f"{self.supabase_url}/rest/v1/ai_conversations?id=eq.{row_id}",
+                        headers=self.headers,
+                        json={"chat_history": profile}
+                    )
+                else:
+                    client.post(
+                        f"{self.supabase_url}/rest/v1/ai_conversations",
+                        headers=self.headers,
+                        json={
+                            "id": str(uuid.uuid4()),
+                            "user_id": None,
+                            "session_title": session_tag,
+                            "chat_history": profile
+                        }
+                    )
         except Exception as e:
             logger.debug(f"Cloud profile sync fallback: {e}")
 
@@ -1235,10 +1316,69 @@ Return ONLY a valid JSON object matching this schema:
                     if s_ratio > similarity_ratio:
                         similarity_ratio = s_ratio
 
+        # Acoustic / ASR near-homophone phonetic normalization
+        # Accounts for common speech recognition mis-hearings (e.g. "civil" for "she will")
+        ASR_PHONETIC_PAIRS = [
+            (r"\bcivil\b", "she will"),
+            (r"\bshe will\b", "civil"),
+            (r"\bwood\b", "would"),
+            (r"\btheir\b", "there"),
+            (r"\bthere\b", "their"),
+            (r"\baccept\b", "except"),
+            (r"\bweather\b", "whether"),
+            (r"\bright\b", "write"),
+            (r"\bwon't\b", "want"),
+            (r"\bcant\b", "can't")
+        ]
+        if clean_target_str:
+            norm_spoken = clean_spoken_str
+            for pat, repl in ASR_PHONETIC_PAIRS:
+                if re.search(pat, norm_spoken, flags=re.IGNORECASE) and (repl in clean_target_str):
+                    norm_spoken = re.sub(pat, repl, norm_spoken, flags=re.IGNORECASE)
+            alt_ratio = difflib.SequenceMatcher(None, norm_spoken, clean_target_str).ratio()
+            if alt_ratio > similarity_ratio:
+                similarity_ratio = alt_ratio
+
         # Detect trivial greeting/filler when prompt requires a substantial response
         clean_text_lower = re.sub(r"[^\w\s]", "", speech_text.lower()).strip()
         is_greeting_filler = clean_text_lower in {"hello", "hi", "hey", "yes", "no", "ok", "okay", "bye", "test", "testing", "good"}
         prompt_expects_greeting = "greet" in prompt.lower() or "hello" in prompt.lower() or "introduce" in prompt.lower()
+
+        # INSTANT 0-DELAY FAST-PATH FOR CLEAR & ACCURATE TARGET MATCHES
+        # When target_phrase is provided and student articulated it accurately (or spoken sentence matches clause),
+        # return instant 5ms feedback without waiting for external API latency.
+        is_instant_match = (
+            target_phrase
+            and not (is_greeting_filler and not prompt_expects_greeting)
+            and (
+                similarity_ratio >= 0.75
+                or (clean_spoken_str and clean_target_str and (clean_spoken_str in clean_target_str or clean_target_str in clean_spoken_str) and word_count >= 3)
+            )
+        )
+
+        if is_instant_match:
+            sim_pct = int(similarity_ratio * 100)
+            calc_fluency = min(98, max(82, int(sim_pct * 0.96)))
+            calc_grammar = min(98, max(88, int(sim_pct * 0.98)))
+            calc_vocab = min(98, max(85, int(sim_pct * 0.97)))
+            calc_conf = min(98, max(85, int(min(1.0, word_count / max(1, len(target_clean_words))) * 94)))
+            return {
+                "passed": True,
+                "has_mistakes": False,
+                "relevance_verdict": "Clear & Accurate Delivery",
+                "affirmation": "Spot on! That was fluent, clear, and perfectly spoken.",
+                "original_snippet": speech_text,
+                "corrected_sentence": target_phrase,
+                "explanation": "Flawless sentence delivery with accurate pronunciation and cadence.",
+                "repeat_challenge": "You have mastered this sentence!",
+                "spoken_coach_speech": "Spot on! That was fluent, clear, and perfectly spoken.",
+                "scores": {
+                    "fluency": calc_fluency,
+                    "grammar": calc_grammar,
+                    "vocabulary": calc_vocab,
+                    "confidence": calc_conf
+                }
+            }
 
         ai_prompt = f"""
 You are an expert Cambridge Spoken English Coach listening to a student's voice response.
@@ -1253,8 +1393,8 @@ Student Proficiency Level: {user_level}
 
 CRITICAL COACHING & RELEVANCE RULES:
 1. Genuinely observe what the student said: "{speech_text}".
-2. Did the student speak the required sentence or answer the prompt?
-   - In vocabulary or sentence drills: If the student spoke the example sentence naturally and accurately (e.g. they said "I suggest we practice speaking daily" when learning the word "Suggest"), that is 100% SUCCESSFUL!
+2. Phonetic Tolerance: Speech recognition may mis-transcribe near-homophones (e.g. hearing 'civil' for 'she will', 'wood' for 'would'). If what the user spoke phonetically matches the target phrase in context, consider it correct.
+3. In vocabulary or sentence drills: If the student spoke the example sentence naturally and accurately (e.g. they said "I suggest we practice speaking daily" when learning the word "Suggest"), that is 100% SUCCESSFUL!
    - NEVER penalize the student for not repeating the isolated word title or heading before the sentence.
    - If their spoken utterance matches the target phrase or example sentence (lexical match >= 70% or full sentence match), set:
      "passed": true
@@ -1262,13 +1402,12 @@ CRITICAL COACHING & RELEVANCE RULES:
      "relevance_verdict": "Clear & Accurate Delivery"
      Scores: 85-98.
      "spoken_coach_speech": "Spot on! That was fluent, clear, and perfectly spoken."
-3. Only mark "has_mistakes": true or "passed": false if:
+4. Only mark "has_mistakes": true or "passed": false if:
    - The user spoke something completely different, off-topic, or gave a single-word greeting like 'hello' when a sentence was expected.
    - Or they omitted key words or made significant grammatical errors in the sentence.
-4. If the user said an off-topic greeting or filler (like 'hello' when asked to describe or repeat a sentence):
+5. If the user said an off-topic greeting or filler (like 'hello' when asked to describe or repeat a sentence):
    - Set "passed": false, "has_mistakes": true, and explain:
      "You said '{speech_text}', but our question asks: '{prompt}'. A complete answer would be: '[example answer]'. Please try answering the question again!"
-5. NEVER give generic, static praise if the student said something irrelevant or incomplete.
 
 Return ONLY valid JSON:
 {{
@@ -1473,19 +1612,19 @@ Return ONLY valid JSON:
             history_formatted.append({"role": role, "content": turn.get("text", "")})
 
         system_instruction = f"""
-You are DEVGYA's AI English Speaking Coach, engaging in an authentic, natural voice conversation with an Indian learner.
+You are DEVGYA's AI English Speaking Coach, engaging in an authentic, natural voice conversation with a learner.
 Topic Domain: {category}
 Learner Proficiency: {user_level}
 
 Rules for your response:
-1. Speak warmly, naturally, and concisely (2–3 sentences max) so it sounds like real human dialogue.
-2. Ask one engaging follow-up question to keep the conversation flowing.
-3. If the user made a noticeable grammatical error, include a gentle correction in the "correction" field, but NEVER let it break the natural flow of your spoken conversation.
+1. Speak warmly, naturally, and concisely (1–2 short conversational sentences, under 30 words total) so speech synthesizes instantly.
+2. Ask one natural follow-up question to keep the dialogue flowing effortlessly.
+3. If the user made a grammatical error, note it gently in "gentle_correction", but do NOT break the friendly flow of your spoken conversation.
 4. Return pure JSON:
 {{
-  "reply": "Your natural spoken reply and follow-up question here.",
-  "gentle_correction": "Optional small note: 'By the way, you can say went instead of go.' or empty string",
-  "topic_insight": "Encouraging remark on their vocabulary or sentence structure."
+  "reply": "Your crisp 1-2 sentence spoken reply and question.",
+  "gentle_correction": "Optional small note or empty string",
+  "topic_insight": "Encouraging short remark."
 }}
 """
         history_formatted.insert(0, {"role": "system", "content": system_instruction})
@@ -1495,7 +1634,7 @@ Rules for your response:
             resp = await ai_provider.chat_completion(
                 messages=history_formatted,
                 temperature=0.6,
-                max_tokens=350
+                max_tokens=180
             )
             data = _clean_and_parse_json(resp)
             if not data or not data.get("reply"):
@@ -1611,6 +1750,28 @@ Provide an End-of-Session Performance Report as pure JSON:
         cache_key = f"{clean_id}_{user_role}"
         if cache_key in COACH_TRACK_CACHE:
             del COACH_TRACK_CACHE[cache_key]
+
+        # Remove from local file
+        try:
+            local_map = self._read_local_profiles()
+            if cache_key in local_map:
+                del local_map[cache_key]
+                self._write_local_profiles(local_map)
+        except Exception:
+            pass
+
+        # Remove from Supabase
+        if self.supabase_url and self.service_key:
+            session_tag = f"ENGLISH_COACH_PROFILE:{clean_id}:{user_role}"
+            try:
+                with httpx.Client(timeout=4.0) as client:
+                    client.delete(
+                        f"{self.supabase_url}/rest/v1/ai_conversations",
+                        headers=self.headers,
+                        params={"session_title": f"eq.{session_tag}"}
+                    )
+            except Exception:
+                pass
 
         return self.get_or_create_profile(clean_id, user_role=user_role)
 

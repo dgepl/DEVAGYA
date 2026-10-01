@@ -46,13 +46,37 @@ export function EnglishCoachContainer() {
   const [latestReportData, setLatestReportData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initial data loading
+  // Initial data loading with instant localStorage restore
   useEffect(() => {
+    // 1. Immediately restore cached progress if present
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`devgya_coach_track_${userId}`);
+        if (cached) {
+          const parsed = jsonParseSafe(cached);
+          if (parsed && parsed.profile) {
+            setProfile(parsed.profile);
+            if (parsed.levels) setLevels(parsed.levels);
+            if (parsed.profile.has_taken_diagnostic) {
+              setView("dashboard");
+              setLoading(false);
+            }
+          }
+        }
+      } catch (e) {}
+    }
     loadData();
   }, [userId, userRole]);
 
+  function jsonParseSafe(raw: string) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
   const loadData = async () => {
-    setLoading(true);
     try {
       const [profRes, lvlRes] = await Promise.all([
         fetchCoachProfile(userId, userRole, userName),
@@ -71,6 +95,16 @@ export function EnglishCoachContainer() {
       if (lvlRes.levels) {
         setLevels(lvlRes.levels);
       }
+
+      // Persist to local cache for instant future loads
+      if (typeof window !== "undefined" && profRes.profile) {
+        try {
+          localStorage.setItem(
+            `devgya_coach_track_${userId}`,
+            JSON.stringify({ profile: profRes.profile, levels: lvlRes.levels || [] })
+          );
+        } catch (e) {}
+      }
     } catch (err) {
       console.error("Failed to load coach data:", err);
     } finally {
@@ -82,9 +116,19 @@ export function EnglishCoachContainer() {
     setProfile(newProfile);
     setLatestReportData(report);
     setView("report");
-    // Reload levels
+    // Reload and cache levels
     fetchCoachLevels(userId, userRole).then((res) => {
-      if (res.levels) setLevels(res.levels);
+      if (res.levels) {
+        setLevels(res.levels);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(
+              `devgya_coach_track_${userId}`,
+              JSON.stringify({ profile: newProfile, levels: res.levels })
+            );
+          } catch (e) {}
+        }
+      }
     });
   };
 

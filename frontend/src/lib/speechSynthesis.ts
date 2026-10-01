@@ -239,7 +239,7 @@ export function speakChatMessage(
   // Primary: Stream Edge-TTS Studio Neural Audio via backend API
   try {
     const apiBase = getApiBase();
-    const voiceId = isHindi ? "hi-IN-SwaraNeural" : "en-IN-NeerjaNeural";
+    const voiceId = isHindi ? "hi-IN-SwaraNeural" : "en-US-AvaNeural";
     const streamUrl = `${apiBase}/tts/speak?voice=${encodeURIComponent(voiceId)}&rate=+0%&text=${encodeURIComponent(clean)}`;
     const audio = new Audio(streamUrl);
     currentAudioElement = audio;

@@ -94,7 +94,7 @@ export function ActivityPlayer({
   const [completionResult, setCompletionResult] = useState<any>(null);
   const [itemScores, setItemScores] = useState<number[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
-  const [coachVoice, setCoachVoice] = useState<string>("en-IN-NeerjaNeural");
+  const [coachVoice, setCoachVoice] = useState<string>("en-US-AvaNeural");
 
   const currentItem = items[currentIndex] || items[0] || {};
   const isMultiItem = items.length > 1;
@@ -206,7 +206,7 @@ export function ActivityPlayer({
     };
   }, [activity.type, currentItem, activity.instructions]);
 
-  // Clean up on unmount or item transition
+  // Clean up on unmount or item transition + AUTO-SPEAK on new task/level
   useEffect(() => {
     stopRecording();
     stopCoachSpeaking();
@@ -215,15 +215,30 @@ export function ActivityPlayer({
     setFeedback(null);
     setIsAnalyzing(false);
 
+    // AUTO-SPEAK: Automatically start coach speaking on every new task or level
+    const autoPlayTimer = setTimeout(() => {
+      if (coachSpokenInstruction) {
+        setIsCoachSpeaking(true);
+        speakCoachText(
+          coachSpokenInstruction,
+          () => {
+            setIsCoachSpeaking(false);
+          },
+          coachVoice
+        );
+      }
+    }, 350);
+
     return () => {
+      clearTimeout(autoPlayTimer);
       stopRecording();
       stopCoachSpeaking();
     };
-  }, [currentIndex, activity.id]);
+  }, [currentIndex, activity.id, coachSpokenInstruction, coachVoice]);
 
-  // Trigger coach speech cleanly without automatically starting microphone in a loop!
+  // Trigger coach speech cleanly on replay
   const handlePlayCoachSpeech = () => {
-    if (!coachSpokenInstruction || isCoachSpeaking) return;
+    if (!coachSpokenInstruction) return;
     setHasStarted(true);
     stopRecording();
     setIsCoachSpeaking(true);
@@ -232,7 +247,6 @@ export function ActivityPlayer({
       coachSpokenInstruction,
       () => {
         setIsCoachSpeaking(false);
-        // Clean finish - Microphone stays OFF until user explicitly taps the microphone button when ready!
       },
       coachVoice
     );
@@ -265,6 +279,7 @@ export function ActivityPlayer({
       const rec = new SpeechRec();
       rec.continuous = isLongForm;
       rec.interimResults = true;
+      rec.maxAlternatives = 5; // Multi-hypothesis acoustic decoding for high accuracy
       rec.lang = "en-IN";
 
       rec.onstart = () => {
@@ -287,11 +302,34 @@ export function ActivityPlayer({
           }
           text = (finals + " " + interim).trim();
         } else {
-          // For single sentence mode: Take the current active result cleanly
+          // For single sentence mode: Check top alternatives against target phrase
           const lastIdx = event.results.length - 1;
           if (lastIdx >= 0) {
-            text = event.results[lastIdx][0].transcript;
+            const resultList = event.results[lastIdx];
+            let bestTranscript = resultList[0]?.transcript || "";
+            if (targetPhrase && resultList.length > 1) {
+              const targetNorm = targetPhrase.toLowerCase().replace(/[^\w\s]/g, "");
+              const targetWords = targetNorm.split(/\s+/);
+              let highestOverlap = -1;
+
+              for (let a = 0; a < resultList.length; a++) {
+                const altText = (resultList[a]?.transcript || "").trim();
+                const altNorm = altText.toLowerCase().replace(/[^\w\s]/g, "").replace(/\bcivil\b/g, "she will");
+                const altWords = altNorm.split(/\s+/);
+                const overlap = altWords.filter((w: string) => targetWords.includes(w)).length;
+                if (overlap > highestOverlap) {
+                  highestOverlap = overlap;
+                  bestTranscript = altText;
+                }
+              }
+            }
+            text = bestTranscript;
           }
+        }
+
+        // Acoustic near-homophone correction (e.g. speech recognizer hearing 'civil' for 'she will')
+        if (targetPhrase && targetPhrase.toLowerCase().includes("she will")) {
+          text = text.replace(/\bcivil\b/gi, "she will");
         }
 
         const clean = cleanRepeatedPhrases(text);
@@ -299,11 +337,11 @@ export function ActivityPlayer({
           setSpokenText(clean);
           latestSpokenRef.current = clean;
 
-          // Automatic Silence Detection: Trigger evaluation 1.8s after user stops speaking
+          // Automatic Silence Detection: Trigger evaluation 700ms after user stops speaking (instant response)
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             handleAutoFinishSpeaking(clean);
-          }, 1800);
+          }, 700);
         }
       };
 
@@ -597,9 +635,39 @@ export function ActivityPlayer({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-start sm:self-center">
-            {/* Accent Selector */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 self-start sm:self-center">
+            {/* Natural Voice Selector */}
             <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 p-1 rounded-xl border border-indigo-100 dark:border-indigo-900/60 text-[11px] font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setCoachVoice("en-US-AvaNeural");
+                  setCoachVoicePreference("en-US-AvaNeural");
+                }}
+                className={`px-2.5 py-1 rounded-lg transition ${
+                  coachVoice === "en-US-AvaNeural"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
+                }`}
+                title="Gemini Natural Human Voice (Ava)"
+              >
+                🌟 Gemini Ava
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCoachVoice("en-US-AndrewNeural");
+                  setCoachVoicePreference("en-US-AndrewNeural");
+                }}
+                className={`px-2.5 py-1 rounded-lg transition ${
+                  coachVoice === "en-US-AndrewNeural"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
+                }`}
+                title="Gemini Natural Human Voice (Andrew)"
+              >
+                🎙️ Gemini Andrew
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -611,7 +679,7 @@ export function ActivityPlayer({
                     ? "bg-indigo-600 text-white shadow-xs"
                     : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
                 }`}
-                title="Natural Indian English Accent (Neerja)"
+                title="Indian Educator Accent (Neerja)"
               >
                 🇮🇳 Indian
               </button>
@@ -626,39 +694,29 @@ export function ActivityPlayer({
                     ? "bg-indigo-600 text-white shadow-xs"
                     : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
                 }`}
-                title="Articulate British English Accent (Sonia)"
+                title="British English Accent (Sonia)"
               >
                 🇬🇧 British
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCoachVoice("en-US-JennyNeural");
-                  setCoachVoicePreference("en-US-JennyNeural");
-                }}
-                className={`px-2 py-1 rounded-lg transition ${
-                  coachVoice === "en-US-JennyNeural"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
-                }`}
-                title="Natural American Accent (Jenny)"
-              >
-                🇺🇸 US
-              </button>
             </div>
 
-            <button
-              onClick={handlePlayCoachSpeech}
-              disabled={isCoachSpeaking}
-              className={`px-4 py-2.5 rounded-xl border transition flex items-center justify-center gap-2 text-xs font-bold flex-shrink-0 ${
-                isCoachSpeaking
-                  ? "bg-indigo-600 text-white border-indigo-600 animate-pulse shadow-md"
-                  : "bg-white dark:bg-slate-800 hover:bg-slate-50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 shadow-sm"
-              }`}
-            >
-              <Volume2 className="w-4 h-4" />
-              <span>{isCoachSpeaking ? "Coach Speaking..." : "Listen to Coach 🔊"}</span>
-            </button>
+            {/* Speaking State Indicator & Replay Control */}
+            {isCoachSpeaking ? (
+              <div className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md animate-pulse">
+                <Volume2 className="w-4 h-4 animate-bounce" />
+                <span>Coach Speaking Aloud...</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handlePlayCoachSpeech}
+                title="Replay Spoken Instruction"
+                className="px-3.5 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-slate-50 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Replay Coach</span>
+              </button>
+            )}
           </div>
         </div>
 
