@@ -446,14 +446,14 @@ export default function ComingSoonHubPage() {
                       <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
                         {curated?.sectionHeading || "Planned Capabilities:"}
                       </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        {benefits.slice(0, 6).map((b, bIdx) => (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {benefits.map((b, bIdx) => (
                           <div
                             key={bIdx}
-                            className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 text-[11px] font-semibold text-slate-700"
+                            className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-50/90 border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/20 text-[11px] font-medium text-slate-700 leading-snug transition-colors"
                           >
-                            <span className="text-sm shrink-0">{b.emoji}</span>
-                            <span className="truncate">{b.text}</span>
+                            <span className="text-sm shrink-0 select-none mt-0.5">{b.emoji}</span>
+                            <span className="min-w-0 flex-1 break-words">{b.text}</span>
                           </div>
                         ))}
                       </div>
