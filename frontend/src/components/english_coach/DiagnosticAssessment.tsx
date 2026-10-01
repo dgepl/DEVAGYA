@@ -102,12 +102,17 @@ export function DiagnosticAssessment({
     stopCoachSpeaking();
     setIsCoachSpeaking(false);
 
-    // Auto-speak question prompt aloud immediately
+    // Auto-speak question prompt aloud immediately and then auto-start listening
     const autoPlayTimer = setTimeout(() => {
       setIsCoachSpeaking(true);
       speakCoachText(
         `${currentQ.category}. ${currentQ.prompt}`,
-        () => setIsCoachSpeaking(false)
+        () => {
+          setIsCoachSpeaking(false);
+          setTimeout(() => {
+            startRecording();
+          }, 300);
+        }
       );
     }, 350);
 
@@ -143,7 +148,12 @@ export function DiagnosticAssessment({
     setIsCoachSpeaking(true);
     speakCoachText(
       `${currentQ.category}. ${currentQ.prompt}`,
-      () => setIsCoachSpeaking(false)
+      () => {
+        setIsCoachSpeaking(false);
+        setTimeout(() => {
+          startRecording();
+        }, 300);
+      }
     );
   };
 

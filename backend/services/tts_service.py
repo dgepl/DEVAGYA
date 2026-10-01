@@ -192,12 +192,48 @@ class TTSService:
                     chunks.append(data)
                     yield data
 
-            # Cache short phrases (under 250 characters)
-            if len(clean) < 250 and chunks:
+            # Cache phrases under 1000 characters
+            if len(clean) < 1000 and chunks:
                 self._cache[cache_key] = b"".join(chunks)
 
         except Exception as e:
             logger.error(f"Error in edge-tts stream for voice {selected_voice}: {e}")
             raise e
+
+    async def generate_speech_bytes(
+        self,
+        text: str,
+        voice: str = DEFAULT_VOICE,
+        rate: str = "+0%"
+    ) -> bytes:
+        """Generates full MP3 audio bytes with in-memory caching."""
+        clean = clean_text_for_tts(text)
+        if not clean:
+            return b""
+
+        selected_voice = voice if voice in self.voices else DEFAULT_VOICE
+
+        # Smart Hindi auto-routing
+        has_devanagari = bool(re.search(r'[\u0900-\u097F]', clean))
+        if has_devanagari and not selected_voice.startswith("hi-"):
+            if any(m in selected_voice.lower() for m in ["guy", "prabhat", "madhur", "male", "andrew"]):
+                selected_voice = "hi-IN-MadhurNeural"
+            else:
+                selected_voice = "hi-IN-SwaraNeural"
+
+        cache_key = f"bytes_{selected_voice}_{rate}_{clean}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        communicate = edge_tts.Communicate(clean, selected_voice, rate=rate)
+        chunks: List[bytes] = []
+        async for chunk in communicate.stream():
+            if chunk.get("type") == "audio" and chunk.get("data"):
+                chunks.append(chunk["data"])
+
+        full_bytes = b"".join(chunks)
+        if len(clean) < 1000:
+            self._cache[cache_key] = full_bytes
+        return full_bytes
 
 tts_service = TTSService()

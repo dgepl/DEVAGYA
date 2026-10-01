@@ -94,7 +94,7 @@ export function ActivityPlayer({
   const [completionResult, setCompletionResult] = useState<any>(null);
   const [itemScores, setItemScores] = useState<number[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
-  const [coachVoice, setCoachVoice] = useState<string>("en-US-AvaNeural");
+  const [coachVoice, setCoachVoice] = useState<string>(() => getCoachVoicePreference());
 
   const currentItem = items[currentIndex] || items[0] || {};
   const isMultiItem = items.length > 1;
@@ -215,7 +215,8 @@ export function ActivityPlayer({
     setFeedback(null);
     setIsAnalyzing(false);
 
-    // AUTO-SPEAK: Automatically start coach speaking on every new task or level
+    // AUTO-SPEAK & AUTO-LISTEN: Automatically start coach speaking on every new task or level,
+    // and as soon as the coach finishes, automatically begin listening so user never has to click!
     const autoPlayTimer = setTimeout(() => {
       if (coachSpokenInstruction) {
         setIsCoachSpeaking(true);
@@ -223,9 +224,17 @@ export function ActivityPlayer({
           coachSpokenInstruction,
           () => {
             setIsCoachSpeaking(false);
+            // Hands-Free: Automatically start microphone listening!
+            setTimeout(() => {
+              startRecording();
+            }, 250);
           },
           coachVoice
         );
+      } else {
+        setTimeout(() => {
+          startRecording();
+        }, 250);
       }
     }, 350);
 
@@ -234,7 +243,7 @@ export function ActivityPlayer({
       stopRecording();
       stopCoachSpeaking();
     };
-  }, [currentIndex, activity.id, coachSpokenInstruction, coachVoice]);
+  }, [currentIndex, activity.id, coachSpokenInstruction]);
 
   // Trigger coach speech cleanly on replay
   const handlePlayCoachSpeech = () => {
@@ -247,8 +256,30 @@ export function ActivityPlayer({
       coachSpokenInstruction,
       () => {
         setIsCoachSpeaking(false);
+        // Automatically start listening after replay!
+        setTimeout(() => {
+          startRecording();
+        }, 250);
       },
       coachVoice
+    );
+  };
+
+  // Instant Voice Selection with unique live voice preview
+  const handleSelectVoice = (voiceId: string, sampleIntro: string) => {
+    setCoachVoice(voiceId);
+    setCoachVoicePreference(voiceId);
+    stopRecording();
+    setIsCoachSpeaking(true);
+    speakCoachText(
+      sampleIntro,
+      () => {
+        setIsCoachSpeaking(false);
+        setTimeout(() => {
+          startRecording();
+        }, 250);
+      },
+      voiceId
     );
   };
 
@@ -640,10 +671,12 @@ export function ActivityPlayer({
             <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 p-1 rounded-xl border border-indigo-100 dark:border-indigo-900/60 text-[11px] font-bold">
               <button
                 type="button"
-                onClick={() => {
-                  setCoachVoice("en-US-AvaNeural");
-                  setCoachVoicePreference("en-US-AvaNeural");
-                }}
+                onClick={() =>
+                  handleSelectVoice(
+                    "en-US-AvaNeural",
+                    "Hi! I am Ava, your Gemini English coach. Let's practice speaking!"
+                  )
+                }
                 className={`px-2.5 py-1 rounded-lg transition ${
                   coachVoice === "en-US-AvaNeural"
                     ? "bg-indigo-600 text-white shadow-xs"
@@ -655,10 +688,12 @@ export function ActivityPlayer({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setCoachVoice("en-US-AndrewNeural");
-                  setCoachVoicePreference("en-US-AndrewNeural");
-                }}
+                onClick={() =>
+                  handleSelectVoice(
+                    "en-US-AndrewNeural",
+                    "Hello! I am Andrew, your Gemini English coach. Ready when you are!"
+                  )
+                }
                 className={`px-2.5 py-1 rounded-lg transition ${
                   coachVoice === "en-US-AndrewNeural"
                     ? "bg-indigo-600 text-white shadow-xs"
@@ -670,10 +705,12 @@ export function ActivityPlayer({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setCoachVoice("en-IN-NeerjaNeural");
-                  setCoachVoicePreference("en-IN-NeerjaNeural");
-                }}
+                onClick={() =>
+                  handleSelectVoice(
+                    "en-IN-NeerjaNeural",
+                    "Namaste! I am Neerja, your Indian English coach. Let's begin!"
+                  )
+                }
                 className={`px-2 py-1 rounded-lg transition ${
                   coachVoice === "en-IN-NeerjaNeural"
                     ? "bg-indigo-600 text-white shadow-xs"
@@ -685,10 +722,12 @@ export function ActivityPlayer({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setCoachVoice("en-GB-SoniaNeural");
-                  setCoachVoicePreference("en-GB-SoniaNeural");
-                }}
+                onClick={() =>
+                  handleSelectVoice(
+                    "en-GB-SoniaNeural",
+                    "Good day! I am Sonia, your British English coach. Let's articulate clearly!"
+                  )
+                }
                 className={`px-2 py-1 rounded-lg transition ${
                   coachVoice === "en-GB-SoniaNeural"
                     ? "bg-indigo-600 text-white shadow-xs"
@@ -1027,7 +1066,7 @@ export function ActivityPlayer({
             >
               {isRecording ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
               <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">
-                {isRecording ? "Listening" : "Tap to Speak"}
+                {isRecording ? "Listening" : "Speak"}
               </span>
             </button>
           </div>
@@ -1035,14 +1074,18 @@ export function ActivityPlayer({
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
             {isRecording ? (
               <span className="text-rose-600 dark:text-rose-400 font-semibold animate-pulse">
-                🎙️ Listening... (Stops automatically when you pause)
+                🎙️ Listening to you... (Stops automatically when you finish speaking)
               </span>
             ) : isAnalyzing ? (
               <span className="text-indigo-600 dark:text-indigo-400 font-semibold animate-pulse">
                 AI Coach is evaluating your pronunciation...
               </span>
+            ) : isCoachSpeaking ? (
+              <span className="text-indigo-600 dark:text-indigo-400 font-medium animate-pulse">
+                Coach speaking... mic will start automatically!
+              </span>
             ) : (
-              <span>Tap the microphone to speak, or listen to the coach first.</span>
+              <span>Hands-free active. Tap mic anytime to pause or speak again.</span>
             )}
           </p>
 

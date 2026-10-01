@@ -150,15 +150,92 @@ export function getBestEnglishVoice(): SpeechSynthesisVoice | null {
   return anyEn || null;
 }
 
+export function getMatchingBrowserVoice(voiceId: string): SpeechSynthesisVoice | null {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  if (voiceId.includes("Andrew") || voiceId.includes("Guy") || voiceId.includes("Male")) {
+    const usMale = voices.find(
+      (v) =>
+        (v.lang === "en-US" || v.lang.startsWith("en-US")) &&
+        (v.name.includes("David") ||
+          v.name.includes("Guy") ||
+          v.name.includes("Male") ||
+          v.name.includes("Mark") ||
+          v.name.includes("George"))
+    );
+    if (usMale) return usMale;
+    const anyUs = voices.find((v) => v.lang === "en-US" || v.lang.startsWith("en-US"));
+    if (anyUs) return anyUs;
+  } else if (voiceId.includes("Ava") || voiceId.includes("Jenny")) {
+    const usFemale = voices.find(
+      (v) =>
+        (v.lang === "en-US" || v.lang.startsWith("en-US")) &&
+        (v.name.includes("Zira") ||
+          v.name.includes("Jenny") ||
+          v.name.includes("Natural") ||
+          v.name.includes("Google") ||
+          v.name.includes("Female") ||
+          v.name.includes("Ava"))
+    );
+    if (usFemale) return usFemale;
+    const anyUs = voices.find((v) => v.lang === "en-US" || v.lang.startsWith("en-US"));
+    if (anyUs) return anyUs;
+  } else if (voiceId.includes("Neerja") || voiceId.includes("IN") || voiceId.includes("Indian")) {
+    const inVoice = voices.find(
+      (v) =>
+        v.lang === "en-IN" ||
+        v.lang === "en_IN" ||
+        v.lang.includes("IN") ||
+        v.name.includes("India") ||
+        v.name.includes("Neerja") ||
+        v.name.includes("Prabhat") ||
+        v.name.includes("Heera") ||
+        v.name.includes("Veena")
+    );
+    if (inVoice) return inVoice;
+  } else if (voiceId.includes("Sonia") || voiceId.includes("GB") || voiceId.includes("British")) {
+    const gbVoice = voices.find(
+      (v) =>
+        v.lang === "en-GB" ||
+        v.lang.startsWith("en-GB") ||
+        v.lang.includes("GB") ||
+        v.name.includes("UK") ||
+        v.name.includes("British") ||
+        v.name.includes("Hazel") ||
+        v.name.includes("Susan")
+    );
+    if (gbVoice) return gbVoice;
+  }
+
+  return getBestEnglishVoice();
+}
+
 let currentCoachAudio: HTMLAudioElement | null = null;
 let currentVoiceId: string = "en-US-AvaNeural"; // Ultra-natural Gemini-quality Studio Voice
+const audioBlobCache = new Map<string, string>();
 
 export function setCoachVoicePreference(voiceId: string) {
   currentVoiceId = voiceId;
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("devgya_coach_voice", voiceId);
+    } catch (e) {}
+  }
 }
 
 export function getCoachVoicePreference(): string {
-  return currentVoiceId;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("devgya_coach_voice");
+      if (stored) {
+        currentVoiceId = stored;
+        return stored;
+      }
+    } catch (e) {}
+  }
+  return currentVoiceId || "en-US-AvaNeural";
 }
 
 export function speakCoachText(
@@ -195,6 +272,8 @@ export function speakCoachText(
     }
   };
 
+  const selectedVoice = voicePreference || getCoachVoicePreference();
+
   const triggerFallback = () => {
     if (fallbackAttempted || completed) return;
     fallbackAttempted = true;
@@ -206,49 +285,67 @@ export function speakCoachText(
       } catch (e) {}
       currentCoachAudio = null;
     }
-    fallbackBrowserSpeech(clean, finish);
+    fallbackBrowserSpeech(clean, selectedVoice, finish);
   };
 
-  const selectedVoice = voicePreference || currentVoiceId || "en-US-AvaNeural";
+  // 1. Primary: Fetch & Play Studio-Quality Edge-TTS Neural Audio Blob
+  (async () => {
+    try {
+      const apiBase = getApiBase();
+      const streamUrl = `${apiBase}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&rate=+0%&text=${encodeURIComponent(clean)}`;
+      
+      const cacheKey = `${selectedVoice}:${clean}`;
+      let blobUrl = audioBlobCache.get(cacheKey);
 
-  // 1. Primary: Stream Studio-Quality Edge-TTS Neural Audio via Backend API
-  try {
-    const apiBase = getApiBase();
-    const streamUrl = `${apiBase}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&rate=+0%&text=${encodeURIComponent(clean)}`;
-    const audio = new Audio(streamUrl);
-    currentCoachAudio = audio;
-
-    audio.onended = () => {
-      currentCoachAudio = null;
-      finish();
-    };
-
-    audio.onerror = () => {
-      triggerFallback();
-    };
-
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch((err) => {
-        console.warn("Edge-TTS stream error, using fallback:", err);
-        triggerFallback();
-      });
-    }
-
-    // Safety timeout in case audio playback stalls
-    const maxWaitMs = Math.max(3500, Math.min(25000, clean.length * 90));
-    setTimeout(() => {
-      if (!completed && currentCoachAudio) {
-        stopCoachSpeaking();
-        finish();
+      if (!blobUrl) {
+        const resp = await fetch(streamUrl);
+        if (!resp.ok) {
+          throw new Error(`TTS server HTTP ${resp.status}`);
+        }
+        const blob = await resp.blob();
+        blobUrl = URL.createObjectURL(blob);
+        audioBlobCache.set(cacheKey, blobUrl);
       }
-    }, maxWaitMs);
-  } catch {
-    triggerFallback();
-  }
+
+      if (completed) return;
+
+      const audio = new Audio(blobUrl);
+      currentCoachAudio = audio;
+
+      audio.onended = () => {
+        currentCoachAudio = null;
+        finish();
+      };
+
+      audio.onerror = (e) => {
+        console.warn("Audio element playback error, falling back:", e);
+        triggerFallback();
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("Edge-TTS play error, using fallback:", err);
+          triggerFallback();
+        });
+      }
+
+      // Safety timeout in case audio playback stalls
+      const maxWaitMs = Math.max(3500, Math.min(25000, clean.length * 90));
+      setTimeout(() => {
+        if (!completed && currentCoachAudio) {
+          stopCoachSpeaking();
+          finish();
+        }
+      }, maxWaitMs);
+    } catch (err) {
+      console.warn("Edge-TTS fetch error:", err);
+      triggerFallback();
+    }
+  })();
 }
 
-function fallbackBrowserSpeech(cleanText: string, onEnd: () => void) {
+function fallbackBrowserSpeech(cleanText: string, selectedVoice: string, onEnd: () => void) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     onEnd();
     return;
@@ -262,15 +359,42 @@ function fallbackBrowserSpeech(cleanText: string, onEnd: () => void) {
 
     setTimeout(() => {
       try {
-        // Cancel again to ensure queue is completely empty
         window.speechSynthesis.cancel();
 
         const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.lang = "en-IN";
-        utterance.rate = 0.95;
-        utterance.pitch = 1.02;
 
-        const voice = getBestEnglishVoice();
+        // Tailor pitch, rate, and language to user's selected voice
+        if (selectedVoice.includes("Andrew") || selectedVoice.includes("Guy")) {
+          utterance.lang = "en-US";
+          utterance.pitch = 0.9;
+          utterance.rate = 0.96;
+        } else if (selectedVoice.includes("Ava") || selectedVoice.includes("Jenny")) {
+          utterance.lang = "en-US";
+          utterance.pitch = 1.08;
+          utterance.rate = 1.0;
+        } else if (
+          selectedVoice.includes("Neerja") ||
+          selectedVoice.includes("IN") ||
+          selectedVoice.includes("Indian")
+        ) {
+          utterance.lang = "en-IN";
+          utterance.pitch = 1.02;
+          utterance.rate = 0.94;
+        } else if (
+          selectedVoice.includes("Sonia") ||
+          selectedVoice.includes("GB") ||
+          selectedVoice.includes("British")
+        ) {
+          utterance.lang = "en-GB";
+          utterance.pitch = 1.0;
+          utterance.rate = 0.94;
+        } else {
+          utterance.lang = "en-US";
+          utterance.pitch = 1.0;
+          utterance.rate = 0.98;
+        }
+
+        const voice = getMatchingBrowserVoice(selectedVoice);
         if (voice) {
           utterance.voice = voice;
           utterance.lang = voice.lang;

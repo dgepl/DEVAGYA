@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -9,7 +9,7 @@ router = APIRouter(prefix="/tts", tags=["Text-to-Speech Engine"])
 class SpeakRequest(BaseModel):
     text: str
     voice: Optional[str] = DEFAULT_VOICE
-    rate: Optional[str] = "+15%"
+    rate: Optional[str] = "+0%"
 
 @router.get("/voices")
 async def list_voices():
@@ -23,21 +23,22 @@ async def list_voices():
 @router.get("/speak")
 async def speak_get(
     text: str = Query(..., description="Text content to speak"),
-    voice: str = Query(DEFAULT_VOICE, description="Voice ID e.g. en-US-JennyNeural, en-IN-NeerjaNeural"),
-    rate: str = Query("+15%", description="Speech speed adjustment e.g. +10%, +15%, +20%")
+    voice: str = Query(DEFAULT_VOICE, description="Voice ID e.g. en-US-AvaNeural, en-US-AndrewNeural, en-IN-NeerjaNeural, en-GB-SoniaNeural"),
+    rate: str = Query("+0%", description="Speech speed adjustment")
 ):
-    """Stream low-latency natural Indian accent audio via GET request."""
+    """Generate and return ultra-natural neural speech audio with exact Content-Length."""
     if not text.strip():
         raise HTTPException(status_code=400, detail="Text parameter cannot be empty.")
 
     try:
-        audio_stream = tts_service.generate_speech_stream(text, voice=voice, rate=rate)
-        return StreamingResponse(
-            audio_stream,
+        audio_bytes = await tts_service.generate_speech_bytes(text, voice=voice, rate=rate)
+        return Response(
+            content=audio_bytes,
             media_type="audio/mpeg",
             headers={
                 "Content-Type": "audio/mpeg",
-                "Cache-Control": "public, max-age=3600",
+                "Content-Length": str(len(audio_bytes)),
+                "Cache-Control": "public, max-age=86400",
                 "Accept-Ranges": "bytes"
             }
         )
