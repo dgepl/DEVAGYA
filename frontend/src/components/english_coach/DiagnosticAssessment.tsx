@@ -49,6 +49,13 @@ export function DiagnosticAssessment({
   const [isRecording, setIsRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
   const [isCoachSpeaking, setIsCoachSpeaking] = useState(false);
+  const isCoachSpeakingRef = useRef(false);
+
+  const updateCoachSpeaking = (val: boolean) => {
+    isCoachSpeakingRef.current = val;
+    setIsCoachSpeaking(val);
+  };
+
   const [timeRemaining, setTimeRemaining] = useState(60);
   const [showSample, setShowSample] = useState(false);
 
@@ -104,14 +111,15 @@ export function DiagnosticAssessment({
 
     // Auto-speak question prompt aloud immediately and then auto-start listening
     const autoPlayTimer = setTimeout(() => {
-      setIsCoachSpeaking(true);
+      updateCoachSpeaking(true);
       speakCoachText(
         `${currentQ.category}. ${currentQ.prompt}`,
         () => {
-          setIsCoachSpeaking(false);
+          updateCoachSpeaking(false);
+          // Wait 350ms for audio output hardware session to release cleanly to microphone
           setTimeout(() => {
             startRecording();
-          }, 300);
+          }, 350);
         }
       );
     }, 350);
@@ -145,14 +153,14 @@ export function DiagnosticAssessment({
   const handleListenPrompt = () => {
     if (!currentQ) return;
     stopRecording();
-    setIsCoachSpeaking(true);
+    updateCoachSpeaking(true);
     speakCoachText(
       `${currentQ.category}. ${currentQ.prompt}`,
       () => {
-        setIsCoachSpeaking(false);
+        updateCoachSpeaking(false);
         setTimeout(() => {
           startRecording();
-        }, 300);
+        }, 350);
       }
     );
   };
@@ -169,11 +177,25 @@ export function DiagnosticAssessment({
       return;
     }
 
+    // Hardware isolation: Ensure coach is silent before listening
+    stopCoachSpeaking();
+    updateCoachSpeaking(false);
+
+    // Abort and detach any existing recognition instance to avoid already-started collision
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
+
     try {
-      stopCoachSpeaking();
-      setIsCoachSpeaking(false);
       const rec = new SpeechRec();
-      rec.continuous = true;
+      rec.continuous = true; // Always continuous so Chrome doesn't time out
       rec.interimResults = true;
       rec.maxAlternatives = 5;
       rec.lang = "en-IN";
@@ -183,6 +205,8 @@ export function DiagnosticAssessment({
       };
 
       rec.onresult = (event: any) => {
+        if (isCoachSpeakingRef.current) return;
+
         let finals = "";
         let interim = "";
         for (let i = 0; i < event.results.length; ++i) {
@@ -211,7 +235,10 @@ export function DiagnosticAssessment({
       };
 
       rec.onerror = (e: any) => {
-        console.warn("Speech recognition error:", e);
+        console.warn("Speech recognition notice:", e.error);
+        if (e.error === "no-speech" || e.error === "aborted") {
+          return;
+        }
         setIsRecording(false);
       };
 
@@ -233,8 +260,14 @@ export function DiagnosticAssessment({
     }
     if (recognitionRef.current) {
       try {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
         recognitionRef.current.stop();
+        recognitionRef.current.abort();
       } catch (e) {}
+      recognitionRef.current = null;
     }
     setIsRecording(false);
   };

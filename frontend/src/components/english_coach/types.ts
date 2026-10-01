@@ -313,6 +313,11 @@ export function speakCoachText(
       currentCoachAudio = audio;
 
       audio.onended = () => {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.src = "";
+        } catch (e) {}
         currentCoachAudio = null;
         finish();
       };

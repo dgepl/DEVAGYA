@@ -88,6 +88,13 @@ export function ActivityPlayer({
   const [spokenText, setSpokenText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isCoachSpeaking, setIsCoachSpeaking] = useState(false);
+  const isCoachSpeakingRef = useRef(false);
+
+  const updateCoachSpeaking = (val: boolean) => {
+    isCoachSpeakingRef.current = val;
+    setIsCoachSpeaking(val);
+  };
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [feedback, setFeedback] = useState<any>(null);
   const [completed, setCompleted] = useState(false);
@@ -219,22 +226,22 @@ export function ActivityPlayer({
     // and as soon as the coach finishes, automatically begin listening so user never has to click!
     const autoPlayTimer = setTimeout(() => {
       if (coachSpokenInstruction) {
-        setIsCoachSpeaking(true);
+        updateCoachSpeaking(true);
         speakCoachText(
           coachSpokenInstruction,
           () => {
-            setIsCoachSpeaking(false);
-            // Hands-Free: Automatically start microphone listening!
+            updateCoachSpeaking(false);
+            // Allow 350ms for Windows/Chrome audio output session to release cleanly to microphone
             setTimeout(() => {
               startRecording();
-            }, 250);
+            }, 350);
           },
           coachVoice
         );
       } else {
         setTimeout(() => {
           startRecording();
-        }, 250);
+        }, 350);
       }
     }, 350);
 
@@ -250,16 +257,15 @@ export function ActivityPlayer({
     if (!coachSpokenInstruction) return;
     setHasStarted(true);
     stopRecording();
-    setIsCoachSpeaking(true);
+    updateCoachSpeaking(true);
 
     speakCoachText(
       coachSpokenInstruction,
       () => {
-        setIsCoachSpeaking(false);
-        // Automatically start listening after replay!
+        updateCoachSpeaking(false);
         setTimeout(() => {
           startRecording();
-        }, 250);
+        }, 350);
       },
       coachVoice
     );
@@ -270,14 +276,14 @@ export function ActivityPlayer({
     setCoachVoice(voiceId);
     setCoachVoicePreference(voiceId);
     stopRecording();
-    setIsCoachSpeaking(true);
+    updateCoachSpeaking(true);
     speakCoachText(
       sampleIntro,
       () => {
-        setIsCoachSpeaking(false);
+        updateCoachSpeaking(false);
         setTimeout(() => {
           startRecording();
-        }, 250);
+        }, 350);
       },
       voiceId
     );
@@ -292,13 +298,25 @@ export function ActivityPlayer({
 
     // Hardware isolation: Ensure AI coach is completely silent before listening
     stopCoachSpeaking();
-    setIsCoachSpeaking(false);
+    updateCoachSpeaking(false);
 
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRec) {
       alert("Microphone speech recognition not supported in this browser. Please use Chrome or Edge.");
       return;
+    }
+
+    // Abort and detach any existing recognition instance to avoid already-started collision
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      } catch (e) {}
+      recognitionRef.current = null;
     }
 
     try {
@@ -308,7 +326,7 @@ export function ActivityPlayer({
       hasEvaluatedRef.current = false;
 
       const rec = new SpeechRec();
-      rec.continuous = isLongForm;
+      rec.continuous = true; // Always continuous! Never prematurely time out before user speaks!
       rec.interimResults = true;
       rec.maxAlternatives = 5; // Multi-hypothesis acoustic decoding for high accuracy
       rec.lang = "en-IN";
@@ -318,43 +336,42 @@ export function ActivityPlayer({
       };
 
       rec.onresult = (event: any) => {
-        if (isCoachSpeaking) return; // Prevent mic from capturing speaker audio
+        if (isCoachSpeakingRef.current) return; // Prevent mic from capturing speaker audio
 
-        let text = "";
-        if (isLongForm) {
-          let finals = "";
-          let interim = "";
-          for (let i = 0; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finals += event.results[i][0].transcript + " ";
-            } else {
-              interim = event.results[i][0].transcript;
-            }
+        let finals = "";
+        let interim = "";
+        for (let i = 0; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finals += event.results[i][0].transcript + " ";
+          } else {
+            interim = event.results[i][0].transcript;
           }
-          text = (finals + " " + interim).trim();
-        } else {
-          // For single sentence mode: Check top alternatives against target phrase
-          const lastIdx = event.results.length - 1;
-          if (lastIdx >= 0) {
-            const resultList = event.results[lastIdx];
-            let bestTranscript = resultList[0]?.transcript || "";
-            if (targetPhrase && resultList.length > 1) {
-              const targetNorm = targetPhrase.toLowerCase().replace(/[^\w\s]/g, "");
-              const targetWords = targetNorm.split(/\s+/);
-              let highestOverlap = -1;
+        }
+        let text = (finals + " " + interim).trim();
 
-              for (let a = 0; a < resultList.length; a++) {
-                const altText = (resultList[a]?.transcript || "").trim();
-                const altNorm = altText.toLowerCase().replace(/[^\w\s]/g, "").replace(/\bcivil\b/g, "she will");
-                const altWords = altNorm.split(/\s+/);
-                const overlap = altWords.filter((w: string) => targetWords.includes(w)).length;
-                if (overlap > highestOverlap) {
-                  highestOverlap = overlap;
-                  bestTranscript = altText;
-                }
+        // For single sentence mode: Check top alternatives against target phrase
+        const lastIdx = event.results.length - 1;
+        if (lastIdx >= 0 && targetPhrase) {
+          const resultList = event.results[lastIdx];
+          if (resultList.length > 1) {
+            const targetNorm = targetPhrase.toLowerCase().replace(/[^\w\s]/g, "");
+            const targetWords = targetNorm.split(/\s+/);
+            let highestOverlap = -1;
+            let bestTranscript = "";
+
+            for (let a = 0; a < resultList.length; a++) {
+              const altText = (resultList[a]?.transcript || "").trim();
+              const altNorm = altText.toLowerCase().replace(/[^\w\s]/g, "").replace(/\bcivil\b/g, "she will");
+              const altWords = altNorm.split(/\s+/);
+              const overlap = altWords.filter((w: string) => targetWords.includes(w)).length;
+              if (overlap > highestOverlap) {
+                highestOverlap = overlap;
+                bestTranscript = altText;
               }
             }
-            text = bestTranscript;
+            if (bestTranscript) {
+              text = bestTranscript;
+            }
           }
         }
 
@@ -368,7 +385,7 @@ export function ActivityPlayer({
           setSpokenText(clean);
           latestSpokenRef.current = clean;
 
-          // Automatic Silence Detection: Trigger evaluation 700ms after user stops speaking (instant response)
+          // Automatic Silence Detection: Trigger evaluation 700ms after user pauses speaking
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             handleAutoFinishSpeaking(clean);
@@ -378,6 +395,10 @@ export function ActivityPlayer({
 
       rec.onerror = (e: any) => {
         console.warn("Speech recognition notice:", e.error);
+        // Do NOT abort on normal silence or no-speech! Keep microphone open!
+        if (e.error === "no-speech" || e.error === "aborted") {
+          return;
+        }
         setIsRecording(false);
       };
 
@@ -385,7 +406,7 @@ export function ActivityPlayer({
         setIsRecording(false);
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         const finalClean = cleanRepeatedPhrases(latestSpokenRef.current);
-        if (finalClean && finalClean.trim().length > 0 && !hasEvaluatedRef.current && !isCoachSpeaking) {
+        if (finalClean && finalClean.trim().length > 0 && !hasEvaluatedRef.current && !isCoachSpeakingRef.current) {
           handleAutoFinishSpeaking(finalClean);
         }
       };
@@ -402,8 +423,14 @@ export function ActivityPlayer({
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (recognitionRef.current) {
       try {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
         recognitionRef.current.stop();
+        recognitionRef.current.abort();
       } catch (e) {}
+      recognitionRef.current = null;
     }
     setIsRecording(false);
   };
@@ -424,7 +451,7 @@ export function ActivityPlayer({
   // Called automatically when user pauses speaking
   const handleAutoFinishSpeaking = (textToEvaluate: string) => {
     stopRecording();
-    if (isCoachSpeaking || hasEvaluatedRef.current) return;
+    if (isCoachSpeakingRef.current || hasEvaluatedRef.current) return;
     const clean = cleanRepeatedPhrases(textToEvaluate);
     if (clean && clean.trim().length > 0) {
       executeEvaluation(clean);
@@ -464,11 +491,11 @@ export function ActivityPlayer({
           ? `Good try! You should say: ${res.corrected_sentence}.`
           : "Spot on! That was clear and natural.");
 
-      setIsCoachSpeaking(true);
+      updateCoachSpeaking(true);
       speakCoachText(
         scriptToSpeak,
         () => {
-          setIsCoachSpeaking(false);
+          updateCoachSpeaking(false);
           // STOP! Do NOT auto advance into an endless loop.
           // The user has full control to view feedback, repeat, or tap "Next Challenge" when ready.
         },
