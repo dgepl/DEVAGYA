@@ -4,7 +4,12 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   speakCoachText,
   stopCoachSpeaking,
-  cleanRepeatedPhrases
+  cleanRepeatedPhrases,
+  parseSpeechResults,
+  unlockAudio,
+  COACH_VOICE_OPTIONS,
+  getCoachVoicePreference,
+  setCoachVoicePreference
 } from "./types";
 import { sendCoachConversationTurn, fetchCoachSessionReport } from "@/lib/api";
 import {
@@ -37,6 +42,7 @@ interface Turn {
 
 export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   const [category, setCategory] = useState<"Casual" | "Intermediate" | "Advanced">("Casual");
+  const [coachVoice, setCoachVoice] = useState<string>(() => getCoachVoicePreference());
   const [conversation, setConversation] = useState<Turn[]>([
     {
       sender: "coach",
@@ -52,6 +58,15 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
 
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const silenceTimerRef = useRef<any>(null);
+  const latestSpokenRef = useRef<string>("");
+  const isSendingTurnRef = useRef<boolean>(false);
+  const isCoachSpeakingRef = useRef<boolean>(false);
+
+  const updateCoachSpeaking = (val: boolean) => {
+    setIsCoachSpeaking(val);
+    isCoachSpeakingRef.current = val;
+  };
 
   const [isHandsFree, setIsHandsFree] = useState(true);
   const isHandsFreeRef = useRef(true);
@@ -65,13 +80,13 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
     // Speak initial starter with Gemini-quality natural voice and then auto-listen
     const starter = conversation[0].text;
     const timer = setTimeout(() => {
-      setIsCoachSpeaking(true);
+      updateCoachSpeaking(true);
       speakCoachText(starter, () => {
-        setIsCoachSpeaking(false);
+        updateCoachSpeaking(false);
         if (isHandsFreeRef.current) {
           startRecording();
         }
-      });
+      }, coachVoice);
     }, 400);
 
     return () => {
@@ -91,11 +106,9 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
     }
   }, [conversation, isCoachThinking]);
 
-  const silenceTimerRef = useRef<any>(null);
-  const latestSpokenRef = useRef<string>("");
-
   const startRecording = () => {
     if (typeof window === "undefined") return;
+    unlockAudio();
     const SpeechRec =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -106,9 +119,9 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
 
     try {
       stopCoachSpeaking();
-      setIsCoachSpeaking(false);
+      updateCoachSpeaking(false);
       const rec = new SpeechRec();
-      rec.continuous = false;
+      rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 5;
       rec.lang = "en-IN";
@@ -116,29 +129,31 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       rec.onstart = () => setIsRecording(true);
 
       rec.onresult = (event: any) => {
-        const lastIdx = event.results.length - 1;
-        const raw = lastIdx >= 0 ? event.results[lastIdx][0].transcript : "";
+        if (isCoachSpeakingRef.current) return;
+        const raw = parseSpeechResults(event);
         const clean = cleanRepeatedPhrases(raw);
         if (clean) {
           setUserInput(clean);
           latestSpokenRef.current = clean;
 
-          // Fast 650ms silence detection for live fluid dialogue
+          // Fast 700ms silence detection for live fluid dialogue
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             handleSendMessage(clean);
-          }, 650);
+          }, 700);
         }
       };
 
       rec.onerror = (e: any) => {
         console.warn("Speech recognition error:", e);
+        if (e.error === "no-speech" || e.error === "aborted") return;
         setIsRecording(false);
       };
 
       rec.onend = () => {
         setIsRecording(false);
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        if (isSendingTurnRef.current) return;
         const finalClean = cleanRepeatedPhrases(latestSpokenRef.current);
         if (finalClean && finalClean.trim().length > 0) {
           handleSendMessage(finalClean);
@@ -157,6 +172,10 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (recognitionRef.current) {
       try {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
         recognitionRef.current.stop();
       } catch (e) {}
     }
@@ -164,6 +183,16 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   };
 
   const toggleRecording = () => {
+    unlockAudio();
+    if (isCoachSpeaking) {
+      stopCoachSpeaking();
+      updateCoachSpeaking(false);
+      isSendingTurnRef.current = false;
+      setTimeout(() => {
+        startRecording();
+      }, 150);
+      return;
+    }
     if (isRecording) {
       stopRecording();
       const clean = cleanRepeatedPhrases(userInput || latestSpokenRef.current);
@@ -176,12 +205,15 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   };
 
   const handleSendMessage = async (textOverride?: string) => {
-    stopRecording();
+    if (isSendingTurnRef.current) return;
     const textToSend = cleanRepeatedPhrases(textOverride || userInput).trim();
     if (!textToSend || isCoachThinking) return;
 
+    isSendingTurnRef.current = true;
+    stopRecording();
     setUserInput("");
     latestSpokenRef.current = "";
+
     const newTurns: Turn[] = [...conversation, { sender: "user", text: textToSend }];
     setConversation(newTurns);
     setIsCoachThinking(true);
@@ -208,18 +240,20 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       setConversation((prev) => [...prev, coachTurn]);
 
       // Speak AI reply aloud naturally with Gemini-quality voice and then auto-listen
-      setIsCoachSpeaking(true);
+      updateCoachSpeaking(true);
       speakCoachText(coachTurn.text, () => {
-        setIsCoachSpeaking(false);
+        updateCoachSpeaking(false);
+        isSendingTurnRef.current = false;
         // Hands-free conversational loop: Coach finishes speaking, automatically listens to user!
         if (isHandsFreeRef.current) {
           setTimeout(() => {
             startRecording();
           }, 250);
         }
-      });
+      }, coachVoice);
     } catch (err: any) {
       console.error("Conversation turn error:", err);
+      isSendingTurnRef.current = false;
     } finally {
       setIsCoachThinking(false);
     }
@@ -351,7 +385,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 flex flex-col h-[calc(100vh-140px)] min-h-[580px]">
       {/* Top Header */}
-      <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
         <button
           onClick={onBack}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -360,54 +394,79 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
           <span>Exit Lounge</span>
         </button>
 
-        {/* Category Pills */}
-        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
-          {(["Casual", "Intermediate", "Advanced"] as const).map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition ${
-                category === cat
-                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
+        {/* Category & Voice Selectors */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Category Pills */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            {(["Casual", "Intermediate", "Advanced"] as const).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                  category === cat
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Voice Accent Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
+            <Volume2 className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+            <select
+              value={coachVoice}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCoachVoice(v);
+                setCoachVoicePreference(v);
+              }}
+              className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer pr-1"
             >
-              {cat}
-            </button>
-          ))}
+              {COACH_VOICE_OPTIONS.map((vo) => (
+                <option key={vo.id} value={vo.id} className="dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                  {vo.name} ({vo.accent})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Hands-Free Live Mode Toggle */}
-        <button
-          type="button"
-          onClick={() => {
-            const next = !isHandsFree;
-            setIsHandsFree(next);
-            if (next && !isCoachSpeaking && !isRecording) {
-              startRecording();
-            } else if (!next && isRecording) {
-              stopRecording();
-            }
-          }}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer ${
-            isHandsFree
-              ? "bg-emerald-600 text-white shadow-emerald-500/20"
-              : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-          }`}
-          title="Toggle hands-free live conversation mode"
-        >
-          <span className={`w-2 h-2 rounded-full ${isHandsFree ? "bg-white animate-ping" : "bg-slate-400"}`} />
-          <span>{isHandsFree ? "Hands-Free Live Call: ON" : "Push to Talk"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Hands-Free Live Mode Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !isHandsFree;
+              setIsHandsFree(next);
+              if (next && !isCoachSpeaking && !isRecording) {
+                startRecording();
+              } else if (!next && isRecording) {
+                stopRecording();
+              }
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+              isHandsFree
+                ? "bg-emerald-600 text-white shadow-emerald-500/20"
+                : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+            }`}
+            title="Toggle hands-free live conversation mode"
+          >
+            <span className={`w-2 h-2 rounded-full ${isHandsFree ? "bg-white animate-ping" : "bg-slate-400"}`} />
+            <span>{isHandsFree ? "Live Call: ON" : "Push to Talk"}</span>
+          </button>
 
-        <button
-          onClick={handleEndSession}
-          disabled={isGeneratingReport || conversation.length < 2}
-          className="px-4 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1.5"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>{isGeneratingReport ? "Grading..." : "Finish & Get Report"}</span>
-        </button>
+          <button
+            onClick={handleEndSession}
+            disabled={isGeneratingReport || conversation.length < 2}
+            className="px-3.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1.5"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>{isGeneratingReport ? "Grading..." : "Finish"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Realtime Live Conversation Status Banner */}
@@ -500,12 +559,14 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
         {/* Big Mic Toggle */}
         <button
           onClick={toggleRecording}
-          className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-md flex-shrink-0 ${
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-md flex-shrink-0 cursor-pointer ${
             isRecording
               ? "bg-rose-600 text-white animate-pulse shadow-rose-500/40"
+              : isCoachSpeaking
+              ? "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-indigo-500/30 hover:scale-105"
               : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20"
           }`}
-          title={isRecording ? "Stop recording" : "Speak to AI coach"}
+          title={isRecording ? "Stop recording" : isCoachSpeaking ? "Tap to interrupt & speak" : "Speak to AI coach"}
         >
           {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
         </button>

@@ -212,9 +212,59 @@ export function getMatchingBrowserVoice(voiceId: string): SpeechSynthesisVoice |
   return getBestEnglishVoice();
 }
 
-let currentCoachAudio: HTMLAudioElement | null = null;
+export interface CoachVoiceOption {
+  id: string;
+  name: string;
+  accent: string;
+  gender: string;
+  description: string;
+}
+
+export const COACH_VOICE_OPTIONS: CoachVoiceOption[] = [
+  { id: "en-US-AvaNeural", name: "Gemini Ava", accent: "American", gender: "Female", description: "Ultra-natural studio voice" },
+  { id: "en-US-AndrewNeural", name: "Andrew", accent: "American", gender: "Male", description: "Warm conversational mentor" },
+  { id: "en-IN-NeerjaNeural", name: "Neerja", accent: "Indian English", gender: "Female", description: "Authentic clear Indian accent" },
+  { id: "en-IN-PrabhatNeural", name: "Prabhat", accent: "Indian English", gender: "Male", description: "Professional Indian mentor" },
+  { id: "en-GB-SoniaNeural", name: "Sonia", accent: "British", gender: "Female", description: "Refined British RP accent" },
+  { id: "en-GB-RyanNeural", name: "Ryan", accent: "British", gender: "Male", description: "Polished British London voice" }
+];
+
+let sharedAudioElement: HTMLAudioElement | null = null;
+let isAudioUnlocked = false;
 let currentVoiceId: string = "en-US-AvaNeural"; // Ultra-natural Gemini-quality Studio Voice
 const audioBlobCache = new Map<string, string>();
+let coachSpeechWatchdogTimer: any = null;
+
+export function getSharedAudioElement(): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  if (!sharedAudioElement) {
+    try {
+      sharedAudioElement = new Audio();
+      (sharedAudioElement as any).playsInline = true;
+    } catch (e) {}
+  }
+  return sharedAudioElement;
+}
+
+export function unlockAudio() {
+  if (typeof window === "undefined") return;
+  try {
+    const audio = getSharedAudioElement();
+    if (audio && !isAudioUnlocked) {
+      audio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==";
+      const p = audio.play();
+      if (p !== undefined) {
+        p.then(() => {
+          audio.pause();
+          isAudioUnlocked = true;
+        }).catch(() => {});
+      }
+    }
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.resume();
+    }
+  } catch (e) {}
+}
 
 export function setCoachVoicePreference(voiceId: string) {
   currentVoiceId = voiceId;
@@ -266,24 +316,37 @@ export function speakCoachText(
   let fallbackAttempted = false;
 
   const finish = () => {
+    if (coachSpeechWatchdogTimer) {
+      clearTimeout(coachSpeechWatchdogTimer);
+      coachSpeechWatchdogTimer = null;
+    }
     if (!completed) {
       completed = true;
       if (onEnd) onEnd();
     }
   };
 
+  // Watchdog timer: Guarantee coach speaking NEVER stays stuck on mobile/desktop
+  const maxWaitMs = Math.max(3000, Math.min(18000, clean.length * 80 + 2000));
+  coachSpeechWatchdogTimer = setTimeout(() => {
+    if (!completed) {
+      stopCoachSpeaking();
+      finish();
+    }
+  }, maxWaitMs);
+
   const selectedVoice = voicePreference || getCoachVoicePreference();
 
   const triggerFallback = () => {
     if (fallbackAttempted || completed) return;
     fallbackAttempted = true;
-    if (currentCoachAudio) {
+    const audio = getSharedAudioElement();
+    if (audio) {
       try {
-        currentCoachAudio.pause();
-        currentCoachAudio.currentTime = 0;
-        currentCoachAudio.src = "";
+        audio.pause();
+        audio.currentTime = 0;
+        audio.src = "";
       } catch (e) {}
-      currentCoachAudio = null;
     }
     fallbackBrowserSpeech(clean, selectedVoice, finish);
   };
@@ -309,16 +372,14 @@ export function speakCoachText(
 
       if (completed) return;
 
-      const audio = new Audio(blobUrl);
-      currentCoachAudio = audio;
+      const audio = getSharedAudioElement() || new Audio();
+      audio.src = blobUrl;
 
       audio.onended = () => {
         try {
           audio.pause();
           audio.currentTime = 0;
-          audio.src = "";
         } catch (e) {}
-        currentCoachAudio = null;
         finish();
       };
 
@@ -334,15 +395,6 @@ export function speakCoachText(
           triggerFallback();
         });
       }
-
-      // Safety timeout in case audio playback stalls
-      const maxWaitMs = Math.max(3500, Math.min(25000, clean.length * 90));
-      setTimeout(() => {
-        if (!completed && currentCoachAudio) {
-          stopCoachSpeaking();
-          finish();
-        }
-      }, maxWaitMs);
     } catch (err) {
       console.warn("Edge-TTS fetch error:", err);
       triggerFallback();
@@ -368,14 +420,13 @@ function fallbackBrowserSpeech(cleanText: string, selectedVoice: string, onEnd: 
 
         const utterance = new SpeechSynthesisUtterance(cleanText);
 
-        // Tailor pitch, rate, and language to user's selected voice
         if (selectedVoice.includes("Andrew") || selectedVoice.includes("Guy")) {
           utterance.lang = "en-US";
           utterance.pitch = 0.9;
           utterance.rate = 0.96;
         } else if (selectedVoice.includes("Ava") || selectedVoice.includes("Jenny")) {
           utterance.lang = "en-US";
-          utterance.pitch = 1.08;
+          utterance.pitch = 1.05;
           utterance.rate = 1.0;
         } else if (
           selectedVoice.includes("Neerja") ||
@@ -416,17 +467,15 @@ function fallbackBrowserSpeech(cleanText: string, selectedVoice: string, onEnd: 
         utterance.onend = complete;
         utterance.onerror = complete;
 
-        const maxWaitMs = Math.max(3000, Math.min(20000, cleanText.length * 90));
-        setTimeout(() => {
-          if (!finished) complete();
-        }, maxWaitMs);
-
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
         window.speechSynthesis.speak(utterance);
       } catch (err) {
         console.warn("Browser fallback speech error:", err);
         onEnd();
       }
-    }, 50);
+    }, 40);
   } catch (err) {
     console.warn("Speech cancel error:", err);
     onEnd();
@@ -434,13 +483,17 @@ function fallbackBrowserSpeech(cleanText: string, selectedVoice: string, onEnd: 
 }
 
 export function stopCoachSpeaking() {
-  if (currentCoachAudio) {
+  if (coachSpeechWatchdogTimer) {
+    clearTimeout(coachSpeechWatchdogTimer);
+    coachSpeechWatchdogTimer = null;
+  }
+  const audio = getSharedAudioElement();
+  if (audio) {
     try {
-      currentCoachAudio.pause();
-      currentCoachAudio.currentTime = 0;
-      currentCoachAudio.src = "";
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = "";
     } catch (e) {}
-    currentCoachAudio = null;
   }
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
     try {
@@ -450,8 +503,54 @@ export function stopCoachSpeaking() {
 }
 
 /**
+ * Safely parses WebSpeech recognition results across Android Chrome, iOS Safari, and Desktop.
+ * Accurately detects cumulative streaming vs discrete chunks to avoid exponential word repetition.
+ */
+export function parseSpeechResults(event: any): string {
+  if (!event || !event.results || event.results.length === 0) return "";
+
+  // Check if results are cumulative (common mobile Android WebSpeech behavior)
+  let isCumulative = false;
+  if (event.results.length > 1) {
+    const first = (event.results[0][0]?.transcript || "").trim().toLowerCase();
+    const second = (event.results[1][0]?.transcript || "").trim().toLowerCase();
+    if (first.length >= 4 && (second.startsWith(first) || second.includes(first))) {
+      isCumulative = true;
+    }
+  }
+
+  if (isCumulative) {
+    // In cumulative mode on Android, the last result entry contains the entire progressive sentence
+    const lastResult = event.results[event.results.length - 1];
+    return (lastResult && lastResult[0]?.transcript) ? lastResult[0].transcript.trim() : "";
+  }
+
+  // Discrete chunks mode (Desktop Chrome / Safari)
+  let finals = "";
+  let interim = "";
+  for (let i = 0; i < event.results.length; ++i) {
+    const item = event.results[i];
+    const trans = (item[0]?.transcript || "").trim();
+    if (!trans) continue;
+    if (item.isFinal) {
+      if (!finals.toLowerCase().includes(trans.toLowerCase())) {
+        finals += (finals ? " " : "") + trans;
+      }
+    } else {
+      interim = trans;
+    }
+  }
+
+  let text = finals;
+  if (interim && !finals.toLowerCase().includes(interim.toLowerCase())) {
+    text = (finals ? finals + " " : "") + interim;
+  }
+  return text.trim();
+}
+
+/**
  * Strips speech recognizer repetitive word stuttering and multi-word loop artifacts.
- * e.g., "she she writes she writes an email she writes an email" -> "she writes an email"
+ * e.g., "we are very sorry to inform you that you we are very sorry..." -> "we are very sorry to inform you..."
  */
 export function cleanRepeatedPhrases(text: string): string {
   if (!text) return "";
@@ -471,30 +570,32 @@ export function cleanRepeatedPhrases(text: string): string {
     }
   }
 
-  let result = dedupedWords.join(" ");
+  let words = dedupedWords;
 
-  // 2. Loop to collapse repeated multi-word phrase patterns
-  for (let phraseLen = 8; phraseLen >= 2; phraseLen--) {
-    let words = result.split(/\s+/);
-    if (words.length < phraseLen * 2) continue;
+  // 2. Dynamic multi-pass repetition collapse up to half the sentence length
+  let maxPhraseLen = Math.min(30, Math.floor(words.length / 2));
+  let changed = true;
+  let iterations = 0;
 
-    let changed = false;
-    for (let i = 0; i <= words.length - phraseLen * 2; i++) {
-      const phraseA = words.slice(i, i + phraseLen).join(" ").toLowerCase();
-      const phraseB = words.slice(i + phraseLen, i + phraseLen * 2).join(" ").toLowerCase();
-
-      if (phraseA === phraseB) {
-        words.splice(i, phraseLen);
-        result = words.join(" ");
-        changed = true;
-        break;
+  while (changed && iterations < 20) {
+    changed = false;
+    iterations++;
+    for (let phraseLen = maxPhraseLen; phraseLen >= 1; phraseLen--) {
+      if (words.length < phraseLen * 2) continue;
+      for (let i = 0; i <= words.length - phraseLen * 2; i++) {
+        const phraseA = words.slice(i, i + phraseLen).join(" ").toLowerCase();
+        const phraseB = words.slice(i + phraseLen, i + phraseLen * 2).join(" ").toLowerCase();
+        if (phraseA === phraseB) {
+          words.splice(i, phraseLen);
+          changed = true;
+          maxPhraseLen = Math.min(30, Math.floor(words.length / 2));
+          break;
+        }
       }
-    }
-    if (changed) {
-      phraseLen++; // re-check at same length
+      if (changed) break;
     }
   }
 
-  return result.trim();
+  return words.join(" ").trim();
 }
 

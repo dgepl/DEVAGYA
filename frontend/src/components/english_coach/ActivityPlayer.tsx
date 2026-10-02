@@ -7,6 +7,9 @@ import {
   speakCoachText,
   stopCoachSpeaking,
   cleanRepeatedPhrases,
+  parseSpeechResults,
+  unlockAudio,
+  COACH_VOICE_OPTIONS,
   setCoachVoicePreference,
   getCoachVoicePreference
 } from "./types";
@@ -338,22 +341,14 @@ export function ActivityPlayer({
       rec.onresult = (event: any) => {
         if (isCoachSpeakingRef.current) return; // Prevent mic from capturing speaker audio
 
-        let finals = "";
-        let interim = "";
-        for (let i = 0; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finals += event.results[i][0].transcript + " ";
-          } else {
-            interim = event.results[i][0].transcript;
-          }
-        }
-        let text = (finals + " " + interim).trim();
+        let text = parseSpeechResults(event);
+        if (!text) return;
 
         // For single sentence mode: Check top alternatives against target phrase
         const lastIdx = event.results.length - 1;
         if (lastIdx >= 0 && targetPhrase) {
           const resultList = event.results[lastIdx];
-          if (resultList.length > 1) {
+          if (resultList && resultList.length > 1) {
             const targetNorm = targetPhrase.toLowerCase().replace(/[^\w\s]/g, "");
             const targetWords = targetNorm.split(/\s+/);
             let highestOverlap = -1;
@@ -436,6 +431,15 @@ export function ActivityPlayer({
   };
 
   const toggleRecording = () => {
+    unlockAudio();
+    if (isCoachSpeaking) {
+      stopCoachSpeaking();
+      updateCoachSpeaking(false);
+      setTimeout(() => {
+        startRecording();
+      }, 150);
+      return;
+    }
     if (isRecording) {
       stopRecording();
       // If user manually stopped and text exists, evaluate
@@ -1084,16 +1088,19 @@ export function ActivityPlayer({
             )}
             <button
               onClick={toggleRecording}
-              disabled={isCoachSpeaking || isAnalyzing}
-              className={`relative z-10 w-20 h-20 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-xl disabled:opacity-40 ${
+              disabled={isAnalyzing}
+              title={isCoachSpeaking ? "Tap to interrupt and speak" : isRecording ? "Listening to you" : "Tap to speak"}
+              className={`relative z-10 w-20 h-20 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-xl disabled:opacity-40 cursor-pointer ${
                 isRecording
                   ? "bg-rose-600 text-white shadow-rose-500/40 scale-105"
+                  : isCoachSpeaking
+                  ? "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white hover:scale-105 shadow-indigo-500/30"
                   : "bg-gradient-to-tr from-indigo-600 to-purple-600 text-white hover:scale-105 shadow-indigo-500/30"
               }`}
             >
               {isRecording ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
-              <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">
-                {isRecording ? "Listening" : "Speak"}
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-wider text-center px-1">
+                {isRecording ? "Listening" : isCoachSpeaking ? "Tap to Talk" : "Speak"}
               </span>
             </button>
           </div>

@@ -6,7 +6,8 @@ import {
   CoachProfile,
   CoachLevel,
   CoachActivity,
-  CoachView
+  CoachView,
+  unlockAudio
 } from "./types";
 import {
   fetchCoachProfile,
@@ -45,6 +46,19 @@ export function EnglishCoachContainer() {
   const [selectedActivity, setSelectedActivity] = useState<CoachActivity | null>(null);
   const [latestReportData, setLatestReportData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Global user gesture audio unlocker for mobile browsers
+  useEffect(() => {
+    const handleGesture = () => {
+      unlockAudio();
+    };
+    window.addEventListener("touchstart", handleGesture, { passive: true });
+    window.addEventListener("click", handleGesture, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", handleGesture);
+      window.removeEventListener("click", handleGesture);
+    };
+  }, []);
 
   // Initial data loading with instant localStorage restore
   useEffect(() => {

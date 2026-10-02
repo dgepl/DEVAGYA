@@ -6,7 +6,9 @@ import {
   SpokenAnswerItem,
   speakCoachText,
   stopCoachSpeaking,
-  cleanRepeatedPhrases
+  cleanRepeatedPhrases,
+  parseSpeechResults,
+  unlockAudio
 } from "./types";
 import { fetchDiagnosticQuestions, submitDiagnosticAssessment } from "@/lib/api";
 import {
@@ -207,17 +209,8 @@ export function DiagnosticAssessment({
       rec.onresult = (event: any) => {
         if (isCoachSpeakingRef.current) return;
 
-        let finals = "";
-        let interim = "";
-        for (let i = 0; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finals += event.results[i][0].transcript + " ";
-          } else {
-            interim = event.results[i][0].transcript;
-          }
-        }
-        const combined = (finals + " " + interim).trim();
-        const clean = cleanRepeatedPhrases(combined);
+        const raw = parseSpeechResults(event);
+        const clean = cleanRepeatedPhrases(raw);
         if (clean) {
           setAnswers((prev) => ({
             ...prev,
@@ -273,6 +266,15 @@ export function DiagnosticAssessment({
   };
 
   const toggleRecording = () => {
+    unlockAudio();
+    if (isCoachSpeaking) {
+      stopCoachSpeaking();
+      updateCoachSpeaking(false);
+      setTimeout(() => {
+        startRecording();
+      }, 150);
+      return;
+    }
     if (isRecording) {
       stopRecording();
     } else {
