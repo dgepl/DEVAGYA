@@ -1633,19 +1633,30 @@ Rules for your response:
         try:
             resp = await ai_provider.chat_completion(
                 messages=history_formatted,
-                temperature=0.6,
-                max_tokens=180
+                temperature=0.35,
+                max_tokens=90,
+                response_format_json=True
             )
             data = _clean_and_parse_json(resp)
             if not data or not data.get("reply"):
+                if resp and len(resp.strip()) > 5:
+                    clean_reply = re.sub(r'<think>[\s\S]*?</think>', '', resp).strip()
+                    if not clean_reply.startswith("{"):
+                        return {
+                            "reply": clean_reply,
+                            "gentle_correction": "",
+                            "topic_insight": "Good communication flow."
+                        }
                 raise ValueError("Failed to parse conversation turn JSON from model")
             return data
         except Exception as e:
             logger.warning(f"Conversation turn fallback: {e}")
+            words = [w.lower() for w in re.findall(r'\b[a-zA-Z]{4,}\b', speech_text) if w.lower() not in {"this", "that", "with", "have", "from", "they", "will", "what", "when", "your", "very"}]
+            topic_word = words[-1] if words else "that"
             return {
-                "reply": "That's very interesting! Could you tell me a little bit more about why you feel that way?",
+                "reply": f"That makes total sense regarding {topic_word}! How did that go for you?",
                 "gentle_correction": "",
-                "topic_insight": "Good confidence in expressing your thoughts."
+                "topic_insight": "Natural confidence and expressive speech."
             }
 
     # -----------------------------------------------------------------

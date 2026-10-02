@@ -9,9 +9,7 @@ import {
   cleanRepeatedPhrases,
   parseSpeechResults,
   unlockAudio,
-  COACH_VOICE_OPTIONS,
-  setCoachVoicePreference,
-  getCoachVoicePreference
+  COACH_DEFAULT_VOICE
 } from "./types";
 import { critiqueSpokenResponse, completeCoachActivity } from "@/lib/api";
 import {
@@ -104,7 +102,6 @@ export function ActivityPlayer({
   const [completionResult, setCompletionResult] = useState<any>(null);
   const [itemScores, setItemScores] = useState<number[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
-  const [coachVoice, setCoachVoice] = useState<string>(() => getCoachVoicePreference());
 
   const currentItem = items[currentIndex] || items[0] || {};
   const isMultiItem = items.length > 1;
@@ -239,7 +236,7 @@ export function ActivityPlayer({
               startRecording();
             }, 350);
           },
-          coachVoice
+          COACH_DEFAULT_VOICE
         );
       } else {
         setTimeout(() => {
@@ -270,25 +267,7 @@ export function ActivityPlayer({
           startRecording();
         }, 350);
       },
-      coachVoice
-    );
-  };
-
-  // Instant Voice Selection with unique live voice preview
-  const handleSelectVoice = (voiceId: string, sampleIntro: string) => {
-    setCoachVoice(voiceId);
-    setCoachVoicePreference(voiceId);
-    stopRecording();
-    updateCoachSpeaking(true);
-    speakCoachText(
-      sampleIntro,
-      () => {
-        updateCoachSpeaking(false);
-        setTimeout(() => {
-          startRecording();
-        }, 350);
-      },
-      voiceId
+      COACH_DEFAULT_VOICE
     );
   };
 
@@ -503,7 +482,7 @@ export function ActivityPlayer({
           // STOP! Do NOT auto advance into an endless loop.
           // The user has full control to view feedback, repeat, or tap "Next Challenge" when ready.
         },
-        coachVoice
+        COACH_DEFAULT_VOICE
       );
     } catch (err: any) {
       console.error("Evaluation error:", err);
@@ -698,83 +677,11 @@ export function ActivityPlayer({
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 self-start sm:self-center">
-            {/* Natural Voice Selector */}
-            <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 p-1 rounded-xl border border-indigo-100 dark:border-indigo-900/60 text-[11px] font-bold">
-              <button
-                type="button"
-                onClick={() =>
-                  handleSelectVoice(
-                    "en-US-AvaNeural",
-                    "Hi! I am Ava, your Gemini English coach. Let's practice speaking!"
-                  )
-                }
-                className={`px-2.5 py-1 rounded-lg transition ${
-                  coachVoice === "en-US-AvaNeural"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
-                }`}
-                title="Gemini Natural Human Voice (Ava)"
-              >
-                🌟 Gemini Ava
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleSelectVoice(
-                    "en-US-AndrewNeural",
-                    "Hello! I am Andrew, your Gemini English coach. Ready when you are!"
-                  )
-                }
-                className={`px-2.5 py-1 rounded-lg transition ${
-                  coachVoice === "en-US-AndrewNeural"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
-                }`}
-                title="Gemini Natural Human Voice (Andrew)"
-              >
-                🎙️ Gemini Andrew
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleSelectVoice(
-                    "en-IN-NeerjaNeural",
-                    "Namaste! I am Neerja, your Indian English coach. Let's begin!"
-                  )
-                }
-                className={`px-2 py-1 rounded-lg transition ${
-                  coachVoice === "en-IN-NeerjaNeural"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
-                }`}
-                title="Indian Educator Accent (Neerja)"
-              >
-                🇮🇳 Indian
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleSelectVoice(
-                    "en-GB-SoniaNeural",
-                    "Good day! I am Sonia, your British English coach. Let's articulate clearly!"
-                  )
-                }
-                className={`px-2 py-1 rounded-lg transition ${
-                  coachVoice === "en-GB-SoniaNeural"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
-                }`}
-                title="British English Accent (Sonia)"
-              >
-                🇬🇧 British
-              </button>
-            </div>
-
             {/* Speaking State Indicator & Replay Control */}
             {isCoachSpeaking ? (
               <div className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md animate-pulse">
                 <Volume2 className="w-4 h-4 animate-bounce" />
-                <span>Coach Speaking Aloud...</span>
+                <span>Coach Speaking...</span>
               </div>
             ) : (
               <button

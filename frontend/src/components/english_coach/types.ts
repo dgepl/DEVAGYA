@@ -212,26 +212,11 @@ export function getMatchingBrowserVoice(voiceId: string): SpeechSynthesisVoice |
   return getBestEnglishVoice();
 }
 
-export interface CoachVoiceOption {
-  id: string;
-  name: string;
-  accent: string;
-  gender: string;
-  description: string;
-}
-
-export const COACH_VOICE_OPTIONS: CoachVoiceOption[] = [
-  { id: "en-US-AvaNeural", name: "Gemini Ava", accent: "American", gender: "Female", description: "Ultra-natural studio voice" },
-  { id: "en-US-AndrewNeural", name: "Andrew", accent: "American", gender: "Male", description: "Warm conversational mentor" },
-  { id: "en-IN-NeerjaNeural", name: "Neerja", accent: "Indian English", gender: "Female", description: "Authentic clear Indian accent" },
-  { id: "en-IN-PrabhatNeural", name: "Prabhat", accent: "Indian English", gender: "Male", description: "Professional Indian mentor" },
-  { id: "en-GB-SoniaNeural", name: "Sonia", accent: "British", gender: "Female", description: "Refined British RP accent" },
-  { id: "en-GB-RyanNeural", name: "Ryan", accent: "British", gender: "Male", description: "Polished British London voice" }
-];
+export const COACH_DEFAULT_VOICE = "en-US-AvaNeural";
 
 let sharedAudioElement: HTMLAudioElement | null = null;
 let isAudioUnlocked = false;
-let currentVoiceId: string = "en-US-AvaNeural"; // Ultra-natural Gemini-quality Studio Voice
+let currentVoiceId: string = COACH_DEFAULT_VOICE; // Ultra-natural human studio voice
 const audioBlobCache = new Map<string, string>();
 let coachSpeechWatchdogTimer: any = null;
 
@@ -267,25 +252,11 @@ export function unlockAudio() {
 }
 
 export function setCoachVoicePreference(voiceId: string) {
-  currentVoiceId = voiceId;
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem("devgya_coach_voice", voiceId);
-    } catch (e) {}
-  }
+  currentVoiceId = COACH_DEFAULT_VOICE;
 }
 
 export function getCoachVoicePreference(): string {
-  if (typeof window !== "undefined") {
-    try {
-      const stored = localStorage.getItem("devgya_coach_voice");
-      if (stored) {
-        currentVoiceId = stored;
-        return stored;
-      }
-    } catch (e) {}
-  }
-  return currentVoiceId || "en-US-AvaNeural";
+  return COACH_DEFAULT_VOICE;
 }
 
 export function speakCoachText(
@@ -504,48 +475,37 @@ export function stopCoachSpeaking() {
 
 /**
  * Safely parses WebSpeech recognition results across Android Chrome, iOS Safari, and Desktop.
- * Accurately detects cumulative streaming vs discrete chunks to avoid exponential word repetition.
+ * Accurately detects and collapses cumulative/progressive streaming chunks on mobile so sentences
+ * are never duplicated or exponentially repeated.
  */
 export function parseSpeechResults(event: any): string {
   if (!event || !event.results || event.results.length === 0) return "";
 
-  // Check if results are cumulative (common mobile Android WebSpeech behavior)
-  let isCumulative = false;
-  if (event.results.length > 1) {
-    const first = (event.results[0][0]?.transcript || "").trim().toLowerCase();
-    const second = (event.results[1][0]?.transcript || "").trim().toLowerCase();
-    if (first.length >= 4 && (second.startsWith(first) || second.includes(first))) {
-      isCumulative = true;
-    }
-  }
+  const chunks: string[] = [];
+  for (let i = 0; i < event.results.length; i++) {
+    const transcript = (event.results[i][0]?.transcript || "").trim();
+    if (!transcript) continue;
 
-  if (isCumulative) {
-    // In cumulative mode on Android, the last result entry contains the entire progressive sentence
-    const lastResult = event.results[event.results.length - 1];
-    return (lastResult && lastResult[0]?.transcript) ? lastResult[0].transcript.trim() : "";
-  }
+    if (chunks.length > 0) {
+      const lastChunk = chunks[chunks.length - 1];
+      const lastNorm = lastChunk.toLowerCase().replace(/[^\w\s]/g, "");
+      const currNorm = transcript.toLowerCase().replace(/[^\w\s]/g, "");
 
-  // Discrete chunks mode (Desktop Chrome / Safari)
-  let finals = "";
-  let interim = "";
-  for (let i = 0; i < event.results.length; ++i) {
-    const item = event.results[i];
-    const trans = (item[0]?.transcript || "").trim();
-    if (!trans) continue;
-    if (item.isFinal) {
-      if (!finals.toLowerCase().includes(trans.toLowerCase())) {
-        finals += (finals ? " " : "") + trans;
+      // Progressive expansion (common on Android Chrome continuous recognition):
+      // If current chunk starts with or contains the previous chunk, replace previous with current!
+      if (currNorm.startsWith(lastNorm) || currNorm.includes(lastNorm)) {
+        chunks[chunks.length - 1] = transcript;
+        continue;
       }
-    } else {
-      interim = trans;
+      // If previous chunk already contains current chunk, ignore current chunk
+      if (lastNorm.startsWith(currNorm) || lastNorm.includes(currNorm)) {
+        continue;
+      }
     }
+    chunks.push(transcript);
   }
 
-  let text = finals;
-  if (interim && !finals.toLowerCase().includes(interim.toLowerCase())) {
-    text = (finals ? finals + " " : "") + interim;
-  }
-  return text.trim();
+  return chunks.join(" ").trim();
 }
 
 /**

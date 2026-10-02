@@ -48,11 +48,11 @@ class AIProviderService:
 
     @property
     def model(self) -> str:
-        return os.getenv("AI_MODEL", "gemini-3.5-flash-lite")
+        return os.getenv("AI_MODEL", "gemini-flash-lite-latest")
 
     @property
     def vision_model(self) -> str:
-        return os.getenv("AI_VISION_MODEL", "gemini-3.5-flash-lite")
+        return os.getenv("AI_VISION_MODEL", "gemini-flash-lite-latest")
 
     def build_vision_content(self, text: str, image_data_urls: List[str]) -> List[Dict[str, Any]]:
         """Build an OpenAI-style multi-part message content for vision-capable models."""
@@ -124,9 +124,9 @@ class AIProviderService:
 
         async with httpx.AsyncClient(timeout=90.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3-flash-preview"]
+                models_to_try = [selected_model, "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-2.5-flash"]
             elif has_imgs:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
+                models_to_try = [selected_model, "gemini-flash-lite-latest", "gemini-2.5-flash"]
             else:
                 models_to_try = [selected_model, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
             # Deduplicate while preserving order

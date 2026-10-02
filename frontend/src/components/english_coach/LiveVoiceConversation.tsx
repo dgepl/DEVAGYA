@@ -7,9 +7,7 @@ import {
   cleanRepeatedPhrases,
   parseSpeechResults,
   unlockAudio,
-  COACH_VOICE_OPTIONS,
-  getCoachVoicePreference,
-  setCoachVoicePreference
+  COACH_DEFAULT_VOICE
 } from "./types";
 import { sendCoachConversationTurn, fetchCoachSessionReport } from "@/lib/api";
 import {
@@ -42,7 +40,6 @@ interface Turn {
 
 export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   const [category, setCategory] = useState<"Casual" | "Intermediate" | "Advanced">("Casual");
-  const [coachVoice, setCoachVoice] = useState<string>(() => getCoachVoicePreference());
   const [conversation, setConversation] = useState<Turn[]>([
     {
       sender: "coach",
@@ -77,7 +74,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   }, [isHandsFree]);
 
   useEffect(() => {
-    // Speak initial starter with Gemini-quality natural voice and then auto-listen
+    // Speak initial starter with natural voice and then auto-listen
     const starter = conversation[0].text;
     const timer = setTimeout(() => {
       updateCoachSpeaking(true);
@@ -86,7 +83,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
         if (isHandsFreeRef.current) {
           startRecording();
         }
-      }, coachVoice);
+      }, COACH_DEFAULT_VOICE);
     }, 400);
 
     return () => {
@@ -250,7 +247,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
             startRecording();
           }, 250);
         }
-      }, coachVoice);
+      }, COACH_DEFAULT_VOICE);
     } catch (err: any) {
       console.error("Conversation turn error:", err);
       isSendingTurnRef.current = false;
@@ -394,44 +391,21 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
           <span>Exit Lounge</span>
         </button>
 
-        {/* Category & Voice Selectors */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Category Pills */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-            {(["Casual", "Intermediate", "Advanced"] as const).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategory(cat)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                  category === cat
-                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Voice Accent Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <Volume2 className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-            <select
-              value={coachVoice}
-              onChange={(e) => {
-                const v = e.target.value;
-                setCoachVoice(v);
-                setCoachVoicePreference(v);
-              }}
-              className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer pr-1"
+        {/* Category Pills */}
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+          {(["Casual", "Intermediate", "Advanced"] as const).map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategory(cat)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                category === cat
+                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              }`}
             >
-              {COACH_VOICE_OPTIONS.map((vo) => (
-                <option key={vo.id} value={vo.id} className="dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                  {vo.name} ({vo.accent})
-                </option>
-              ))}
-            </select>
-          </div>
+              {cat}
+            </button>
+          ))}
         </div>
 
         <div className="flex items-center gap-2">
@@ -475,10 +449,10 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
           <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white flex items-center justify-between text-xs font-bold shadow-md animate-pulse">
             <div className="flex items-center gap-2">
               <Volume2 className="w-4 h-4 animate-bounce" />
-              <span>AI Coach Speaking Aloud (Gemini Live Voice)...</span>
+              <span>AI Coach Speaking...</span>
             </div>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
-              Live Voice
+              Live AI Call
             </span>
           </div>
         ) : isRecording ? (
