@@ -66,6 +66,15 @@ export function ActivityPlayer({
     if (activity.type === "sentence_builder" && Array.isArray(data.drills)) {
       return data.drills;
     }
+    if (activity.type === "connectors" && Array.isArray(data.drills)) {
+      return data.drills;
+    }
+    if (activity.type === "sentence_expansion" && Array.isArray(data.drills)) {
+      return data.drills;
+    }
+    if (activity.type === "spontaneous_speaking" && Array.isArray(data.topics)) {
+      return data.topics.map((t: string) => ({ topic: t, target_seconds: 60 }));
+    }
     if (activity.type === "mini_lesson" && Array.isArray(data.examples)) {
       return data.examples;
     }
@@ -80,6 +89,12 @@ export function ActivityPlayer({
     }
     if (data.questions && Array.isArray(data.questions)) {
       return data.questions;
+    }
+    if (data.drills && Array.isArray(data.drills)) {
+      return data.drills;
+    }
+    if (data.topics && Array.isArray(data.topics)) {
+      return data.topics.map((t: string) => ({ topic: t, target_seconds: 60 }));
     }
     // Single item fallback
     return [data];
@@ -196,18 +211,79 @@ export function ActivityPlayer({
       };
     }
 
-    if (type === "roleplay") {
-      const starter = data.starter || "";
-      const suggested = (data.suggested_phrases || [])[0] || "";
+    if (type === "spontaneous_speaking") {
+      const topic = data.topic || (Array.isArray(data.topics) ? data.topics[0] : "") || data.prompt || "";
       return {
-        targetPhrase: suggested,
-        coachSpokenInstruction: starter,
+        targetPhrase: "",
+        coachSpokenInstruction: `Here is your spontaneous speaking topic: ${topic}. Take a deep breath and speak for 60 seconds.`,
+        displayPrompt: topic
+      };
+    }
+
+    if (type === "connectors") {
+      const ideaA = data.idea_a || "";
+      const ideaB = data.idea_b || "";
+      const connector = data.connector || "a connector word";
+      const model = data.model || "";
+      const spokenInst = ideaA && ideaB
+        ? `Connect these two thoughts into one fluent sentence using ${connector}: ${ideaA}, and ${ideaB}. Speak your connected sentence aloud.`
+        : (data.prompt || "Speak a connected sentence aloud.");
+      return {
+        targetPhrase: model,
+        coachSpokenInstruction: spokenInst,
+        displayPrompt: data.prompt || `Connect: "${ideaA}" + "${ideaB}" using ${connector}`
+      };
+    }
+
+    if (type === "sentence_expansion") {
+      const base = data.base || "";
+      const model = data.expanded || "";
+      return {
+        targetPhrase: model,
+        coachSpokenInstruction: `Expand this short sentence into a rich, detailed statement: ${base}. Speak your expanded sentence aloud.`,
+        displayPrompt: `Expand this sentence: "${base}"`
+      };
+    }
+
+    if (type === "storytelling") {
+      const starter = data.starter || "";
+      return {
+        targetPhrase: "",
+        coachSpokenInstruction: `Continue this story and speak for 45 to 60 seconds: ${starter}`,
         displayPrompt: starter
       };
     }
 
+    if (type === "interview_simulation") {
+      const role = data.role ? `For the role of ${data.role}: ` : "";
+      const coachPrompt = data.coach_prompt || data.prompt || "";
+      return {
+        targetPhrase: "",
+        coachSpokenInstruction: `${role}${coachPrompt}`,
+        displayPrompt: coachPrompt
+      };
+    }
+
+    if (type === "presentation_pitch") {
+      const prompt = data.prompt || "";
+      return {
+        targetPhrase: "",
+        coachSpokenInstruction: `Here is your pitch challenge: ${prompt}. Speak with energy and clarity.`,
+        displayPrompt: prompt
+      };
+    }
+
+    if (type === "debate_sparring") {
+      const coachStarter = data.coach_starter || data.prompt || "";
+      return {
+        targetPhrase: "",
+        coachSpokenInstruction: coachStarter,
+        displayPrompt: coachStarter
+      };
+    }
+
     // Default open-ended prompts
-    const prompt = data.question || data.prompt || data.coach_starter || data.scenario || activity.instructions;
+    const prompt = data.question || data.prompt || data.coach_starter || data.coach_prompt || data.scenario || activity.instructions;
     return {
       targetPhrase: "",
       coachSpokenInstruction: prompt,
@@ -1035,6 +1111,216 @@ export function ActivityPlayer({
                     className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-emerald-100 dark:border-emerald-900/60 text-xs font-semibold text-slate-700 dark:text-slate-300"
                   >
                     &ldquo;{phrase}&rdquo;
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 12. Spontaneous Speaking (Level 3) */}
+        {activity.type === "spontaneous_speaking" && (
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-50/70 via-purple-50/70 to-pink-50/70 dark:from-indigo-950/30 dark:via-purple-950/30 dark:to-pink-950/30 border border-indigo-200 dark:border-indigo-800 mb-6 text-center">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 text-[10px] font-extrabold uppercase tracking-wider mb-3">
+              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              <span>60-Second Spontaneous Topic ({currentIndex + 1} of {items.length})</span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Your Speaking Topic:
+            </span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-relaxed mb-4 max-w-xl mx-auto">
+              &ldquo;{currentItem.topic || currentItem.prompt || activity.instructions}&rdquo;
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 bg-white/80 dark:bg-slate-800/80 rounded-2xl border border-purple-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 text-left">
+              <div>🎯 <strong>1. Opinion:</strong> State your core thought.</div>
+              <div>📖 <strong>2. Example:</strong> Share a personal reason.</div>
+              <div>💡 <strong>3. Conclusion:</strong> Wrap up with a takeaway.</div>
+            </div>
+          </div>
+        )}
+
+        {/* 13. Thought Connectors (Level 3) */}
+        {activity.type === "connectors" && (
+          <div className="p-6 rounded-3xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 mb-6 text-left">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                Thought Connector Drill ({currentIndex + 1} of {items.length})
+              </span>
+              {currentItem.connector && (
+                <span className="px-3 py-1 rounded-xl bg-purple-600 text-white font-extrabold text-xs shadow-xs">
+                  Use: {currentItem.connector}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4 font-semibold">
+              {currentItem.prompt || "Connect the two contrasting or related ideas below into one fluent sentence aloud."}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-purple-100 dark:border-slate-700">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Thought A:</span>
+                <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  &ldquo;{currentItem.idea_a || currentItem.prompt}&rdquo;
+                </div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-purple-100 dark:border-slate-700">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Thought B:</span>
+                <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  &ldquo;{currentItem.idea_b || "Complementary idea"}&rdquo;
+                </div>
+              </div>
+            </div>
+            {feedback ? (
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 animate-fade-in text-xs text-emerald-900 dark:text-emerald-200">
+                <span className="font-bold block mb-0.5">✅ Native Model Sentence:</span>
+                &ldquo;{currentItem.model}&rdquo;
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400 italic text-center">
+                🎙️ Speak your connected sentence aloud using <strong className="text-purple-600 dark:text-purple-400">{currentItem.connector || "a connector"}</strong>.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 14. Sentence Expansion (Level 3) */}
+        {activity.type === "sentence_expansion" && (
+          <div className="p-6 rounded-3xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 mb-6 text-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-2">
+              Sentence Expansion Lab ({currentIndex + 1} of {items.length})
+            </span>
+            <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+              Short Base Sentence (Expand this aloud):
+            </span>
+            <div className="text-2xl font-black text-slate-900 dark:text-white leading-relaxed mb-3">
+              &ldquo;{currentItem.base || "Short sentence"}&rdquo;
+            </div>
+            {currentItem.hint && (
+              <div className="p-3 bg-white dark:bg-slate-800 rounded-2xl border border-indigo-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 max-w-lg mx-auto mb-3 text-left">
+                💡 <strong className="text-indigo-600 dark:text-indigo-400">Expansion Hint:</strong> {currentItem.hint}
+              </div>
+            )}
+            {feedback ? (
+              <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-2xl text-xs text-emerald-900 dark:text-emerald-200 text-left animate-fade-in">
+                <span className="font-bold block mb-0.5">✅ Native Expanded Example:</span>
+                &ldquo;{currentItem.expanded}&rdquo;
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                🎙️ Add who, why, how, or when to turn this 4-word sentence into a rich 12–16 word statement!
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 15. Storytelling (Level 3) */}
+        {activity.type === "storytelling" && (
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-50/60 via-indigo-50/60 to-purple-50/60 dark:from-amber-950/20 dark:via-indigo-950/20 dark:to-purple-950/20 border border-amber-200 dark:border-amber-800 mb-6 text-left">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 block mb-2">
+              Narrative Arc Storytelling Challenge
+            </span>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-amber-200 dark:border-slate-700 mb-4">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Story Opener:</span>
+              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-relaxed">
+                &ldquo;{currentItem.starter}&rdquo;
+              </div>
+            </div>
+            {Array.isArray(currentItem.guidelines) && (
+              <div className="space-y-1.5 bg-white/70 dark:bg-slate-800/70 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Story Arc Checklist:</span>
+                {currentItem.guidelines.map((g: string, i: number) => (
+                  <div key={i} className="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <span>{g}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 16. Interview Simulation (Level 4) */}
+        {activity.type === "interview_simulation" && (
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white shadow-xl mb-6 text-left">
+            <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-white/10">
+              <span className="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider">
+                💼 Executive Interview Round
+              </span>
+              {currentItem.role && (
+                <span className="text-xs text-indigo-200 font-semibold">
+                  Role: {currentItem.role}
+                </span>
+              )}
+            </div>
+            <div className="mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block mb-1">
+                Interviewer Question:
+              </span>
+              <div className="text-lg sm:text-xl font-black text-white leading-relaxed">
+                &ldquo;{currentItem.coach_prompt || currentItem.prompt}&rdquo;
+              </div>
+            </div>
+            {Array.isArray(currentItem.tips) && currentItem.tips.length > 0 && (
+              <div className="bg-white/10 rounded-2xl p-3.5 backdrop-blur-xs space-y-1">
+                <span className="text-[10px] font-bold uppercase text-indigo-200 block mb-1">Response Strategy Tips:</span>
+                {currentItem.tips.map((tip: string, i: number) => (
+                  <div key={i} className="text-xs text-indigo-100 flex items-center gap-2">
+                    <span className="text-indigo-400 font-bold">•</span>
+                    <span>{tip}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 17. Presentation Pitch (Level 4) */}
+        {activity.type === "presentation_pitch" && (
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-indigo-500/10 border border-amber-300 dark:border-amber-800 mb-6 text-left">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300 mb-3">
+              <Award className="w-4 h-4" />
+              <span>Executive Project Pitch Challenge</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-amber-200 dark:border-slate-700 mb-4">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Your Pitch Challenge:</span>
+              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-relaxed">
+                &ldquo;{currentItem.prompt}&rdquo;
+              </div>
+            </div>
+            {Array.isArray(currentItem.guidelines) && (
+              <div className="bg-white/70 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Delivery Guidelines:</span>
+                {currentItem.guidelines.map((g: string, i: number) => (
+                  <div key={i} className="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <span className="text-amber-600 font-bold">✓</span>
+                    <span>{g}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 18. Debate Sparring (Level 4) */}
+        {activity.type === "debate_sparring" && (
+          <div className="p-6 rounded-3xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 mb-6 text-left">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-2">
+              Debate Sparring Arena
+            </span>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 mb-4">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                Opponent / Counter-Argument:
+              </span>
+              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-relaxed">
+                &ldquo;{currentItem.coach_starter || currentItem.prompt}&rdquo;
+              </div>
+            </div>
+            {Array.isArray(currentItem.guidelines) && (
+              <div className="bg-white/70 dark:bg-slate-800/70 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Debate Strategy:</span>
+                {currentItem.guidelines.map((g: string, i: number) => (
+                  <div key={i} className="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <span className="text-rose-500 font-bold">•</span>
+                    <span>{g}</span>
                   </div>
                 ))}
               </div>

@@ -42,7 +42,7 @@ export function LevelRoadmapView({
             ← Back to Coach Dashboard
           </button>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-            5-Level Progressive Mastery Roadmap
+            4-Level Progressive Spoken Mastery Roadmap
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1">
             Complete activities and pass each level capstone exam to unlock the next progressive stage.
@@ -219,6 +219,32 @@ export function LevelRoadmapView({
             </div>
           );
         })}
+
+        {/* Capstone Graduation into Live Voice Lounge */}
+        <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-rose-500 via-pink-600 to-purple-600 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white text-rose-600 flex items-center justify-center font-bold shadow-md flex-shrink-0">
+              <Mic className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-100 block">
+                Ultimate Graduation
+              </span>
+              <h3 className="text-base sm:text-lg font-black text-white">
+                Live AI Voice Conversation Lounge
+              </h3>
+              <p className="text-xs text-rose-100 mt-0.5">
+                Pass Level 4 to unlock unlimited real-time unscripted voice conversation with your AI coach.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onBackToDashboard}
+            className="px-5 py-2.5 rounded-xl bg-white text-rose-600 font-bold text-xs shadow-md hover:bg-rose-50 transition cursor-pointer self-start sm:self-center"
+          >
+            Dashboard
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -70,7 +70,12 @@ export function CoachDashboard({
     nextActivity = currentLevel.activities[0];
   }
 
-  const isLevel5Unlocked = profile.unlocked_levels?.includes(5);
+  const isLoungeUnlocked = Boolean(
+    profile.unlocked_levels?.includes(4) ||
+    levels.find((l) => l.level_number === 4)?.is_completed ||
+    (levels.find((l) => l.level_number === 4)?.progress_percentage || 0) >= 50 ||
+    profile.unlocked_levels?.includes(3)
+  );
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
@@ -281,10 +286,10 @@ export function CoachDashboard({
         </div>
       </div>
 
-      {/* Live AI Voice Conversation Lounge (Level 5 Teaser or Launcher) */}
+      {/* Live AI Voice Conversation Lounge */}
       <div
         className={`rounded-3xl p-6 sm:p-8 border transition-all ${
-          isLevel5Unlocked
+          isLoungeUnlocked
             ? "bg-gradient-to-r from-rose-500 via-pink-600 to-purple-600 text-white shadow-xl shadow-rose-500/20"
             : "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800"
         }`}
@@ -293,7 +298,7 @@ export function CoachDashboard({
           <div className="flex items-start sm:items-center gap-4">
             <div
               className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-                isLevel5Unlocked
+                isLoungeUnlocked
                   ? "bg-white text-rose-600 shadow-md"
                   : "bg-slate-200 dark:bg-slate-800 text-slate-400"
               }`}
@@ -305,12 +310,12 @@ export function CoachDashboard({
               <div className="flex items-center gap-2 mb-1">
                 <span
                   className={`text-xs font-bold uppercase tracking-wider ${
-                    isLevel5Unlocked ? "text-rose-100" : "text-slate-400"
+                    isLoungeUnlocked ? "text-rose-100" : "text-slate-400"
                   }`}
                 >
-                  Level 5 • Real-Time Voice Partner
+                  Live AI Conversation Partner
                 </span>
-                {!isLevel5Unlocked && (
+                {!isLoungeUnlocked && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center gap-1">
                     <Lock className="w-2.5 h-2.5" />
                     Locked
@@ -319,29 +324,29 @@ export function CoachDashboard({
               </div>
               <h3
                 className={`text-lg sm:text-xl font-black ${
-                  isLevel5Unlocked ? "text-white" : "text-slate-800 dark:text-slate-200"
+                  isLoungeUnlocked ? "text-white" : "text-slate-800 dark:text-slate-200"
                 }`}
               >
-                AI Conversation Mastery Lounge
+                Live Voice Conversation Lounge
               </h3>
               <p
                 className={`text-xs sm:text-sm mt-0.5 max-w-lg ${
-                  isLevel5Unlocked
+                  isLoungeUnlocked
                     ? "text-rose-100"
                     : "text-slate-500 dark:text-slate-400"
                 }`}
               >
-                {isLevel5Unlocked
+                {isLoungeUnlocked
                   ? "Practice natural, continuous voice conversation with your AI coach anytime on casual, intermediate, or advanced debate topics."
-                  : "Complete Levels 1 to 4 to unlock 1-on-1 real-time voice conversation with native fluency feedback."}
+                  : "Progress through the 4 levels to unlock 1-on-1 real-time voice conversation with native fluency feedback."}
               </p>
             </div>
           </div>
 
-          {isLevel5Unlocked ? (
+          {isLoungeUnlocked ? (
             <button
               onClick={onOpenLiveVoice}
-              className="px-6 py-3.5 rounded-2xl bg-white text-rose-600 font-extrabold text-sm shadow-lg hover:bg-rose-50 transition transform hover:scale-105 flex items-center justify-center gap-2 flex-shrink-0"
+              className="px-6 py-3.5 rounded-2xl bg-white text-rose-600 font-extrabold text-sm shadow-lg hover:bg-rose-50 transition transform hover:scale-105 flex items-center justify-center gap-2 flex-shrink-0 cursor-pointer"
             >
               <Volume2 className="w-4 h-4" />
               <span>Enter Voice Lounge</span>
@@ -349,9 +354,9 @@ export function CoachDashboard({
           ) : (
             <button
               onClick={onOpenRoadmap}
-              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1 flex-shrink-0"
+              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1 flex-shrink-0 cursor-pointer"
             >
-              <span>View Level 5 Requirements</span>
+              <span>View 4-Level Roadmap</span>
             </button>
           )}
         </div>

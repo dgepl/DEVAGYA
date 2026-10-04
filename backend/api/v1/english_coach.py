@@ -224,7 +224,7 @@ async def get_parent_report(student_id: str):
         "personalized_roadmap": profile.get("personalized_roadmap", []),
         "current_level": profile.get("current_level", 1),
         "completed_levels": completed_levels,
-        "total_levels": 5,
+        "total_levels": 4,
         "daily_streak": profile.get("daily_streak", 1),
         "xp": profile.get("xp", 0),
         "words_learned": profile.get("words_learned", 0)

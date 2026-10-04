@@ -451,8 +451,27 @@ LEVELS_CONFIG = [
                 "instructions": "Connect two contrasting ideas smoothly without long pauses.",
                 "data": {
                     "drills": [
-                        {"prompt": "Contrast: Working hard vs Not getting immediate results.", "model": "Although he worked tirelessly, he understood that major results take time."},
-                        {"prompt": "Contrast: Technology saves time vs It creates distractions.", "model": "Technology undeniably saves time; however, it can also become a source of distraction."}
+                        {
+                            "prompt": "Connect these contrasting thoughts using 'Although':",
+                            "connector": "Although",
+                            "idea_a": "He worked tirelessly every day",
+                            "idea_b": "he understood that major results take time",
+                            "model": "Although he worked tirelessly every day, he understood that major results take time."
+                        },
+                        {
+                            "prompt": "Connect these contrasting thoughts using 'However':",
+                            "connector": "However",
+                            "idea_a": "Technology undeniably saves our precious time",
+                            "idea_b": "it can also become a constant source of distraction",
+                            "model": "Technology undeniably saves our precious time; however, it can also become a constant source of distraction."
+                        },
+                        {
+                            "prompt": "Connect these complementary thoughts using 'Furthermore':",
+                            "connector": "Furthermore",
+                            "idea_a": "Reading daily expands your vocabulary significantly",
+                            "idea_b": "furthermore, it deepens your empathy and communication skills",
+                            "model": "Reading daily expands your vocabulary significantly; furthermore, it deepens your empathy and communication skills."
+                        }
                     ]
                 }
             },
@@ -465,7 +484,7 @@ LEVELS_CONFIG = [
                 "instructions": "Narrate an eventful story with a clear beginning, climax, and lesson learned.",
                 "data": {
                     "starter": "It was raining heavily, and the last train had already departed...",
-                    "guidelines": ["Describe the setting", "Introduce a sudden obstacle", "Explain how you resolved it"]
+                    "guidelines": ["Describe the setting and the sudden obstacle", "Explain what creative action you took", "Share the positive resolution or lesson learned"]
                 }
             },
             {
@@ -476,8 +495,23 @@ LEVELS_CONFIG = [
                 "xp": 40,
                 "instructions": "Transform simple sentences into rich, expressive statements.",
                 "data": {
-                    "base": "The presentation went well.",
-                    "expanded": "Despite the unexpected projector glitch, our team delivered a thoroughly engaging and impactful presentation."
+                    "drills": [
+                        {
+                            "base": "The presentation went well.",
+                            "hint": "Add context: despite what obstacle, who delivered it, and what was the impact?",
+                            "expanded": "Despite the unexpected projector glitch, our team delivered a thoroughly engaging and impactful presentation."
+                        },
+                        {
+                            "base": "She learns English daily.",
+                            "hint": "Add context: why does she learn, how does she practice, and how does she feel?",
+                            "expanded": "She diligently practices conversational English every day to communicate with global colleagues with poise and confidence."
+                        },
+                        {
+                            "base": "The city is changing fast.",
+                            "hint": "Add context: due to what modern developments, and how does it affect residents?",
+                            "expanded": "Driven by rapid technological innovation and new metro lines, the city is transforming into a vibrant modern hub."
+                        }
+                    ]
                 }
             },
             {
@@ -514,8 +548,9 @@ LEVELS_CONFIG = [
                 "xp": 50,
                 "instructions": "Deliver a professional 90-second career narrative suitable for top hiring managers.",
                 "data": {
-                    "role": "Senior Consultant / Educator",
-                    "coach_prompt": "Welcome to our final interview round. Could you walk me through your journey, core strengths, and why you are excited about this position?"
+                    "role": "Senior Professional / Educator",
+                    "coach_prompt": "Welcome to our final interview round. Could you walk me through your journey, core strengths, and why you are excited about this position?",
+                    "tips": ["Start with your present focus", "Highlight 2 major achievements", "Conclude with how your vision aligns with this role"]
                 }
             },
             {
@@ -526,7 +561,9 @@ LEVELS_CONFIG = [
                 "xp": 55,
                 "instructions": "Explain a difficult situation using Situation, Task, Action, and Result.",
                 "data": {
-                    "coach_prompt": "Tell me about a time you had a major disagreement with a team member. How did you resolve it?"
+                    "role": "Hiring Manager",
+                    "coach_prompt": "Tell me about a time you had a major disagreement with a team member. How did you resolve it?",
+                    "tips": ["Situation: The context & project", "Task: What needed to be done", "Action: How you communicated", "Result: The positive resolution"]
                 }
             },
             {
@@ -537,7 +574,8 @@ LEVELS_CONFIG = [
                 "xp": 50,
                 "instructions": "Pitch a new project or teaching methodology with a captivating hook and call to action.",
                 "data": {
-                    "prompt": "Pitch an innovative educational idea to a panel of school principals."
+                    "prompt": "Pitch an innovative educational idea to a panel of school principals.",
+                    "guidelines": ["Grab attention with a bold question or statistic", "Present the core problem and your clear solution", "Finish with an inspiring call to action"]
                 }
             },
             {
@@ -548,7 +586,8 @@ LEVELS_CONFIG = [
                 "xp": 50,
                 "instructions": "The coach presents counter-arguments. Defend your point with poise and professional evidence.",
                 "data": {
-                    "coach_starter": "Many argue that AI will replace human teachers and diminish social connection. How do you respond?"
+                    "coach_starter": "Many argue that AI will replace human teachers and diminish social connection. How do you respond?",
+                    "guidelines": ["Acknowledge their concern politely", "Provide evidence of teacher-AI collaboration", "Highlight irreplaceable human empathy"]
                 }
             },
             {
@@ -557,60 +596,12 @@ LEVELS_CONFIG = [
                 "title": "Level 4 Spoken Capstone Assessment",
                 "duration": "10 mins",
                 "xp": 100,
-                "instructions": "Executive spoken assessment. Score 80%+ to unlock Level 5: AI Conversation Mastery.",
+                "instructions": "Executive spoken assessment. Score 80%+ to graduate and unlock the Live AI Voice Conversation Lounge.",
                 "data": {
                     "questions": [
                         {"prompt": "Deliver a 90-second executive summary pitching your background and leadership philosophy.", "min_seconds": 75},
                         {"prompt": "Respond professionally to a critical client whose delivery deadline was missed.", "min_seconds": 60}
                     ]
-                }
-            }
-        ]
-    },
-    {
-        "level_number": 5,
-        "title": "AI Conversation Mastery",
-        "tagline": "Real-time, dynamic voice conversation partner with adaptive native fluency",
-        "badge": "MASTERY 🎙️",
-        "accent_color": "rose",
-        "gradient": "from-rose-600 via-pink-600 to-purple-700",
-        "pass_percentage": 85,
-        "focus_areas": ["Live Voice Interaction", "Natural Turn-Taking", "Context Retention", "Fluid Conversational Mastery"],
-        "activities": [
-            {
-                "id": "l5_act_1",
-                "type": "live_voice_lounge",
-                "title": "Casual Spoken Lounge: Life, Hobbies & Travel",
-                "duration": "Live Conversation",
-                "xp": 60,
-                "instructions": "Have an unscripted, natural voice conversation with your AI coach.",
-                "data": {
-                    "category": "Casual",
-                    "initial_prompt": "Hey there! It's wonderful to practice with you today. How has your week been treating you so far?"
-                }
-            },
-            {
-                "id": "l5_act_2",
-                "type": "live_voice_lounge",
-                "title": "Intermediate Lounge: Culture, Society & Tech",
-                "duration": "Live Conversation",
-                "xp": 70,
-                "instructions": "Discuss emerging trends, society, and your perspectives with real-time feedback.",
-                "data": {
-                    "category": "Intermediate",
-                    "initial_prompt": "I was just reading an article about how reading habits are shifting toward short digital video summaries. What do you think about that?"
-                }
-            },
-            {
-                "id": "l5_act_3",
-                "type": "live_voice_lounge",
-                "title": "Advanced Mastery Lounge: Global Issues & Philosophy",
-                "duration": "Live Conversation",
-                "xp": 80,
-                "instructions": "Engage in deep, nuanced debate on leadership, economics, and human psychology.",
-                "data": {
-                    "category": "Advanced",
-                    "initial_prompt": "Welcome to our Master's dialogue! Today, let's explore what truly defines ethical leadership in the 21st century. What's your take?"
                 }
             }
         ]
@@ -1678,56 +1669,66 @@ Return ONLY valid JSON:
         speech_text = (user_message or "").strip()
 
         history_formatted = []
-        for turn in conversation_history[-6:]:
+        for turn in conversation_history[-14:]:
+            text_val = (turn.get("text") or "").strip()
+            if not text_val:
+                continue
             role = "user" if turn.get("sender") == "user" else "assistant"
-            history_formatted.append({"role": role, "content": turn.get("text", "")})
+            history_formatted.append({"role": role, "content": text_val})
+
+        # Append speech_text only if it is not already the last turn in history
+        if not history_formatted or history_formatted[-1]["role"] != "user" or history_formatted[-1]["content"] != speech_text:
+            history_formatted.append({"role": "user", "content": speech_text})
 
         system_instruction = f"""
-You are DEVGYA's AI English Speaking Coach, engaging in an authentic, natural voice conversation with a learner.
-Topic Domain: {category}
-Learner Proficiency: {user_level}
+You are DEVGYA's AI English Speaking Coach, engaging in an authentic, natural, and warm 1-on-1 voice conversation with a learner (just like talking with Gemini Live or an experienced Cambridge language mentor).
+Conversation Topic: {category}
+Learner Level: {user_level}
 
-Rules for your response:
-1. Speak warmly, naturally, and concisely (1–2 short conversational sentences, under 30 words total) so speech synthesizes instantly.
-2. Ask one natural follow-up question to keep the dialogue flowing effortlessly.
-3. If the user made a grammatical error, note it gently in "gentle_correction", but do NOT break the friendly flow of your spoken conversation.
-4. Return pure JSON:
+CONVERSATION & COACHING PRINCIPLES:
+1. Deep Active Listening: Genuinely react to what the student actually said in "{speech_text}". Never give generic robotic filler. Directly acknowledge their specific ideas, stories, feelings, or experiences.
+2. Human Warmth & Fluidity: Speak like a real, enthusiastic human mentor having a friendly conversation over coffee. Use natural conversational phrases ("That's a fantastic point!", "I love how you described...", "You know, that reminds me of...").
+3. Conversational Cadence:
+   - Provide a thoughtful, warm 2 to 3 sentence spoken response that engages directly with their message.
+   - End with ONE natural, curious, open-ended question that makes the student excited to speak more.
+4. Gentle Language Mentoring: If the student made an obvious grammar, vocabulary, or preposition mistake, note it gently in "gentle_correction" (e.g. "💡 Quick tip: Say 'at 9:30 AM', not 'on 9:30 AM'"), while keeping your spoken "reply" focused on the friendly conversation.
+5. Return JSON:
 {{
-  "reply": "Your crisp 1-2 sentence spoken reply and question.",
-  "gentle_correction": "Optional small note or empty string",
-  "topic_insight": "Encouraging short remark."
+  "reply": "Your warm, natural 2-3 sentence conversational response ending with an engaging question.",
+  "gentle_correction": "Optional 1-sentence tip if there was a notable grammar slip, else empty string",
+  "topic_insight": "A brief encouraging reflection on the conversation."
 }}
 """
         history_formatted.insert(0, {"role": "system", "content": system_instruction})
-        history_formatted.append({"role": "user", "content": speech_text})
 
         try:
             resp = await ai_provider.chat_completion(
                 messages=history_formatted,
-                temperature=0.35,
-                max_tokens=90,
+                temperature=0.65,
+                max_tokens=320,
                 response_format_json=True
             )
-            data = _clean_and_parse_json(resp)
-            if not data or not data.get("reply"):
-                if resp and len(resp.strip()) > 5:
-                    clean_reply = re.sub(r'<think>[\s\S]*?</think>', '', resp).strip()
-                    if not clean_reply.startswith("{"):
-                        return {
-                            "reply": clean_reply,
-                            "gentle_correction": "",
-                            "topic_insight": "Good communication flow."
-                        }
-                raise ValueError("Failed to parse conversation turn JSON from model")
-            return data
+            clean_resp = re.sub(r'<think>[\s\S]*?</think>', '', resp or "").strip()
+            data = _clean_and_parse_json(clean_resp)
+            if data and data.get("reply"):
+                return data
+
+            # If plain text was returned instead of JSON
+            if clean_resp and len(clean_resp) > 5 and not clean_resp.startswith("{"):
+                return {
+                    "reply": clean_resp,
+                    "gentle_correction": "",
+                    "topic_insight": "Great conversational flow."
+                }
+            raise ValueError("Failed to parse conversation turn JSON from model")
         except Exception as e:
             logger.warning(f"Conversation turn fallback: {e}")
-            words = [w.lower() for w in re.findall(r'\b[a-zA-Z]{4,}\b', speech_text) if w.lower() not in {"this", "that", "with", "have", "from", "they", "will", "what", "when", "your", "very"}]
-            topic_word = words[-1] if words else "that"
+            # Dynamic empathetic reply based on speech_text keywords instead of static mock
+            snippet = speech_text[:60] if speech_text else "what you just shared"
             return {
-                "reply": f"That makes total sense regarding {topic_word}! How did that go for you?",
+                "reply": f"I really appreciate you talking about {snippet}! That gives me great perspective. What led you to that viewpoint?",
                 "gentle_correction": "",
-                "topic_insight": "Natural confidence and expressive speech."
+                "topic_insight": "Expressive confidence and smooth delivery."
             }
 
     # -----------------------------------------------------------------
