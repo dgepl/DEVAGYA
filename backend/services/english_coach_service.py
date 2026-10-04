@@ -1344,17 +1344,84 @@ Return ONLY a valid JSON object matching this schema:
         is_greeting_filler = clean_text_lower in {"hello", "hi", "hey", "yes", "no", "ok", "okay", "bye", "test", "testing", "good"}
         prompt_expects_greeting = "greet" in prompt.lower() or "hello" in prompt.lower() or "introduce" in prompt.lower()
 
+        is_grammar_drill = drill_type in {"fill_in_blanks", "sentence_doctor", "sentence_builder", "mini_lesson"}
+
+        # Fast deterministic check for preposition and choice errors in grammar drills:
+        # If user spoke a wrong preposition (e.g., "on" instead of "at"), flag immediately!
+        if is_grammar_drill and clean_target_str and clean_spoken_str:
+            t_tokens = clean_target_str.split()
+            s_tokens = clean_spoken_str.split()
+            PREPOSITIONS = {"at", "on", "in", "to", "for", "with", "by", "of", "from", "about", "into", "onto", "upon"}
+
+            found_prep_error = False
+            wrong_prep = ""
+            right_prep = ""
+
+            for i, t_word in enumerate(t_tokens):
+                if t_word in PREPOSITIONS:
+                    prev_t = t_tokens[i - 1] if i > 0 else ""
+                    next_t = t_tokens[i + 1] if i + 1 < len(t_tokens) else ""
+                    for j, s_word in enumerate(s_tokens):
+                        prev_s = s_tokens[j - 1] if j > 0 else ""
+                        next_s = s_tokens[j + 1] if j + 1 < len(s_tokens) else ""
+                        is_same_pos = (i == j) or (prev_t and prev_t == prev_s) or (next_t and next_t == next_s)
+                        if is_same_pos and s_word in PREPOSITIONS and s_word != t_word:
+                            found_prep_error = True
+                            wrong_prep = s_word
+                            right_prep = t_word
+                            break
+                    if found_prep_error:
+                        break
+
+            if found_prep_error:
+                rule_expl = f"Use '{right_prep}' in this context. "
+                if right_prep == "at":
+                    rule_expl += "Always use 'at' for precise clock times (e.g., at 9:30 AM). Use 'on' for days/dates, and 'in' for months or years."
+                elif right_prep == "on":
+                    rule_expl += "Always use 'on' for specific days of the week or calendar dates (e.g., on Monday). Use 'at' for clock times, and 'in' for months."
+                elif right_prep == "in":
+                    rule_expl += "Always use 'in' for months, years, seasons, or long periods (e.g., in November). Use 'at' for clock times, and 'on' for days."
+                else:
+                    rule_expl += f"The correct preposition for this phrase is '{right_prep}', not '{wrong_prep}'."
+
+                return {
+                    "passed": False,
+                    "has_mistakes": True,
+                    "relevance_verdict": f"Incorrect Preposition: Used '{wrong_prep}' instead of '{right_prep}'",
+                    "affirmation": f"Good attempt! However, you said '{wrong_prep}' instead of '{right_prep}'.",
+                    "original_snippet": speech_text,
+                    "corrected_sentence": target_phrase,
+                    "explanation": rule_expl,
+                    "repeat_challenge": f"Now repeat after me: '{target_phrase}'",
+                    "spoken_coach_speech": f"Close, but you said '{wrong_prep}' instead of '{right_prep}'. For this sentence, we say '{right_prep}'. Say: {target_phrase}",
+                    "scores": {
+                        "fluency": 72,
+                        "grammar": 45,
+                        "vocabulary": 60,
+                        "confidence": 75
+                    }
+                }
+
         # INSTANT 0-DELAY FAST-PATH FOR CLEAR & ACCURATE TARGET MATCHES
-        # When target_phrase is provided and student articulated it accurately (or spoken sentence matches clause),
+        # When target_phrase is provided and student articulated it accurately,
         # return instant 5ms feedback without waiting for external API latency.
-        is_instant_match = (
-            target_phrase
-            and not (is_greeting_filler and not prompt_expects_greeting)
-            and (
-                similarity_ratio >= 0.75
-                or (clean_spoken_str and clean_target_str and (clean_spoken_str in clean_target_str or clean_target_str in clean_spoken_str) and word_count >= 3)
+        if is_grammar_drill:
+            # For grammar drills, require virtually exact word match
+            is_instant_match = (
+                target_phrase
+                and not is_greeting_filler
+                and similarity_ratio >= 0.95
+                and (clean_spoken_str == clean_target_str or (clean_target_str and clean_spoken_str == clean_target_str))
             )
-        )
+        else:
+            is_instant_match = (
+                target_phrase
+                and not (is_greeting_filler and not prompt_expects_greeting)
+                and (
+                    similarity_ratio >= 0.85
+                    or (clean_spoken_str and clean_target_str and (clean_spoken_str in clean_target_str or clean_target_str in clean_spoken_str) and word_count >= 4)
+                )
+            )
 
         if is_instant_match:
             sim_pct = int(similarity_ratio * 100)
@@ -1394,17 +1461,21 @@ Student Proficiency Level: {user_level}
 CRITICAL COACHING & RELEVANCE RULES:
 1. Genuinely observe what the student said: "{speech_text}".
 2. Phonetic Tolerance: Speech recognition may mis-transcribe near-homophones (e.g. hearing 'civil' for 'she will', 'wood' for 'would'). If what the user spoke phonetically matches the target phrase in context, consider it correct.
-3. In vocabulary or sentence drills: If the student spoke the example sentence naturally and accurately (e.g. they said "I suggest we practice speaking daily" when learning the word "Suggest"), that is 100% SUCCESSFUL!
-   - NEVER penalize the student for not repeating the isolated word title or heading before the sentence.
-   - If their spoken utterance matches the target phrase or example sentence (lexical match >= 70% or full sentence match), set:
-     "passed": true
-     "has_mistakes": false
-     "relevance_verdict": "Clear & Accurate Delivery"
-     Scores: 85-98.
-     "spoken_coach_speech": "Spot on! That was fluent, clear, and perfectly spoken."
-4. Only mark "has_mistakes": true or "passed": false if:
-   - The user spoke something completely different, off-topic, or gave a single-word greeting like 'hello' when a sentence was expected.
-   - Or they omitted key words or made significant grammatical errors in the sentence.
+3. Grammar, Prepositions, and Sentence Doctor Drills (drill_type is fill_in_blanks, sentence_doctor, sentence_builder, or mini_lesson):
+   - In these drills, grammatical accuracy is STRICTLY evaluated.
+   - If the student made a grammar mistake, spoke the incorrect/flawed form, used the wrong preposition (e.g. said 'on' instead of 'at', or 'in' instead of 'on'), or used the wrong verb tense:
+     You MUST set:
+     "passed": false
+     "has_mistakes": true
+     "relevance_verdict": "Grammar / Preposition Error"
+     "original_snippet": "{speech_text}"
+     "corrected_sentence": "{target_phrase if target_phrase else 'The correct grammatical sentence'}"
+     "explanation": "State the concise grammar or preposition rule explaining why their choice was incorrect."
+     "spoken_coach_speech": "A natural 1-sentence audio correction telling them why the word was wrong and how to say the correct sentence."
+     Scores: grammar <= 50, fluency 65-75.
+   - NEVER say "Spot on!" or mark "passed": true if the student used the wrong preposition or failed the grammatical target of the drill!
+4. In pure pronunciation/vocabulary drills (repeat_after_coach, vocabulary):
+   - If the student spoke the sentence naturally and accurately (lexical match >= 85%), set "passed": true, "has_mistakes": false, and praise them.
 5. If the user said an off-topic greeting or filler (like 'hello' when asked to describe or repeat a sentence):
    - Set "passed": false, "has_mistakes": true, and explain:
      "You said '{speech_text}', but our question asks: '{prompt}'. A complete answer would be: '[example answer]'. Please try answering the question again!"
@@ -1413,7 +1484,7 @@ Return ONLY valid JSON:
 {{
   "passed": true | false,
   "has_mistakes": true | false,
-  "relevance_verdict": "On-topic | Off-topic | Incomplete | Target phrase mismatch",
+  "relevance_verdict": "On-topic | Off-topic | Incomplete | Target phrase mismatch | Grammar / Preposition Error",
   "affirmation": "Coach observation acknowledging their effort or identifying the gap.",
   "original_snippet": "{speech_text}",
   "corrected_sentence": "The complete, ideal sentence answering the prompt",

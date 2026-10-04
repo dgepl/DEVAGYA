@@ -141,26 +141,28 @@ export function ActivityPlayer({
       const corrected = data.corrected || "";
       return {
         targetPhrase: corrected,
-        coachSpokenInstruction: `Say the correct sentence: ${corrected}`,
-        displayPrompt: corrected
+        coachSpokenInstruction: "There is a speaking trap in this sentence. Find the mistake and speak the correct sentence aloud.",
+        displayPrompt: `Doctor this flawed sentence: "${flawed}"`
       };
     }
 
     if (type === "sentence_builder") {
       const target = data.target || "";
+      const jumbledList = (data.jumbled || []).join(", ");
       return {
         targetPhrase: target,
-        coachSpokenInstruction: `Speak this sentence: ${target}`,
-        displayPrompt: target
+        coachSpokenInstruction: "Rearrange these jumbled words into a complete, correct sentence and speak it aloud.",
+        displayPrompt: `Unscramble these words: ${jumbledList}`
       };
     }
 
     if (type === "mini_lesson") {
       const correct = data.correct || "";
+      const incorrect = data.incorrect || "";
       return {
         targetPhrase: correct,
-        coachSpokenInstruction: `Speak the correct form: ${correct}`,
-        displayPrompt: correct
+        coachSpokenInstruction: "Find the grammar mistake in this sentence and speak the correct form aloud.",
+        displayPrompt: `Fix the grammar mistake in: "${incorrect}"`
       };
     }
 
@@ -170,8 +172,8 @@ export function ActivityPlayer({
       const completedSentence = sentence.replace("_______", correct).replace(/\s+/g, " ");
       return {
         targetPhrase: completedSentence,
-        coachSpokenInstruction: `Speak the full sentence: ${completedSentence}`,
-        displayPrompt: completedSentence
+        coachSpokenInstruction: "Choose the correct option to fill the blank, and speak the complete sentence aloud.",
+        displayPrompt: `Fill in the blank: "${sentence}"`
       };
     }
 
@@ -323,9 +325,17 @@ export function ActivityPlayer({
         let text = parseSpeechResults(event);
         if (!text) return;
 
-        // For single sentence mode: Check top alternatives against target phrase
+        // In grammar exercises, NEVER pick alternative based on targetPhrase overlap,
+        // because that can mask actual user speech errors (e.g. replacing 'on' with 'at')!
+        const isGrammarOrAccuracyDrill = [
+          "fill_in_blanks",
+          "sentence_doctor",
+          "sentence_builder",
+          "mini_lesson"
+        ].includes(activity.type);
+
         const lastIdx = event.results.length - 1;
-        if (lastIdx >= 0 && targetPhrase) {
+        if (lastIdx >= 0 && targetPhrase && !isGrammarOrAccuracyDrill) {
           const resultList = event.results[lastIdx];
           if (resultList && resultList.length > 1) {
             const targetNorm = targetPhrase.toLowerCase().replace(/[^\w\s]/g, "");
@@ -744,24 +754,41 @@ export function ActivityPlayer({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
               <div className="p-3.5 rounded-2xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1">
-                  ❌ Trap to Avoid:
+                  ❌ Flawed Sentence:
                 </span>
-                <div className="text-sm font-bold text-rose-900 dark:text-rose-200 line-through">
+                <div className="text-sm font-bold text-rose-900 dark:text-rose-200">
                   &ldquo;{currentItem.flawed}&rdquo;
                 </div>
               </div>
-              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
-                  ✅ Correct Spoken Form:
-                </span>
-                <div className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                  &ldquo;{currentItem.corrected}&rdquo;
+              {feedback ? (
+                <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 animate-fade-in">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+                    ✅ Correct Spoken Form:
+                  </span>
+                  <div className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                    &ldquo;{currentItem.corrected}&rdquo;
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 flex flex-col justify-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-1">
+                    🩺 Doctor Challenge:
+                  </span>
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Spot the mistake and speak the corrected sentence aloud.
+                  </div>
+                </div>
+              )}
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
-              💡 <strong className="text-slate-800 dark:text-slate-200">Rule:</strong> {currentItem.reason}
-            </p>
+            {feedback && currentItem.reason ? (
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 animate-fade-in">
+                💡 <strong className="text-slate-800 dark:text-slate-200">Rule:</strong> {currentItem.reason}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400 italic bg-white/60 dark:bg-slate-800/60 p-2.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center">
+                🎙️ Speak your corrected sentence into the microphone to diagnose and get instant feedback.
+              </p>
+            )}
           </div>
         )}
 
@@ -781,9 +808,15 @@ export function ActivityPlayer({
                 </span>
               ))}
             </div>
-            <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-purple-100 dark:border-slate-700 inline-block text-xs text-slate-600 dark:text-slate-400">
-              Target sentence to speak: <strong className="text-purple-700 dark:text-purple-300">&ldquo;{currentItem.target}&rdquo;</strong>
-            </div>
+            {feedback ? (
+              <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-purple-200 dark:border-slate-700 inline-block text-xs text-slate-600 dark:text-slate-400 animate-fade-in">
+                ✅ Target sentence: <strong className="text-purple-700 dark:text-purple-300">&ldquo;{currentItem.target}&rdquo;</strong>
+              </div>
+            ) : (
+              <div className="p-3 bg-white/70 dark:bg-slate-800/70 rounded-xl border border-purple-100 dark:border-slate-700 inline-block text-xs text-slate-600 dark:text-slate-400">
+                🗣️ <strong className="text-purple-700 dark:text-purple-300">Your Turn:</strong> Arrange the words above into a proper sentence and speak it aloud.
+              </div>
+            )}
           </div>
         )}
 
@@ -795,7 +828,7 @@ export function ActivityPlayer({
             </span>
             {activity.data?.rule && (
               <p className="text-xs text-slate-700 dark:text-slate-300 font-medium mb-4 bg-white dark:bg-slate-800 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
-                💡 {activity.data.rule}
+                💡 <strong className="text-slate-800 dark:text-slate-200">Concept:</strong> {activity.data.rule}
               </p>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -807,18 +840,33 @@ export function ActivityPlayer({
                   &ldquo;{currentItem.incorrect}&rdquo;
                 </div>
               </div>
-              <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
-                  ✅ Correct Spoken Form
-                </span>
-                <div className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                  &ldquo;{currentItem.correct}&rdquo;
+              {feedback ? (
+                <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 animate-fade-in">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+                    ✅ Correct Spoken Form
+                  </span>
+                  <div className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                    &ldquo;{currentItem.correct}&rdquo;
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900 flex flex-col justify-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-1">
+                    ❓ Your Challenge
+                  </span>
+                  <div className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 italic">
+                    Find the grammar mistake and speak the correct form aloud.
+                  </div>
+                </div>
+              )}
             </div>
-            {currentItem.explanation && (
-              <p className="text-xs text-slate-600 dark:text-slate-400 italic">
+            {feedback && currentItem.explanation ? (
+              <p className="text-xs text-slate-600 dark:text-slate-400 italic bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700 animate-fade-in">
                 Why: {currentItem.explanation}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400 italic text-center">
+                🎙️ Speak your corrected sentence into the mic to test your grammar skills.
               </p>
             )}
           </div>
@@ -834,22 +882,32 @@ export function ActivityPlayer({
               &ldquo;{currentItem.sentence}&rdquo;
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-              {(currentItem.options || []).map((opt: string, i: number) => (
-                <span
-                  key={i}
-                  className={`px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-sm border ${
-                    opt === currentItem.correct
-                      ? "bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-400/40"
-                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
-                  }`}
-                >
-                  {opt}
-                </span>
-              ))}
+              {(currentItem.options || []).map((opt: string, i: number) => {
+                const isCorrect = opt === currentItem.correct;
+                const showSuccess = feedback && isCorrect;
+                return (
+                  <span
+                    key={i}
+                    className={`px-4 py-2 rounded-xl font-bold text-xs shadow-sm border transition-all ${
+                      showSuccess
+                        ? "bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-400/40"
+                        : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                    }`}
+                  >
+                    {opt}
+                  </span>
+                );
+              })}
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Speak the complete sentence: <strong className="text-indigo-700 dark:text-indigo-300">&ldquo;{(currentItem.sentence || "").replace("_______", currentItem.correct || "")}&rdquo;</strong>
-            </p>
+            {feedback ? (
+              <p className="text-xs text-slate-600 dark:text-slate-400 animate-fade-in">
+                Completed sentence: <strong className="text-emerald-600 dark:text-emerald-400">&ldquo;{(currentItem.sentence || "").replace("_______", currentItem.correct || "")}&rdquo;</strong>
+              </p>
+            ) : (
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                👉 Choose the correct word from the options above and speak the full sentence aloud.
+              </p>
+            )}
           </div>
         )}
 
