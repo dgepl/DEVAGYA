@@ -75,6 +75,15 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
     isHandsFreeRef.current = isHandsFree;
   }, [isHandsFree]);
 
+  // Lock body scroll while Live Voice Lounge is active to prevent any outer page scrolling
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
   useEffect(() => {
     // Speak initial starter with natural voice and then auto-listen
     const starter = conversation[0].text;
@@ -286,9 +295,10 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   // End of Session Report Card View
   if (sessionReport) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-rose-500 to-purple-600 text-white flex items-center justify-center mx-auto mb-4 shadow-xl shadow-rose-500/20">
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-50 dark:bg-slate-950 px-4 py-8">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-rose-500 to-purple-600 text-white flex items-center justify-center mx-auto mb-4 shadow-xl shadow-rose-500/20">
             <Award className="w-8 h-8" />
           </div>
           <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 mb-2">
@@ -372,25 +382,27 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
         <div className="flex justify-center">
           <button
             onClick={onBack}
-            className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md transition"
+            className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md transition cursor-pointer"
           >
             Back to Dashboard
           </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
-    <div className="w-full max-w-4xl mx-auto h-[calc(100dvh-6rem)] max-h-[calc(100dvh-6rem)] flex flex-col overflow-hidden bg-white dark:bg-slate-900 sm:rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-indigo-500/5">
+    <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
       {/* Top Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3.5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md z-10">
+      <div className="flex-shrink-0 px-3 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md z-10 shadow-xs">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Exit Lounge</span>
+          <span className="hidden sm:inline">Exit Lounge</span>
+          <span className="sm:hidden">Exit</span>
         </button>
 
         {/* Category Pills */}
@@ -399,9 +411,9 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+              className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                 category === cat
-                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
@@ -410,7 +422,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Hands-Free Live Mode Toggle */}
           <button
             type="button"
@@ -423,7 +435,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
                 stopRecording();
               }
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
               isHandsFree
                 ? "bg-emerald-600 text-white shadow-emerald-500/20"
                 : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
@@ -431,13 +443,14 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
             title="Toggle hands-free live conversation mode"
           >
             <span className={`w-2 h-2 rounded-full ${isHandsFree ? "bg-white animate-ping" : "bg-slate-400"}`} />
-            <span>{isHandsFree ? "Live Call: ON" : "Push to Talk"}</span>
+            <span className="hidden sm:inline">{isHandsFree ? "Live Call: ON" : "Push to Talk"}</span>
+            <span className="sm:hidden">{isHandsFree ? "Live: ON" : "Push"}</span>
           </button>
 
           <button
             onClick={handleEndSession}
             disabled={isGeneratingReport || conversation.length < 2}
-            className="px-3.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1.5"
+            className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>{isGeneratingReport ? "Grading..." : "Finish"}</span>
@@ -446,10 +459,10 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       </div>
 
       {/* Realtime Live Conversation Status Banner */}
-      <div className="flex-shrink-0 px-4 sm:px-6 pt-2.5 pb-1">
+      <div className="flex-shrink-0 px-3 sm:px-6 pt-2 pb-1 max-w-3xl mx-auto w-full">
         {isCoachSpeaking ? (
-          <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white flex items-center justify-between text-xs font-bold shadow-md">
-            <div className="flex items-center gap-2.5">
+          <div className="p-2.5 sm:p-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white flex items-center justify-between text-xs font-bold shadow-md">
+            <div className="flex items-center gap-2 sm:gap-2.5">
               {/* Animated Soundwave Equalizer */}
               <div className="flex items-center gap-1 h-5 px-1">
                 <span className="w-1 bg-white rounded-full animate-pulse h-3" />
@@ -458,26 +471,26 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
                 <span className="w-1 bg-white rounded-full animate-bounce h-6" />
                 <span className="w-1 bg-white rounded-full animate-pulse h-3" />
               </div>
-              <span>Coach is Speaking... Tap mic or speak to interrupt</span>
+              <span className="truncate">Coach Speaking... Tap mic or speak to interrupt</span>
             </div>
-            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
-              Live Voice Call
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0 ml-2">
+              Live Voice
             </span>
           </div>
         ) : isRecording ? (
-          <div className="p-3 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 text-white flex items-center justify-between text-xs font-bold shadow-md animate-pulse">
+          <div className="p-2.5 sm:p-3 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 text-white flex items-center justify-between text-xs font-bold shadow-md animate-pulse">
             <div className="flex items-center gap-2">
               <Mic className="w-4 h-4 animate-ping" />
-              <span>Coach is Listening to You... Speak Freely</span>
+              <span className="truncate">Coach is Listening... Speak Freely</span>
             </div>
-            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
-              Live Mic Active
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0 ml-2">
+              Mic Active
             </span>
           </div>
         ) : isCoachThinking ? (
-          <div className="p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 flex items-center gap-2 text-xs font-bold">
+          <div className="p-2.5 sm:p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 flex items-center gap-2 text-xs font-bold">
             <Sparkles className="w-4 h-4 text-indigo-500 animate-spin" />
-            <span>Coach is responding instantly...</span>
+            <span>Coach is responding live...</span>
           </div>
         ) : null}
       </div>
@@ -485,14 +498,14 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       {/* Chat Messages List - ONLY SCROLLABLE AREA */}
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 scroll-smooth"
+        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 py-4 space-y-4 scroll-smooth max-w-3xl mx-auto w-full"
       >
         {conversation.map((turn, idx) => {
           const isCoach = turn.sender === "coach";
           return (
             <div
               key={idx}
-              className={`flex items-start gap-3 ${isCoach ? "justify-start" : "justify-end"}`}
+              className={`flex items-start gap-2.5 sm:gap-3 ${isCoach ? "justify-start" : "justify-end"}`}
             >
               {/* Coach Avatar */}
               {isCoach && (
@@ -507,7 +520,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
                 }`}
               >
                 <div
-                  className={`rounded-3xl px-5 py-3.5 shadow-sm text-sm ${
+                  className={`rounded-3xl px-4 sm:px-5 py-3 sm:py-3.5 shadow-sm text-sm ${
                     isCoach
                       ? "bg-slate-50 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 rounded-tl-sm"
                       : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-tr-sm"
@@ -521,7 +534,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
                           setIsCoachSpeaking(true);
                           speakCoachText(turn.text, () => setIsCoachSpeaking(false));
                         }}
-                        className="hover:opacity-100 transition p-0.5 rounded"
+                        className="hover:opacity-100 transition p-0.5 rounded cursor-pointer"
                         title="Listen again"
                       >
                         <Volume2 className="w-3.5 h-3.5" />
@@ -552,7 +565,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
 
         {/* Quick Conversation Starter Chips (shown when starting a session) */}
         {conversation.length <= 2 && !isCoachSpeaking && !isCoachThinking && (
-          <div className="pt-3 pb-2 px-2">
+          <div className="pt-3 pb-2 px-1">
             <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
               <span>Suggested Conversation Starters:</span>
@@ -570,7 +583,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
                     setUserInput(starter);
                     handleSendMessage(starter);
                   }}
-                  className="text-xs px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition font-medium text-left shadow-2xs"
+                  className="text-xs px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition font-medium text-left shadow-2xs cursor-pointer"
                 >
                   {starter}
                 </button>
@@ -594,56 +607,58 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       </div>
 
       {/* Bottom Voice & Text Input Bar */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          {/* Big Mic Toggle */}
-          <button
-            onClick={toggleRecording}
-            className={`w-13 h-13 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-md flex-shrink-0 cursor-pointer ${
-              isRecording
-                ? "bg-rose-600 text-white animate-pulse shadow-rose-500/40"
-                : isCoachSpeaking
-                ? "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-indigo-500/30 hover:scale-105"
-                : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20"
-            }`}
-            title={isRecording ? "Stop recording" : isCoachSpeaking ? "Tap to interrupt & speak" : "Speak to AI coach"}
-          >
-            {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-          </button>
-
-          {/* Input box */}
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              placeholder={
-                isRecording
-                  ? "Listening to your voice..."
-                  : isCoachSpeaking
-                  ? "Coach speaking... Tap mic or type to interrupt..."
-                  : "Speak into microphone or type here..."
-              }
-              className="w-full px-4 py-3.5 pr-12 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-            />
+      <div className="flex-shrink-0 px-3 sm:px-6 pt-2.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-slate-100 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-md">
+        <div className="max-w-3xl mx-auto w-full">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Big Mic Toggle */}
             <button
-              onClick={() => handleSendMessage()}
-              disabled={!userInput.trim() || isCoachThinking}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-indigo-600 text-white disabled:opacity-30 disabled:pointer-events-none hover:bg-indigo-700 transition cursor-pointer"
+              onClick={toggleRecording}
+              className={`w-12 h-12 sm:w-13 sm:h-13 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-md flex-shrink-0 cursor-pointer ${
+                isRecording
+                  ? "bg-rose-600 text-white animate-pulse shadow-rose-500/40"
+                  : isCoachSpeaking
+                  ? "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-indigo-500/30 hover:scale-105"
+                  : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20"
+              }`}
+              title={isRecording ? "Stop recording" : isCoachSpeaking ? "Tap to interrupt & speak" : "Speak to AI coach"}
             >
-              <Send className="w-4 h-4" />
+              {isRecording ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}
             </button>
+
+            {/* Input box */}
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                placeholder={
+                  isRecording
+                    ? "Listening to your voice..."
+                    : isCoachSpeaking
+                    ? "Coach speaking... Tap mic or type to interrupt..."
+                    : "Speak into microphone or type here..."
+                }
+                className="w-full px-4 py-3 sm:py-3.5 pr-12 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+              />
+              <button
+                onClick={() => handleSendMessage()}
+                disabled={!userInput.trim() || isCoachThinking}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-indigo-600 text-white disabled:opacity-30 disabled:pointer-events-none hover:bg-indigo-700 transition cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
           </div>
+          <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 mt-2">
+            💡 Coach responds live with voice • Speak naturally in English, Hindi, or Hinglish
+          </p>
         </div>
-        <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 mt-2">
-          💡 Coach responds live with voice • Speak naturally in English, Hindi, or Hinglish
-        </p>
       </div>
     </div>
   );
