@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   speakCoachText,
   stopCoachSpeaking,
@@ -54,6 +55,11 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
   const [isCoachSpeaking, setIsCoachSpeaking] = useState(false);
   const [sessionReport, setSessionReport] = useState<any>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -294,167 +300,208 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
 
   // End of Session Report Card View
   if (sessionReport) {
-    return (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-50 dark:bg-slate-950 px-4 py-8">
+    if (!isMounted || typeof document === "undefined") return null;
+    return createPortal(
+      <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-50 dark:bg-slate-950 px-4 py-8">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-rose-500 to-purple-600 text-white flex items-center justify-center mx-auto mb-4 shadow-xl shadow-rose-500/20">
-            <Award className="w-8 h-8" />
-          </div>
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 mb-2">
-            Session Performance Report
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-            Spoken Conversation Debrief
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1 max-w-md mx-auto">
-            Detailed breakdown of your spoken fluency, grammar poise, and vocabulary range from today&apos;s live dialogue.
-          </p>
-        </div>
-
-        {/* 5 Core Scores */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
-          {[
-            { label: "Fluency", score: sessionReport.fluency },
-            { label: "Grammar", score: sessionReport.grammar },
-            { label: "Vocabulary", score: sessionReport.vocabulary },
-            { label: "Pronunciation", score: sessionReport.pronunciation },
-            { label: "Confidence", score: sessionReport.confidence }
-          ].map((item, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center shadow-sm"
-            >
-              <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-                {item.score ?? 0}%
-              </div>
-              <div className="text-[11px] font-bold uppercase text-slate-400 mt-1">
-                {item.label}
-              </div>
+              <Award className="w-8 h-8" />
             </div>
-          ))}
-        </div>
-
-        {/* Coach Closing Message */}
-        <div className="p-6 rounded-3xl bg-indigo-50/70 dark:bg-slate-800/80 border border-indigo-100 dark:border-slate-700 mb-8">
-          <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-bold text-sm mb-2">
-            <Brain className="w-5 h-5" />
-            <span>Personal Coach Closing Note</span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">
-            &ldquo;{sessionReport.coach_closing_message}&rdquo;
-          </p>
-        </div>
-
-        {/* Strengths & Next Drills */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-          <div className="p-6 rounded-3xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/50">
-            <h4 className="font-bold text-emerald-800 dark:text-emerald-300 text-sm mb-3 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>What You Did Well</span>
-            </h4>
-            <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-              {sessionReport.you_did_well?.map((item: string, idx: number) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 mb-2">
+              Session Performance Report
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+              Spoken Conversation Debrief
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1 max-w-md mx-auto">
+              Detailed breakdown of your spoken fluency, grammar poise, and vocabulary range from today&apos;s live dialogue.
+            </p>
           </div>
 
-          <div className="p-6 rounded-3xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/50">
-            <h4 className="font-bold text-amber-800 dark:text-amber-300 text-sm mb-3 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              <span>Focus For Next Session</span>
-            </h4>
-            <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-              {sessionReport.improve_next?.map((item: string, idx: number) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+          {/* 5 Core Scores */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
+            {[
+              { label: "Fluency", score: sessionReport.fluency },
+              { label: "Grammar", score: sessionReport.grammar },
+              { label: "Vocabulary", score: sessionReport.vocabulary },
+              { label: "Pronunciation", score: sessionReport.pronunciation },
+              { label: "Confidence", score: sessionReport.confidence }
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center shadow-sm"
+              >
+                <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+                  {item.score ?? 0}%
+                </div>
+                <div className="text-[11px] font-bold uppercase text-slate-400 mt-1">
+                  {item.label}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
 
-        <div className="flex justify-center">
-          <button
-            onClick={onBack}
-            className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md transition cursor-pointer"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+          {/* Coach Closing Message */}
+          <div className="p-6 rounded-3xl bg-indigo-50/70 dark:bg-slate-800/80 border border-indigo-100 dark:border-slate-700 mb-8">
+            <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-bold text-sm mb-2">
+              <Brain className="w-5 h-5" />
+              <span>Personal Coach Closing Note</span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">
+              &ldquo;{sessionReport.coach_closing_message}&rdquo;
+            </p>
+          </div>
 
-  return (
-    <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
-      {/* Top Header */}
-      <div className="flex-shrink-0 px-3 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md z-10 shadow-xs">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Exit Lounge</span>
-          <span className="sm:hidden">Exit</span>
-        </button>
+          {/* Strengths & Next Drills */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+            <div className="p-6 rounded-3xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/50">
+              <h4 className="font-bold text-emerald-800 dark:text-emerald-300 text-sm mb-3 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>What You Did Well</span>
+              </h4>
+              <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                {sessionReport.you_did_well?.map((item: string, idx: number) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-        {/* Category Pills */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-          {(["Casual", "Intermediate", "Advanced"] as const).map((cat) => (
+            <div className="p-6 rounded-3xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/50">
+              <h4 className="font-bold text-amber-800 dark:text-amber-300 text-sm mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                <span>Focus For Next Session</span>
+              </h4>
+              <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                {sessionReport.improve_next?.map((item: string, idx: number) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
             <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                category === cat
-                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
+              onClick={onBack}
+              className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md transition cursor-pointer"
             >
-              {cat}
+              Back to Dashboard
             </button>
-          ))}
+          </div>
         </div>
+      </div>,
+      document.body
+    );
+  }
 
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Hands-Free Live Mode Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              const next = !isHandsFree;
-              setIsHandsFree(next);
-              if (next && !isCoachSpeaking && !isRecording) {
-                startRecording();
-              } else if (!next && isRecording) {
-                stopRecording();
-              }
-            }}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
-              isHandsFree
-                ? "bg-emerald-600 text-white shadow-emerald-500/20"
-                : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-            }`}
-            title="Toggle hands-free live conversation mode"
-          >
-            <span className={`w-2 h-2 rounded-full ${isHandsFree ? "bg-white animate-ping" : "bg-slate-400"}`} />
-            <span className="hidden sm:inline">{isHandsFree ? "Live Call: ON" : "Push to Talk"}</span>
-            <span className="sm:hidden">{isHandsFree ? "Live: ON" : "Push"}</span>
-          </button>
+  if (!isMounted || typeof document === "undefined") return null;
 
-          <button
-            onClick={handleEndSession}
-            disabled={isGeneratingReport || conversation.length < 2}
-            className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>{isGeneratingReport ? "Grading..." : "Finish"}</span>
-          </button>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+      {/* Top Header - Responsive: 2 rows on mobile, 1 row on sm+ */}
+      <div className="flex-shrink-0 px-3 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2.5 sm:pb-3 border-b border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md z-10 shadow-xs">
+        <div className="max-w-3xl mx-auto w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          {/* Top row: Exit on left, Controls on right on mobile */}
+          <div className="flex items-center justify-between gap-2 w-full sm:w-auto">
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Exit Lounge</span>
+            </button>
+
+            {/* Mobile Controls (shown on right of row 1 on mobile) */}
+            <div className="flex sm:hidden items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !isHandsFree;
+                  setIsHandsFree(next);
+                  if (next && !isCoachSpeaking && !isRecording) {
+                    startRecording();
+                  } else if (!next && isRecording) {
+                    stopRecording();
+                  }
+                }}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
+                  isHandsFree
+                    ? "bg-emerald-600 text-white shadow-emerald-500/20"
+                    : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                }`}
+                title="Toggle hands-free live conversation mode"
+              >
+                <span className={`w-2 h-2 rounded-full ${isHandsFree ? "bg-white animate-ping" : "bg-slate-400"}`} />
+                <span>{isHandsFree ? "Live Call: ON" : "Push to Talk"}</span>
+              </button>
+
+              <button
+                onClick={handleEndSession}
+                disabled={isGeneratingReport || conversation.length < 2}
+                className="px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{isGeneratingReport ? "..." : "Finish"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Category Pills (centered on mobile, in-line on desktop) */}
+          <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl self-center sm:self-auto">
+            {(["Casual", "Intermediate", "Advanced"] as const).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat)}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  category === cat
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop Controls (hidden on mobile) */}
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const next = !isHandsFree;
+                setIsHandsFree(next);
+                if (next && !isCoachSpeaking && !isRecording) {
+                  startRecording();
+                } else if (!next && isRecording) {
+                  stopRecording();
+                }
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
+                isHandsFree
+                  ? "bg-emerald-600 text-white shadow-emerald-500/20"
+                  : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+              }`}
+              title="Toggle hands-free live conversation mode"
+            >
+              <span className={`w-2 h-2 rounded-full ${isHandsFree ? "bg-white animate-ping" : "bg-slate-400"}`} />
+              <span>{isHandsFree ? "Live Call: ON" : "Push to Talk"}</span>
+            </button>
+
+            <button
+              onClick={handleEndSession}
+              disabled={isGeneratingReport || conversation.length < 2}
+              className="px-3.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>{isGeneratingReport ? "Grading..." : "Finish"}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -660,6 +707,7 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
