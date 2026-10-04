@@ -100,6 +100,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+# High-Performance Response Compression (reduces payload size by 70-80% for responses >= 1KB)
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # Mount Phase 1 Routers
 app.include_router(generator_router, prefix=settings.API_V1_STR)
 app.include_router(ocr_router, prefix=settings.API_V1_STR)
