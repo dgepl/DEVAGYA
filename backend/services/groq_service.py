@@ -97,21 +97,36 @@ class GroqAIService:
         import asyncio
 
         subj_lower = (req.subject or "").lower()
-        is_math = "math" in subj_lower
-        is_science = any(k in subj_lower for k in ["sci", "phys", "chem", "bio"])
-        is_lang = any(k in subj_lower for k in ["eng", "hindi", "sanskrit", "language"])
+        chap_lower = (req.chapter or "").lower()
+
+        # Check Devanagari script presence
+        has_devanagari = any(0x0900 <= ord(c) <= 0x097F for c in (str(req.subject or "") + " " + str(req.chapter or "")))
+
+        is_hindi = "hindi" in subj_lower or (has_devanagari and "sanskrit" not in subj_lower)
+        is_sanskrit = "sanskrit" in subj_lower
+        is_math = any(k in subj_lower for k in ["math", "ganit", "manjari", "prakash", "algebra", "geometry", "arithmetic", "applied mathematics"])
+        is_science = any(k in subj_lower for k in ["sci", "phys", "chem", "bio", "vigyan", "curiosity", "world"])
+        is_social = any(k in subj_lower for k in ["social", "sst", "history", "geography", "civics", "political", "economics", "sociology", "exploring society"])
+        is_english = any(k in subj_lower for k in ["eng", "honeydew", "beehive", "footprints", "marigold", "santoor"])
+        is_lang = is_english or is_hindi or is_sanskrit or "language" in subj_lower
         has_attached_source = bool(req.custom_instructions and any(k in req.custom_instructions.lower() for k in ["attached source", "attached reference", "document text:", "source material"]))
 
         if has_attached_source:
             subject_directive = f"CRITICAL MANDATE: All questions MUST be created strictly, exclusively, and solely from the attached reference document/source material provided in the instructions below. Do NOT use external pre-selected curriculum topics beyond what is in the attached source material."
+        elif is_hindi:
+            subject_directive = f"CRITICAL MANDATE: This is a HINDI literature and language examination paper for {req.class_name} ({req.subject}). All questions, instructions, passages, options, answers, and explanations MUST be written in pure HINDI using Devanagari script. Strictly base questions on the CBSE/NCERT curriculum for '{req.chapter}'."
+        elif is_sanskrit:
+            subject_directive = f"CRITICAL MANDATE: This is a SANSKRIT examination paper for {req.class_name} ({req.subject}). All questions, instructions, passages, options, answers, and explanations MUST be written in SANSKRIT using Devanagari script based on '{req.chapter}'."
         elif is_math:
-            subject_directive = f"CRITICAL: This is a MATHEMATICS examination paper for {req.class_name}. All questions MUST be authentic CBSE/NCERT Math problems based strictly on '{req.chapter}'. Use LaTeX ($...$) for algebraic expressions, fractions, powers, and equations."
+            subject_directive = f"CRITICAL MANDATE: This is a MATHEMATICS examination paper for {req.class_name} ({req.subject}). All questions MUST be authentic CBSE/NCERT Math problems based strictly on '{req.chapter}'. Use LaTeX ($...$) for algebraic expressions, fractions, powers, and equations."
         elif is_science:
-            subject_directive = f"CRITICAL: This is a {req.subject.upper()} examination paper for {req.class_name}. All questions MUST strictly test scientific concepts, laws, chemical equations, diagrams, and definitions for '{req.chapter}'. Do NOT generate pure mathematics algebra questions unless explicitly physics."
-        elif is_lang:
-            subject_directive = f"CRITICAL: This is an {req.subject.upper()} language examination paper for {req.class_name}. All questions MUST test reading comprehension, grammar, literature analysis, vocabulary, and writing skills for '{req.chapter}'. Do NOT include mathematical or numerical calculation questions."
+            subject_directive = f"CRITICAL MANDATE: This is a {req.subject.upper()} examination paper for {req.class_name}. All questions MUST strictly test scientific concepts, laws, chemical equations, diagrams, and definitions for '{req.chapter}'. Do NOT generate pure mathematics algebra questions unless explicitly physics calculations."
+        elif is_social:
+            subject_directive = f"CRITICAL MANDATE: This is a SOCIAL SCIENCE examination paper for {req.class_name} ({req.subject}). All questions MUST test authentic CBSE/NCERT historical events, geographical phenomena, democratic concepts, or economic principles for '{req.chapter}'."
+        elif is_english:
+            subject_directive = f"CRITICAL MANDATE: This is an ENGLISH language and literature examination paper for {req.class_name} ({req.subject}). All questions MUST test reading comprehension, grammar, literature analysis, vocabulary, and writing skills for '{req.chapter}'. Do NOT include mathematical or numerical calculation questions."
         else:
-            subject_directive = f"CRITICAL: This is a {req.subject.upper()} examination paper for {req.class_name}. All questions MUST be authentic CBSE/NCERT curriculum questions strictly based on the syllabus and concepts of '{req.chapter}' for {req.subject}."
+            subject_directive = f"CRITICAL MANDATE: This is a {req.subject.upper()} examination paper for {req.class_name}. All questions MUST be authentic CBSE/NCERT curriculum questions strictly based on the syllabus and concepts of '{req.chapter}' for {req.subject}."
 
         def _get_chunks(cnt: int, size: int) -> List[int]:
             res = []
@@ -127,9 +142,9 @@ class GroqAIService:
             for item in items:
                 t = str(item.get("question_text", "")).strip()
                 extra = str(item.get("case_passage", "") or item.get("assertion_text", "") or item.get("answer", "") or "")[:40]
-                norm = re.sub(r'[^a-zA-Z0-9\s]', '', (t + extra).lower())
-                k = " ".join(norm.split())
-                if not k or k in seen_texts or len(k) < 6:
+                # Normalize whitespace across all Unicode scripts (Devanagari, Latin, symbols, etc.) without stripping non-ASCII characters
+                k = " ".join((t + " " + extra).lower().split())
+                if not k or k in seen_texts or len(k) < 3:
                     continue
                 seen_texts.add(k)
                 out.append(item)
@@ -171,17 +186,17 @@ class GroqAIService:
 
             sections_req = []
             if target_mcq > 0:
-                sections_req.append(f"- EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation)")
+                sections_req.append(f"- EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 'question_text', 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], 'answer', and 'explanation')")
             if target_fill > 0:
-                sections_req.append(f"- EXACTLY {target_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with '_______' in question_text, correct answer, and explanation)")
+                sections_req.append(f"- EXACTLY {target_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with 'question_text' containing '_______', 'answer', and 'explanation')")
             if target_ar > 0:
-                sections_req.append(f"- EXACTLY {target_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with assertion_text, reason_text, standard CBSE 4 options, answer, and explanation)")
+                sections_req.append(f"- EXACTLY {target_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with 'question_text' formatted as 'Assertion (A): ...\\nReason (R): ...', 'assertion_text', 'reason_text', 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], 'answer', and 'explanation')")
             if target_short > 0:
-                sections_req.append(f"- EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with model answer and explanation)")
+                sections_req.append(f"- EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with 'question_text', comprehensive model 'answer', and 'explanation')")
             if target_long > 0:
-                sections_req.append(f"- EXACTLY {target_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with structured model answer and explanation)")
+                sections_req.append(f"- EXACTLY {target_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with 'question_text', structured step-by-step 'answer', and 'explanation')")
             if target_case > 0:
-                sections_req.append(f"- EXACTLY {target_case} Competency-Based Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with case_passage, 3 sub_questions, answer, and explanation)")
+                sections_req.append(f"- EXACTLY {target_case} Competency-Based Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with 'question_text': 'Read the following case study carefully and answer the questions that follow:', 'case_passage', 3 'sub_questions' as a list of strings ['(i)...', '(ii)...', '(iii)...'], 'answer', and 'explanation')")
 
             unified_prompt = f"""{subject_directive}
 
@@ -456,28 +471,68 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
         for q in extracted_raw_questions:
             if not isinstance(q, dict):
                 continue
-            q_text = str(q.get("question_text") or q.get("question") or "").strip()
-            if not q_text:
-                continue
-            q_type = str(q.get("question_type") or "").lower()
-            opts = q.get("options") if isinstance(q.get("options"), list) and len(q.get("options")) >= 2 else None
-            ans = str(q.get("answer") or "Refer to step-by-step model solution.")
-            exp = str(q.get("explanation") or "NCERT aligned explanation.")
+            
+            q_type = str(q.get("question_type") or q.get("type") or "").lower()
+            
+            # Extract answers flexibly from any key the LLM might return
+            ans = str(
+                q.get("answer") or 
+                q.get("correct_answer") or 
+                q.get("model_answer") or 
+                q.get("solution") or 
+                q.get("key") or 
+                "Refer to step-by-step model solution."
+            ).strip()
+            
+            exp = str(q.get("explanation") or "NCERT aligned explanation.").strip()
+            
+            # Extract options flexibly
+            raw_opts = q.get("options")
+            if isinstance(raw_opts, dict):
+                opts = [f"({k}) {v}" for k, v in raw_opts.items()]
+            elif isinstance(raw_opts, list) and len(raw_opts) >= 2:
+                opts = [str(o).strip() for o in raw_opts]
+            else:
+                opts = None
 
-            if "assertion" in q_type or "reason" in q_type or (q.get("assertion_text") and q.get("reason_text")):
+            # Assertion-Reason texts
+            a_txt = str(q.get("assertion_text") or "").strip()
+            r_txt = str(q.get("reason_text") or "").strip()
+            
+            # Case passage & sub-questions
+            passage = str(q.get("case_passage") or q.get("passage") or "").strip()
+            raw_sub = q.get("sub_questions") or q.get("questions")
+            
+            # Question text
+            q_text = str(q.get("question_text") or q.get("question") or q.get("text") or "").strip()
+            
+            # Auto-construct question_text if omitted from assertion_reason or case_study
+            if not q_text:
+                if a_txt and r_txt:
+                    q_text = f"Assertion (A): {a_txt}\nReason (R): {r_txt}"
+                elif passage or raw_sub or "case" in q_type:
+                    q_text = "Read the following case study carefully and answer the questions that follow:"
+                else:
+                    continue
+
+            if "assertion" in q_type or "reason" in q_type or (a_txt and r_txt) or ("assertion (a):" in q_text.lower() and "reason (r):" in q_text.lower()):
                 std_ar_opts = [
                     "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
                     "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
                     "(C) Assertion (A) is true but Reason (R) is false.",
                     "(D) Assertion (A) is false but Reason (R) is true."
                 ]
-                a_txt = str(q.get("assertion_text") or "").strip()
-                r_txt = str(q.get("reason_text") or "").strip()
-                if not a_txt and "assertion" in q_text.lower():
-                    # extract assertion and reason if embedded
-                    parts = q_text.split("Reason (R):")
+                if is_hindi and not opts:
+                    std_ar_opts = [
+                        "(A) अभिकथन (A) और तर्क (R) दोनों सही हैं तथा तर्क (R), अभिकथन (A) की सही व्याख्या है।",
+                        "(B) अभिकथन (A) और तर्क (R) दोनों सही हैं लेकिन तर्क (R), अभिकथन (A) की सही व्याख्या नहीं है।",
+                        "(C) अभिकथन (A) सही है लेकिन तर्क (R) गलत है।",
+                        "(D) अभिकथन (A) गलत है लेकिन तर्क (R) सही है।"
+                    ]
+                if not a_txt and "reason (r):" in q_text.lower():
+                    parts = re.split(r'reason\s*\(r\)\s*:', q_text, flags=re.IGNORECASE)
                     if len(parts) == 2:
-                        a_txt = parts[0].replace("Assertion (A):", "").strip()
+                        a_txt = re.sub(r'^assertion\s*\(a\)\s*:', '', parts[0], flags=re.IGNORECASE).strip()
                         r_txt = parts[1].strip()
                 formatted_q_text = f"Assertion (A): {a_txt}\nReason (R): {r_txt}" if a_txt and r_txt else q_text
                 ars.append({
@@ -490,52 +545,59 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
                     "answer": ans,
                     "explanation": exp
                 })
-            elif "fill" in q_type or "blank" in q_type:
+            elif "fill" in q_type or "blank" in q_type or "_______" in q_text:
                 fills.append({
                     "question_type": "fill_in_the_blanks",
-                    "question_text": q_text,
+                    "question_text": q_text if "_______" in q_text else f"{q_text} _______.",
                     "marks": fill_marks,
                     "options": None,
                     "answer": ans,
                     "explanation": exp
                 })
-            elif "case" in q_type or q.get("case_passage") or q.get("sub_questions"):
-                sub_qs = q.get("sub_questions") if isinstance(q.get("sub_questions"), list) else None
-                passage = str(q.get("case_passage") or "").strip()
+            elif "case" in q_type or passage or raw_sub:
                 clean_qt = q_text
-                # If passage is duplicated inside question_text, clean it out
                 if passage and len(passage) > 20 and passage.lower() in clean_qt.lower():
                     clean_qt = re.sub(re.escape(passage), '', clean_qt, flags=re.IGNORECASE).strip()
-                # If sub-questions are listed inside question_text, strip them out
-                if sub_qs:
+                if raw_sub and isinstance(raw_sub, list):
                     clean_qt = re.split(r'\n\s*(?:Questions?\s*:|\([iI1aA]\)|1\.)', clean_qt, flags=re.IGNORECASE)[0].strip()
                 if not clean_qt or len(clean_qt) < 10 or clean_qt.lower() in ("read the following", "case study"):
                     clean_qt = "Read the following case study carefully and answer the questions that follow:"
 
-                # Ensure clean sub-questions without duplicate numerals
                 clean_sub_qs = None
-                if sub_qs:
-                    clean_sub_qs = [
-                        re.sub(r'^\s*(?:\([a-zA-Z0-9ivxlcdmIVXLCDM]+\)|[a-zA-Z0-9ivxlcdmIVXLCDM]+[.)])\s*', '', str(sq)).strip()
-                        for sq in sub_qs
-                    ]
+                if raw_sub and isinstance(raw_sub, list):
+                    clean_sub_qs = []
+                    for sq in raw_sub:
+                        if isinstance(sq, dict):
+                            sq_text = str(sq.get("question") or sq.get("text") or sq.get("q") or "").strip()
+                            sq_marks = sq.get("marks")
+                            if sq_marks:
+                                sq_text = f"{sq_text} ({sq_marks} Mark{'s' if sq_marks > 1 else ''})"
+                        else:
+                            sq_text = str(sq).strip()
+                        clean_sq = re.sub(r'^\s*(?:\([a-zA-Z0-9ivxlcdmIVXLCDM]+\)|[a-zA-Z0-9ivxlcdmIVXLCDM]+[.)]|प्रश्न\s*\d+\s*[:.]?)\s*', '', sq_text).strip()
+                        if clean_sq:
+                            clean_sub_qs.append(clean_sq)
 
                 cases.append({
                     "question_type": "case_study",
                     "question_text": clean_qt,
                     "case_passage": passage or None,
-                    "sub_questions": clean_sub_qs,
+                    "sub_questions": clean_sub_qs if clean_sub_qs else [
+                        "(i) Identify the core concept or principle demonstrated in the scenario. (1 Mark)",
+                        "(ii) State one practical implication or observation from this case. (1 Mark)",
+                        "(iii) Analyze the final outcome and suggest an appropriate measure or conclusion. (2 Marks)"
+                    ],
                     "marks": case_marks,
                     "options": None,
                     "answer": ans,
                     "explanation": exp
                 })
-            elif "mcq" in q_type or opts:
+            elif "mcq" in q_type or "choice" in q_type or opts:
                 mcqs.append({
                     "question_type": "mcq",
                     "question_text": q_text,
                     "marks": 1,
-                    "options": opts,
+                    "options": opts or ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"],
                     "answer": ans,
                     "explanation": exp
                 })
@@ -565,7 +627,122 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
         longs = _dedup_q_list(longs)
         cases = _dedup_q_list(cases)
 
-        # Seamlessly backfill any deficit categories so teacher ALWAYS gets all requested types instantly
+        # Targeted live AI completion for any minor deficits before fallback
+        deficit_mcq = max(0, target_mcq - len(mcqs))
+        deficit_fill = max(0, target_fill - len(fills))
+        deficit_ar = max(0, target_ar - len(ars))
+        deficit_short = max(0, target_short - len(shorts))
+        deficit_long = max(0, target_long - len(longs))
+        deficit_case = max(0, target_case - len(cases))
+        has_deficit = any([deficit_mcq, deficit_fill, deficit_ar, deficit_short, deficit_long, deficit_case])
+
+        if has_deficit and getattr(ai_provider, "api_key", None):
+            try:
+                deficit_specs = []
+                if deficit_mcq > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 'question_text', 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], 'answer', and 'explanation')")
+                if deficit_fill > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with 'question_text' containing '_______', 'answer', and 'explanation')")
+                if deficit_ar > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with 'question_text' formatted as 'Assertion (A): ...\\nReason (R): ...', 'assertion_text', 'reason_text', standard 4 options, 'answer', and 'explanation')")
+                if deficit_short > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with 'question_text', 'answer', and 'explanation')")
+                if deficit_long > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with 'question_text', structured 'answer', and 'explanation')")
+                if deficit_case > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_case} Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with 'case_passage', 3 'sub_questions', 'answer', and 'explanation')")
+
+                deficit_prompt = f"""{subject_directive}
+
+Generate ONLY the missing question items for {req.class_name} {req.subject} on chapter '{req.chapter}':
+{chr(10).join(deficit_specs)}
+
+Return valid JSON ONLY with a 'questions' array containing these specific questions."""
+
+                raw_deficit = await _call_llm(deficit_prompt)
+                parsed_deficit = robust_json_parser(raw_deficit)
+                extra_qs = parsed_deficit.get("questions") or []
+                for eq in extra_qs:
+                    eq_type = str(eq.get("question_type") or "").lower()
+                    eq_ans = str(eq.get("answer") or eq.get("correct_answer") or eq.get("model_answer") or "Refer to model answer.").strip()
+                    eq_exp = str(eq.get("explanation") or "NCERT aligned explanation.").strip()
+                    eq_qt = str(eq.get("question_text") or eq.get("question") or "").strip()
+                    eq_a = str(eq.get("assertion_text") or "").strip()
+                    eq_r = str(eq.get("reason_text") or "").strip()
+                    if not eq_qt and eq_a and eq_r:
+                        eq_qt = f"Assertion (A): {eq_a}\nReason (R): {eq_r}"
+                    if not eq_qt and (eq.get("case_passage") or "case" in eq_type):
+                        eq_qt = "Read the following case study carefully and answer the questions that follow:"
+                    if not eq_qt:
+                        continue
+
+                    if ("assertion" in eq_type or (eq_a and eq_r)) and len(ars) < target_ar:
+                        ars.append({
+                            "question_type": "assertion_reason",
+                            "question_text": eq_qt,
+                            "assertion_text": eq_a or None,
+                            "reason_text": eq_r or None,
+                            "marks": ar_marks,
+                            "options": eq.get("options") or [
+                                "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                                "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                                "(C) Assertion (A) is true but Reason (R) is false.",
+                                "(D) Assertion (A) is false but Reason (R) is true."
+                            ],
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif ("fill" in eq_type or "blank" in eq_type) and len(fills) < target_fill:
+                        fills.append({
+                            "question_type": "fill_in_the_blanks",
+                            "question_text": eq_qt if "_______" in eq_qt else f"{eq_qt} _______.",
+                            "marks": fill_marks,
+                            "options": None,
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif "case" in eq_type and len(cases) < target_case:
+                        cases.append({
+                            "question_type": "case_study",
+                            "question_text": eq_qt,
+                            "case_passage": eq.get("case_passage"),
+                            "sub_questions": eq.get("sub_questions"),
+                            "marks": case_marks,
+                            "options": None,
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif ("mcq" in eq_type or eq.get("options")) and len(mcqs) < target_mcq:
+                        mcqs.append({
+                            "question_type": "mcq",
+                            "question_text": eq_qt,
+                            "marks": 1,
+                            "options": eq.get("options") or ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"],
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif ("long" in eq_type or int(eq.get("marks") or 0) >= 5) and len(longs) < target_long:
+                        longs.append({
+                            "question_type": "long",
+                            "question_text": eq_qt,
+                            "marks": 5,
+                            "options": None,
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif len(shorts) < target_short:
+                        shorts.append({
+                            "question_type": "short",
+                            "question_text": eq_qt,
+                            "marks": 3,
+                            "options": None,
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+            except Exception as def_err:
+                logger.warning(f"Targeted deficit AI synthesis notice: {def_err}")
+
+        # Emergency offline fallback only if deficit still remains
         if (len(mcqs) < target_mcq or len(fills) < target_fill or len(ars) < target_ar or
             len(shorts) < target_short or len(longs) < target_long or len(cases) < target_case):
             fallback_req = GeneratePaperRequest(
@@ -766,90 +943,275 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
         fill_marks = getattr(req, "fill_marks", 1) or 1
         case_marks = getattr(req, "case_marks", 4) or 4
 
+        # Clean chapter title
+        clean_chap = re.sub(r'\(.*?\)', '', chapter).strip()
+        if not clean_chap:
+            clean_chap = chapter
+
+        subj_lower = subject.lower()
+        has_devanagari = any(0x0900 <= ord(c) <= 0x097F for c in (subject + " " + chapter))
+        is_hindi = "hindi" in subj_lower or (has_devanagari and "sanskrit" not in subj_lower)
+        is_sanskrit = "sanskrit" in subj_lower
+        is_math = any(k in subj_lower for k in ["math", "ganit", "manjari", "prakash", "algebra", "geometry", "arithmetic"])
+        is_social = any(k in subj_lower for k in ["social", "sst", "history", "geography", "civics", "political", "economics", "sociology"])
+        is_english = any(k in subj_lower for k in ["eng", "honeydew", "beehive", "footprints", "marigold", "santoor"])
+
         qs = []
         target_mcq = max(1 if (req.num_mcqs <= 0 and req.num_short <= 0 and req.num_long <= 0) else 0, req.num_mcqs)
         for i in range(target_mcq):
-            qs.append({
-                "question_type": "mcq",
-                "question_text": f"Which of the following statements correctly characterizes the fundamental principle of {chapter} in {subject} ({cls})?",
-                "options": [
-                    f"(A) It demonstrates core conservation and equilibrium principles governing {chapter}.",
-                    f"(B) It functions independently of physical or chemical constraints.",
-                    f"(C) It contradicts standard NCERT foundational axioms.",
-                    f"(D) None of the above."
-                ],
-                "answer": f"(A) It demonstrates core conservation and equilibrium principles governing {chapter}.",
-                "explanation": f"In {cls} {subject}, {chapter} establishes standard conceptual laws and verifiable empirical relationships.",
-                "marks": 1
-            })
+            if is_hindi:
+                qs.append({
+                    "question_type": "mcq",
+                    "question_text": f"'{clean_chap}' के संदर्भ में निम्नलिखित में से कौन-सा कथन सर्वाधिक उपयुक्त और सत्य है?",
+                    "options": [
+                        f"(A) यह पाठ हमें जीवन के नैतिक मूल्यों और सत्य के मार्ग पर चलने की प्रेरणा देता है।",
+                        f"(B) यह केवल ऐतिहासिक विवरण प्रस्तुत करता है।",
+                        f"(C) इसका वास्तविक जीवन से कोई संबंध नहीं है।",
+                        f"(D) उपर्युक्त में से कोई नहीं।"
+                    ],
+                    "answer": f"(A) यह पाठ हमें जीवन के नैतिक मूल्यों और सत्य के मार्ग पर चलने की प्रेरणा देता है।",
+                    "explanation": f"{cls} हिंदी पाठ्यक्रम में '{clean_chap}' छात्रों में भाषाई समझ और मानवीय संवेदना का विकास करता है।",
+                    "marks": 1
+                })
+            elif is_math:
+                qs.append({
+                    "question_type": "mcq",
+                    "question_text": f"Which of the following represents the correct mathematical principle or condition in {clean_chap} ({cls})?",
+                    "options": [
+                        f"(A) It follows standard algebraic, geometric, and numerical theorems of {clean_chap}.",
+                        f"(B) It is undefined for all positive integer values.",
+                        f"(C) The values contradict fundamental NCERT axioms.",
+                        f"(D) None of the above."
+                    ],
+                    "answer": f"(A) It follows standard algebraic, geometric, and numerical theorems of {clean_chap}.",
+                    "explanation": f"In {cls} Mathematics, {clean_chap} establishes core geometric and numerical theorems.",
+                    "marks": 1
+                })
+            elif is_english:
+                qs.append({
+                    "question_type": "mcq",
+                    "question_text": f"What is the central theme or primary message conveyed in '{clean_chap}' ({cls} English)?",
+                    "options": [
+                        f"(A) It highlights essential human values, character growth, and resilience.",
+                        f"(B) It describes purely technical machinery.",
+                        f"(C) It argues against collaboration and empathy.",
+                        f"(D) None of the above."
+                    ],
+                    "answer": f"(A) It highlights essential human values, character growth, and resilience.",
+                    "explanation": f"NCERT curriculum literature analysis for '{clean_chap}' in {cls}.",
+                    "marks": 1
+                })
+            elif is_social:
+                qs.append({
+                    "question_type": "mcq",
+                    "question_text": f"Which of the following statements is historically and geographically correct regarding '{clean_chap}' in {cls}?",
+                    "options": [
+                        f"(A) It reflects key socio-economic, historical, or environmental developments.",
+                        f"(B) It occurred in total isolation from global events.",
+                        f"(C) It had no measurable impact on society or governance.",
+                        f"(D) None of the above."
+                    ],
+                    "answer": f"(A) It reflects key socio-economic, historical, or environmental developments.",
+                    "explanation": f"Aligned with CBSE Social Science curriculum standards for {clean_chap}.",
+                    "marks": 1
+                })
+            else:
+                qs.append({
+                    "question_type": "mcq",
+                    "question_text": f"Which of the following statements correctly characterizes the fundamental principle of {clean_chap} in {subject} ({cls})?",
+                    "options": [
+                        f"(A) It demonstrates core scientific principles and verifiable laws governing {clean_chap}.",
+                        f"(B) It functions independently of physical or chemical constraints.",
+                        f"(C) It contradicts standard NCERT foundational axioms.",
+                        f"(D) None of the above."
+                    ],
+                    "answer": f"(A) It demonstrates core scientific principles and verifiable laws governing {clean_chap}.",
+                    "explanation": f"In {cls} {subject}, {clean_chap} establishes standard conceptual laws and verifiable relationships.",
+                    "marks": 1
+                })
 
         target_fill = max(0, getattr(req, "num_fill_in_the_blanks", 0))
         for i in range(target_fill):
-            qs.append({
-                "question_type": "fill_in_the_blanks",
-                "question_text": f"Under standard conditions in {chapter}, the primary factor determining system equilibrium is _______.",
-                "options": None,
-                "answer": "Energy state and thermodynamic stability",
-                "explanation": f"Standard NCERT definition and principles for {chapter}.",
-                "marks": fill_marks
-            })
+            if is_hindi:
+                qs.append({
+                    "question_type": "fill_in_the_blanks",
+                    "question_text": f"'{clean_chap}' के अनुसार प्रमुख मानवीय गुण अथवा भाव _______ है।",
+                    "options": None,
+                    "answer": "सदाचार और कर्तव्यनिष्ठा",
+                    "explanation": f"एनसीईआरटी {cls} हिंदी पाठ्यक्रम के आधार पर आदर्श उत्तर।",
+                    "marks": fill_marks
+                })
+            elif is_math:
+                qs.append({
+                    "question_type": "fill_in_the_blanks",
+                    "question_text": f"In {clean_chap}, the fundamental property that guarantees equality across both sides of the expression is _______.",
+                    "options": None,
+                    "answer": "Mathematical identity and axiomatic equivalence",
+                    "explanation": f"Standard NCERT definition and principles for {clean_chap}.",
+                    "marks": fill_marks
+                })
+            elif is_english:
+                qs.append({
+                    "question_type": "fill_in_the_blanks",
+                    "question_text": f"In '{clean_chap}', the protagonist demonstrates _______ when faced with unexpected challenges.",
+                    "options": None,
+                    "answer": "courage and determination",
+                    "explanation": f"Key character attribute analyzed in NCERT {cls} English.",
+                    "marks": fill_marks
+                })
+            else:
+                qs.append({
+                    "question_type": "fill_in_the_blanks",
+                    "question_text": f"In {clean_chap}, the primary factor governing standard equilibrium or processes is _______.",
+                    "options": None,
+                    "answer": "Conservation principle and system stability",
+                    "explanation": f"Standard NCERT definition and principles for {clean_chap}.",
+                    "marks": fill_marks
+                })
 
         target_ar = max(0, getattr(req, "num_assertion_reason", 0))
         for i in range(target_ar):
-            qs.append({
-                "question_type": "assertion_reason",
-                "assertion_text": f"In {chapter}, observable changes strictly obey fundamental governing laws.",
-                "reason_text": f"Universal physical and chemical laws remain invariant across standard curriculum conditions.",
-                "question_text": f"Assertion (A): In {chapter}, observable changes strictly obey fundamental governing laws.\nReason (R): Universal physical and chemical laws remain invariant across standard curriculum conditions.",
-                "options": [
-                    "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
-                    "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
-                    "(C) Assertion (A) is true but Reason (R) is false.",
-                    "(D) Assertion (A) is false but Reason (R) is true."
-                ],
-                "answer": "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
-                "explanation": f"Both statements are scientifically accurate and directly align with NCERT {cls} curriculum benchmarks for {chapter}.",
-                "marks": ar_marks
-            })
+            if is_hindi:
+                qs.append({
+                    "question_type": "assertion_reason",
+                    "assertion_text": f"'{clean_chap}' हमें मानवीय संवेदना और सामाजिक उत्तरदायित्व की सीख देता है।",
+                    "reason_text": f"साहित्य समाज का दर्पण होता है और व्यक्ति के चरित्र निर्माण में सहायक सिद्ध होता है।",
+                    "question_text": f"अभिकथन (A): '{clean_chap}' हमें मानवीय संवेदना और सामाजिक उत्तरदायित्व की सीख देता है।\nतर्क (R): साहित्य समाज का दर्पण होता है और व्यक्ति के चरित्र निर्माण में सहायक सिद्ध होता है।",
+                    "options": [
+                        "(A) अभिकथन (A) और तर्क (R) दोनों सही हैं तथा तर्क (R), अभिकथन (A) की सही व्याख्या है।",
+                        "(B) अभिकथन (A) और तर्क (R) दोनों सही हैं लेकिन तर्क (R), अभिकथन (A) की सही व्याख्या नहीं है।",
+                        "(C) अभिकथन (A) सही है लेकिन तर्क (R) गलत है।",
+                        "(D) अभिकथन (A) गलत है लेकिन तर्क (R) सही है।"
+                    ],
+                    "answer": "(A) अभिकथन (A) और तर्क (R) दोनों सही हैं तथा तर्क (R), अभिकथन (A) की सही व्याख्या है।",
+                    "explanation": f"दोनों कथन सत्य हैं तथा तर्क अभिकथन की पुष्टि करता है।",
+                    "marks": ar_marks
+                })
+            elif is_math:
+                qs.append({
+                    "question_type": "assertion_reason",
+                    "assertion_text": f"In {clean_chap}, mathematical theorems remain universally valid across all defined domains.",
+                    "reason_text": f"Deductive mathematical logic is built on proven axioms and established identities.",
+                    "question_text": f"Assertion (A): In {clean_chap}, mathematical theorems remain universally valid across all defined domains.\nReason (R): Deductive mathematical logic is built on proven axioms and established identities.",
+                    "options": [
+                        "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                        "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                        "(C) Assertion (A) is true but Reason (R) is false.",
+                        "(D) Assertion (A) is false but Reason (R) is true."
+                    ],
+                    "answer": "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                    "explanation": f"Both statements are mathematically sound and align with NCERT {cls} curriculum standards.",
+                    "marks": ar_marks
+                })
+            else:
+                qs.append({
+                    "question_type": "assertion_reason",
+                    "assertion_text": f"In {clean_chap}, observable phenomena strictly obey established scientific or curriculum principles.",
+                    "reason_text": f"Universal governing laws remain invariant under controlled curriculum benchmarks.",
+                    "question_text": f"Assertion (A): In {clean_chap}, observable phenomena strictly obey established scientific or curriculum principles.\nReason (R): Universal governing laws remain invariant under controlled curriculum benchmarks.",
+                    "options": [
+                        "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                        "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                        "(C) Assertion (A) is true but Reason (R) is false.",
+                        "(D) Assertion (A) is false but Reason (R) is true."
+                    ],
+                    "answer": "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                    "explanation": f"Both statements are verified against NCERT {cls} benchmarks for {clean_chap}.",
+                    "marks": ar_marks
+                })
 
         target_short = max(0, req.num_short)
         for i in range(target_short):
-            qs.append({
-                "question_type": "short",
-                "question_text": f"State the core definition of {chapter} in {cls} {subject}. Give two relevant examples or applications.",
-                "options": None,
-                "answer": f"Definition (1 Mark): Concise conceptual statement of {chapter}.\nTwo Examples (2 Marks): Clearly stated real-world and experimental manifestations.",
-                "explanation": f"Standard NCERT model answer rubric for 3-mark questions in {chapter}.",
-                "marks": 3
-            })
+            if is_hindi:
+                qs.append({
+                    "question_type": "short",
+                    "question_text": f"'{clean_chap}' का मुख्य संदेश अपने शब्दों में लिखिए तथा इससे मिलने वाली कोई दो सीख स्पष्ट कीजिए।",
+                    "options": None,
+                    "answer": f"मुख्य संदेश (1.5 अंक): पाठ का केंद्रीय विचार संक्षेप में।\nदो सीख (1.5 अंक): व्यावहारिक जीवन में अपनाने योग्य दो बिंदु।",
+                    "explanation": f"एनसीईआरटी {cls} हिंदी 3-अंक अंकन योजना के अनुरूप।",
+                    "marks": 3
+                })
+            elif is_math:
+                qs.append({
+                    "question_type": "short",
+                    "question_text": f"State the core definition and formula associated with {clean_chap} in {cls} Mathematics. Illustrate with a concise example.",
+                    "options": None,
+                    "answer": f"Formula/Statement (1 Mark): Accurate algebraic or geometric expression.\nStep-by-step example (2 Marks): Fully solved mathematical instance with correct units.",
+                    "explanation": f"Standard NCERT model answer rubric for 3-mark questions in {clean_chap}.",
+                    "marks": 3
+                })
+            else:
+                qs.append({
+                    "question_type": "short",
+                    "question_text": f"State the key concepts of {clean_chap} in {cls} {subject}. Give two relevant examples or practical applications.",
+                    "options": None,
+                    "answer": f"Core Concept (1 Mark): Precise conceptual statement.\nTwo Examples (2 Marks): Clearly stated real-world manifestations.",
+                    "explanation": f"Standard NCERT model answer rubric for 3-mark questions in {clean_chap}.",
+                    "marks": 3
+                })
 
         target_long = max(0, req.num_long)
         for i in range(target_long):
-            qs.append({
-                "question_type": "long",
-                "question_text": f"Explain in detail the mechanism and scientific rationale behind {chapter}. Include relevant balanced equations, diagrams, or analytical derivations where appropriate.",
-                "options": None,
-                "answer": f"1. Principle & Theoretical Framework (2 Marks)\n2. Step-by-step mechanism and analytical justification (2 Marks)\n3. Significant limitations or practical relevance (1 Mark)",
-                "explanation": f"Comprehensive 5-mark HOTS evaluation aligned with CBSE board examination standards for {chapter}.",
-                "marks": 5
-            })
+            if is_hindi:
+                qs.append({
+                    "question_type": "long",
+                    "question_text": f"'{clean_chap}' के आधार पर प्रमुख प्रसंग अथवा पात्र का चरित्र-चित्रण कीजिए तथा बताइए कि यह पाठ आधुनिक समाज के लिए किस प्रकार प्रेरणादायक है।",
+                    "options": None,
+                    "answer": f"1. प्रसंग/चरित्र का परिचय (2 अंक)\n2. प्रमुख गुण एवं घटनाएं (2 अंक)\n3. आधुनिक समाज के लिए प्रासंगिकता व निष्कर्ष (1 अंक)",
+                    "explanation": f"एनसीईआरटी {cls} हिंदी 5-अंक दीर्घ उत्तरीय प्रश्न प्रारूप।",
+                    "marks": 5
+                })
+            elif is_math:
+                qs.append({
+                    "question_type": "long",
+                    "question_text": f"Solve a comprehensive multi-step problem on {clean_chap} in {cls}: State the given data, apply the appropriate theorem/formula, and derive the complete step-by-step solution with justification.",
+                    "options": None,
+                    "answer": f"1. Given values and formula identification (1 Mark)\n2. Step-by-step mathematical substitution and manipulation (3 Marks)\n3. Final calculated answer with proper units and concluding remark (1 Mark)",
+                    "explanation": f"Standard CBSE 5-mark structured marking rubric for {cls} Mathematics.",
+                    "marks": 5
+                })
+            else:
+                qs.append({
+                    "question_type": "long",
+                    "question_text": f"Explain in detail the fundamental principles, mechanisms, and real-world significance of {clean_chap} in {cls} {subject}. Include relevant diagrams, equations, or analytical frameworks where appropriate.",
+                    "options": None,
+                    "answer": f"1. Theoretical Framework & Definitions (2 Marks)\n2. Step-by-step mechanism and analytical explanation (2 Marks)\n3. Practical applications or limitations (1 Mark)",
+                    "explanation": f"Comprehensive 5-mark evaluation aligned with CBSE board standards for {clean_chap}.",
+                    "marks": 5
+                })
 
         target_case = max(0, getattr(req, "num_case_study", 0))
         for i in range(target_case):
-            qs.append({
-                "question_type": "case_study",
-                "case_passage": f"A student group conducted an experimental inquiry into the processes of {chapter} for {cls} {subject}. During data collection, the team observed characteristic rate variations under modulated experimental parameters. The recorded observations yielded insights into rate constants and operational efficiency.",
-                "sub_questions": [
-                    f"(i) Identify the governing principle demonstrated in the above case study. (1 Mark)",
-                    f"(ii) State one independent variable that influenced the observed outcome. (1 Mark)",
-                    f"(iii) What corrective measure would ensure optimum precision in subsequent trials? (2 Marks)"
-                ],
-                "question_text": f"Read the following case study carefully and answer the questions that follow:\n\n[Experimental Case: {chapter}]\nA student group conducted an inquiry into the processes of {chapter} for {cls} {subject}...\n\nQuestions:\n(i) Identify the governing principle demonstrated in the scenario.\n(ii) State one independent variable that influenced the observed outcome.\n(iii) What corrective measure would ensure optimum precision in subsequent trials?",
-                "options": None,
-                "answer": "(i) Principle: Core conservation law and equilibrium dynamics.\n(ii) Variable: Reaction temperature / concentration gradient.\n(iii) Measure: Rigorous control of ambient factors and multi-trial replication.",
-                "explanation": f"CBSE competency-based case study question assessing analytical application of {chapter}.",
-                "marks": case_marks
-            })
+            if is_hindi:
+                qs.append({
+                    "question_type": "case_study",
+                    "case_passage": f"विद्यार्थियों के एक समूह ने '{clean_chap}' के संदेश को अपने विद्यालय के सामाजिक एवं नैतिक अभियान में शामिल किया। उन्होंने पाया कि प्रकृति और साहित्य हमें जीवन की जटिलताओं को सरलता और धैर्य से सुलझाने की प्रेरणा देते हैं।",
+                    "sub_questions": [
+                        f"(i) प्रस्तुत प्रसंग में विद्यार्थियों ने कौन-सा मुख्य मूल्य अपनाया? (1 अंक)",
+                        f"(ii) साहित्य और प्रकृति से हमें क्या सीख मिलती है? (1 अंक)",
+                        f"(iii) इस सीख को दैनिक जीवन में कैसे लागू किया जा सकता है? दो उपाय लिखिए। (2 अंक)"
+                    ],
+                    "question_text": f"Read the following case study carefully and answer the questions that follow:\n\n[प्रसंग: {clean_chap}]\nविद्यार्थियों के एक समूह ने '{clean_chap}' के संदेश को अपने विद्यालय के सामाजिक एवं नैतिक अभियान में शामिल किया...",
+                    "options": None,
+                    "answer": "(i) मूल्य: धैर्य, सदाचार और सामाजिक सहभागिता।\n(ii) सीख: विपरीत परिस्थितियों में भी अडिग रहना और निरंतर कर्तव्य पथ पर अग्रसर होना।\n(iii) उपाय: नियमित आत्म-चिंतन और समाज के प्रति परोपकारी व्यवहार।",
+                    "explanation": f"सीबीएसई दक्षता-आधारित गद्यांश बोध मूल्यांकन।",
+                    "marks": case_marks
+                })
+            else:
+                qs.append({
+                    "question_type": "case_study",
+                    "case_passage": f"A student group conducted an inquiry into the practical applications and phenomena of '{clean_chap}' for {cls} {subject}. During their study, the team recorded observations, analyzed behavioral patterns, and derived data-driven conclusions aligned with standard curriculum benchmarks.",
+                    "sub_questions": [
+                        f"(i) Identify the governing principle demonstrated in the scenario. (1 Mark)",
+                        f"(ii) State one practical observation or variable from the investigation. (1 Mark)",
+                        f"(iii) How does this observation validate the core concept of {clean_chap}? (2 Marks)"
+                    ],
+                    "question_text": f"Read the following case study carefully and answer the questions that follow:\n\n[Case Study: {clean_chap}]\nA student group conducted an inquiry into the practical applications and phenomena of '{clean_chap}' for {cls} {subject}...",
+                    "options": None,
+                    "answer": f"(i) Principle: Core foundational concept of {clean_chap}.\n(ii) Observation: Measurable trend under controlled experimental or situational factors.\n(iii) Validation: Empirical data corroborates theoretical NCERT benchmarks.",
+                    "explanation": f"CBSE competency-based case study question assessing analytical application of {clean_chap}.",
+                    "marks": case_marks
+                })
 
         return qs
 
@@ -1350,9 +1712,11 @@ JSON format:
             for item in q_list:
                 if not isinstance(item, dict):
                     continue
-                t = str(item.get("question_text", "")).strip().lower()[:80]
-                if t and t not in seen:
-                    seen.add(t)
+                t = str(item.get("question_text", "")).strip().lower()
+                extra = str(item.get("case_passage", "") or item.get("assertion_text", "") or item.get("answer", "") or "")[:40].lower()
+                k = " ".join((t + " " + extra).split())
+                if k and k not in seen:
+                    seen.add(k)
                     out.append(item)
             return out
 
@@ -1361,53 +1725,80 @@ JSON format:
         for q in extracted_raw_questions:
             if not isinstance(q, dict):
                 continue
-            q_text = str(q.get("question_text") or q.get("question") or "").strip()
-            if not q_text:
-                continue
+            
             q_type = str(q.get("question_type") or q.get("type") or "").lower()
             raw_opts = q.get("options")
             if isinstance(raw_opts, dict):
                 opts = [f"({k}) {v}" for k, v in raw_opts.items()]
             elif isinstance(raw_opts, list) and len(raw_opts) >= 2:
-                opts = raw_opts
+                opts = [str(o).strip() for o in raw_opts]
             else:
                 opts = None
 
-            ans = str(q.get("answer") or "Refer to step-by-step model solution based on attached document.")
-            exp = str(q.get("explanation") or "Derived directly from attached source material.")
+            ans = str(
+                q.get("answer") or 
+                q.get("correct_answer") or 
+                q.get("model_answer") or 
+                q.get("solution") or 
+                q.get("key") or 
+                "Refer to step-by-step model solution based on attached document."
+            ).strip()
+            exp = str(q.get("explanation") or "Derived directly from attached source material.").strip()
 
-            if "case" in q_type or q.get("case_passage") or q.get("case_study") or q.get("sub_questions"):
-                passage = str(q.get("case_passage") or q.get("passage") or "Case scenario derived from attached material.").strip()
-                raw_sub = q.get("sub_questions") or q.get("questions") or ["(i) Explain the phenomenon.", "(ii) State the key principle.", "(iii) Derive the final conclusion."]
+            a_txt = str(q.get("assertion_text") or "").strip()
+            r_txt = str(q.get("reason_text") or "").strip()
+            passage = str(q.get("case_passage") or q.get("passage") or "").strip()
+            raw_sub = q.get("sub_questions") or q.get("questions")
+
+            q_text = str(q.get("question_text") or q.get("question") or q.get("text") or "").strip()
+            if not q_text:
+                if a_txt and r_txt:
+                    q_text = f"Assertion (A): {a_txt}\nReason (R): {r_txt}"
+                elif passage or raw_sub or "case" in q_type:
+                    q_text = "Read the following case study carefully and answer the questions that follow:"
+                else:
+                    continue
+
+            if "case" in q_type or passage or raw_sub:
                 clean_qt = q_text
                 if passage and len(passage) > 20 and passage.lower() in clean_qt.lower():
                     clean_qt = re.sub(re.escape(passage), '', clean_qt, flags=re.IGNORECASE).strip()
-                if raw_sub:
+                if raw_sub and isinstance(raw_sub, list):
                     clean_qt = re.split(r'\n\s*(?:Questions?\s*:|\([iI1aA]\)|1\.)', clean_qt, flags=re.IGNORECASE)[0].strip()
                 if not clean_qt or len(clean_qt) < 10 or clean_qt.lower() in ("read the following", "case study"):
                     clean_qt = "Read the following case study carefully and answer the questions that follow:"
 
-                clean_sub_qs = [
-                    re.sub(r'^\s*(?:\([a-zA-Z0-9ivxlcdmIVXLCDM]+\)|[a-zA-Z0-9ivxlcdmIVXLCDM]+[.)])\s*', '', str(sq)).strip()
-                    for sq in raw_sub
-                ]
+                clean_sub_qs = None
+                if raw_sub and isinstance(raw_sub, list):
+                    clean_sub_qs = []
+                    for sq in raw_sub:
+                        if isinstance(sq, dict):
+                            sq_text = str(sq.get("question") or sq.get("text") or sq.get("q") or "").strip()
+                            sq_marks = sq.get("marks")
+                            if sq_marks:
+                                sq_text = f"{sq_text} ({sq_marks} Mark{'s' if sq_marks > 1 else ''})"
+                        else:
+                            sq_text = str(sq).strip()
+                        clean_sq = re.sub(r'^\s*(?:\([a-zA-Z0-9ivxlcdmIVXLCDM]+\)|[a-zA-Z0-9ivxlcdmIVXLCDM]+[.)]|प्रश्न\s*\d+\s*[:.]?)\s*', '', sq_text).strip()
+                        if clean_sq:
+                            clean_sub_qs.append(clean_sq)
 
                 cases.append({
                     "question_type": "case_study",
                     "question_text": clean_qt,
-                    "case_passage": passage,
-                    "sub_questions": clean_sub_qs,
+                    "case_passage": passage or "Case scenario derived from attached material.",
+                    "sub_questions": clean_sub_qs if clean_sub_qs else ["(i) Explain the phenomenon.", "(ii) State the key principle.", "(iii) Derive the final conclusion."],
                     "marks": case_marks,
                     "options": None,
                     "answer": ans,
                     "explanation": exp
                 })
-            elif "assertion" in q_type or "ar" in q_type or q.get("assertion_text") or ("assertion" in q_text.lower() and "reason" in q_text.lower()):
+            elif "assertion" in q_type or "ar" in q_type or (a_txt and r_txt) or ("assertion" in q_text.lower() and "reason" in q_text.lower()):
                 ars.append({
                     "question_type": "assertion_reason",
                     "question_text": q_text,
-                    "assertion_text": q.get("assertion_text") or "Assertion statement from attached material.",
-                    "reason_text": q.get("reason_text") or "Reason statement from attached material.",
+                    "assertion_text": a_txt or "Assertion statement from attached material.",
+                    "reason_text": r_txt or "Reason statement from attached material.",
                     "marks": ar_marks,
                     "options": opts or [
                         "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
