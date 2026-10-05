@@ -292,11 +292,11 @@ export default function GeneratorPage() {
         });
         formData.append("school_name", targetSchoolName);
         formData.append("school_logo", user.schoolLogo || "");
-        // Pass selected curriculum values (with fallback to auto-detection if unspecified)
-        formData.append("title", title.trim() || targetTitle);
-        formData.append("class_name", className.trim() || targetClass);
-        formData.append("subject", subject.trim() || targetSubject);
-        formData.append("chapter", chapter.trim() || targetChapter);
+        // Automatically scan and detect class, subject, chapter, and title directly from attachment
+        formData.append("title", title.trim() ? title.trim() : "AUTO_DETECT_FROM_ATTACHMENT");
+        formData.append("class_name", "AUTO_DETECT_FROM_ATTACHMENT");
+        formData.append("subject", "AUTO_DETECT_FROM_ATTACHMENT");
+        formData.append("chapter", "AUTO_DETECT_FROM_ATTACHMENT");
         formData.append("difficulty", difficulty);
         formData.append("total_marks", finalMarks.toString());
         formData.append("time_allowed_mins", finalTime.toString());
