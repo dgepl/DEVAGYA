@@ -1364,9 +1364,9 @@ Return valid JSON ONLY with these exact keys:
         if attachment_summary:
             combined_source += f"=== ATTACHED MATERIAL CONCEPTS & SUMMARY ===\n{attachment_summary}\n\n"
 
-        # Check if the attached file or image contains ANY real readable educational content
+        # Check if the attached file or image contains ANY real readable educational content (Unicode-safe for Hindi, Sanskrit, Math, etc.)
         combined_text_snippets = (extracted_text or "").strip() + " " + " ".join(image_transcriptions).strip() + " " + (attachment_summary or "").strip()
-        clean_text_check = re.sub(r'[^a-zA-Z0-9]', '', combined_text_snippets.lower())
+        clean_text_check = "".join(combined_text_snippets.split())
 
         is_unreadable_transcription = any(phrase in combined_text_snippets.lower() for phrase in [
             "no readable text", "no text found", "no visible text", "blank image", "blank page",
@@ -1389,10 +1389,13 @@ Return valid JSON ONLY with these exact keys:
                 return "Science (Physics)"
             if any(k in t for k in ["cell", "mitochondria", "photosynthesis", "respiration", "dna", "rna", "neuron", "organism", "tissue", "chromosome", "reproduction", "ecology", "botany", "zoology", "ecosystem"]):
                 return "Science (Biology)"
-            if any(k in t for k in ["poem", "stanza", "comprehension", "grammatical", "noun", "verb", "adjective", "passage", "shakespeare", "idiom", "antonym", "synonym"]):
-                return "English"
-            if any(k in t for k in ["संज्ञा", "सर्वनाम", "क्रिया", "मुहावरे", "कविता", "गद्यांश", "व्याकरण"]):
+            if any('\u0900' <= char <= '\u097f' for char in text):
+                # Devanagari text present
+                if any(k in t for k in ["संस्कृत", "श्लोक", "धातुरूप", "शब्दरूप", "सन्धि"]):
+                    return "Sanskrit"
                 return "Hindi"
+            if any(k in t for k in ["poem", "stanza", "comprehension", "grammatical", "noun", "verb", "adjective", "passage", "shakespeare", "idiom", "antonym", "synonym", "rhyme", "story"]):
+                return "English"
             if any(k in t for k in ["constitution", "democracy", "parliament", "revolution", "dynasty", "monarchy", "civil war", "nationalism", "federalism", "election", "monsoon", "plateau"]):
                 return "Social Science"
             if any(k in t for k in ["python", "algorithm", "binary", "database", "sql", "network", "loop", "data structure"]):
@@ -1408,27 +1411,36 @@ Return valid JSON ONLY with these exact keys:
                 return f"Class {num}"
             return ""
 
-        # Deduce true subject: priority is detected_subject, then keyword deduction from content, NEVER form dropdown
-        if detected_subject and detected_subject.lower() not in ["general", "general studies", "unknown", "document", ""]:
+        # Resolve true subject: Prioritize teacher's selected curriculum subject; fallback to detected subject or text deduction
+        if req.subject and "auto_detect" not in req.subject.lower() and req.subject.lower() not in ["general", "general studies", "unknown", ""]:
+            final_subject = req.subject
+        elif detected_subject and detected_subject.lower() not in ["general", "general studies", "unknown", "document", ""]:
             final_subject = detected_subject
         else:
             final_subject = _deduce_subject(combined_source)
 
-        # Deduce true class: priority is detected_class, then regex deduction from content, then fallback to req or Class 10
-        raw_deduced_class = detected_class or _deduce_class(combined_source)
-        if raw_deduced_class and raw_deduced_class.lower() not in ["unknown", ""]:
-            final_class = raw_deduced_class if "class" in raw_deduced_class.lower() else f"Class {raw_deduced_class}"
+        # Resolve true class: Prioritize teacher's selected class; fallback to detected class or regex deduction from content
+        if req.class_name and "auto_detect" not in req.class_name.lower() and req.class_name.lower() not in ["unknown", ""]:
+            final_class = req.class_name if "class" in req.class_name.lower() else f"Class {req.class_name}"
         else:
-            final_class = req.class_name if (req.class_name and "auto_detect" not in req.class_name.lower()) else "Class 10"
+            raw_deduced_class = detected_class or _deduce_class(combined_source)
+            if raw_deduced_class and raw_deduced_class.lower() not in ["unknown", ""]:
+                final_class = raw_deduced_class if "class" in raw_deduced_class.lower() else f"Class {raw_deduced_class}"
+            else:
+                final_class = "Class 10"
 
-        # Deduce true chapter: priority is detected_chapter, then topic title from content, NEVER form dropdown
-        if detected_chapter and detected_chapter.lower() not in ["general", "general syllabus", "unknown", "attached content", ""]:
+        # Resolve true chapter: Prioritize teacher's selected chapter; fallback to detected chapter
+        if req.chapter and "auto_detect" not in req.chapter.lower() and req.chapter.lower() not in ["general", "general syllabus", "unknown", "attached content", ""]:
+            final_chapter = req.chapter
+        elif detected_chapter and detected_chapter.lower() not in ["general", "general syllabus", "unknown", "attached content", ""]:
             final_chapter = detected_chapter
         else:
             final_chapter = f"{final_subject} Core Concepts"
 
-        # Deduce title
-        if detected_title and "assessment" in detected_title.lower():
+        # Resolve title
+        if req.title and "auto_detect" not in req.title.lower() and req.title.strip() and req.title.strip() != "Periodic Assessment Exam":
+            final_title = req.title.strip()
+        elif detected_title and "assessment" in detected_title.lower():
             final_title = detected_title
         elif detected_title:
             final_title = f"{detected_title} - Periodic Assessment"
@@ -1456,30 +1468,36 @@ Return valid JSON ONLY with these exact keys:
         total_target_questions = target_mcq + target_fill + target_ar + target_short + target_long + target_case
         extracted_raw_questions: List[Dict[str, Any]] = []
 
-        # High-Speed Unified Synthesis for attached material (<= 20 questions)
-        if 0 < total_target_questions <= 20:
+        # High-Speed Unified Synthesis for attached material (<= 35 questions)
+        if 0 < total_target_questions <= 35:
             if progress_callback:
                 await progress_callback(55, f"Synthesizing questions strictly derived from {final_subject} source material...")
 
+            lang_directive = ""
+            if "hindi" in final_subject.lower() or any('\u0900' <= c <= '\u097f' for c in combined_source[:600]):
+                lang_directive = "MANDATORY LANGUAGE: All questions, options, passages, and explanations MUST be written in pure HINDI (Devanagari script) aligning with CBSE Hindi curriculum standards."
+            elif "sanskrit" in final_subject.lower():
+                lang_directive = "MANDATORY LANGUAGE: All questions, options, and passages MUST be written in SANSKRIT (Devanagari script) with Hindi/English guidance where appropriate."
+
             sections_specs = []
             if target_mcq > 0:
-                sections_specs.append(f"- EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation)")
+                sections_specs.append(f"- EXACTLY {target_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 'question_text', 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], 'answer', and 'explanation')")
             if target_fill > 0:
-                sections_specs.append(f"- EXACTLY {target_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with '_______' in question_text, answer, explanation)")
+                sections_specs.append(f"- EXACTLY {target_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with 'question_text' containing '_______', 'answer', and 'explanation')")
             if target_ar > 0:
-                sections_specs.append(f"- EXACTLY {target_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with assertion_text, reason_text, standard CBSE 4 options, answer, explanation)")
+                sections_specs.append(f"- EXACTLY {target_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with 'question_text' formatted as 'Assertion (A): ...\\nReason (R): ...', 'assertion_text', 'reason_text', standard CBSE 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], 'answer', and 'explanation')")
             if target_short > 0:
-                sections_specs.append(f"- EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with comprehensive model answer and explanation)")
+                sections_specs.append(f"- EXACTLY {target_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with 'question_text', 'answer', and 'explanation')")
             if target_long > 0:
-                sections_specs.append(f"- EXACTLY {target_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with structured, step-by-step scoring model answer)")
+                sections_specs.append(f"- EXACTLY {target_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with 'question_text', structured, step-by-step scoring model 'answer', and 'explanation')")
             if target_case > 0:
-                sections_specs.append(f"- EXACTLY {target_case} Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with realistic case_passage based on source, 3 sub_questions, answers, explanation)")
+                sections_specs.append(f"- EXACTLY {target_case} Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with 'question_text' ('Read the following case study carefully and answer the questions that follow:'), realistic 'case_passage' based on source, 3 'sub_questions', 'answer', and 'explanation')")
 
             unified_spec = f"""CRITICAL MANDATE:
 You are DEVGYA's Master Assessment Engine for CBSE/NCERT.
 Formulate authentic exam questions based SOLELY, STRICTLY, and EXCLUSIVELY on the ATTACHED SOURCE MATERIAL below.
 Every question, option, blank, assertion, and case study must derive directly from the attached source material.
-DO NOT introduce external curriculum topics. Ignore any default form parameters.
+{lang_directive}
 
 Subject: {final_subject}
 Class: {final_class}
@@ -1504,7 +1522,7 @@ Return valid JSON ONLY with a 'questions' array containing all {total_target_que
                         {"role": "user", "content": unified_spec}
                     ],
                     temperature=0.3,
-                    max_tokens=3500,
+                    max_tokens=4500,
                     response_format_json=True
                 )
                 if raw_unified and len(raw_unified.strip()) > 10:
@@ -1515,7 +1533,7 @@ Return valid JSON ONLY with a 'questions' array containing all {total_target_que
             except Exception as u_err:
                 logger.warning(f"Unified attachment synthesis notice: {u_err}")
 
-        # Chunked parallel tasks fallback for large papers (>20 questions) or if unified returned empty
+        # Chunked parallel tasks fallback for large papers (>35 questions) or if unified returned empty
         if not extracted_raw_questions and total_target_questions > 0:
             if progress_callback:
                 await progress_callback(55, "Synthesizing question sections across parallel batches...")
@@ -1713,7 +1731,7 @@ JSON format:
                 if not isinstance(item, dict):
                     continue
                 t = str(item.get("question_text", "")).strip().lower()
-                extra = str(item.get("case_passage", "") or item.get("assertion_text", "") or item.get("answer", "") or "")[:40].lower()
+                extra = str(item.get("case_passage", "") or item.get("assertion_text", "") or item.get("answer", "") or "")[:120].lower()
                 k = " ".join((t + " " + extra).split())
                 if k and k not in seen:
                     seen.add(k)
@@ -1853,7 +1871,137 @@ JSON format:
         longs = _dedup_q_list(longs)
         cases = _dedup_q_list(cases)
 
-        # Seamlessly backfill any deficit categories so teacher ALWAYS gets all requested types
+        # Targeted live AI completion for any minor deficits before fallback
+        deficit_mcq = max(0, target_mcq - len(mcqs))
+        deficit_fill = max(0, target_fill - len(fills))
+        deficit_ar = max(0, target_ar - len(ars))
+        deficit_short = max(0, target_short - len(shorts))
+        deficit_long = max(0, target_long - len(longs))
+        deficit_case = max(0, target_case - len(cases))
+        has_deficit = any([deficit_mcq, deficit_fill, deficit_ar, deficit_short, deficit_long, deficit_case])
+
+        if has_deficit and getattr(ai_provider, "api_key", None):
+            try:
+                deficit_specs = []
+                if deficit_mcq > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 'question_text', 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], 'answer', and 'explanation')")
+                if deficit_fill > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_fill} Fill in the Blanks Questions (labeled 'question_type': 'fill_in_the_blanks', 'marks': {fill_marks}, with 'question_text' containing '_______', 'answer', and 'explanation')")
+                if deficit_ar > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_ar} CBSE Assertion-Reason Questions (labeled 'question_type': 'assertion_reason', 'marks': {ar_marks}, with 'question_text' formatted as 'Assertion (A): ...\\nReason (R): ...', 'assertion_text', 'reason_text', standard 4 options, 'answer', and 'explanation')")
+                if deficit_short > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with 'question_text', 'answer', and 'explanation')")
+                if deficit_long > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_long} Long Answer Questions (labeled 'question_type': 'long', 'marks': 5, with 'question_text', structured 'answer', and 'explanation')")
+                if deficit_case > 0:
+                    deficit_specs.append(f"- EXACTLY {deficit_case} Case Study Questions (labeled 'question_type': 'case_study', 'marks': {case_marks}, with 'case_passage', 3 'sub_questions', 'answer', and 'explanation')")
+
+                deficit_prompt = f"""You are DEVGYA's Master Assessment Engine for CBSE/NCERT.
+Formulate authentic exam questions derived from the attached material:
+Class: {final_class}
+Subject: {final_subject}
+Chapter: {final_chapter}
+{lang_directive}
+
+{source_context}
+
+Generate ONLY the missing question items strictly adhering to the source material:
+{chr(10).join(deficit_specs)}
+
+Return valid JSON ONLY with a 'questions' array containing these specific questions."""
+
+                raw_deficit = await ai_provider.chat_completion(
+                    messages=[
+                        {"role": "system", "content": "You are DEVGYA's Master Assessment Engine. Return valid JSON only with 'questions' array."},
+                        {"role": "user", "content": deficit_prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=2500,
+                    response_format_json=True
+                )
+                parsed_deficit = robust_json_parser(raw_deficit)
+                extra_qs = parsed_deficit.get("questions") or []
+                for eq in extra_qs:
+                    eq_type = str(eq.get("question_type") or "").lower()
+                    eq_ans = str(eq.get("answer") or eq.get("correct_answer") or eq.get("model_answer") or "Refer to model answer.").strip()
+                    eq_exp = str(eq.get("explanation") or "Derived directly from attached source material.").strip()
+                    eq_qt = str(eq.get("question_text") or eq.get("question") or "").strip()
+                    eq_a = str(eq.get("assertion_text") or "").strip()
+                    eq_r = str(eq.get("reason_text") or "").strip()
+                    if not eq_qt and eq_a and eq_r:
+                        eq_qt = f"Assertion (A): {eq_a}\nReason (R): {eq_r}"
+                    if not eq_qt and (eq.get("case_passage") or "case" in eq_type):
+                        eq_qt = "Read the following case study carefully and answer the questions that follow:"
+                    if not eq_qt:
+                        continue
+
+                    if ("assertion" in eq_type or (eq_a and eq_r)) and len(ars) < target_ar:
+                        ars.append({
+                            "question_type": "assertion_reason",
+                            "question_text": eq_qt,
+                            "assertion_text": eq_a or None,
+                            "reason_text": eq_r or None,
+                            "marks": ar_marks,
+                            "options": eq.get("options") or [
+                                "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                                "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                                "(C) Assertion (A) is true but Reason (R) is false.",
+                                "(D) Assertion (A) is false but Reason (R) is true."
+                            ],
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif ("fill" in eq_type or "blank" in eq_type) and len(fills) < target_fill:
+                        fills.append({
+                            "question_type": "fill_in_the_blanks",
+                            "question_text": eq_qt if "_______" in eq_qt else f"{eq_qt} _______.",
+                            "marks": fill_marks,
+                            "options": None,
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif "case" in eq_type and len(cases) < target_case:
+                        cases.append({
+                            "question_type": "case_study",
+                            "question_text": eq_qt,
+                            "case_passage": eq.get("case_passage"),
+                            "sub_questions": eq.get("sub_questions"),
+                            "marks": case_marks,
+                            "options": None,
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif ("mcq" in eq_type or eq.get("options")) and len(mcqs) < target_mcq:
+                        mcqs.append({
+                            "question_type": "mcq",
+                            "question_text": eq_qt,
+                            "marks": 1,
+                            "options": eq.get("options") or ["(A) Option A", "(B) Option B", "(C) Option C", "(D) Option D"],
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif ("long" in eq_type or int(eq.get("marks") or 0) >= 5) and len(longs) < target_long:
+                        longs.append({
+                            "question_type": "long",
+                            "question_text": eq_qt,
+                            "marks": 5,
+                            "options": None,
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+                    elif len(shorts) < target_short:
+                        shorts.append({
+                            "question_type": "short",
+                            "question_text": eq_qt,
+                            "marks": 3,
+                            "options": None,
+                            "answer": eq_ans,
+                            "explanation": eq_exp
+                        })
+            except Exception as def_err:
+                logger.warning(f"Targeted deficit attachment AI synthesis notice: {def_err}")
+
+        # Emergency offline fallback only if deficit still remains after live AI completion
         if (len(mcqs) < target_mcq or len(fills) < target_fill or len(ars) < target_ar or
             len(shorts) < target_short or len(longs) < target_long or len(cases) < target_case):
             fallback_req = GeneratePaperRequest(

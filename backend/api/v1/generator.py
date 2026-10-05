@@ -228,9 +228,9 @@ async def generate_paper_from_file(request: Request):
         if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
             try:
                 img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
-                img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+                img.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
                 buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=70, optimize=True)
+                img.save(buf, format="JPEG", quality=80, optimize=True)
                 enc = base64.b64encode(buf.getvalue()).decode("ascii")
                 img_url = f"data:image/jpeg;base64,{enc}"
                 if len(image_data_urls) < 25:
@@ -456,9 +456,9 @@ async def generate_paper_from_file_stream(request: Request):
                 if "image" in content_type or ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
                     try:
                         img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
-                        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+                        img.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
                         buf = io.BytesIO()
-                        img.save(buf, format="JPEG", quality=70, optimize=True)
+                        img.save(buf, format="JPEG", quality=80, optimize=True)
                         enc = base64.b64encode(buf.getvalue()).decode("ascii")
                         img_url = f"data:image/jpeg;base64,{enc}"
                         if len(image_data_urls) < 25:
