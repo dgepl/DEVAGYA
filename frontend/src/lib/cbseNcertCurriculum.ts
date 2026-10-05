@@ -729,7 +729,24 @@ export const CBSE_NCERT_CURRICULUM: Record<string, ClassCurriculum> = {
 
   "Class 9": {
     subjects: {
-      "Mathematics (Ganita Manjari / NCERT Rationalized)": [
+      "Mathematics (Ganita Manjari - New NCERT)": [
+        "Chapter 1: Orienting Yourself: The Use of Coordinates",
+        "Chapter 2: Introduction to Linear Polynomials",
+        "Chapter 3: The World of Numbers",
+        "Chapter 4: Exploring Algebraic Identities",
+        "Chapter 5: I'm Up and Down, and Round and Round",
+        "Chapter 6: Measuring Space: Perimeter and Area",
+        "Chapter 7: The Mathematics of Maybe: Introduction to Probability",
+        "Chapter 8: Predicting What Comes Next?: Exploring Sequences and Progressions",
+        "Chapter 9: Propositions and their Converses",
+        "Chapter 10: How Quantities Combine: Understanding Data",
+        "Chapter 11: The World of Algorithms",
+        "Chapter 12: Quadrilaterals",
+        "Chapter 13: Two Variables, One Line",
+        "Chapter 14: Math of Space: Surface Area and Volume",
+        "Full Syllabus / Mixed Chapters"
+      ],
+      "Mathematics (NCERT Rationalized)": [
         "Chapter 1: Number Systems",
         "Chapter 2: Polynomials",
         "Chapter 3: Coordinate Geometry",
@@ -744,7 +761,23 @@ export const CBSE_NCERT_CURRICULUM: Record<string, ClassCurriculum> = {
         "Chapter 12: Statistics",
         "Full Syllabus / Mixed Chapters"
       ],
-      "Science (Exploration / Vigyan Rationalized)": [
+      "Science (Exploration - New NCERT)": [
+        "Chapter 1: Exploration: Entering the World of Secondary Science",
+        "Chapter 2: Cell: The Building Block of Life",
+        "Chapter 3: Tissues in Action",
+        "Chapter 4: Describing Motion Around Us",
+        "Chapter 5: Exploring Mixtures and their Separation",
+        "Chapter 6: How Forces Affect Motion",
+        "Chapter 7: Work, Energy, and Simple Machines",
+        "Chapter 8: Journey Inside the Atom",
+        "Chapter 9: Atomic Foundations of Matter",
+        "Chapter 10: Sound Waves: Characteristics and Applications",
+        "Chapter 11: Reproduction: How Life Continues",
+        "Chapter 12: Patterns in Life: Diversity and Classification",
+        "Chapter 13: Earth as a System: Energy, Matter and Life",
+        "Full Syllabus / Mixed Chapters"
+      ],
+      "Science (NCERT Rationalized)": [
         "Chapter 1: Matter in Our Surroundings",
         "Chapter 2: Is Matter Around Us Pure",
         "Chapter 3: Atoms and Molecules",
@@ -759,7 +792,20 @@ export const CBSE_NCERT_CURRICULUM: Record<string, ClassCurriculum> = {
         "Chapter 12: Improvement in Food Resources",
         "Full Syllabus / Mixed Chapters"
       ],
-      "Social Science (Understanding Society / NCERT)": [
+      "Social Science (Understanding Society: India and Beyond)": [
+        "Chapter 1: Understanding Social Science",
+        "Chapter 2: Shaping of the Earth's Surface",
+        "Chapter 3: Atmosphere and Climate",
+        "Chapter 4: Early Humans and Beginning of Civilisation",
+        "Chapter 5: State and Society up to 1000 CE",
+        "Chapter 6: Democracy",
+        "Chapter 7: Elections",
+        "Chapter 8: Building Blocks in Economics: The Problem of Choice",
+        "Chapter 9: The Price Puzzle: What Drives the Market",
+        "Chapter 10: Medieval India: Resistance and Resilience (1000 CE–1700 CE)",
+        "Full Syllabus / Mixed Chapters"
+      ],
+      "Social Science (NCERT Rationalized)": [
         "History Ch 1: The French Revolution",
         "History Ch 2: Socialism in Europe and the Russian Revolution",
         "History Ch 3: Nazism and the Rise of Hitler",
@@ -782,7 +828,21 @@ export const CBSE_NCERT_CURRICULUM: Record<string, ClassCurriculum> = {
         "Economics Ch 4: Food Security in India",
         "Full Syllabus / Mixed Chapters"
       ],
-      "English (Beehive, Moments / Kaveri)": [
+      "English (Kaveri - New NCERT)": [
+        "Unit 1: How I Taught My Grandmother to Read & Bharat Our Land",
+        "Unit 2: The Pot Maker & Gifts of Grace: Honouring Our Vocations",
+        "Unit 3: Winds of Change & Canvas of Soil",
+        "Unit 4: Vitamin-M & I Cannot Remember My Mother",
+        "Unit 5: The World of Limitless Possibilities & Nine Gold Medals",
+        "Unit 6: Twin Melodies & A Friend Found in Music",
+        "Unit 7: Carrier of Words & Words",
+        "Unit 8: Follow That Dream & Believe in Yourself",
+        "Grammar: Tenses, Modals, Subject-Verb Concord, Reported Speech",
+        "Writing: Descriptive Paragraph, Story Writing, Diary Entry",
+        "Reading: Reading Comprehension Passages",
+        "Full Syllabus / Mixed Chapters"
+      ],
+      "English (Beehive & Moments)": [
         "Beehive: The Fun They Had & The Road Not Taken",
         "Beehive: The Sound of Music & Wind",
         "Beehive: The Little Girl & Rain on the Roof",
@@ -800,32 +860,33 @@ export const CBSE_NCERT_CURRICULUM: Record<string, ClassCurriculum> = {
         "Moments: The Last Leaf",
         "Moments: A House is Not a Home",
         "Moments: The Beggar",
-        "Grammar: Tenses, Modals, Subject-Verb Concord, Reported Speech",
-        "Writing: Descriptive Paragraph (Person/Event/Situation), Story Writing",
-        "Reading: Discursive & Case-based Factual Passages",
+        "Grammar & Writing: Tenses, Modals, Descriptive Paragraph, Story Writing",
+        "Reading: Reading Comprehension Passages",
         "Full Syllabus / Mixed Chapters"
       ],
-      "Hindi (क्षितिज / स्पर्श / कृतिका / संचयन)": [
-        "क्षितिज गद्य: दो बैलों की कथा (प्रेमचंद)",
-        "क्षितिज गद्य: ल्हासा की ओर (राहुल सांकृत्यायन)",
-        "क्षितिज गद्य: उपभोक्तावाद की संस्कृति (श्यामाचरण दुबे)",
-        "क्षितिज गद्य: साँवले सपनों की याद (जाबिर हुसैन)",
-        "क्षितिज गद्य: प्रेमचंद के फटे जूते (हरिशंकर परसाई)",
-        "क्षितिज गद्य: मेरे बचपन के दिन (महादेवी वर्मा)",
-        "क्षितिज काव्य: साखियाँ एवं सबद (कबीर)",
-        "क्षितिज काव्य: वाख (ललद्यद)",
-        "क्षितिज काव्य: सवैये (रसखान)",
-        "क्षितिज काव्य: कैदी और कोकिला (माखनलाल चतुर्वेदी)",
-        "क्षितिज काव्य: ग्राम श्री (सुमित्रानंदन पंत)",
-        "क्षितिज काव्य: मेघ आए (सर्वेश्वर दयाल सक्सेना)",
-        "क्षितिज काव्य: बच्चे काम पर जा रहे हैं (राजेश जोशी)",
-        "कृतिका: इस जल प्रलय में, मेरे संग की औरतें, रीढ़ की हड्डी",
-        "स्पर्श: दुःख का अधिकार, एवरेस्ट: मेरी शिखर यात्रा, तुम कब जाओगे अतिथि, शुक्रतारे के समान",
+      "Hindi (गंगा / रेवा - New NCERT)": [
+        "पाठ 1: दो बैलों की कथा (प्रेमचंद)",
+        "पाठ 2: क्या लिखूँ? (पदुमलाल पुन्नालाल बख्शी)",
+        "पाठ 3: संवाधिन (शेखर जोशी)",
+        "पाठ 4: ऐसी भी बातें होती हैं (यतींद्र मिश्र)",
+        "पाठ 5: आखिरी चट्टान तक (मोहन राकेश)",
+        "पाठ 6: रीढ़ की हड्डी (जगदीशचंद्र माथुर)",
+        "पाठ 7: मैं और मेरा देश (कन्हैयालाल मिश्र 'प्रभाकर')",
+        "काव्य खंड: साखियाँ एवं पद (कबीर, मीरा, रसखान, सुमित्रानंदन पंत)",
         "व्याकरण: उपसर्ग-प्रत्यय, समास, अर्थ की दृष्टि से वाक्य भेद, अलंकार",
         "रचनात्मक लेखन: अनुच्छेद लेखन, पत्र लेखन, संवाद लेखन, लघु कथा",
         "सम्पूर्ण पाठ्यक्रम"
       ],
-      "Sanskrit (शेमुषी भाग 1 / शारदा)": [
+      "Hindi (क्षितिज / स्पर्श / कृतिका / संचयन)": [
+        "क्षितिज गद्य: दो बैलों की कथा, ल्हासा की ओर, उपभोक्तावाद की संस्कृति",
+        "क्षितिज गद्य: साँवले सपनों की याद, प्रेमचंद के फटे जूते, मेरे बचपन के दिन",
+        "क्षितिज काव्य: साखियाँ एवं सबद, वाख, सवैये, कैदी और कोकिला, मेघ आए, बच्चे काम पर जा रहे हैं",
+        "कृतिका: इस जल प्रलय में, मेरे संग की औरतें, रीढ़ की हड्डी",
+        "स्पर्श: दुःख का अधिकार, एवरेस्ट: मेरी शिखर यात्रा, तुम कब जाओगे अतिथि, शुक्रतारे के समान",
+        "व्याकरण: उपसर्ग-प्रत्यय, समास, वाक्य भेद, अलंकार, अपठित बोध",
+        "सम्पूर्ण पाठ्यक्रम"
+      ],
+      "Sanskrit (शारदा / शेमुषी)": [
         "पाठ 1: भारतीवसन्तगीतिः",
         "पाठ 2: स्वर्णकाकः",
         "पाठ 3: गोदोहनम्",
