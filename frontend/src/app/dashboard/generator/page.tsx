@@ -82,15 +82,23 @@ export default function GeneratorPage() {
   // Dynamic Subject and Chapter derivations
   const currentClassData = CBSE_NCERT_CURRICULUM[className] || CBSE_NCERT_CURRICULUM["Class 10"];
   const availableSubjects = Object.keys(currentClassData?.subjects || {});
-  const availableChapters = currentClassData?.subjects?.[subject] || [];
+  
+  // Resolve effective subject (exact or fuzzy prefix match)
+  const resolvedSubject = availableSubjects.includes(subject)
+    ? subject
+    : (availableSubjects.find(s => s.toLowerCase().startsWith(subject.toLowerCase()) || subject.toLowerCase().startsWith(s.toLowerCase())) || availableSubjects[0] || "");
+
+  const availableChapters = currentClassData?.subjects?.[subject] || currentClassData?.subjects?.[resolvedSubject] || [];
 
   // Handle Class Change -> Auto-select first valid Subject & Chapter
   const handleClassChange = (newClass: string) => {
     setClassName(newClass);
     const subjs = Object.keys(CBSE_NCERT_CURRICULUM[newClass]?.subjects || {});
-    const nextSubj = subjs.includes(subject) ? subject : (subjs[0] || "Science");
-    setSubject(nextSubj);
-    const chaps = CBSE_NCERT_CURRICULUM[newClass]?.subjects?.[nextSubj] || [];
+    const match = subjs.includes(subject)
+      ? subject
+      : (subjs.find(s => s.toLowerCase().startsWith(subject.toLowerCase()) || subject.toLowerCase().startsWith(s.toLowerCase())) || subjs[0] || "");
+    setSubject(match);
+    const chaps = CBSE_NCERT_CURRICULUM[newClass]?.subjects?.[match] || [];
     setChapter(chaps[0] || "");
   };
 
@@ -108,20 +116,20 @@ export default function GeneratorPage() {
       if (user.classes && !className) {
         setClassName(user.classes);
         const subjs = Object.keys(CBSE_NCERT_CURRICULUM[user.classes]?.subjects || {});
-        if (user.subject && subjs.includes(user.subject)) {
-          setSubject(user.subject);
-        } else if (subjs.length > 0) {
-          setSubject(subjs[0]);
-        }
+        const userSubj = user.subject;
+        const match = userSubj
+          ? (subjs.includes(userSubj) ? userSubj : subjs.find(s => s.toLowerCase().startsWith(userSubj.toLowerCase())) || subjs[0])
+          : subjs[0];
+        if (match) setSubject(match);
       } else if (user.subject && !subject) {
         setSubject(user.subject);
       }
     }
   }, [user]);
 
-  // Auto-initialize chapter to first valid chapter if not set
+  // Auto-initialize chapter to first valid chapter if not set or invalid
   useEffect(() => {
-    if (!chapter && availableChapters && availableChapters.length > 0) {
+    if ((!chapter || (availableChapters.length > 0 && !availableChapters.includes(chapter))) && availableChapters.length > 0) {
       setChapter(availableChapters[0]);
     }
   }, [availableChapters, chapter]);

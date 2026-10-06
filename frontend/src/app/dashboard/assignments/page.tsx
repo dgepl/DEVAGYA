@@ -74,16 +74,24 @@ export default function AssignmentMakerPage() {
 
   // Dynamic NCERT Curriculum Lookups
   const availableClasses = Object.keys(CBSE_NCERT_CURRICULUM);
-  const availableSubjects = Object.keys(CBSE_NCERT_CURRICULUM[className]?.subjects || {});
-  const availableChapters = CBSE_NCERT_CURRICULUM[className]?.subjects?.[subject] || [];
+  const currentClassData = CBSE_NCERT_CURRICULUM[className] || CBSE_NCERT_CURRICULUM["Class 10"];
+  const availableSubjects = Object.keys(currentClassData?.subjects || {});
+  
+  const resolvedSubject = availableSubjects.includes(subject)
+    ? subject
+    : (availableSubjects.find(s => s.toLowerCase().startsWith(subject.toLowerCase()) || subject.toLowerCase().startsWith(s.toLowerCase())) || availableSubjects[0] || "");
+
+  const availableChapters = currentClassData?.subjects?.[subject] || currentClassData?.subjects?.[resolvedSubject] || [];
 
   // Handle Class Change -> Auto-select first valid Subject & Chapter
   const handleClassChange = (newClass: string) => {
     setClassName(newClass);
     const subjs = Object.keys(CBSE_NCERT_CURRICULUM[newClass]?.subjects || {});
-    const nextSubj = subjs.includes(subject) ? subject : subjs[0] || "Mathematics";
-    setSubject(nextSubj);
-    const chaps = CBSE_NCERT_CURRICULUM[newClass]?.subjects?.[nextSubj] || [];
+    const match = subjs.includes(subject)
+      ? subject
+      : (subjs.find(s => s.toLowerCase().startsWith(subject.toLowerCase()) || subject.toLowerCase().startsWith(s.toLowerCase())) || subjs[0] || "");
+    setSubject(match);
+    const chaps = CBSE_NCERT_CURRICULUM[newClass]?.subjects?.[match] || [];
     setChapterTopic(chaps[0] || "Chapter 1: Core Fundamentals");
   };
 

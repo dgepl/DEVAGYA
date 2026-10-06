@@ -44,7 +44,11 @@ export function ExamPrepStudio() {
   });
 
   const availableChapters = useMemo(() => {
-    return CBSE_NCERT_CURRICULUM[selectedClass]?.subjects?.[subject] || [];
+    const direct = CBSE_NCERT_CURRICULUM[selectedClass]?.subjects?.[subject];
+    if (direct && direct.length > 0) return direct;
+    const subjs = Object.keys(CBSE_NCERT_CURRICULUM[selectedClass]?.subjects || {});
+    const match = subjs.find(s => s.toLowerCase().startsWith(subject.toLowerCase()) || subject.toLowerCase().startsWith(s.toLowerCase()));
+    return (match && CBSE_NCERT_CURRICULUM[selectedClass]?.subjects?.[match]) || [];
   }, [selectedClass, subject]);
 
   const [selectedChapter, setSelectedChapter] = useState("All High-Yield Chapters / Full Syllabus");
@@ -62,8 +66,10 @@ export function ExamPrepStudio() {
   const handleClassChange = (newClass: string) => {
     setSelectedClass(newClass);
     const subjs = Object.keys(CBSE_NCERT_CURRICULUM[newClass]?.subjects || {});
-    const nextSubj = subjs.includes(subject) ? subject : (subjs[0] || "");
-    setSubject(nextSubj);
+    const match = subjs.includes(subject)
+      ? subject
+      : (subjs.find(s => s.toLowerCase().startsWith(subject.toLowerCase()) || subject.toLowerCase().startsWith(s.toLowerCase())) || subjs[0] || "");
+    setSubject(match);
     setSelectedChapter("All High-Yield Chapters / Full Syllabus");
     setIsCustomChapter(false);
     setCustomChapter("");

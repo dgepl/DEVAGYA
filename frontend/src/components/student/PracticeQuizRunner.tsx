@@ -60,11 +60,15 @@ export function PracticeQuizRunner() {
   });
 
   const availableChapters = useMemo(() => {
-    return CBSE_NCERT_CURRICULUM[selectedClass]?.subjects?.[subject] || [];
+    const direct = CBSE_NCERT_CURRICULUM[selectedClass]?.subjects?.[subject];
+    if (direct && direct.length > 0) return direct;
+    const subjs = Object.keys(CBSE_NCERT_CURRICULUM[selectedClass]?.subjects || {});
+    const match = subjs.find(s => s.toLowerCase().startsWith(subject.toLowerCase()) || subject.toLowerCase().startsWith(s.toLowerCase()));
+    return (match && CBSE_NCERT_CURRICULUM[selectedClass]?.subjects?.[match]) || [];
   }, [selectedClass, subject]);
 
   const [selectedTopic, setSelectedTopic] = useState(() => {
-    const chaps = CBSE_NCERT_CURRICULUM["Class 10"]?.subjects?.["Science"] || [];
+    const chaps = CBSE_NCERT_CURRICULUM["Class 10"]?.subjects?.["Science (NCERT)"] || CBSE_NCERT_CURRICULUM["Class 10"]?.subjects?.["Science"] || [];
     return chaps[0] || "Chapter 1: Chemical Reactions and Equations";
   });
   const [customTopic, setCustomTopic] = useState("");
@@ -76,9 +80,11 @@ export function PracticeQuizRunner() {
   const handleClassChange = (newClass: string) => {
     setSelectedClass(newClass);
     const subjs = Object.keys(CBSE_NCERT_CURRICULUM[newClass]?.subjects || {});
-    const nextSubj = subjs.includes(subject) ? subject : (subjs[0] || "");
-    setSubject(nextSubj);
-    const chaps = CBSE_NCERT_CURRICULUM[newClass]?.subjects?.[nextSubj] || [];
+    const match = subjs.includes(subject)
+      ? subject
+      : (subjs.find(s => s.toLowerCase().startsWith(subject.toLowerCase()) || subject.toLowerCase().startsWith(s.toLowerCase())) || subjs[0] || "");
+    setSubject(match);
+    const chaps = CBSE_NCERT_CURRICULUM[newClass]?.subjects?.[match] || [];
     setSelectedTopic(chaps[0] || "Full Syllabus / Mixed Practice");
     setIsCustomTopic(false);
     setCustomTopic("");
