@@ -382,35 +382,38 @@ export function speakCoachText(
 
       if (completed) return;
 
-      // Web Audio API playback: 100% resilient on mobile (Android/iOS) and Laptop without autoplay rejection!
+      // Web Audio API playback: ONLY if AudioContext is initialized AND actually RUNNING (unlocked)
       const ctx = getAudioContext();
       if (ctx) {
-        try {
-          if (ctx.state === "suspended") {
+        if (ctx.state === "suspended") {
+          try {
             await ctx.resume();
+          } catch (e) {}
+        }
+        if (ctx.state === "running") {
+          try {
+            const decodedBuffer = await ctx.decodeAudioData(rawArrayBuffer.slice(0));
+            if (completed) return;
+
+            const sourceNode = ctx.createBufferSource();
+            sourceNode.buffer = decodedBuffer;
+            sourceNode.connect(ctx.destination);
+            currentBufferSource = sourceNode;
+
+            sourceNode.onended = () => {
+              currentBufferSource = null;
+              finish();
+            };
+
+            sourceNode.start(0);
+            return; // Successfully playing via Web Audio API!
+          } catch (webAudioErr) {
+            console.warn("Web Audio API decode error, falling back to HTML5 Audio:", webAudioErr);
           }
-
-          const decodedBuffer = await ctx.decodeAudioData(rawArrayBuffer.slice(0));
-          if (completed) return;
-
-          const sourceNode = ctx.createBufferSource();
-          sourceNode.buffer = decodedBuffer;
-          sourceNode.connect(ctx.destination);
-          currentBufferSource = sourceNode;
-
-          sourceNode.onended = () => {
-            currentBufferSource = null;
-            finish();
-          };
-
-          sourceNode.start(0);
-          return; // Successfully playing via Web Audio API!
-        } catch (webAudioErr) {
-          console.warn("Web Audio API decode error, trying HTML5 Audio fallback:", webAudioErr);
         }
       }
 
-      // Secondary fallback: HTML5 Audio Blob playback
+      // Secondary fallback (Essential for iOS Safari & Android Mobile): HTML5 Audio element
       let blobUrl = audioBlobCache.get(cacheKey);
       if (!blobUrl && rawArrayBuffer) {
         const blob = new Blob([rawArrayBuffer], { type: "audio/mpeg" });
@@ -472,7 +475,8 @@ function fallbackBrowserSpeech(cleanText: string, selectedVoice: string, onEnd: 
         const utterance = new SpeechSynthesisUtterance(cleanText);
         const hasDevanagari = /[\u0900-\u097F]/.test(cleanText);
 
-        if (hasDevanagari || selectedVoice.includes("hi-IN") || selectedVoice.includes("Swara") || selectedVoice.includes("Madhur")) {
+        if (hasDevanagari) {
+          // Native Hindi Devanagari text
           utterance.lang = "hi-IN";
           utterance.pitch = 1.0;
           utterance.rate = 0.95;
@@ -480,6 +484,29 @@ function fallbackBrowserSpeech(cleanText: string, selectedVoice: string, onEnd: 
           const hiVoice = voices.find((v) => v.lang.includes("hi") || v.name.includes("Hindi") || v.name.includes("hi-IN"));
           if (hiVoice) {
             utterance.voice = hiVoice;
+          }
+        } else if (selectedVoice.includes("hi-IN") || selectedVoice.includes("Swara") || selectedVoice.includes("Neerja") || selectedVoice.includes("Prabhat") || selectedVoice.includes("Indian")) {
+          // Indian-accented English (Swara/Neerja speaking English) - use en-IN with fallback to device English
+          utterance.lang = "en-IN";
+          utterance.pitch = 1.0;
+          utterance.rate = 0.95;
+          const voices = window.speechSynthesis.getVoices() || [];
+          const inVoice = voices.find(
+            (v) =>
+              v.lang === "en-IN" ||
+              v.lang.startsWith("en-IN") ||
+              v.lang.includes("IN") ||
+              v.name.includes("India") ||
+              v.name.includes("Neerja") ||
+              v.name.includes("Prabhat") ||
+              v.name.includes("Veena") ||
+              v.name.includes("Heera")
+          );
+          if (inVoice) {
+            utterance.voice = inVoice;
+          } else {
+            const anyEn = getBestEnglishVoice();
+            if (anyEn) utterance.voice = anyEn;
           }
         } else if (selectedVoice.includes("Andrew") || selectedVoice.includes("Guy")) {
           utterance.lang = "en-US";
@@ -489,26 +516,12 @@ function fallbackBrowserSpeech(cleanText: string, selectedVoice: string, onEnd: 
           utterance.lang = "en-US";
           utterance.pitch = 1.05;
           utterance.rate = 1.0;
-        } else if (
-          selectedVoice.includes("Neerja") ||
-          selectedVoice.includes("IN") ||
-          selectedVoice.includes("Indian")
-        ) {
-          utterance.lang = "en-IN";
-          utterance.pitch = 1.02;
-          utterance.rate = 0.94;
         } else {
           utterance.lang = "en-US";
           utterance.pitch = 1.0;
           utterance.rate = 0.98;
-        }
-
-        if (!hasDevanagari) {
-          const voice = getMatchingBrowserVoice(selectedVoice);
-          if (voice) {
-            utterance.voice = voice;
-            utterance.lang = voice.lang;
-          }
+          const voice = getBestEnglishVoice();
+          if (voice) utterance.voice = voice;
         }
 
         let finished = false;

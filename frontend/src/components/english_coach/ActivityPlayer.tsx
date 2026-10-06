@@ -386,7 +386,8 @@ export function ActivityPlayer({
       hasEvaluatedRef.current = false;
 
       const rec = new SpeechRec();
-      rec.continuous = true; // Always continuous! Never prematurely time out before user speaks!
+      const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      rec.continuous = !isMobile;
       rec.interimResults = true;
       rec.maxAlternatives = 5; // Multi-hypothesis acoustic decoding for high accuracy
       rec.lang = "en-IN";

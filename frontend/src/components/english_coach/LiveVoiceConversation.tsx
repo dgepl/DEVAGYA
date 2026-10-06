@@ -135,7 +135,8 @@ export function LiveVoiceConversation({ userId, userRole, onBack }: Props) {
       stopCoachSpeaking();
       updateCoachSpeaking(false);
       const rec = new SpeechRec();
-      rec.continuous = true;
+      const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      rec.continuous = !isMobile;
       rec.interimResults = true;
       rec.maxAlternatives = 5;
       rec.lang = "en-IN";
