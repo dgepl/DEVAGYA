@@ -213,10 +213,14 @@ export function getMatchingBrowserVoice(voiceId: string): SpeechSynthesisVoice |
 }
 
 export const COACH_DEFAULT_VOICE = "en-US-AvaNeural";
+export const COACH_HINDI_VOICE = "hi-IN-SwaraNeural";
 
 let sharedAudioElement: HTMLAudioElement | null = null;
 let isAudioUnlocked = false;
+let globalAudioContext: AudioContext | null = null;
+let currentBufferSource: AudioBufferSourceNode | null = null;
 let currentVoiceId: string = COACH_DEFAULT_VOICE; // Ultra-natural human studio voice
+const audioArrayBufferCache = new Map<string, ArrayBuffer>();
 const audioBlobCache = new Map<string, string>();
 let coachSpeechWatchdogTimer: any = null;
 
@@ -231,9 +235,37 @@ export function getSharedAudioElement(): HTMLAudioElement | null {
   return sharedAudioElement;
 }
 
+export function getAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (!globalAudioContext) {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        globalAudioContext = new AudioCtx();
+      }
+    } catch (e) {}
+  }
+  return globalAudioContext;
+}
+
 export function unlockAudio() {
   if (typeof window === "undefined") return;
   try {
+    const ctx = getAudioContext();
+    if (ctx) {
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+      // Play a tiny silent buffer to warm up audio pipeline on mobile
+      try {
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+      } catch (e) {}
+    }
+
     const audio = getSharedAudioElement();
     if (audio && !isAudioUnlocked) {
       audio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==";
@@ -251,12 +283,22 @@ export function unlockAudio() {
   } catch (e) {}
 }
 
+// Automatically attach unlock handlers to user interactions so mobile audio is warmed up immediately
+if (typeof window !== "undefined") {
+  const onInteraction = () => {
+    unlockAudio();
+  };
+  window.addEventListener("touchstart", onInteraction, { passive: true });
+  window.addEventListener("touchend", onInteraction, { passive: true });
+  window.addEventListener("click", onInteraction, { passive: true });
+}
+
 export function setCoachVoicePreference(voiceId: string) {
-  currentVoiceId = COACH_DEFAULT_VOICE;
+  currentVoiceId = voiceId || COACH_DEFAULT_VOICE;
 }
 
 export function getCoachVoicePreference(): string {
-  return COACH_DEFAULT_VOICE;
+  return currentVoiceId || COACH_DEFAULT_VOICE;
 }
 
 export function speakCoachText(
@@ -283,6 +325,13 @@ export function speakCoachText(
     return;
   }
 
+  // Automatic language detection (Zero buttons needed):
+  // If text contains Devanagari Hindi characters, automatically route to native Hindi Neural Voice
+  const hasDevanagari = /[\u0900-\u097F]/.test(clean);
+  const selectedVoice = hasDevanagari
+    ? COACH_HINDI_VOICE
+    : (voicePreference || getCoachVoicePreference());
+
   let completed = false;
   let fallbackAttempted = false;
 
@@ -298,7 +347,7 @@ export function speakCoachText(
   };
 
   // Watchdog timer: Guarantee coach speaking NEVER stays stuck on mobile/desktop
-  const maxWaitMs = Math.max(3000, Math.min(18000, clean.length * 80 + 2000));
+  const maxWaitMs = Math.max(3000, Math.min(22000, clean.length * 90 + 3000));
   coachSpeechWatchdogTimer = setTimeout(() => {
     if (!completed) {
       stopCoachSpeaking();
@@ -306,42 +355,73 @@ export function speakCoachText(
     }
   }, maxWaitMs);
 
-  const selectedVoice = voicePreference || getCoachVoicePreference();
-
   const triggerFallback = () => {
     if (fallbackAttempted || completed) return;
     fallbackAttempted = true;
-    const audio = getSharedAudioElement();
-    if (audio) {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.src = "";
-      } catch (e) {}
-    }
+    stopCoachSpeaking();
     fallbackBrowserSpeech(clean, selectedVoice, finish);
   };
 
-  // 1. Primary: Fetch & Play Studio-Quality Edge-TTS Neural Audio Blob
+  // 1. Primary: Stream studio-quality Edge-TTS Neural Audio via Web Audio API (or HTML5 Audio)
   (async () => {
     try {
       const apiBase = getApiBase();
       const streamUrl = `${apiBase}/tts/speak?voice=${encodeURIComponent(selectedVoice)}&rate=+0%&text=${encodeURIComponent(clean)}`;
-      
       const cacheKey = `${selectedVoice}:${clean}`;
-      let blobUrl = audioBlobCache.get(cacheKey);
 
-      if (!blobUrl) {
+      let rawArrayBuffer = audioArrayBufferCache.get(cacheKey);
+
+      if (!rawArrayBuffer) {
         const resp = await fetch(streamUrl);
         if (!resp.ok) {
           throw new Error(`TTS server HTTP ${resp.status}`);
         }
-        const blob = await resp.blob();
+        rawArrayBuffer = await resp.arrayBuffer();
+        audioArrayBufferCache.set(cacheKey, rawArrayBuffer);
+      }
+
+      if (completed) return;
+
+      // Web Audio API playback: 100% resilient on mobile (Android/iOS) and Laptop without autoplay rejection!
+      const ctx = getAudioContext();
+      if (ctx) {
+        try {
+          if (ctx.state === "suspended") {
+            await ctx.resume();
+          }
+
+          const decodedBuffer = await ctx.decodeAudioData(rawArrayBuffer.slice(0));
+          if (completed) return;
+
+          const sourceNode = ctx.createBufferSource();
+          sourceNode.buffer = decodedBuffer;
+          sourceNode.connect(ctx.destination);
+          currentBufferSource = sourceNode;
+
+          sourceNode.onended = () => {
+            currentBufferSource = null;
+            finish();
+          };
+
+          sourceNode.start(0);
+          return; // Successfully playing via Web Audio API!
+        } catch (webAudioErr) {
+          console.warn("Web Audio API decode error, trying HTML5 Audio fallback:", webAudioErr);
+        }
+      }
+
+      // Secondary fallback: HTML5 Audio Blob playback
+      let blobUrl = audioBlobCache.get(cacheKey);
+      if (!blobUrl && rawArrayBuffer) {
+        const blob = new Blob([rawArrayBuffer], { type: "audio/mpeg" });
         blobUrl = URL.createObjectURL(blob);
         audioBlobCache.set(cacheKey, blobUrl);
       }
 
-      if (completed) return;
+      if (!blobUrl) {
+        triggerFallback();
+        return;
+      }
 
       const audio = getSharedAudioElement() || new Audio();
       audio.src = blobUrl;
@@ -362,7 +442,7 @@ export function speakCoachText(
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
-          console.warn("Edge-TTS play error, using fallback:", err);
+          console.warn("HTML5 audio play error, using fallback:", err);
           triggerFallback();
         });
       }
@@ -390,8 +470,18 @@ function fallbackBrowserSpeech(cleanText: string, selectedVoice: string, onEnd: 
         window.speechSynthesis.cancel();
 
         const utterance = new SpeechSynthesisUtterance(cleanText);
+        const hasDevanagari = /[\u0900-\u097F]/.test(cleanText);
 
-        if (selectedVoice.includes("Andrew") || selectedVoice.includes("Guy")) {
+        if (hasDevanagari || selectedVoice.includes("hi-IN") || selectedVoice.includes("Swara") || selectedVoice.includes("Madhur")) {
+          utterance.lang = "hi-IN";
+          utterance.pitch = 1.0;
+          utterance.rate = 0.95;
+          const voices = window.speechSynthesis.getVoices() || [];
+          const hiVoice = voices.find((v) => v.lang.includes("hi") || v.name.includes("Hindi") || v.name.includes("hi-IN"));
+          if (hiVoice) {
+            utterance.voice = hiVoice;
+          }
+        } else if (selectedVoice.includes("Andrew") || selectedVoice.includes("Guy")) {
           utterance.lang = "en-US";
           utterance.pitch = 0.9;
           utterance.rate = 0.96;
@@ -407,24 +497,18 @@ function fallbackBrowserSpeech(cleanText: string, selectedVoice: string, onEnd: 
           utterance.lang = "en-IN";
           utterance.pitch = 1.02;
           utterance.rate = 0.94;
-        } else if (
-          selectedVoice.includes("Sonia") ||
-          selectedVoice.includes("GB") ||
-          selectedVoice.includes("British")
-        ) {
-          utterance.lang = "en-GB";
-          utterance.pitch = 1.0;
-          utterance.rate = 0.94;
         } else {
           utterance.lang = "en-US";
           utterance.pitch = 1.0;
           utterance.rate = 0.98;
         }
 
-        const voice = getMatchingBrowserVoice(selectedVoice);
-        if (voice) {
-          utterance.voice = voice;
-          utterance.lang = voice.lang;
+        if (!hasDevanagari) {
+          const voice = getMatchingBrowserVoice(selectedVoice);
+          if (voice) {
+            utterance.voice = voice;
+            utterance.lang = voice.lang;
+          }
         }
 
         let finished = false;
@@ -457,6 +541,13 @@ export function stopCoachSpeaking() {
   if (coachSpeechWatchdogTimer) {
     clearTimeout(coachSpeechWatchdogTimer);
     coachSpeechWatchdogTimer = null;
+  }
+  if (currentBufferSource) {
+    try {
+      currentBufferSource.stop();
+      currentBufferSource.disconnect();
+    } catch (e) {}
+    currentBufferSource = null;
   }
   const audio = getSharedAudioElement();
   if (audio) {
