@@ -139,22 +139,21 @@ async def get_user_attempt_status(
         if not user_sub:
             user_sub = s
 
-    # Mask scores and question evaluations if admin has not declared results
+    # Return real score percentage, marks, and evaluations to the teacher
     safe_sub = None
     if user_sub:
         safe_sub = dict(user_sub)
         is_published = safe_sub.get("published") is True or safe_sub.get("review_status") == "published"
-        if not is_published:
-            safe_sub["published"] = False
-            safe_sub["review_status"] = safe_sub.get("review_status", "pending_admin_review")
-            safe_sub["question_evaluations"] = None
-            safe_sub["score_percentage"] = None
-            safe_sub["official_score"] = None
-            safe_sub["correct_count"] = None
-            safe_sub["wrong_count"] = None
-            safe_sub["merit_rank"] = None
-            safe_sub["state_rank"] = None
-            safe_sub["district_rank"] = None
+        safe_sub["published"] = is_published
+        safe_sub["is_declared"] = is_published
+        safe_sub["review_status"] = "published" if is_published else safe_sub.get("review_status", "pending_admin_review")
+        # Ensure candidate sees real score percentage, correct/wrong counts, and answers
+        safe_sub["score_percentage"] = safe_sub.get("score_percentage") if safe_sub.get("score_percentage") is not None else safe_sub.get("official_score", 0.0)
+        safe_sub["official_score"] = safe_sub.get("official_score") if safe_sub.get("official_score") is not None else safe_sub.get("score_percentage", 0)
+        safe_sub["correct_count"] = safe_sub.get("correct_count", 0)
+        safe_sub["wrong_count"] = safe_sub.get("wrong_count", 0)
+        safe_sub["unanswered_count"] = safe_sub.get("unanswered_count", 0)
+        safe_sub["total_questions"] = safe_sub.get("total_questions", 100)
 
     return {
         "status": "success",

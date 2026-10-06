@@ -645,22 +645,28 @@ export default function TeacherOlympiadPage() {
         : proctorLogs;
 
       const cleanEmail = (user?.email || "teacher@school.edu").trim().toLowerCase();
+      const totalWarnings = Math.max(proctorWarnings || 0, tabSwitches || 0, fullscreenExits || 0);
+
       const res = await fetch(`${baseUrl}/olympiad/submit-100`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           teacher_email: cleanEmail,
-          teacher_name: user?.name || "Educator",
+          candidate_email: cleanEmail,
+          teacher_name: user?.name || "Educator Candidate",
+          candidate_name: user?.name || "Educator Candidate",
           subject: selectedSubject,
           state: user?.state || "National",
           district: user?.district || "Central",
           paper_id: paperData?.id || paperData?.paper_id || `tso-national-2026-${selectedSubject.toLowerCase()}`,
+          paper_title: paperData?.title || `National Teacher Skills Olympiad 2026 — ${selectedSubject.toUpperCase()}`,
+          title: paperData?.title || `National Teacher Skills Olympiad 2026 — ${selectedSubject.toUpperCase()}`,
           answers: answers,
           time_taken_seconds: timeTaken,
           tab_switch_count: tabSwitches,
-          proctor_incidents: tabSwitches,
-          cheating_warnings: tabSwitches,
-          warning_count: tabSwitches,
+          proctor_incidents: totalWarnings,
+          cheating_warnings: totalWarnings,
+          warning_count: totalWarnings,
           proctor_logs: finalLogs
         })
       });
@@ -1935,37 +1941,30 @@ export default function TeacherOlympiadPage() {
                     <div className="space-y-1">
                       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black border"
                         style={{
-                          backgroundColor: isDeclared ? "rgba(16, 185, 129, 0.2)" : "rgba(245, 158, 11, 0.2)",
-                          borderColor: isDeclared ? "rgba(16, 185, 129, 0.4)" : "rgba(245, 158, 11, 0.4)",
-                          color: isDeclared ? "#6ee7b7" : "#fde68a"
+                          backgroundColor: isDeclared ? "rgba(16, 185, 129, 0.2)" : "rgba(99, 102, 241, 0.2)",
+                          borderColor: isDeclared ? "rgba(16, 185, 129, 0.4)" : "rgba(99, 102, 241, 0.4)",
+                          color: isDeclared ? "#6ee7b7" : "#a5b4fc"
                         }}
                       >
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>{isDeclared ? "OFFICIALLY DECLARED MERIT SCORECARD" : "ASSESSMENT SUBMITTED • PENDING SUPER ADMIN DECLARATION"}</span>
+                        <span>{isDeclared ? "OFFICIALLY DECLARED MERIT SCORECARD" : "ASSESSMENT RESULT READY • PRELIMINARY SCORECARD"}</span>
                       </div>
                       <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-                        {userSubmission.teacher_name} &bull; {userSubmission.subject} Assessment
+                        {userSubmission.teacher_name || userSubmission.candidate_name || user?.name || "Teacher Candidate"} &bull; {userSubmission.subject || userSubmission.paper_title || selectedSubject} Assessment
                       </h2>
                       <p className="text-xs text-slate-300 font-medium">
-                        National Teacher Skills Olympiad 2026 &bull; Submitted {userSubmission.submitted_at}
+                        National Teacher Skills Olympiad 2026 &bull; Submitted {userSubmission.submitted_at || "Recently"}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      {isDeclared ? (
-                        <button
-                          onClick={() => setShowAnswerReviewModal(true)}
-                          className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95 uppercase tracking-wider"
-                        >
-                          <FileCheck className="w-4 h-4" />
-                          <span>Check Right & Wrong Answers</span>
-                        </button>
-                      ) : (
-                        <div className="px-4 py-2.5 bg-slate-800/80 border border-amber-400/30 rounded-xl text-xs font-bold text-amber-300 flex items-center gap-2">
-                          <Lock className="w-4 h-4 text-amber-400" />
-                          <span>Answers Locked (Pending Result Declaration)</span>
-                        </div>
-                      )}
+                      <button
+                        onClick={() => setShowAnswerReviewModal(true)}
+                        className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95 uppercase tracking-wider"
+                      >
+                        <FileCheck className="w-4 h-4" />
+                        <span>Check Right & Wrong Answers</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1974,26 +1973,12 @@ export default function TeacherOlympiadPage() {
                     
                     <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
                       <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Official Score</span>
-                      {isDeclared ? (
-                        <>
-                          <div className="text-2xl sm:text-3xl font-black text-amber-300">
-                            {userSubmission.score_percentage}%
-                          </div>
-                          <p className="text-[11px] text-slate-300 font-medium">
-                            {userSubmission.correct_count ?? 0}/100 Marks Scored
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <div className="text-sm sm:text-base font-black text-amber-300 flex items-center gap-1.5 pt-1">
-                            <Lock className="w-4 h-4" />
-                            <span>Under Review</span>
-                          </div>
-                          <p className="text-[10px] text-slate-400">
-                            Declared by Super Admin
-                          </p>
-                        </>
-                      )}
+                      <div className="text-2xl sm:text-3xl font-black text-amber-300">
+                        {userSubmission.score_percentage ?? userSubmission.official_score ?? 0}%
+                      </div>
+                      <p className="text-[11px] text-slate-300 font-medium">
+                        {userSubmission.correct_count ?? 0}/100 Marks Scored
+                      </p>
                     </div>
 
                     <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
@@ -2009,12 +1994,11 @@ export default function TeacherOlympiadPage() {
                         </>
                       ) : (
                         <>
-                          <div className="text-sm sm:text-base font-black text-slate-300 flex items-center gap-1.5 pt-1">
-                            <Clock className="w-4 h-4 text-slate-400" />
-                            <span>Processing</span>
+                          <div className="text-2xl sm:text-3xl font-black text-white">
+                            #{userSubmission.merit_rank ?? 1}
                           </div>
-                          <p className="text-[10px] text-slate-400">
-                            National Merit Standing
+                          <p className="text-[11px] text-indigo-300 font-medium">
+                            Provisional Merit Standing
                           </p>
                         </>
                       )}
@@ -2022,33 +2006,19 @@ export default function TeacherOlympiadPage() {
 
                     <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
                       <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Accuracy Breakdown</span>
-                      {isDeclared ? (
-                        <>
-                          <div className="flex items-center gap-2 text-xs font-bold pt-1">
-                            <span className="text-emerald-400 font-black">✓ {userSubmission.correct_count ?? 0} Correct</span>
-                            <span className="text-rose-400 font-black">✗ {userSubmission.wrong_count ?? 0} Wrong</span>
-                          </div>
-                          <p className="text-[11px] text-slate-300 font-medium">
-                            ⚪ {userSubmission.unanswered_count ?? 0} Unattempted
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <div className="text-sm sm:text-base font-black text-slate-300 flex items-center gap-1.5 pt-1">
-                            <Lock className="w-4 h-4" />
-                            <span>Locked</span>
-                          </div>
-                          <p className="text-[10px] text-slate-400">
-                            100 Question Breakdown
-                          </p>
-                        </>
-                      )}
+                      <div className="flex items-center gap-2 text-xs font-bold pt-1">
+                        <span className="text-emerald-400 font-black">✓ {userSubmission.correct_count ?? 0} Correct</span>
+                        <span className="text-rose-400 font-black">✗ {userSubmission.wrong_count ?? 0} Wrong</span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 font-medium">
+                        ⚪ {userSubmission.unanswered_count ?? 0} Unattempted
+                      </p>
                     </div>
 
                   </div>
 
-                  {/* BADGES ROW (IF DECLARED) */}
-                  {isDeclared && userSubmission.badges_awarded && userSubmission.badges_awarded.length > 0 && (
+                  {/* BADGES ROW */}
+                  {userSubmission.badges_awarded && userSubmission.badges_awarded.length > 0 && (
                     <div className="pt-2 flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-slate-300">Awarded Distinctions:</span>
                       {userSubmission.badges_awarded.map((badge: string, bIdx: number) => (
@@ -2061,10 +2031,10 @@ export default function TeacherOlympiadPage() {
                   )}
 
                   {!isDeclared && (
-                    <div className="p-4 bg-amber-500/10 border border-amber-400/20 rounded-2xl text-xs text-amber-200 flex items-start gap-2.5">
-                      <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="p-4 bg-indigo-500/10 border border-indigo-400/20 rounded-2xl text-xs text-indigo-200 flex items-start gap-2.5">
+                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                       <p>
-                        <strong>Evaluation in progress:</strong> Your question paper has been submitted to DEVGYA Evaluation Team. Official right/wrong answers, pedagogical explanations, merit percentiles, and badges will become accessible as soon as results are officially declared.
+                        <strong>Exam Completed:</strong> Your score ({userSubmission.score_percentage ?? 0}%) and answer breakdown are available above. You can review all 100 questions, correct solutions, and pedagogical explanations now. Final board rankings will be verified by the Olympiad Committee.
                       </p>
                     </div>
                   )}

@@ -1739,11 +1739,25 @@ class OlympiadService:
             # Auto-calculate score and question evaluations
             eval_res = self.evaluate_answers_for_paper(subject, paper_id, user_answers)
 
+            paper_title = submission_data.get("paper_title") or submission_data.get("title")
+            if not paper_title:
+                try:
+                    admin_paper = paper_service.get_active_olympiad_paper(subject=subject)
+                    paper_title = (admin_paper or {}).get("title")
+                except Exception:
+                    paper_title = None
+            if not paper_title:
+                paper_title = f"National Teacher Skills Olympiad 2026 — {subject.upper()}"
+
             submission_record = {
                 "id": sub_id,
                 "paper_id": paper_id,
+                "paper_title": paper_title,
+                "title": paper_title,
                 "teacher_email": teacher_email,
+                "candidate_email": teacher_email,
                 "teacher_name": teacher_name,
+                "candidate_name": teacher_name,
                 "subject": subject,
                 "state": submission_data.get("state", "National"),
                 "district": submission_data.get("district", "Central"),
@@ -1761,6 +1775,7 @@ class OlympiadService:
                 "part_b_correct": eval_res.get("part_b_correct", 0),
                 "part_b_total": eval_res.get("part_b_total", 40),
                 "review_status": "pending_admin_review",
+                "status": "Draft (Pending Review)",
                 "published": False,
                 "merit_rank": None,
                 "district_rank": None,
@@ -1770,6 +1785,13 @@ class OlympiadService:
                 "tab_switch_count": proctor_count,
                 "cheating_warnings": proctor_count,
                 "warning_count": proctor_count,
+                "proctoring_audit": {
+                    "warnings_count": proctor_count,
+                    "warning_count": proctor_count,
+                    "tab_switches": proctor_count,
+                    "disqualified": proctor_count >= 5,
+                    "logs": proctor_logs
+                },
                 "proctor_logs": proctor_logs,
                 "time_taken_seconds": submission_data.get("time_taken_seconds", 3600),
                 "question_evaluations": eval_res["question_evaluations"]
@@ -1787,7 +1809,8 @@ class OlympiadService:
                 "message": "Your 100-MCQ assessment has been submitted successfully and archived securely. Official merit rankings and scorecards will be declared by the administration committee.",
                 "submission_id": sub_id,
                 "review_status": "pending_admin_review",
-                "score_percentage": eval_res["score_percentage"]
+                "score_percentage": eval_res["score_percentage"],
+                "submission": submission_record
             }
         except Exception as e:
             logger.error(f"Error saving 100 exam submission: {e}")
@@ -1858,13 +1881,46 @@ class OlympiadService:
             except Exception as e:
                 logger.warning(f"Notice during Supabase submissions hydration: {e}")
 
-        # Auto-migrate/repair any legacy submissions with missing scores or evaluations
+        # Auto-migrate/repair and normalize all submissions with real candidate, paper, and audit data
         dirty = False
         for sub in submissions:
+            # Normalize Candidate Name & Email
+            cand_name = str(sub.get("candidate_name") or sub.get("teacher_name") or "Educator Candidate").strip()
+            cand_email = str(sub.get("candidate_email") or sub.get("teacher_email") or "").strip().lower()
+            if sub.get("candidate_name") != cand_name or sub.get("teacher_name") != cand_name:
+                sub["candidate_name"] = cand_name
+                sub["teacher_name"] = cand_name
+                dirty = True
+            if sub.get("candidate_email") != cand_email or sub.get("teacher_email") != cand_email:
+                sub["candidate_email"] = cand_email
+                sub["teacher_email"] = cand_email
+                dirty = True
+
+            # Normalize Subject and Paper Title
+            subj = str(sub.get("subject") or "Science").strip()
+            sub["subject"] = subj
+            paper_title = sub.get("paper_title") or sub.get("title")
+            if not paper_title or subj.lower() not in paper_title.lower():
+                try:
+                    admin_paper = paper_service.get_active_olympiad_paper(subject=subj)
+                    if admin_paper and admin_paper.get("title") and (subj.lower() in admin_paper.get("title", "").lower() or admin_paper.get("subject", "").lower() == subj.lower()):
+                        paper_title = admin_paper.get("title")
+                    else:
+                        paper_title = f"National Teacher Skills Olympiad 2026 — {subj.upper()}"
+                except Exception:
+                    paper_title = f"National Teacher Skills Olympiad 2026 — {subj.upper()}"
+            if not paper_title:
+                paper_title = f"National Teacher Skills Olympiad 2026 — {subj.upper()}"
+            if sub.get("paper_title") != paper_title or sub.get("title") != paper_title:
+                sub["paper_title"] = paper_title
+                sub["title"] = paper_title
+                dirty = True
+
+            # Ensure score and question evaluations exist
             if sub.get("score_percentage") is None or not sub.get("question_evaluations"):
                 eval_res = self.evaluate_answers_for_paper(
-                    subject=sub.get("subject", "Science"),
-                    paper_id=sub.get("paper_id", "tso-national-2026-science"),
+                    subject=subj,
+                    paper_id=sub.get("paper_id", f"tso-national-2026-{subj.lower()}"),
                     user_answers=sub.get("answers", {})
                 )
                 sub["total_questions"] = eval_res["total_questions"]
@@ -1877,21 +1933,53 @@ class OlympiadService:
                 sub["question_evaluations"] = eval_res["question_evaluations"]
                 dirty = True
 
-            if sub.get("tab_switch_count") is None:
-                sub["tab_switch_count"] = sub.get("proctor_incidents", 0)
+            # Normalize Cheating Warnings and Proctoring Audit
+            audit = sub.get("proctoring_audit") or {}
+            logs_str = str(sub.get("proctor_logs") or "")
+            warn_cnt = int(
+                sub.get("cheating_warnings") or 
+                sub.get("warning_count") or 
+                sub.get("proctor_incidents") or 
+                audit.get("warnings_count") or 
+                audit.get("warning_count") or 
+                0
+            )
+            if warn_cnt == 0:
+                if "5/5" in logs_str or "maximum" in logs_str.lower() or "auto-termination" in logs_str.lower():
+                    warn_cnt = 5
+                elif "4/5" in logs_str:
+                    warn_cnt = 4
+                elif "3/5" in logs_str:
+                    warn_cnt = 3
+                elif "2/5" in logs_str:
+                    warn_cnt = 2
+                elif "1/5" in logs_str:
+                    warn_cnt = 1
+                elif sub.get("tab_switch_count"):
+                    warn_cnt = int(sub.get("tab_switch_count"))
+
+            if sub.get("cheating_warnings") != warn_cnt or sub.get("warning_count") != warn_cnt:
+                sub["cheating_warnings"] = warn_cnt
+                sub["warning_count"] = warn_cnt
+                sub["proctor_incidents"] = warn_cnt
+                sub["tab_switch_count"] = max(sub.get("tab_switch_count", 0), warn_cnt)
                 dirty = True
 
-            if sub.get("cheating_warnings") is None:
-                sub["cheating_warnings"] = sub.get("proctor_incidents", sub.get("tab_switch_count", 0))
-                dirty = True
+            is_disqualified = bool(warn_cnt >= 5 or sub.get("disqualified") or audit.get("disqualified"))
+            sub["disqualified"] = is_disqualified
+            sub["proctoring_audit"] = {
+                "warnings_count": warn_cnt,
+                "warning_count": warn_cnt,
+                "tab_switches": sub.get("tab_switch_count", warn_cnt),
+                "disqualified": is_disqualified,
+                "logs": sub.get("proctor_logs") or audit.get("logs") or []
+            }
 
-            if sub.get("warning_count") is None:
-                sub["warning_count"] = sub.get("cheating_warnings", 0)
-                dirty = True
-
-            if sub.get("proctor_logs") is None:
-                sub["proctor_logs"] = []
-                dirty = True
+            # Normalize Publication and Status
+            is_pub = bool(sub.get("published") is True or sub.get("review_status") == "published")
+            sub["published"] = is_pub
+            sub["review_status"] = "published" if is_pub else sub.get("review_status", "pending_admin_review")
+            sub["status"] = "Published" if is_pub else "Draft (Pending Review)"
 
         if dirty:
             try:

@@ -236,10 +236,10 @@ export default function OlympiadLeaderboardPage() {
                       </span>
                     </td>
                     <td className="p-3.5 font-bold text-slate-900">
-                      {r.teacher_name}
+                      {r.teacher_name || r.candidate_name || "Educator Candidate"}
                     </td>
-                    <td className="p-3.5 font-mono text-slate-600 text-[11px]">{r.teacher_email}</td>
-                    <td className="p-3.5 font-black text-slate-900 text-sm">{r.score_percentage}%</td>
+                    <td className="p-3.5 font-mono text-slate-600 text-[11px]">{r.teacher_email || r.candidate_email || "N/A"}</td>
+                    <td className="p-3.5 font-black text-slate-900 text-sm">{(r.score_percentage ?? r.official_score ?? 0)}%</td>
                     <td className="p-3.5">
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
                         {r.score_percentage >= 90 ? "High Distinction" : r.score_percentage >= 75 ? "Merit Certificate" : "Pass Certificate"}

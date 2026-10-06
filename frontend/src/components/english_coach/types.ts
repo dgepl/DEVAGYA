@@ -212,14 +212,14 @@ export function getMatchingBrowserVoice(voiceId: string): SpeechSynthesisVoice |
   return getBestEnglishVoice();
 }
 
-export const COACH_DEFAULT_VOICE = "en-US-AvaNeural";
+export const COACH_DEFAULT_VOICE = "hi-IN-SwaraNeural";
 export const COACH_HINDI_VOICE = "hi-IN-SwaraNeural";
 
 let sharedAudioElement: HTMLAudioElement | null = null;
 let isAudioUnlocked = false;
 let globalAudioContext: AudioContext | null = null;
 let currentBufferSource: AudioBufferSourceNode | null = null;
-let currentVoiceId: string = COACH_DEFAULT_VOICE; // Ultra-natural human studio voice
+let currentVoiceId: string = COACH_DEFAULT_VOICE; // Authentic, expressive Swara Neural voice across English & Hindi
 const audioArrayBufferCache = new Map<string, ArrayBuffer>();
 const audioBlobCache = new Map<string, string>();
 let coachSpeechWatchdogTimer: any = null;

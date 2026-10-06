@@ -82,7 +82,7 @@ INDIAN_VOICES: Dict[str, Dict[str, str]] = {
     }
 }
 
-DEFAULT_VOICE = "en-US-AvaNeural"
+DEFAULT_VOICE = "hi-IN-SwaraNeural"
 
 def clean_text_for_tts(raw: str) -> str:
     """Strips Markdown syntax, emojis, URLs, and code blocks so synthesized speech sounds natural."""

@@ -1422,8 +1422,16 @@ export default function SuperAdminPage() {
   // Cheating Badge Helper for Olympiad
   const renderCheatingBadge = (sub: any) => {
     const audit = sub.proctoring_audit || {};
-    const count = Number(audit.warnings_count ?? audit.warning_count ?? 0);
-    const isDisqualified = Boolean(audit.disqualified || count >= 5);
+    const count = Number(
+      audit.warnings_count ?? 
+      audit.warning_count ?? 
+      sub.cheating_warnings ?? 
+      sub.warning_count ?? 
+      sub.proctor_incidents ?? 
+      sub.tab_switch_count ?? 
+      0
+    );
+    const isDisqualified = Boolean(audit.disqualified || sub.disqualified || count >= 5);
 
     if (isDisqualified || count >= 5) {
       return (
@@ -3018,6 +3026,14 @@ export default function SuperAdminPage() {
 
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => fetchAdminData()}
+                    disabled={loadingData}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? "animate-spin text-indigo-600" : ""}`} />
+                    <span>Refresh</span>
+                  </button>
+                  <button
                     onClick={() => handleBulkPublishSubmissions()}
                     disabled={bulkPublishing}
                     className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer"
@@ -3053,18 +3069,18 @@ export default function SuperAdminPage() {
                         <tr key={sub.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="p-3.5 font-bold text-slate-900">
                             <div>
-                              <div className="font-extrabold">{sub.candidate_name || "Educator Candidate"}</div>
-                              <div className="text-[11px] font-mono text-slate-500">{sub.candidate_email}</div>
+                              <div className="font-extrabold text-slate-900">{sub.candidate_name || sub.teacher_name || "Educator Candidate"}</div>
+                              <div className="text-[11px] font-mono text-slate-500">{sub.candidate_email || sub.teacher_email || "No email"}</div>
                             </div>
                           </td>
 
                           <td className="p-3.5">
-                            <div className="font-bold text-slate-800">{sub.paper_title || "National TSO 2026"}</div>
-                            <div className="text-[10px] text-slate-500">{sub.subject || "General"}</div>
+                            <div className="font-bold text-slate-800">{sub.paper_title || sub.title || `National TSO 2026 — ${(sub.subject || "General").toUpperCase()}`}</div>
+                            <div className="text-[10px] text-slate-500 font-semibold">{sub.subject || "General"}</div>
                           </td>
 
                           <td className="p-3.5 font-black text-indigo-700 text-sm">
-                            {typeof sub.score_percentage === "number" ? `${sub.score_percentage}%` : "Pending"}
+                            {typeof sub.score_percentage === "number" ? `${sub.score_percentage}%` : (typeof sub.official_score === "number" ? `${sub.official_score}%` : "Pending")}
                           </td>
 
                           {/* CHEATING WARNINGS BADGE */}
@@ -3074,9 +3090,9 @@ export default function SuperAdminPage() {
 
                           <td className="p-3.5">
                             <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
-                              sub.published ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                              (sub.published || sub.review_status === "published") ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-amber-100 text-amber-800 border border-amber-200"
                             }`}>
-                              {sub.published ? "Published" : "Draft"}
+                              {(sub.published || sub.review_status === "published") ? "Published" : "Draft (Pending Review)"}
                             </span>
                           </td>
 
@@ -4359,7 +4375,7 @@ export default function SuperAdminPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-slate-900">Evaluate Olympiad Submission</h3>
-                <p className="text-xs text-slate-500 font-medium">{selectedSub.candidate_name} ({selectedSub.candidate_email})</p>
+                <p className="text-xs text-slate-500 font-medium">{selectedSub.candidate_name || selectedSub.teacher_name || "Educator Candidate"} ({selectedSub.candidate_email || selectedSub.teacher_email || "No email"})</p>
               </div>
               <button
                 onClick={() => setSelectedSub(null)}
