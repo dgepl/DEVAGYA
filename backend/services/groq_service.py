@@ -168,7 +168,7 @@ class GroqAIService:
             async with sem:
                 return await ai_provider.chat_completion(
                     messages=[
-                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Synthesizer for {req.class_name} {req.subject}. Strictly adhere to {req.subject} and {req.chapter}. Return valid JSON."},
+                        {"role": "system", "content": f"You are DEVGYA's Master CBSE/NCERT Assessment Synthesizer for {req.class_name} {req.subject}. You construct genuine, rigorous, curriculum-authentic CBSE board examination questions with real numerical calculations, chemical equations, literature extracts, and step-by-step marking schemes. Strictly base questions on '{req.chapter}'. Output valid JSON only."},
                         {"role": "user", "content": prompt_text}
                     ],
                     temperature=0.3,
@@ -206,6 +206,32 @@ Difficulty: {req.difficulty}
 {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
 {f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
 
+CRITICAL REAL-WORLD CBSE/NCERT ASSESSMENT STANDARDS:
+1. NO FAKE OR TRIVIAL QUESTIONS: Generate 100% REAL, intellectually rigorous, authentic CBSE questions that match official Board exams, NCERT exemplar problems, and NEP 2020 competency benchmarks.
+   - NEVER ask superficial questions like 'What is science?' or 'Define math'.
+   - Each question must test genuine syllabus concepts, formulas, or literary text from '{req.chapter}'.
+2. FOR MATHEMATICS:
+   - Must include real numerical calculations with realistic figures, accurate coordinates, polynomial expressions, or geometric conditions.
+   - Use proper LaTeX formatting ($...$) for all mathematical variables, formulas, exponents, roots, and equations.
+   - Short and Long Answer questions must include step-by-step arithmetic or algebraic working in the model answer.
+3. FOR SCIENCE (Physics, Chemistry, Biology):
+   - Physics: Use authentic numerical problems with realistic values and proper SI units (e.g., $m/s^2$, $N$, $J$, $\\Omega$, $V$, $W$). Include circuit, ray diagram, or force scenarios.
+   - Chemistry: Include balanced chemical equations with state symbols ($s, l, g, aq$), reaction conditions (temperature, catalyst), electronic configurations, or real IUPAC names.
+   - Biology: Include specific cellular/tissue structures, enzyme names, hormone functions, anatomical systems, genetic crosses/ratios (e.g., $3:1$ or $9:3:3:1$), or textbook experimental setups.
+4. FOR SOCIAL SCIENCE (History, Geography, Civics, Economics):
+   - Use real historical dates, treaties, movements, constitutional articles/clauses, geographical features (climate, rivers, soils), or real economic concepts (GDP, PCI, SHGs, inflation).
+5. FOR ENGLISH & HINDI LITERATURE:
+   - Formulate extract-based questions citing actual characters, lines, and thematic conflicts directly from the official NCERT chapters of '{req.chapter}'.
+   - Include questions analyzing literary devices, character motives, and contextual vocabulary.
+6. FOR ASSERTION-REASON:
+   - Both Assertion (A) and Reason (R) must be precise, factually accurate or plausibly related statements from the syllabus.
+   - Distractors must test whether R is the correct scientific/logical explanation of A.
+7. FOR CASE STUDY:
+   - Provide an authentic, comprehensive real-world or experimental passage (120-200 words).
+   - Sub-questions must genuinely require analyzing the passage data or applying the chapter's core concepts to the case.
+8. COMPLETE MODEL ANSWERS & STEP-BY-STEP EXPLANATIONS:
+   - The 'answer' and 'explanation' fields must be exhaustive, detailing the exact CBSE marking scheme steps, key terminology, and final deductions.
+
 MANDATORY SECTIONS TO GENERATE:
 {chr(10).join(sections_req)}
 
@@ -241,6 +267,13 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
     Batch Part: {i+1} of {len(mcq_chunks)}
     {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
 
+    REAL QUESTION MANDATE:
+    - Must be 100% authentic, intellectually rigorous CBSE examination questions directly testing core concepts from '{req.chapter}'.
+    - For Mathematics/Physics: Include real numerical problem statements, formulas with LaTeX ($...$), and non-trivial calculations.
+    - For Chemistry/Biology: Include real chemical formulas/reactions, biological functions, or experimental conditions.
+    - For Literature/Social Science: Test genuine textual extracts, characters, historical dates/acts, or geographical concepts.
+    - No trivial questions (e.g. avoid 'What is science?'). All 4 options must be plausible distractors.
+
     MANDATORY QUANTITY:
     - EXACTLY {c_mcq} Multiple Choice Questions (labeled 'question_type': 'mcq', 'marks': 1, with 4 options ['(A)...', '(B)...', '(C)...', '(D)...'], correct answer, and explanation)
 
@@ -272,6 +305,9 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
     Batch Part: {i+1} of {len(fill_chunks)}
     {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
     {f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
+
+    REAL QUESTION MANDATE:
+    - Must test core terminology, scientific laws, mathematical identities, or literary facts from '{req.chapter}'.
 
     CRITICAL FORMAT:
     - Each question text MUST have a clear blank line designated by '_______'.
@@ -307,6 +343,10 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
     Batch Part: {i+1} of {len(ar_chunks)}
     {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
     {f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
+
+    REAL QUESTION MANDATE:
+    - Both Assertion (A) and Reason (R) must be precise statements from the CBSE syllabus of '{req.chapter}'.
+    - Test conceptual reasoning and cause-and-effect relationships.
 
     CRITICAL CBSE ASSERTION-REASON FORMAT:
     - Provide an 'assertion_text' (Assertion A) and 'reason_text' (Reason R).
@@ -355,6 +395,10 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
     Batch Part: {i+1} of {len(short_chunks)}
     {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
 
+    REAL QUESTION MANDATE:
+    - Must be authentic CBSE 3-mark questions testing conceptual explanations, derivations, balanced chemical equations, or numerical calculations for '{req.chapter}'.
+    - Model answer must provide complete step-by-step scoring points.
+
     MANDATORY QUANTITY:
     - EXACTLY {c_short} Short Answer Questions (labeled 'question_type': 'short', 'marks': 3, with complete step-by-step scoring rubric/model answer)
 
@@ -385,6 +429,10 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
     Difficulty: {req.difficulty}
     Batch Part: {i+1} of {len(long_chunks)}
     {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
+
+    REAL QUESTION MANDATE:
+    - Must be authentic CBSE 5-mark / HOTS questions requiring deep analysis, multi-step mathematical solutions, complex diagrams/mechanisms, or comprehensive thematic synthesis for '{req.chapter}'.
+    - Model answer must be an exhaustive, structured step-by-step guide matching official CBSE board marking schemes.
 
     MANDATORY QUANTITY:
     - EXACTLY {c_long} Long Answer / HOTS Questions (labeled 'question_type': 'long', 'marks': 5, with detailed explanation, analysis, or multi-step solution)
@@ -417,6 +465,10 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
     Batch Part: {i+1} of {len(case_chunks)}
     {f"Teacher Focus Notes: {req.custom_instructions}" if req.custom_instructions else ""}
     {f"Question Type Instructions: {q_guidance}" if q_guidance else ""}
+
+    REAL QUESTION MANDATE:
+    - Scenario passage must be realistic, data-rich, and contextualized (120-200 words).
+    - Sub-questions must test genuine analytical application of '{req.chapter}' to the scenario.
 
     CRITICAL FORMAT:
     - Provide an authentic real-world or experimental case study scenario passage (120-200 words) under 'case_passage'.
