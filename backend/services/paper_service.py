@@ -123,12 +123,29 @@ class PaperService:
         # 1. Match published paper for this specific subject track
         if subject:
             subj_clean = subject.strip().lower()
+            # Exact subject match
             for p in papers:
                 p_subj = p.get("subject", "").strip().lower()
-                if p.get("published") is True and (p_subj == subj_clean or subj_clean in p_subj or p_subj in subj_clean):
+                if p.get("published") is True and p_subj == subj_clean:
                     return p
+            # Match normalized subject (e.g. hyphen vs space)
+            for p in papers:
+                p_subj = p.get("subject", "").strip().lower().replace("-", " ")
+                if p.get("published") is True and p_subj == subj_clean.replace("-", " "):
+                    return p
+            # Match by paper title if title explicitly mentions this exact subject
+            for p in papers:
+                p_title = p.get("title", "").strip().lower()
+                if p.get("published") is True and subj_clean in p_title:
+                    return p
+            # Search among all papers matching this specific subject
+            for p in papers:
+                p_subj = p.get("subject", "").strip().lower()
+                if p_subj == subj_clean:
+                    return p
+            return None
 
-        # 2. Fallback to latest published paper
+        # 2. Fallback to latest published paper only if no subject was requested
         for p in papers:
             if p.get("published") is True:
                 return p

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import time
 import threading
 from pathlib import Path
@@ -1897,20 +1898,37 @@ class OlympiadService:
                 dirty = True
 
             # Normalize Subject and Paper Title
-            subj = str(sub.get("subject") or "Science").strip()
+            subj = str(sub.get("subject") or "").strip()
+            if not subj and cand_email:
+                reg = self.get_tso_registration(cand_email)
+                if reg:
+                    subj = str(reg.get("tso_subject") or reg.get("subject") or "").strip()
+            if not subj:
+                subj = "Science"
             sub["subject"] = subj
-            paper_title = sub.get("paper_title") or sub.get("title")
+
+            paper_title = str(sub.get("paper_title") or sub.get("title") or "").strip()
+            # Clean corrupt unicode symbols or encoding artifacts
+            paper_title = re.sub(r'[\ufffd\?\x80-\xff\u2010-\u2015]+', ' - ', paper_title)
+            paper_title = re.sub(r'\s*-\s*', ' - ', paper_title).strip()
             if not paper_title or subj.lower() not in paper_title.lower():
                 try:
                     admin_paper = paper_service.get_active_olympiad_paper(subject=subj)
-                    if admin_paper and admin_paper.get("title") and (subj.lower() in admin_paper.get("title", "").lower() or admin_paper.get("subject", "").lower() == subj.lower()):
-                        paper_title = admin_paper.get("title")
+                    if admin_paper and admin_paper.get("title"):
+                        p_title_clean = re.sub(r'[\ufffd\?\x80-\xff\u2010-\u2015]+', ' - ', str(admin_paper.get("title")))
+                        p_title_clean = re.sub(r'\s*-\s*', ' - ', p_title_clean).strip()
+                        if subj.lower() in p_title_clean.lower():
+                            paper_title = p_title_clean
+                        else:
+                            paper_title = f"National Teacher Skills Olympiad 2026 - {subj.upper()}"
                     else:
-                        paper_title = f"National Teacher Skills Olympiad 2026 — {subj.upper()}"
+                        paper_title = f"National Teacher Skills Olympiad 2026 - {subj.upper()}"
                 except Exception:
-                    paper_title = f"National Teacher Skills Olympiad 2026 — {subj.upper()}"
+                    paper_title = f"National Teacher Skills Olympiad 2026 - {subj.upper()}"
+
             if not paper_title:
-                paper_title = f"National Teacher Skills Olympiad 2026 — {subj.upper()}"
+                paper_title = f"National Teacher Skills Olympiad 2026 - {subj.upper()}"
+
             if sub.get("paper_title") != paper_title or sub.get("title") != paper_title:
                 sub["paper_title"] = paper_title
                 sub["title"] = paper_title

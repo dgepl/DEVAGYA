@@ -147,13 +147,25 @@ async def get_user_attempt_status(
         safe_sub["published"] = is_published
         safe_sub["is_declared"] = is_published
         safe_sub["review_status"] = "published" if is_published else safe_sub.get("review_status", "pending_admin_review")
-        # Ensure candidate sees real score percentage, correct/wrong counts, and answers
-        safe_sub["score_percentage"] = safe_sub.get("score_percentage") if safe_sub.get("score_percentage") is not None else safe_sub.get("official_score", 0.0)
-        safe_sub["official_score"] = safe_sub.get("official_score") if safe_sub.get("official_score") is not None else safe_sub.get("score_percentage", 0)
-        safe_sub["correct_count"] = safe_sub.get("correct_count", 0)
-        safe_sub["wrong_count"] = safe_sub.get("wrong_count", 0)
-        safe_sub["unanswered_count"] = safe_sub.get("unanswered_count", 0)
-        safe_sub["total_questions"] = safe_sub.get("total_questions", 100)
+        
+        if is_published:
+            # Result declared by Admin: reveal scores, rankings, and question evaluations
+            safe_sub["evaluation_status"] = "declared"
+            safe_sub["score_percentage"] = safe_sub.get("score_percentage") if safe_sub.get("score_percentage") is not None else safe_sub.get("official_score", 0.0)
+            safe_sub["official_score"] = safe_sub.get("official_score") if safe_sub.get("official_score") is not None else safe_sub.get("score_percentage", 0)
+            safe_sub["correct_count"] = safe_sub.get("correct_count", 0)
+            safe_sub["wrong_count"] = safe_sub.get("wrong_count", 0)
+            safe_sub["unanswered_count"] = safe_sub.get("unanswered_count", 0)
+            safe_sub["total_questions"] = safe_sub.get("total_questions", 100)
+        else:
+            # Admin review in progress: mask score and evaluations until officially published
+            safe_sub["evaluation_status"] = "in_progress"
+            safe_sub["evaluation_message"] = "Assessment Evaluation in Progress. Your responses have been safely recorded and are undergoing official proctoring audit and evaluation by the board. Official results, ranks, and answer reviews will be declared shortly."
+            safe_sub["score_percentage"] = None
+            safe_sub["official_score"] = None
+            safe_sub["correct_count"] = None
+            safe_sub["wrong_count"] = None
+            safe_sub["question_evaluations"] = None
 
     return {
         "status": "success",

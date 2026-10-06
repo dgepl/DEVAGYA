@@ -5,6 +5,7 @@ import Link from "next/link";
 import { 
   Trophy, 
   Clock, 
+  Hourglass,
   CheckCircle2, 
   AlertTriangle, 
   Sparkles, 
@@ -1932,28 +1933,99 @@ export default function TeacherOlympiadPage() {
           {/* CANDIDATE'S PERSONAL SCORECARD & REVIEW BANNER (IF ATTEMPTED) */}
           {userSubmission ? (
             (() => {
-              const isDeclared = Boolean(userSubmission.published === true || userSubmission.review_status === "published");
+              const isDeclared = Boolean(
+                userSubmission.published === true || 
+                userSubmission.review_status === "published" || 
+                userSubmission.evaluation_status === "declared"
+              );
 
+              if (!isDeclared) {
+                return (
+                  <div className="bg-gradient-to-br from-indigo-950/90 via-slate-900 to-amber-950/40 text-white rounded-3xl p-6 sm:p-8 border border-amber-500/30 shadow-2xl space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+                      <div className="space-y-1.5">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black border bg-amber-500/20 border-amber-500/40 text-amber-300">
+                          <Clock className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: "8s" }} />
+                          <span>EVALUATION IN PROGRESS • UNDER BOARD REVIEW</span>
+                        </div>
+                        <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+                          {userSubmission.teacher_name || userSubmission.candidate_name || user?.name || "Teacher Candidate"} &bull; {userSubmission.subject || userSubmission.paper_title || selectedSubject}
+                        </h2>
+                        <p className="text-xs text-slate-300 font-medium">
+                          National Teacher Skills Olympiad 2026 &bull; Submitted {userSubmission.submitted_at || "Recently"}
+                        </p>
+                      </div>
+
+                      <div className="px-4 py-2 bg-amber-400/10 border border-amber-400/30 rounded-2xl text-amber-300 text-xs font-bold flex items-center gap-2 self-start sm:self-auto">
+                        <Hourglass className="w-4 h-4 animate-pulse text-amber-400" />
+                        <span>Awaiting Admin Declaration</span>
+                      </div>
+                    </div>
+
+                    {/* OFFICIAL NOTICE CARD */}
+                    <div className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 mt-0.5 shadow-inner">
+                          <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <div className="space-y-2 flex-1">
+                          <h3 className="text-base sm:text-lg font-black text-white">
+                            Your Assessment Has Been Safely Recorded & Archived
+                          </h3>
+                          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                            Thank you for completing the 100-MCQ National Teacher Skills Olympiad 2026. Your responses, timing telemetry, and proctoring audit logs have been safely recorded in the central examination registry.
+                          </p>
+                          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 font-medium leading-relaxed flex items-start gap-2.5">
+                            <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <p>
+                              <strong>Evaluation Notice:</strong> The Academic Examination Committee is currently evaluating all submissions across subject tracks. Your official score percentage, marks, National Merit Standing, pedagogical badges, and question-by-question answer review will become accessible here as soon as the administrator officially evaluates and declares the results.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SUBMISSION RECEIPT TILES */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/10 text-xs">
+                        <div className="p-3 rounded-xl bg-slate-900/70 border border-white/5 space-y-0.5">
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Candidate</span>
+                          <span className="font-extrabold text-white truncate block">{userSubmission.teacher_name || userSubmission.candidate_name || user?.name || "Educator"}</span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-900/70 border border-white/5 space-y-0.5">
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Subject Track</span>
+                          <span className="font-extrabold text-white truncate block">{userSubmission.subject || selectedSubject}</span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-900/70 border border-white/5 space-y-0.5">
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Paper ID</span>
+                          <span className="font-mono text-[11px] text-indigo-300 truncate block">{userSubmission.paper_id || "TSO-2026"}</span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-900/70 border border-white/5 space-y-0.5">
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Board Status</span>
+                          <span className="font-extrabold text-amber-300 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                            Under Evaluation
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // OFFICIALLY PUBLISHED / DECLARED RESULTS VIEW
               return (
-                <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-white rounded-3xl p-6 sm:p-8 border border-indigo-500/30 shadow-xl space-y-6">
+                <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-white rounded-3xl p-6 sm:p-8 border border-emerald-500/40 shadow-2xl space-y-6">
                   
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
                     <div className="space-y-1">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black border"
-                        style={{
-                          backgroundColor: isDeclared ? "rgba(16, 185, 129, 0.2)" : "rgba(99, 102, 241, 0.2)",
-                          borderColor: isDeclared ? "rgba(16, 185, 129, 0.4)" : "rgba(99, 102, 241, 0.4)",
-                          color: isDeclared ? "#6ee7b7" : "#a5b4fc"
-                        }}
-                      >
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black border bg-emerald-500/20 border-emerald-500/40 text-emerald-300">
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>{isDeclared ? "OFFICIALLY DECLARED MERIT SCORECARD" : "ASSESSMENT RESULT READY • PRELIMINARY SCORECARD"}</span>
+                        <span>OFFICIALLY DECLARED MERIT SCORECARD</span>
                       </div>
                       <h2 className="text-xl sm:text-2xl font-black tracking-tight">
                         {userSubmission.teacher_name || userSubmission.candidate_name || user?.name || "Teacher Candidate"} &bull; {userSubmission.subject || userSubmission.paper_title || selectedSubject} Assessment
                       </h2>
                       <p className="text-xs text-slate-300 font-medium">
-                        National Teacher Skills Olympiad 2026 &bull; Submitted {userSubmission.submitted_at || "Recently"}
+                        National Teacher Skills Olympiad 2026 &bull; Certified & Declared {userSubmission.declared_at || userSubmission.submitted_at || "Recently"}
                       </p>
                     </div>
 
@@ -1983,25 +2055,12 @@ export default function TeacherOlympiadPage() {
 
                     <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
                       <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">National Merit Rank</span>
-                      {isDeclared ? (
-                        <>
-                          <div className="text-2xl sm:text-3xl font-black text-white">
-                            #{userSubmission.merit_rank ?? 1}
-                          </div>
-                          <p className="text-[11px] text-emerald-400 font-medium">
-                            State Rank: #{userSubmission.state_rank ?? 1}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <div className="text-2xl sm:text-3xl font-black text-white">
-                            #{userSubmission.merit_rank ?? 1}
-                          </div>
-                          <p className="text-[11px] text-indigo-300 font-medium">
-                            Provisional Merit Standing
-                          </p>
-                        </>
-                      )}
+                      <div className="text-2xl sm:text-3xl font-black text-white">
+                        #{userSubmission.merit_rank ?? 1}
+                      </div>
+                      <p className="text-[11px] text-emerald-400 font-medium">
+                        State Rank: #{userSubmission.state_rank ?? 1}
+                      </p>
                     </div>
 
                     <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 space-y-1">
@@ -2027,15 +2086,6 @@ export default function TeacherOlympiadPage() {
                           {badge}
                         </span>
                       ))}
-                    </div>
-                  )}
-
-                  {!isDeclared && (
-                    <div className="p-4 bg-indigo-500/10 border border-indigo-400/20 rounded-2xl text-xs text-indigo-200 flex items-start gap-2.5">
-                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                      <p>
-                        <strong>Exam Completed:</strong> Your score ({userSubmission.score_percentage ?? 0}%) and answer breakdown are available above. You can review all 100 questions, correct solutions, and pedagogical explanations now. Final board rankings will be verified by the Olympiad Committee.
-                      </p>
                     </div>
                   )}
 

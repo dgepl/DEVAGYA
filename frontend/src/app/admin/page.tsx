@@ -3075,8 +3075,14 @@ export default function SuperAdminPage() {
                           </td>
 
                           <td className="p-3.5">
-                            <div className="font-bold text-slate-800">{sub.paper_title || sub.title || `National TSO 2026 — ${(sub.subject || "General").toUpperCase()}`}</div>
-                            <div className="text-[10px] text-slate-500 font-semibold">{sub.subject || "General"}</div>
+                            <div className="font-bold text-slate-800">
+                              {((sub.paper_title || sub.title || `National Teacher Skills Olympiad 2026 - ${(sub.subject || "General").toUpperCase()}`)).replace(/[\ufffd\?]+/g, "-").replace(/\s*-\s*/g, " - ").trim()}
+                            </div>
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200 tracking-wider">
+                                {sub.subject || "General"}
+                              </span>
+                            </div>
                           </td>
 
                           <td className="p-3.5 font-black text-indigo-700 text-sm">
@@ -4376,6 +4382,14 @@ export default function SuperAdminPage() {
               <div>
                 <h3 className="text-base font-black text-slate-900">Evaluate Olympiad Submission</h3>
                 <p className="text-xs text-slate-500 font-medium">{selectedSub.candidate_name || selectedSub.teacher_name || "Educator Candidate"} ({selectedSub.candidate_email || selectedSub.teacher_email || "No email"})</p>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200 tracking-wider">
+                    Subject: {selectedSub.subject || "General"}
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-600 truncate max-w-xs">
+                    {(selectedSub.paper_title || selectedSub.title || "National TSO 2026").replace(/[\ufffd\?]+/g, "-").replace(/\s*-\s*/g, " - ").trim()}
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedSub(null)}
