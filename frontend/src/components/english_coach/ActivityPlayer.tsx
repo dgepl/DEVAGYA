@@ -33,6 +33,39 @@ import {
   Flame
 } from "lucide-react";
 
+/**
+ * Merges speech transcript chunks across breath pauses without wiping or duplicating words.
+ */
+function combineTranscripts(base: string, incoming: string): string {
+  const b = (base || "").trim();
+  const inc = (incoming || "").trim();
+  if (!b) return inc;
+  if (!inc) return b;
+
+  const bLower = b.toLowerCase();
+  const incLower = inc.toLowerCase();
+  if (incLower.startsWith(bLower)) {
+    return inc;
+  }
+  if (bLower.endsWith(incLower)) {
+    return b;
+  }
+
+  const bWords = b.split(/\s+/);
+  const incWords = inc.split(/\s+/);
+  const maxOverlap = Math.min(bWords.length, incWords.length);
+
+  for (let len = maxOverlap; len > 0; len--) {
+    const endSlice = bWords.slice(bWords.length - len).map((w) => w.toLowerCase()).join(" ");
+    const startSlice = incWords.slice(0, len).map((w) => w.toLowerCase()).join(" ");
+    if (endSlice === startSlice) {
+      return `${b} ${incWords.slice(len).join(" ")}`.trim();
+    }
+  }
+
+  return `${b} ${inc}`.trim();
+}
+
 interface Props {
   level: CoachLevel;
   activity: CoachActivity;
@@ -124,6 +157,7 @@ export function ActivityPlayer({
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
   const latestSpokenRef = useRef<string>("");
+  const committedSpeechRef = useRef<string>("");
   const isManualStopRef = useRef<boolean>(false);
   const lastSpeechTimeRef = useRef<number>(0);
 
@@ -354,7 +388,7 @@ export function ActivityPlayer({
   const hasEvaluatedRef = useRef(false);
   const isLongForm = activity.type === "presentation_pitch" || activity.type === "speech_cadence" || activity.type === "speaking_challenge";
 
-  // Start recording with clean non-duplicating transcript and automatic silence detector
+  // Start recording with continuous non-deleting transcript and 4-second pause silence detector
   const startRecording = () => {
     if (typeof window === "undefined") return;
 
@@ -366,6 +400,22 @@ export function ActivityPlayer({
 
     if (!SpeechRec) {
       alert("Microphone speech recognition not supported in this browser. Please use Chrome or Edge.");
+      return;
+    }
+
+    setFeedback(null);
+    setSpokenText("");
+    latestSpokenRef.current = "";
+    committedSpeechRef.current = "";
+    hasEvaluatedRef.current = false;
+    isManualStopRef.current = false;
+    lastSpeechTimeRef.current = Date.now();
+
+    startSession(SpeechRec);
+  };
+
+  const startSession = (SpeechRec: any) => {
+    if (isManualStopRef.current || hasEvaluatedRef.current || isCoachSpeakingRef.current) {
       return;
     }
 
@@ -382,13 +432,6 @@ export function ActivityPlayer({
     }
 
     try {
-      setFeedback(null);
-      setSpokenText("");
-      latestSpokenRef.current = "";
-      hasEvaluatedRef.current = false;
-      isManualStopRef.current = false;
-      lastSpeechTimeRef.current = Date.now();
-
       const rec = new SpeechRec();
       const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       rec.continuous = !isMobile;
@@ -403,8 +446,8 @@ export function ActivityPlayer({
       rec.onresult = (event: any) => {
         if (isCoachSpeakingRef.current) return; // Prevent mic from capturing speaker audio
 
-        let text = parseSpeechResults(event);
-        if (!text) return;
+        let sessionText = parseSpeechResults(event);
+        if (!sessionText) return;
 
         // In grammar exercises, NEVER pick alternative based on targetPhrase overlap,
         // because that can mask actual user speech errors (e.g. replacing 'on' with 'at')!
@@ -435,17 +478,19 @@ export function ActivityPlayer({
               }
             }
             if (bestTranscript) {
-              text = bestTranscript;
+              sessionText = bestTranscript;
             }
           }
         }
 
         // Acoustic near-homophone correction (e.g. speech recognizer hearing 'civil' for 'she will')
         if (targetPhrase && targetPhrase.toLowerCase().includes("she will")) {
-          text = text.replace(/\bcivil\b/gi, "she will");
+          sessionText = sessionText.replace(/\bcivil\b/gi, "she will");
         }
 
-        const clean = cleanRepeatedPhrases(text);
+        // Seamlessly combine with previously committed speech so breath pauses never erase the earlier sentence!
+        const combined = combineTranscripts(committedSpeechRef.current, sessionText);
+        const clean = cleanRepeatedPhrases(combined);
         if (clean && clean.trim().length > 0) {
           setSpokenText(clean);
           latestSpokenRef.current = clean;
@@ -479,27 +524,28 @@ export function ActivityPlayer({
           return;
         }
 
+        // Commit whatever has been recognized so far so taking a breath NEVER deletes it!
+        if (latestSpokenRef.current) {
+          committedSpeechRef.current = latestSpokenRef.current;
+        }
+
         // If user has spoken and the 4-second pause timer is still active,
-        // keep listening so breathing/pausing doesn't prematurely cut the mic off!
+        // restart listening session so breathing/pausing continues without losing words!
         const elapsedSinceSpeech = Date.now() - lastSpeechTimeRef.current;
         if (silenceTimerRef.current && elapsedSinceSpeech < 3800) {
           try {
-            rec.start();
-            setIsRecording(true);
+            startSession(SpeechRec);
             return;
-          } catch (e) {
-            // If already starting or restart fails, allow timer to finish
-          }
+          } catch (e) {}
         } else if (!latestSpokenRef.current && !isManualStopRef.current) {
           // User hasn't started speaking yet; keep listening
           try {
-            rec.start();
-            setIsRecording(true);
+            startSession(SpeechRec);
             return;
           } catch (e) {}
         }
 
-        // Only finish if 4 seconds have elapsed
+        // Only finish if 4 full seconds of silence have elapsed
         setIsRecording(false);
         if (silenceTimerRef.current) {
           clearTimeout(silenceTimerRef.current);
