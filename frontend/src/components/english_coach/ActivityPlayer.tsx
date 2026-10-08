@@ -124,6 +124,8 @@ export function ActivityPlayer({
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
   const latestSpokenRef = useRef<string>("");
+  const isManualStopRef = useRef<boolean>(false);
+  const lastSpeechTimeRef = useRef<number>(0);
 
   // Exact 100% synchronization between screen text and coach speech
   const { targetPhrase, coachSpokenInstruction, displayPrompt } = React.useMemo(() => {
@@ -384,6 +386,8 @@ export function ActivityPlayer({
       setSpokenText("");
       latestSpokenRef.current = "";
       hasEvaluatedRef.current = false;
+      isManualStopRef.current = false;
+      lastSpeechTimeRef.current = Date.now();
 
       const rec = new SpeechRec();
       const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -445,12 +449,14 @@ export function ActivityPlayer({
         if (clean && clean.trim().length > 0) {
           setSpokenText(clean);
           latestSpokenRef.current = clean;
+          lastSpeechTimeRef.current = Date.now();
 
-          // Automatic Silence Detection: Trigger evaluation 700ms after user pauses speaking
+          // Automatic Silence Detection: Wait a comfortable 4000ms (4 seconds) of pause
+          // so student can breathe, think, and complete their sentence across all 4 levels!
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             handleAutoFinishSpeaking(clean);
-          }, 700);
+          }, 4000);
         }
       };
 
@@ -464,8 +470,41 @@ export function ActivityPlayer({
       };
 
       rec.onend = () => {
+        if (hasEvaluatedRef.current || isCoachSpeakingRef.current || isManualStopRef.current) {
+          setIsRecording(false);
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+          }
+          return;
+        }
+
+        // If user has spoken and the 4-second pause timer is still active,
+        // keep listening so breathing/pausing doesn't prematurely cut the mic off!
+        const elapsedSinceSpeech = Date.now() - lastSpeechTimeRef.current;
+        if (silenceTimerRef.current && elapsedSinceSpeech < 3800) {
+          try {
+            rec.start();
+            setIsRecording(true);
+            return;
+          } catch (e) {
+            // If already starting or restart fails, allow timer to finish
+          }
+        } else if (!latestSpokenRef.current && !isManualStopRef.current) {
+          // User hasn't started speaking yet; keep listening
+          try {
+            rec.start();
+            setIsRecording(true);
+            return;
+          } catch (e) {}
+        }
+
+        // Only finish if 4 seconds have elapsed
         setIsRecording(false);
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
         const finalClean = cleanRepeatedPhrases(latestSpokenRef.current);
         if (finalClean && finalClean.trim().length > 0 && !hasEvaluatedRef.current && !isCoachSpeakingRef.current) {
           handleAutoFinishSpeaking(finalClean);
@@ -481,7 +520,11 @@ export function ActivityPlayer({
   };
 
   const stopRecording = () => {
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    isManualStopRef.current = true;
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.onstart = null;
@@ -518,11 +561,15 @@ export function ActivityPlayer({
     }
   };
 
-  // Called automatically when user pauses speaking
+  // Called automatically when user pauses speaking for 4 seconds
   const handleAutoFinishSpeaking = (textToEvaluate: string) => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     stopRecording();
     if (isCoachSpeakingRef.current || hasEvaluatedRef.current) return;
-    const clean = cleanRepeatedPhrases(textToEvaluate);
+    const clean = cleanRepeatedPhrases(textToEvaluate || latestSpokenRef.current);
     if (clean && clean.trim().length > 0) {
       executeEvaluation(clean);
     }
