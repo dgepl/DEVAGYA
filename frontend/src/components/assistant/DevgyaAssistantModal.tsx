@@ -316,6 +316,11 @@ export default function DevgyaAssistantModal() {
     }
   };
 
+  // Do not show AI assistant on the landing page or outside the dashboard
+  if (!pathname || pathname === "/" || !pathname.startsWith("/dashboard")) {
+    return null;
+  }
+
   const roleBadgeText =
     currentContext === "teacher"
       ? "Teacher Guide"
