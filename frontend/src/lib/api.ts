@@ -1424,6 +1424,130 @@ export async function resetCoachProfile(
   return res.json();
 }
 
+// ============================================================================
+// DEVGYA AI COPILOT & SITE GUIDE API
+// ============================================================================
+
+export interface CopilotQuestionItem {
+  id: string;
+  label: string;
+  prompt: string;
+  is_plan?: boolean;
+}
+
+export interface CopilotCategory {
+  name: string;
+  questions: CopilotQuestionItem[];
+}
+
+export interface CopilotQuickLink {
+  label: string;
+  path: string;
+  badge: string;
+}
+
+export interface CopilotContextInfo {
+  status: string;
+  context: "teacher" | "student" | "parent" | "landing";
+  path: string;
+  title: string;
+  scope_badge: string;
+  description: string;
+  categories: CopilotCategory[];
+  quick_links: CopilotQuickLink[];
+}
+
+export interface CopilotChatPayload {
+  message: string;
+  context?: string;
+  current_path?: string;
+  language?: string;
+  conversation_id?: string;
+  user_id?: string;
+  user_role?: string;
+  is_plan?: boolean;
+  history?: Array<{ role: string; content: string }>;
+}
+
+export async function fetchCopilotContextInfo(
+  context: string,
+  path: string = "/"
+): Promise<CopilotContextInfo> {
+  const base = getApiBase();
+  const res = await fetch(`${base}/copilot/context-info?context=${encodeURIComponent(context)}&path=${encodeURIComponent(path)}`, {
+    method: "GET",
+    headers: { "Accept": "application/json" }
+  });
+  if (!res.ok) {
+    throw new Error("Failed to load Copilot context info");
+  }
+  return res.json();
+}
+
+export async function sendCopilotChat(
+  payload: CopilotChatPayload
+): Promise<{ status: string; reply: string; conversation_id: string; context: string }> {
+  const base = getApiBase();
+  const res = await fetch(`${base}/copilot/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.detail || "Copilot message failed");
+  }
+  return res.json();
+}
+
+export async function streamCopilotChat(
+  payload: CopilotChatPayload,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal
+): Promise<string> {
+  const base = getApiBase();
+  const formData = new FormData();
+  formData.append("message", payload.message);
+  formData.append("context", payload.context || "landing");
+  formData.append("current_path", payload.current_path || "/");
+  formData.append("language", payload.language || "english");
+  if (payload.conversation_id) formData.append("conversation_id", payload.conversation_id);
+  if (payload.user_id) formData.append("user_id", payload.user_id);
+  if (payload.is_plan) formData.append("is_plan", "true");
+
+  const res = await fetch(`${base}/copilot/chat/stream`, {
+    method: "POST",
+    body: formData,
+    signal
+  });
+
+  if (!res.ok) {
+    // Fall back to regular JSON endpoint
+    const fallback = await sendCopilotChat(payload);
+    onChunk(fallback.reply);
+    return fallback.reply;
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) {
+    const fallback = await sendCopilotChat(payload);
+    onChunk(fallback.reply);
+    return fallback.reply;
+  }
+
+  const decoder = new TextDecoder("utf-8");
+  let accumulated = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    accumulated += chunk;
+    onChunk(chunk);
+  }
+  return accumulated;
+}
+
+
 
 
 

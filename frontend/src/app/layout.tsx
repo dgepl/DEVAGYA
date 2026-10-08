@@ -4,6 +4,7 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import { ReactQueryProvider } from "@/components/providers/ReactQueryProvider";
 import { PublicMobileDock } from "@/components/layout/PublicMobileDock";
+import DevgyaAssistantModal from "@/components/assistant/DevgyaAssistantModal";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -268,6 +269,7 @@ export default function RootLayout({
         <ReactQueryProvider>
           {children}
           <PublicMobileDock />
+          <DevgyaAssistantModal />
         </ReactQueryProvider>
       </body>
     </html>
