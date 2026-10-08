@@ -328,9 +328,9 @@ export default function DevgyaAssistantModal() {
   return (
     <>
       {/* ========================================================= */}
-      {/* FLOATING TRIGGER BUTTON (Elevated on mobile to avoid bottom dock) */}
+      {/* FLOATING TRIGGER BUTTON (Elevated on mobile with prominent size) */}
       {/* ========================================================= */}
-      <div className="fixed bottom-24 sm:bottom-6 right-4 sm:right-6 z-40 flex items-center gap-2 group print:hidden">
+      <div className="fixed bottom-28 sm:bottom-6 right-4 sm:right-6 z-40 flex items-center gap-2 group print:hidden">
         {/* Desktop Helper Pill */}
         {!isOpen && (
           <div
@@ -350,14 +350,14 @@ export default function DevgyaAssistantModal() {
           id="devgya-copilot-trigger"
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Open DEVGYA AI Assistant"
-          className="relative flex items-center justify-center w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-xl shadow-indigo-600/35 hover:shadow-2xl hover:shadow-indigo-600/50 hover:scale-105 active:scale-95 transition-all duration-200 border-2 border-white/20 cursor-pointer"
+          className="relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-xl shadow-indigo-600/40 hover:shadow-2xl hover:shadow-indigo-600/50 hover:scale-105 active:scale-95 transition-all duration-200 border-2 border-white/20 cursor-pointer"
         >
           {isOpen ? (
-            <X className="w-6 h-6 text-white" />
+            <X className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
           ) : (
             <>
-              <Bot className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-              <Sparkles className="w-3.5 h-3.5 text-amber-300 absolute -top-1 -right-1 animate-bounce" />
+              <Bot className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+              <Sparkles className="w-4 h-4 text-amber-300 absolute -top-1 -right-1 animate-bounce" />
             </>
           )}
         </button>
@@ -371,7 +371,7 @@ export default function DevgyaAssistantModal() {
           className={`fixed z-50 flex flex-col bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden transition-all duration-300 print:hidden ${
             isExpanded
               ? "inset-3 sm:inset-6"
-              : "inset-x-3 bottom-24 top-16 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[460px] sm:h-[620px]"
+              : "inset-x-2 bottom-24 top-14 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[460px] sm:h-[620px]"
           }`}
         >
           {/* Header */}
