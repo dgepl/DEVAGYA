@@ -49,7 +49,15 @@ async def _save_paper_for_user(email: Optional[str], paper_data: dict):
         email_clean = (email or "guest@devgya.com").strip().lower()
         store = _load_papers_store()
         user_papers = store.get(email_clean, [])
-        filtered = [p for p in user_papers if not (p.get("title") == paper_data.get("title") and p.get("class_name") == paper_data.get("class_name"))]
+        p_title = str(paper_data.get("title") or "").strip().lower()
+        p_class = str(paper_data.get("class_name") or "").strip().lower()
+        filtered = [
+            p for p in user_papers
+            if not (
+                str(p.get("title") or "").strip().lower() == p_title and
+                str(p.get("class_name") or "").strip().lower() == p_class
+            )
+        ]
         store[email_clean] = [paper_data] + filtered
         _save_papers_store(store)
 
@@ -624,19 +632,29 @@ def _save_papers_store(data: dict):
 
 @router.get("/history")
 async def get_saved_papers_history(email: str = "guest@devgya.com"):
-    """Retrieve saved question papers history for educator/school from Supabase Cloud and local persistence."""
+    """Retrieve saved question papers history for educator/school from Supabase Cloud and local persistence with strict deduplication."""
     email_clean = email.strip().lower()
     cloud_papers = await supabase_service.get_question_papers_from_cloud(email_clean)
     store = _load_papers_store()
     user_papers = store.get(email_clean, [])
 
-    # Merge papers by ID or title, prioritizing cloud then local
+    def _make_key(p: dict) -> str:
+        t = str(p.get("title") or "").strip().lower()
+        c = str(p.get("class_name") or "").strip().lower()
+        s = str(p.get("subject") or p.get("subject_name") or "").strip().lower()
+        if t and c:
+            return f"{t}::{c}::{s}"
+        return str(p.get("id") or t or "paper")
+
+    # Merge papers by unique exam identity, prioritizing cloud then local
     merged_dict = {}
     for p in (cloud_papers or []):
-        key = str(p.get("id") or p.get("title"))
-        merged_dict[key] = p
+        key = _make_key(p)
+        if key not in merged_dict:
+            merged_dict[key] = p
+
     for p in user_papers:
-        key = str(p.get("id") or p.get("title"))
+        key = _make_key(p)
         if key not in merged_dict:
             merged_dict[key] = p
 

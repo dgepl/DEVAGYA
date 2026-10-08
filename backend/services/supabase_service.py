@@ -449,88 +449,7 @@ class SupabaseService:
 
         return profile_data
 
-    async def save_question_paper_to_cloud(self, email: str, paper_data: dict) -> bool:
-        """Persist a question paper directly into Supabase Cloud question_papers table."""
-        if not paper_data or not SERVICE_KEY:
-            return False
-        try:
-            email_clean = (email or "guest@devgya.com").strip().lower()
-            profile = await self.get_profile_by_email(email_clean)
-            teacher_id = profile.get("id") if profile else None
-
-            # Difficulty mapping to valid enum
-            raw_diff = str(paper_data.get("difficulty") or "medium").lower()
-            valid_diffs = {"easy", "medium", "hard", "mixed"}
-            diff = raw_diff if raw_diff in valid_diffs else "medium"
-
-            row = {
-                "title": str(paper_data.get("title") or "Assessment Exam"),
-                "class_name": str(paper_data.get("class_name") or "Class 10"),
-                "subject_name": str(paper_data.get("subject") or "General"),
-                "chapter_title": str(paper_data.get("chapter") or "General Syllabus"),
-                "difficulty": diff,
-                "total_marks": int(paper_data.get("total_marks") or 40),
-                "time_allowed_mins": int(paper_data.get("time_allowed_mins") or 90),
-                "questions": paper_data.get("questions") or [],
-                "answer_key": {"instructions": paper_data.get("instructions") or []}
-            }
-            if teacher_id and "-" in str(teacher_id):
-                row["teacher_id"] = teacher_id
-
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.post(f"{SUPABASE_URL}/rest/v1/question_papers", headers=headers, json=row)
-                return res.status_code in (200, 201)
-        except Exception as e:
-            logger.warn(f"Cloud question paper save notice: {e}")
-            return False
-
-    async def get_question_papers_from_cloud(self, email: str) -> List[Dict[str, Any]]:
-        """Retrieve question papers directly from Supabase Cloud."""
-        if not SERVICE_KEY:
-            return []
-        try:
-            email_clean = (email or "guest@devgya.com").strip().lower()
-            profile = await self.get_profile_by_email(email_clean)
-            if not profile or not profile.get("id") or "-" not in str(profile.get("id")):
-                return []
-
-            teacher_id = profile.get("id")
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.get(
-                    f"{SUPABASE_URL}/rest/v1/question_papers?teacher_id=eq.{teacher_id}&order=created_at.desc",
-                    headers=headers
-                )
-                if res.status_code == 200:
-                    rows = res.json()
-                    papers = []
-                    for r in rows:
-                        answer_data = r.get("answer_key") or {}
-                        instructions = answer_data.get("instructions") if isinstance(answer_data, dict) else [
-                            "All questions are compulsory.",
-                            "Write clear and concise answers."
-                        ]
-                        papers.append({
-                            "title": r.get("title"),
-                            "class_name": r.get("class_name"),
-                            "subject": r.get("subject_name"),
-                            "chapter": r.get("chapter_title"),
-                            "difficulty": r.get("difficulty"),
-                            "total_marks": r.get("total_marks"),
-                            "time_allowed_mins": r.get("time_allowed_mins"),
-                            "instructions": instructions or [
-                                "All questions are compulsory."
-                            ],
-                            "questions": r.get("questions") or [],
-                            "school_name": profile.get("school_name", "DEVGYA GLOBAL ACADEMY"),
-                            "school_logo": profile.get("school_logo", ""),
-                            "created_at": r.get("created_at")
-                        })
-                    return papers
-        except Exception as e:
-            logger.warn(f"Cloud question paper get notice: {e}")
-        return []
-
-    async def delete_question_paper_from_cloud(self, email: str, title: str, class_name: str) -> bool:
+    async def delete_question_paper_from_cloud(self, email: str, title: str, class_name: str, paper_id: Optional[str] = None) -> bool:
         """Delete a question paper from Supabase Cloud."""
         if not SERVICE_KEY:
             return False
@@ -1028,25 +947,32 @@ class SupabaseService:
             }
 
             async with httpx.AsyncClient(timeout=10.0) as client:
-                # Check if paper with same title and class already exists for this teacher
+                # Check recent papers for this teacher to safely avoid duplicates (immune to special chars in title)
                 check_res = await client.get(
-                    f"{SUPABASE_URL}/rest/v1/question_papers",
-                    headers=headers,
-                    params={"teacher_id": f"eq.{teacher_id}", "title": f"eq.{title}", "class_name": f"eq.{class_name}"}
+                    f"{SUPABASE_URL}/rest/v1/question_papers?teacher_id=eq.{teacher_id}&order=created_at.desc&limit=30",
+                    headers=headers
                 )
-                if check_res.status_code == 200 and check_res.json():
-                    # Update existing paper
-                    existing_id = check_res.json()[0]["id"]
+                existing_match = None
+                if check_res.status_code == 200:
+                    for ex in (check_res.json() or []):
+                        ex_title = str(ex.get("title") or "").strip().lower()
+                        ex_class = str(ex.get("class_name") or "").strip().lower()
+                        if ex_title == title.strip().lower() and ex_class == class_name.strip().lower():
+                            existing_match = ex
+                            break
+
+                if existing_match:
+                    # Update existing paper row
+                    existing_id = existing_match["id"]
                     paper_data["id"] = existing_id
                     patch_res = await client.patch(
-                        f"{SUPABASE_URL}/rest/v1/question_papers",
+                        f"{SUPABASE_URL}/rest/v1/question_papers?id=eq.{existing_id}",
                         headers=headers,
-                        params={"id": f"eq.{existing_id}"},
                         json=row
                     )
                     return patch_res.status_code in (200, 204)
                 else:
-                    # Insert new paper
+                    # Insert new paper row
                     ins_res = await client.post(
                         f"{SUPABASE_URL}/rest/v1/question_papers",
                         headers={**headers, "Prefer": "return=representation"},

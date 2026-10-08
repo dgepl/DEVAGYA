@@ -1453,6 +1453,7 @@ export interface CopilotContextInfo {
   title: string;
   scope_badge: string;
   description: string;
+  questions?: CopilotQuestionItem[];
   categories: CopilotCategory[];
   quick_links: CopilotQuickLink[];
 }

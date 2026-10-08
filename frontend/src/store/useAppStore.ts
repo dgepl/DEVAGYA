@@ -411,10 +411,19 @@ export const useAppStore = create<AppState>((set, get) => {
         if (res.ok) {
           const data = await res.json();
           if (data.papers && Array.isArray(data.papers)) {
-            set({ savedPapers: data.papers });
+            const seen = new Set<string>();
+            const deduped: GeneratedPaperResponse[] = [];
+            for (const p of data.papers) {
+              const k = `${(p.title || "").trim().toLowerCase()}::${(p.class_name || "").trim().toLowerCase()}::${(p.subject || "").trim().toLowerCase()}`;
+              if (!seen.has(k)) {
+                seen.add(k);
+                deduped.push(p);
+              }
+            }
+            set({ savedPapers: deduped });
             try {
-              localStorage.setItem(`devgya_saved_papers_${emailToFetch.trim().toLowerCase()}`, JSON.stringify(data.papers));
-              localStorage.setItem("devgya_saved_papers", JSON.stringify(data.papers));
+              localStorage.setItem(`devgya_saved_papers_${emailToFetch.trim().toLowerCase()}`, JSON.stringify(deduped));
+              localStorage.setItem("devgya_saved_papers", JSON.stringify(deduped));
             } catch (e) {}
           }
         }
@@ -559,7 +568,12 @@ export const useAppStore = create<AppState>((set, get) => {
     }),
     setActivePaper: (paper) => set({ activePaper: paper }),
     savePaper: (paper) => set((state) => {
-      const filtered = state.savedPapers.filter(p => !(p.title === paper.title && p.class_name === paper.class_name));
+      const paperTitle = (paper.title || "").trim().toLowerCase();
+      const paperClass = (paper.class_name || "").trim().toLowerCase();
+      const filtered = state.savedPapers.filter(p => !(
+        (p.title || "").trim().toLowerCase() === paperTitle &&
+        (p.class_name || "").trim().toLowerCase() === paperClass
+      ));
       const updated = [paper, ...filtered];
       if (typeof window !== "undefined") {
         try {

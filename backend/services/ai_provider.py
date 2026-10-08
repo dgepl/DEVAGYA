@@ -124,11 +124,11 @@ class AIProviderService:
 
         async with httpx.AsyncClient(timeout=90.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-2.5-flash"]
+                models_to_try = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
             elif has_imgs:
-                models_to_try = [selected_model, "gemini-flash-lite-latest", "gemini-2.5-flash"]
+                models_to_try = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash"]
             else:
-                models_to_try = [selected_model, "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
+                models_to_try = [selected_model, "gemini-2.5-flash", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
             # Deduplicate while preserving order
             unique_models = []
             for m in models_to_try:
@@ -138,7 +138,7 @@ class AIProviderService:
             last_error = None
             for attempt_model in unique_models:
                 payload["model"] = attempt_model
-                for retry in range(3):
+                for retry in range(2):
                     try:
                         res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
                         if res.status_code == 400 and "response_format" in payload:
@@ -154,7 +154,12 @@ class AIProviderService:
                         
                         res.raise_for_status()
                         data = res.json()
-                        raw_content = data["choices"][0]["message"]["content"] or ""
+                        choices = data.get("choices") or []
+                        if not choices:
+                            continue
+                        first_choice = choices[0]
+                        msg_obj = first_choice.get("message") or {}
+                        raw_content = msg_obj.get("content") or first_choice.get("text") or ""
                         # Strip any reasoning/think tags if present
                         import re
                         clean_content = re.sub(r'<think>[\s\S]*?</think>', '', raw_content).strip()
