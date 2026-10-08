@@ -743,26 +743,33 @@ export default function GeneratorPage() {
                     {/* OPTIONS FOR MCQ */}
                     {q.options && q.options.length > 0 && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-                        {q.options.map((opt, optIdx) => (
-                          <div key={optIdx}>
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                value={opt}
-                                onChange={(e) => {
-                                  const newOpts = [...q.options!];
-                                  newOpts[optIdx] = e.target.value;
-                                  handleUpdateQuestion(q.id, { options: newOpts });
-                                }}
-                                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800"
-                              />
-                            ) : (
-                              <div className="text-xs font-semibold text-slate-700 block bg-white px-3 py-1.5 rounded-lg border border-slate-200">
-                                <Markdown content={opt} />
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                        {q.options.map((opt, optIdx) => {
+                          // Clean raw \text{(A) } prefix if present for clean display
+                          const displayOpt = typeof opt === "string" 
+                            ? opt.replace(/^\\text\{\s*(\([A-Da-d0-9ivxlcdmIVXLCDM]+\)|[A-Da-d0-9ivxlcdmIVXLCDM]+[.):])\s*\}\s*/, "$1 ")
+                            : opt;
+
+                          return (
+                            <div key={optIdx}>
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={opt}
+                                  onChange={(e) => {
+                                    const newOpts = [...q.options!];
+                                    newOpts[optIdx] = e.target.value;
+                                    handleUpdateQuestion(q.id, { options: newOpts });
+                                  }}
+                                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800"
+                                />
+                              ) : (
+                                <div className="text-xs font-semibold text-slate-700 block bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+                                  <Markdown content={displayOpt} />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 

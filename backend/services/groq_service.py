@@ -88,6 +88,31 @@ class GroqAIService:
         self.api_key = settings.GROQ_API_KEY
         self.client = Groq(api_key=self.api_key) if self.api_key else None
 
+    @staticmethod
+    def _clean_mcq_options(opts: Optional[List[str]]) -> Optional[List[str]]:
+        if not opts:
+            return None
+        import re
+        cleaned = []
+        for o in opts:
+            so = str(o).strip()
+            # Normalize \text{(A)} or \text{(A) } prefix
+            so = re.sub(r'^\\text\{\s*(\([A-Da-d0-9ivxlcdmIVXLCDM]+\)|[A-Da-d0-9ivxlcdmIVXLCDM]+[.):])\s*\}\s*', r'\1 ', so)
+            # If bare LaTeX math formula without $, wrap in $
+            if not so.startswith("$") and "\\" in so:
+                m_pre = re.match(r'^(\([A-Za-z0-9]+\)|[A-Za-z0-9]+[.):])\s*(.*)$', so)
+                if m_pre:
+                    pre_lbl = m_pre.group(1)
+                    math_body = m_pre.group(2).strip()
+                    if math_body and not math_body.startswith("$"):
+                        if math_body.startswith("\\text{") and math_body.endswith("}"):
+                            math_body = math_body[6:-1].strip()
+                        so = f"{pre_lbl} ${math_body}$"
+                elif not so.startswith("$"):
+                    so = f"${so}$"
+            cleaned.append(so)
+        return cleaned
+
     async def generate_question_paper(self, req: GeneratePaperRequest, progress_callback: Optional[Any] = None) -> GeneratedPaperResponse:
         """
         Generates 100% original, curriculum-accurate CBSE/NCERT examination papers.
@@ -546,6 +571,10 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
                 opts = [str(o).strip() for o in raw_opts]
             else:
                 opts = None
+
+            opts = self._clean_mcq_options(opts)
+            if ans:
+                ans = re.sub(r'^\\text\{\s*(\([A-Da-d0-9ivxlcdmIVXLCDM]+\)|[A-Da-d0-9ivxlcdmIVXLCDM]+[.):])\s*\}\s*', r'\1 ', ans)
 
             # Assertion-Reason texts
             a_txt = str(q.get("assertion_text") or "").strip()
@@ -1804,6 +1833,10 @@ JSON format:
                 opts = [str(o).strip() for o in raw_opts]
             else:
                 opts = None
+
+            opts = self._clean_mcq_options(opts)
+            if ans:
+                ans = re.sub(r'^\\text\{\s*(\([A-Da-d0-9ivxlcdmIVXLCDM]+\)|[A-Da-d0-9ivxlcdmIVXLCDM]+[.):])\s*\}\s*', r'\1 ', ans)
 
             ans = str(
                 q.get("answer") or 

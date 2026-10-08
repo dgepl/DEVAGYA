@@ -393,8 +393,42 @@ function renderBoldItalic(text: string, keyPrefix: string): React.ReactNode {
   });
 }
 
+function autoWrapBareLatex(text: string): string {
+  if (!text) return "";
+  if (text.includes("$") || text.includes("\\(")) return text;
+  
+  const trimmed = text.trim();
+  // Pattern 1: Starts with \text{...} followed by math commands (e.g. \text{(A) }\frac{3}{5})
+  if (/^\\text\{[^{}]*\}\s*-?\\(?:frac|sqrt|[a-zA-Z]+)/.test(trimmed)) {
+    return `$${trimmed}$`;
+  }
+  // Pattern 2: Bare fraction or root e.g. \frac{3}{5} or -\frac{3}{5} or \sqrt{25}
+  if (/^-?\\(?:frac|sqrt)\{[^{}]*\}\{[^{}]*\}/.test(trimmed)) {
+    return `$${trimmed}$`;
+  }
+  // Pattern 3: Wrap bare fractions/roots inside a larger string e.g. "is \frac{3}{5}"
+  return text.replace(/(?<!\$)(-?\\(?:frac|sqrt)\{[^{}]*\}\{[^{}]*\})(?!\$)/g, "$$$1$$");
+}
+
 function renderMathAndText(text: string, keyPrefix: string): React.ReactNode {
-  return text.split(INLINE_MATH).map((part, i) => {
+  const trimmed = text.trim();
+
+  // If the entire text is a bare LaTeX math expression
+  if (
+    trimmed.startsWith("\\text{") ||
+    trimmed.startsWith("\\frac{") ||
+    trimmed.startsWith("-\\frac{") ||
+    trimmed.startsWith("\\sqrt{") ||
+    trimmed.startsWith("\\mathbf{") ||
+    trimmed.startsWith("\\mathrm{") ||
+    trimmed.startsWith("\\displaystyle")
+  ) {
+    return <React.Fragment key={`${keyPrefix}-bare-math`}>{renderKatexMath(trimmed, false)}</React.Fragment>;
+  }
+
+  const processedText = autoWrapBareLatex(text);
+
+  return processedText.split(INLINE_MATH).map((part, i) => {
     const key = `${keyPrefix}-m${i}`;
     if (
       (part.startsWith("$") && part.endsWith("$") && part.length >= 2) ||
@@ -402,6 +436,17 @@ function renderMathAndText(text: string, keyPrefix: string): React.ReactNode {
     ) {
       return <React.Fragment key={key}>{renderKatexMath(part, false)}</React.Fragment>;
     }
+
+    // If part contains bare LaTeX math commands
+    if (
+      part.includes("\\frac{") ||
+      part.includes("\\sqrt{") ||
+      part.includes("\\text{") ||
+      /\\(?:pm|times|div|cdot|sum|int|partial|alpha|beta|gamma|theta|pi|mu|sigma|omega|Delta|Omega|infty|approx|neq|leq|geq)\b/.test(part)
+    ) {
+      return <React.Fragment key={key}>{renderKatexMath(part, false)}</React.Fragment>;
+    }
+
     return <React.Fragment key={key}>{renderBoldItalic(part, key)}</React.Fragment>;
   });
 }
