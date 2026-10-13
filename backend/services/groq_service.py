@@ -1043,76 +1043,335 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
         is_social = any(k in subj_lower for k in ["social", "sst", "history", "geography", "civics", "political", "economics", "sociology"])
         is_english = any(k in subj_lower for k in ["eng", "honeydew", "beehive", "footprints", "marigold", "santoor"])
 
+        # Authentic CBSE NCERT Curriculum Bank for core chapters
+        chap_lower = clean_chap.lower()
+        
+        # 1. English: A Letter to God / Lencho
+        if is_english and any(k in chap_lower for k in ["letter to god", "lencho"]):
+            curated_mcqs = [
+                {
+                    "question_text": "Why was Lencho's soul filled with sadness after the hailstorm stopped?",
+                    "options": [
+                        "(A) A plague of locusts would have left more corn than what remained after the storm.",
+                        "(B) His cattle had run away during the storm.",
+                        "(C) His house was completely washed away by the heavy downpour.",
+                        "(D) The post office employees refused to deliver his mail."
+                    ],
+                    "answer": "(A) A plague of locusts would have left more corn than what remained after the storm.",
+                    "explanation": "In NCERT Class 10 'A Letter to God', Lencho remarked to his sons that even locusts would have left more than the destructive hailstorm.",
+                    "marks": 1
+                },
+                {
+                    "question_text": "How much money did the postmaster manage to collect and send to Lencho in the envelope signed 'God'?",
+                    "options": [
+                        "(A) Exactly 100 pesos as demanded by Lencho.",
+                        "(B) 70 pesos, which was more than half of what was asked.",
+                        "(C) 50 pesos from government relief funds.",
+                        "(D) 30 pesos contributed solely by the postman."
+                    ],
+                    "answer": "(B) 70 pesos, which was more than half of what was asked.",
+                    "explanation": "The postmaster gave part of his salary and asked employees and friends for contributions, collecting 70 pesos.",
+                    "marks": 1
+                }
+            ]
+            curated_short = [
+                {
+                    "question_text": "Why did Lencho call the post office employees a 'bunch of crooks'? Explain the situational irony in his statement.",
+                    "options": None,
+                    "answer": "1. Reason (1.5 Marks): Lencho had requested 100 pesos from God and received only 70 pesos. Believing God could not make a mistake, he concluded the post office staff stole the remaining 30 pesos.\n2. Irony (1.5 Marks): The irony is that the very employees who sacrificed their salary out of empathy were accused of theft.",
+                    "explanation": "Standard CBSE Class 10 English literature rubric on irony and characterization in 'A Letter to God'.",
+                    "marks": 3
+                }
+            ]
+            curated_long = [
+                {
+                    "question_text": "Lencho demonstrated immense faith in God but complete distrust in humanity. Discuss how this dual attitude is depicted in the story and what lesson the author conveys about faith and empathy.",
+                    "options": None,
+                    "answer": "1. Depiction of Faith (2 Marks): Lencho's belief is absolute; he addresses a letter directly to God expecting a prompt reply of 100 pesos.\n2. Distrust of Humanity (2 Marks): Upon counting 70 pesos, he immediately suspects the post office staff of embezzlement, labeling them a 'bunch of crooks'.\n3. Author's Core Message (1 Mark): While unyielding faith is admirable, true spirituality requires recognizing empathy and compassion in fellow human beings.",
+                    "explanation": "CBSE 5-mark structured evaluation focusing on thematic analysis and character contrast.",
+                    "marks": 5
+                }
+            ]
+            curated_ar = [
+                {
+                    "assertion_text": "Lencho showed not the slightest surprise upon seeing the money in the envelope sent from the post office.",
+                    "reason_text": "His confidence and faith in God's power were so total that he considered the reply an absolute certainty.",
+                    "question_text": "Assertion (A): Lencho showed not the slightest surprise upon seeing the money in the envelope sent from the post office.\nReason (R): His confidence and faith in God's power were so total that he considered the reply an absolute certainty.",
+                    "options": [
+                        "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                        "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                        "(C) Assertion (A) is true but Reason (R) is false.",
+                        "(D) Assertion (A) is false but Reason (R) is true."
+                    ],
+                    "answer": "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                    "explanation": "Both statements are verified directly from NCERT Class 10 'A Letter to God'.",
+                    "marks": ar_marks
+                }
+            ]
+        # 2. Science: Chemical Reactions & Equations
+        elif not is_english and not is_math and not is_hindi and any(k in chap_lower for k in ["chemical reaction", "equation", "rasayanik"]):
+            curated_mcqs = [
+                {
+                    "question_text": "When aqueous barium chloride solution reacts with sodium sulphate solution, which white precipitate is formed?",
+                    "options": [
+                        "(A) Barium sulphate (BaSO₄)",
+                        "(B) Sodium chloride (NaCl)",
+                        "(C) Barium sulphite (BaSO₃)",
+                        "(D) Sodium sulphate (Na₂SO₄)"
+                    ],
+                    "answer": "(A) Barium sulphate (BaSO₄)",
+                    "explanation": "BaCl₂(aq) + Na₂SO₄(aq) -> BaSO₄(s) [white precipitate] + 2NaCl(aq). This is a precipitation double-displacement reaction.",
+                    "marks": 1
+                },
+                {
+                    "question_text": "Which of the following processes represents an endothermic decomposition reaction?",
+                    "options": [
+                        "(A) Thermal decomposition of calcium carbonate into CaO and CO₂ upon heating.",
+                        "(B) Respiration releasing glucose energy in living cells.",
+                        "(C) Dissolution of quicklime in water forming slaked lime.",
+                        "(D) Burning of natural gas releasing heat and light."
+                    ],
+                    "answer": "(A) Thermal decomposition of calcium carbonate into CaO and CO₂ upon heating.",
+                    "explanation": "Heating CaCO₃ absorbs thermal energy (endothermic) to form CaO and CO₂.",
+                    "marks": 1
+                }
+            ]
+            curated_short = [
+                {
+                    "question_text": "Balance the following chemical equation and identify the type of reaction: Fe(s) + H₂O(g) -> Fe₃O₄(s) + H₂(g).",
+                    "options": None,
+                    "answer": "1. Balanced Equation (2 Marks): 3Fe(s) + 4H₂O(g) -> Fe₃O₄(s) + 4H₂(g)\n2. Reaction Type (1 Mark): Redox reaction (Iron is oxidised to Fe₃O₄; water is reduced to H₂).",
+                    "explanation": "Standard NCERT Class 10 Science Chapter 1 balancing and redox classification.",
+                    "marks": 3
+                }
+            ]
+            curated_long = [
+                {
+                    "question_text": "Explain the terms 'Corrosion' and 'Rancidity' with suitable chemical examples. State two preventive methods for each to protect everyday materials.",
+                    "options": None,
+                    "answer": "1. Corrosion (2 Marks): Slow degradation of metals when exposed to moisture, air, and acids (e.g. rusting of iron: 4Fe + 3O₂ + 2xH₂O -> 2Fe₂O₃·xH₂O). Prevention: Galvanisation, painting/greasing.\n2. Rancidity (2 Marks): Oxidation of fats and oils leading to foul smell and taste. Prevention: Flushing packaging with nitrogen gas, adding antioxidants (BHA/BHT).\n3. Conclusion (1 Mark): Both phenomena are practical manifestations of oxidation in daily life.",
+                    "explanation": "CBSE 5-mark question from Class 10 Science Chapter 1.",
+                    "marks": 5
+                }
+            ]
+            curated_ar = [
+                {
+                    "assertion_text": "The reaction of quicklime (calcium oxide) with water is an exothermic combination reaction.",
+                    "reason_text": "A large amount of heat is liberated along with the formation of calcium hydroxide (slaked lime).",
+                    "question_text": "Assertion (A): The reaction of quicklime (calcium oxide) with water is an exothermic combination reaction.\nReason (R): A large amount of heat is liberated along with the formation of calcium hydroxide (slaked lime).",
+                    "options": [
+                        "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                        "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                        "(C) Assertion (A) is true but Reason (R) is false.",
+                        "(D) Assertion (A) is false but Reason (R) is true."
+                    ],
+                    "answer": "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                    "explanation": "CaO(s) + H₂O(l) -> Ca(OH)₂(aq) + Heat. Both statements are true and Reason explains the exothermic nature.",
+                    "marks": ar_marks
+                }
+            ]
+        # 3. Science: Electricity
+        elif not is_english and not is_math and not is_hindi and any(k in chap_lower for k in ["electric", "current", "ohm", "vidyut"]):
+            curated_mcqs = [
+                {
+                    "question_text": "According to Ohm's Law, what condition must remain constant for the electric current in a metallic wire to be proportional to potential difference?",
+                    "options": [
+                        "(A) Temperature of the conductor",
+                        "(B) Resistance of the voltmeter",
+                        "(C) Direction of alternating current",
+                        "(D) Colour and insulation of the wire"
+                    ],
+                    "answer": "(A) Temperature of the conductor",
+                    "explanation": "Ohm's Law states V ∝ I across a metallic conductor provided its temperature and physical dimensions remain constant.",
+                    "marks": 1
+                },
+                {
+                    "question_text": "If a cylindrical wire of length L and area of cross-section A has resistance R, what is the resistance of another wire of the same material having length 2L and area 2A?",
+                    "options": [
+                        "(A) R (remains the same)",
+                        "(B) 2R",
+                        "(C) 4R",
+                        "(D) R/2"
+                    ],
+                    "answer": "(A) R (remains the same)",
+                    "explanation": "R' = ρ(2L)/(2A) = ρ(L/A) = R.",
+                    "marks": 1
+                }
+            ]
+            curated_short = [
+                {
+                    "question_text": "Three resistors of 2 Ω, 3 Ω, and 6 Ω are connected in parallel across a 12 V battery. Calculate the equivalent resistance and total current drawn.",
+                    "options": None,
+                    "answer": "1. Equivalent Resistance (1.5 Marks): 1/Rp = 1/2 + 1/3 + 1/6 = 6/6 = 1 Ω => Rp = 1 Ω.\n2. Total Current (1.5 Marks): I = V / Rp = 12 V / 1 Ω = 12 A.",
+                    "explanation": "Standard Class 10 NCERT Electricity parallel combination problem.",
+                    "marks": 3
+                }
+            ]
+            curated_long = [
+                {
+                    "question_text": "State Joule's Law of heating and write its mathematical equation. Explain why tungsten is chosen for filament lamps and copper for electrical wiring.",
+                    "options": None,
+                    "answer": "1. Joule's Law (2 Marks): Heat generated H = I²Rt. It is directly proportional to square of current, resistance, and time.\n2. Tungsten (1.5 Marks): Very high melting point (3380 °C) and high resistivity allow it to glow white-hot without melting.\n3. Copper (1.5 Marks): Very low electrical resistivity ensures minimal heat loss during electric power transmission.",
+                    "explanation": "CBSE 5-mark structured electricity rubric.",
+                    "marks": 5
+                }
+            ]
+            curated_ar = [
+                {
+                    "assertion_text": "In a household electric circuit, electrical appliances are connected in parallel rather than in series.",
+                    "reason_text": "Parallel combination provides the same rated voltage (220 V) across each appliance and prevents one faulty appliance from disabling the entire circuit.",
+                    "question_text": "Assertion (A): In a household electric circuit, electrical appliances are connected in parallel rather than in series.\nReason (R): Parallel combination provides the same rated voltage (220 V) across each appliance and prevents one faulty appliance from disabling the entire circuit.",
+                    "options": [
+                        "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                        "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                        "(C) Assertion (A) is true but Reason (R) is false.",
+                        "(D) Assertion (A) is false but Reason (R) is true."
+                    ],
+                    "answer": "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                    "explanation": "NCERT Class 10 Science domestic circuit justification.",
+                    "marks": ar_marks
+                }
+            ]
+        # 4. Mathematics: Quadratic Equations / Polynomials / AP / Triangles
+        elif is_math and any(k in chap_lower for k in ["quad", "poly", "ap", "progression", "triangle", "trig"]):
+            curated_mcqs = [
+                {
+                    "question_text": "For what values of k does the quadratic equation 2x² + kx + 3 = 0 have two equal real roots?",
+                    "options": [
+                        "(A) k = ±2√6",
+                        "(B) k = ±4",
+                        "(C) k = ±6",
+                        "(D) k = ±2√3"
+                    ],
+                    "answer": "(A) k = ±2√6",
+                    "explanation": "Equal roots require discriminant D = b² - 4ac = 0. k² - 4(2)(3) = 0 => k² = 24 => k = ±√24 = ±2√6.",
+                    "marks": 1
+                },
+                {
+                    "question_text": "If the nth term of an arithmetic progression is given by aₙ = 3n + 5, what is the common difference d of the AP?",
+                    "options": [
+                        "(A) 3",
+                        "(B) 5",
+                        "(C) 8",
+                        "(D) 2"
+                    ],
+                    "answer": "(A) 3",
+                    "explanation": "a₁ = 8, a₂ = 11. Common difference d = a₂ - a₁ = 11 - 8 = 3.",
+                    "marks": 1
+                }
+            ]
+            curated_short = [
+                {
+                    "question_text": "Find the roots of the quadratic equation x² - 7x + 12 = 0 using the method of factorisation.",
+                    "options": None,
+                    "answer": "1. Factorisation (1.5 Marks): x² - 4x - 3x + 12 = 0 => x(x - 4) - 3(x - 4) = 0 => (x - 4)(x - 3) = 0.\n2. Roots (1.5 Marks): x = 4 or x = 3.",
+                    "explanation": "Standard CBSE Class 10 Mathematics factorisation marking rubric.",
+                    "marks": 3
+                }
+            ]
+            curated_long = [
+                {
+                    "question_text": "State and prove the Basic Proportionality Theorem (Thales Theorem) for a triangle.",
+                    "options": None,
+                    "answer": "1. Statement & Given (1 Mark): If a line is drawn parallel to one side of a triangle intersecting other two sides, it divides them in the same ratio.\n2. Construction & Diagram (1 Mark): Draw perpendiculars and join vertices.\n3. Area ratio proof (2 Marks): Area(ADE)/Area(BDE) = AD/DB; Area(ADE)/Area(CDE) = AE/EC. Triangles on same base between parallels have equal areas.\n4. Conclusion (1 Mark): Hence AD/DB = AE/EC.",
+                    "explanation": "Core 5-mark theorem proof in CBSE Class 10 Mathematics.",
+                    "marks": 5
+                }
+            ]
+            curated_ar = [
+                {
+                    "assertion_text": "The quadratic equation x² + 4x + 5 = 0 has no real roots.",
+                    "reason_text": "The discriminant D = b² - 4ac = 16 - 20 = -4, which is strictly less than zero.",
+                    "question_text": "Assertion (A): The quadratic equation x² + 4x + 5 = 0 has no real roots.\nReason (R): The discriminant D = b² - 4ac = 16 - 20 = -4, which is strictly less than zero.",
+                    "options": [
+                        "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                        "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                        "(C) Assertion (A) is true but Reason (R) is false.",
+                        "(D) Assertion (A) is false but Reason (R) is true."
+                    ],
+                    "answer": "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                    "explanation": "Both statements are correct and the discriminant criterion directly explains why real roots do not exist.",
+                    "marks": ar_marks
+                }
+            ]
+        else:
+            curated_mcqs = []
+            curated_short = []
+            curated_long = []
+            curated_ar = []
+
         qs = []
         target_mcq = max(1 if (req.num_mcqs <= 0 and req.num_short <= 0 and req.num_long <= 0) else 0, req.num_mcqs)
         for i in range(target_mcq):
-            if is_hindi:
+            if i < len(curated_mcqs):
+                qs.append(curated_mcqs[i])
+            elif is_hindi:
                 qs.append({
                     "question_type": "mcq",
-                    "question_text": f"'{clean_chap}' के संदर्भ में निम्नलिखित में से कौन-सा कथन सर्वाधिक उपयुक्त और सत्य है?",
+                    "question_text": f"'{clean_chap}' पाठ के आधार पर लेखक/कवि का मुख्य उद्देश्य क्या अभिव्यक्त करना है?",
                     "options": [
-                        f"(A) यह पाठ हमें जीवन के नैतिक मूल्यों और सत्य के मार्ग पर चलने की प्रेरणा देता है।",
-                        f"(B) यह केवल ऐतिहासिक विवरण प्रस्तुत करता है।",
-                        f"(C) इसका वास्तविक जीवन से कोई संबंध नहीं है।",
+                        f"(A) मानवीय संवेदनाओं, सामाजिक आदर्शों और नैतिक मूल्यों की स्थापना करना।",
+                        f"(B) केवल प्राचीन ऐतिहासिक घटनाओं का काल्पनिक संकलन प्रस्तुत करना।",
+                        f"(C) समाज में रूढ़िवादिता और अंधविश्वास का समर्थन करना।",
                         f"(D) उपर्युक्त में से कोई नहीं।"
                     ],
-                    "answer": f"(A) यह पाठ हमें जीवन के नैतिक मूल्यों और सत्य के मार्ग पर चलने की प्रेरणा देता है।",
-                    "explanation": f"{cls} हिंदी पाठ्यक्रम में '{clean_chap}' छात्रों में भाषाई समझ और मानवीय संवेदना का विकास करता है।",
+                    "answer": f"(A) मानवीय संवेदनाओं, सामाजिक आदर्शों और नैतिक मूल्यों की स्थापना करना।",
+                    "explanation": f"एनसीईआरटी {cls} हिंदी पाठ्यक्रम में '{clean_chap}' छात्रों में भाषाई समझ और मानवीय संवेदना का विकास करता है।",
                     "marks": 1
                 })
             elif is_math:
                 qs.append({
                     "question_type": "mcq",
-                    "question_text": f"Which of the following represents the correct mathematical principle or condition in {clean_chap} ({cls})?",
+                    "question_text": f"In {clean_chap} ({cls}), which of the following conditions is mathematically required for the governing relationship to hold true?",
                     "options": [
-                        f"(A) It follows standard algebraic, geometric, and numerical theorems of {clean_chap}.",
-                        f"(B) It is undefined for all positive integer values.",
-                        f"(C) The values contradict fundamental NCERT axioms.",
+                        f"(A) The variables must satisfy the foundational axioms and algebraic equations defined in {clean_chap}.",
+                        f"(B) The discriminant must always be strictly negative for all non-zero coefficients.",
+                        f"(C) The expression is undefined across all real number coordinates.",
                         f"(D) None of the above."
                     ],
-                    "answer": f"(A) It follows standard algebraic, geometric, and numerical theorems of {clean_chap}.",
-                    "explanation": f"In {cls} Mathematics, {clean_chap} establishes core geometric and numerical theorems.",
+                    "answer": f"(A) The variables must satisfy the foundational axioms and algebraic equations defined in {clean_chap}.",
+                    "explanation": f"Standard CBSE {cls} Mathematics requirement for {clean_chap}.",
                     "marks": 1
                 })
             elif is_english:
                 qs.append({
                     "question_type": "mcq",
-                    "question_text": f"What is the central theme or primary message conveyed in '{clean_chap}' ({cls} English)?",
+                    "question_text": f"In '{clean_chap}', what significant perspective or life value does the narrator emphasize?",
                     "options": [
-                        f"(A) It highlights essential human values, character growth, and resilience.",
-                        f"(B) It describes purely technical machinery.",
-                        f"(C) It argues against collaboration and empathy.",
+                        f"(A) Overcoming adversity through perseverance, empathy, and integrity.",
+                        f"(B) Surrendering personal values in the face of temporary hardship.",
+                        f"(C) Preferring isolation and avoiding social responsibilities.",
                         f"(D) None of the above."
                     ],
-                    "answer": f"(A) It highlights essential human values, character growth, and resilience.",
-                    "explanation": f"NCERT curriculum literature analysis for '{clean_chap}' in {cls}.",
+                    "answer": f"(A) Overcoming adversity through perseverance, empathy, and integrity.",
+                    "explanation": f"Core NCERT literature assessment for '{clean_chap}' in {cls} English.",
                     "marks": 1
                 })
             elif is_social:
                 qs.append({
                     "question_type": "mcq",
-                    "question_text": f"Which of the following statements is historically and geographically correct regarding '{clean_chap}' in {cls}?",
+                    "question_text": f"In the context of '{clean_chap}' in {cls} Social Science, which factor played the most decisive role in transforming socio-political conditions?",
                     "options": [
-                        f"(A) It reflects key socio-economic, historical, or environmental developments.",
-                        f"(B) It occurred in total isolation from global events.",
-                        f"(C) It had no measurable impact on society or governance.",
+                        f"(A) Popular collective action, institutional reforms, and economic restructuring.",
+                        f"(B) Complete absence of public participation or governance changes.",
+                        f"(C) Total isolation from neighbouring regional and national movements.",
                         f"(D) None of the above."
                     ],
-                    "answer": f"(A) It reflects key socio-economic, historical, or environmental developments.",
-                    "explanation": f"Aligned with CBSE Social Science curriculum standards for {clean_chap}.",
+                    "answer": f"(A) Popular collective action, institutional reforms, and economic restructuring.",
+                    "explanation": f"Aligned with CBSE Social Science syllabus benchmarks for {clean_chap}.",
                     "marks": 1
                 })
             else:
                 qs.append({
                     "question_type": "mcq",
-                    "question_text": f"Which of the following statements correctly characterizes the fundamental principle of {clean_chap} in {subject} ({cls})?",
+                    "question_text": f"In {cls} {subject}, which observable outcome demonstrates the principle governing {clean_chap}?",
                     "options": [
-                        f"(A) It demonstrates core scientific principles and verifiable laws governing {clean_chap}.",
-                        f"(B) It functions independently of physical or chemical constraints.",
-                        f"(C) It contradicts standard NCERT foundational axioms.",
+                        f"(A) A measurable change consistent with the fundamental laws and scientific relationships of {clean_chap}.",
+                        f"(B) Complete independence from the conservation laws of mass and energy.",
+                        f"(C) A reaction that violates standard thermodynamic principles.",
                         f"(D) None of the above."
                     ],
-                    "answer": f"(A) It demonstrates core scientific principles and verifiable laws governing {clean_chap}.",
+                    "answer": f"(A) A measurable change consistent with the fundamental laws and scientific relationships of {clean_chap}.",
                     "explanation": f"In {cls} {subject}, {clean_chap} establishes standard conceptual laws and verifiable relationships.",
                     "marks": 1
                 })
@@ -1131,34 +1390,36 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
             elif is_math:
                 qs.append({
                     "question_type": "fill_in_the_blanks",
-                    "question_text": f"In {clean_chap}, the fundamental property that guarantees equality across both sides of the expression is _______.",
+                    "question_text": f"In {clean_chap}, when two quantities vary proportionally, the ratio of their corresponding values remains _______.",
                     "options": None,
-                    "answer": "Mathematical identity and axiomatic equivalence",
+                    "answer": "constant",
                     "explanation": f"Standard NCERT definition and principles for {clean_chap}.",
                     "marks": fill_marks
                 })
             elif is_english:
                 qs.append({
                     "question_type": "fill_in_the_blanks",
-                    "question_text": f"In '{clean_chap}', the protagonist demonstrates _______ when faced with unexpected challenges.",
+                    "question_text": f"In '{clean_chap}', the protagonist faces unexpected challenges with unyielding _______ and perseverance.",
                     "options": None,
-                    "answer": "courage and determination",
+                    "answer": "courage",
                     "explanation": f"Key character attribute analyzed in NCERT {cls} English.",
                     "marks": fill_marks
                 })
             else:
                 qs.append({
                     "question_type": "fill_in_the_blanks",
-                    "question_text": f"In {clean_chap}, the primary factor governing standard equilibrium or processes is _______.",
+                    "question_text": f"In {clean_chap}, the rate at which energy or state changes occur is directly governed by _______.",
                     "options": None,
-                    "answer": "Conservation principle and system stability",
+                    "answer": "conservation principles",
                     "explanation": f"Standard NCERT definition and principles for {clean_chap}.",
                     "marks": fill_marks
                 })
 
         target_ar = max(0, getattr(req, "num_assertion_reason", 0))
         for i in range(target_ar):
-            if is_hindi:
+            if i < len(curated_ar):
+                qs.append(curated_ar[i])
+            elif is_hindi:
                 qs.append({
                     "question_type": "assertion_reason",
                     "assertion_text": f"'{clean_chap}' हमें मानवीय संवेदना और सामाजिक उत्तरदायित्व की सीख देता है।",
@@ -1177,9 +1438,9 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
             elif is_math:
                 qs.append({
                     "question_type": "assertion_reason",
-                    "assertion_text": f"In {clean_chap}, mathematical theorems remain universally valid across all defined domains.",
-                    "reason_text": f"Deductive mathematical logic is built on proven axioms and established identities.",
-                    "question_text": f"Assertion (A): In {clean_chap}, mathematical theorems remain universally valid across all defined domains.\nReason (R): Deductive mathematical logic is built on proven axioms and established identities.",
+                    "assertion_text": f"In {clean_chap}, proven geometric and algebraic identities remain invariant across all defined coordinate systems.",
+                    "reason_text": "Deductive mathematical logic is built on universally valid axioms and theorems.",
+                    "question_text": f"Assertion (A): In {clean_chap}, proven geometric and algebraic identities remain invariant across all defined coordinate systems.\nReason (R): Deductive mathematical logic is built on universally valid axioms and theorems.",
                     "options": [
                         "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
                         "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
@@ -1193,9 +1454,9 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
             else:
                 qs.append({
                     "question_type": "assertion_reason",
-                    "assertion_text": f"In {clean_chap}, observable phenomena strictly obey established scientific or curriculum principles.",
-                    "reason_text": f"Universal governing laws remain invariant under controlled curriculum benchmarks.",
-                    "question_text": f"Assertion (A): In {clean_chap}, observable phenomena strictly obey established scientific or curriculum principles.\nReason (R): Universal governing laws remain invariant under controlled curriculum benchmarks.",
+                    "assertion_text": f"In {clean_chap}, physical and chemical processes strictly conserve total energy and mass.",
+                    "reason_text": "Fundamental natural laws remain constant under controlled conditions.",
+                    "question_text": f"Assertion (A): In {clean_chap}, physical and chemical processes strictly conserve total energy and mass.\nReason (R): Fundamental natural laws remain constant under controlled conditions.",
                     "options": [
                         "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
                         "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
@@ -1209,7 +1470,9 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
 
         target_short = max(0, req.num_short)
         for i in range(target_short):
-            if is_hindi:
+            if i < len(curated_short):
+                qs.append(curated_short[i])
+            elif is_hindi:
                 qs.append({
                     "question_type": "short",
                     "question_text": f"'{clean_chap}' का मुख्य संदेश अपने शब्दों में लिखिए तथा इससे मिलने वाली कोई दो सीख स्पष्ट कीजिए।",
@@ -1221,25 +1484,27 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
             elif is_math:
                 qs.append({
                     "question_type": "short",
-                    "question_text": f"State the core definition and formula associated with {clean_chap} in {cls} Mathematics. Illustrate with a concise example.",
+                    "question_text": f"State the primary formula or theorem applied in {clean_chap} ({cls}). Solve an illustrative example showing all working steps.",
                     "options": None,
-                    "answer": f"Formula/Statement (1 Mark): Accurate algebraic or geometric expression.\nStep-by-step example (2 Marks): Fully solved mathematical instance with correct units.",
+                    "answer": f"Formula/Statement (1 Mark): Accurate mathematical expression.\nStep-by-step example (2 Marks): Fully calculated numerical solution with justification.",
                     "explanation": f"Standard NCERT model answer rubric for 3-mark questions in {clean_chap}.",
                     "marks": 3
                 })
             else:
                 qs.append({
                     "question_type": "short",
-                    "question_text": f"State the key concepts of {clean_chap} in {cls} {subject}. Give two relevant examples or practical applications.",
+                    "question_text": f"State the key principles of {clean_chap} in {cls} {subject}. Give two distinct examples or practical applications.",
                     "options": None,
-                    "answer": f"Core Concept (1 Mark): Precise conceptual statement.\nTwo Examples (2 Marks): Clearly stated real-world manifestations.",
+                    "answer": f"Core Principle (1 Mark): Precise conceptual statement.\nTwo Examples (2 Marks): Clearly stated real-world manifestations.",
                     "explanation": f"Standard NCERT model answer rubric for 3-mark questions in {clean_chap}.",
                     "marks": 3
                 })
 
         target_long = max(0, req.num_long)
         for i in range(target_long):
-            if is_hindi:
+            if i < len(curated_long):
+                qs.append(curated_long[i])
+            elif is_hindi:
                 qs.append({
                     "question_type": "long",
                     "question_text": f"'{clean_chap}' के आधार पर प्रमुख प्रसंग अथवा पात्र का चरित्र-चित्रण कीजिए तथा बताइए कि यह पाठ आधुनिक समाज के लिए किस प्रकार प्रेरणादायक है।",
@@ -1251,16 +1516,16 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
             elif is_math:
                 qs.append({
                     "question_type": "long",
-                    "question_text": f"Solve a comprehensive multi-step problem on {clean_chap} in {cls}: State the given data, apply the appropriate theorem/formula, and derive the complete step-by-step solution with justification.",
+                    "question_text": f"Formulate and solve a comprehensive problem on {clean_chap} in {cls}: State the given data, identify the governing formula, and provide a complete step-by-step mathematical solution with concluding units.",
                     "options": None,
-                    "answer": f"1. Given values and formula identification (1 Mark)\n2. Step-by-step mathematical substitution and manipulation (3 Marks)\n3. Final calculated answer with proper units and concluding remark (1 Mark)",
+                    "answer": f"1. Given values and formula identification (1 Mark)\n2. Step-by-step substitution and manipulation (3 Marks)\n3. Final calculated answer with proper units (1 Mark)",
                     "explanation": f"Standard CBSE 5-mark structured marking rubric for {cls} Mathematics.",
                     "marks": 5
                 })
             else:
                 qs.append({
                     "question_type": "long",
-                    "question_text": f"Explain in detail the fundamental principles, mechanisms, and real-world significance of {clean_chap} in {cls} {subject}. Include relevant diagrams, equations, or analytical frameworks where appropriate.",
+                    "question_text": f"Describe the fundamental principles, mechanisms, and real-world significance of {clean_chap} in {cls} {subject}. Provide relevant equations or systematic steps where applicable.",
                     "options": None,
                     "answer": f"1. Theoretical Framework & Definitions (2 Marks)\n2. Step-by-step mechanism and analytical explanation (2 Marks)\n3. Practical applications or limitations (1 Mark)",
                     "explanation": f"Comprehensive 5-mark evaluation aligned with CBSE board standards for {clean_chap}.",

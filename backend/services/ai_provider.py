@@ -80,11 +80,6 @@ class AIProviderService:
         model: Optional[str] = None
     ) -> str:
         """Non-streaming completion call to OpenAI-compatible provider."""
-        import time
-        if getattr(self, "_quota_exhausted_until", 0.0) > time.time():
-            logger.warning("AI provider quota is currently exhausted. Falling back to resilient local synthesis.")
-            return ""
-
         key = self.api_key
         if not key:
             logger.warning("AI_API_KEY not configured, using fallback intelligent synthesizer.")
@@ -141,11 +136,11 @@ class AIProviderService:
 
         async with httpx.AsyncClient(timeout=50.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", selected_model, "gemini-flash-latest"]
+                models_to_try = ["gemini-3.1-flash-lite", selected_model, "gemini-flash-latest"]
             elif has_imgs:
-                models_to_try = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", selected_model, "gemini-flash-latest"]
+                models_to_try = ["gemini-3.1-flash-lite", selected_model, "gemini-flash-latest"]
             else:
-                models_to_try = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", selected_model, "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
+                models_to_try = ["gemini-3.1-flash-lite", selected_model, "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
             # Deduplicate while preserving order
             unique_models = []
             for m in models_to_try:
@@ -162,13 +157,7 @@ class AIProviderService:
                         res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
 
                     if res.status_code == 429:
-                        err_body = res.text.lower()
-                        if "quota" in err_body or "resource_exhausted" in err_body or "billing" in err_body:
-                            logger.warning(f"AI Quota exhausted on {attempt_model}. Activating circuit breaker.")
-                            import time
-                            self._quota_exhausted_until = time.time() + 60.0
-                            return ""
-                        logger.warning(f"Rate limit 429 on {attempt_model}. Trying next fallback model...")
+                        logger.warning(f"Rate limit / Quota 429 on {attempt_model}. Trying next fallback model...")
                         continue
 
                     if res.status_code in (500, 502, 503, 504):
@@ -241,7 +230,7 @@ class AIProviderService:
                 "parts": [{"text": system_text.strip()}]
             }
 
-        candidate_models = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", preferred_model or self.model, "gemini-flash-latest"]
+        candidate_models = ["gemini-3.1-flash-lite", preferred_model or self.model, "gemini-flash-latest"]
         unique_cands = []
         for m in candidate_models:
             if m and m not in unique_cands:
@@ -351,7 +340,7 @@ class AIProviderService:
                 "parts": [{"text": system_text.strip()}]
             }
 
-        candidate_models = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", self.vision_model, "gemini-flash-latest"]
+        candidate_models = ["gemini-3.1-flash-lite", self.vision_model, "gemini-flash-latest"]
         async with httpx.AsyncClient(timeout=50.0) as client:
             for m in candidate_models:
                 try:
@@ -470,7 +459,7 @@ class AIProviderService:
                 if isinstance(content, str) and content.strip():
                     contents.append({"role": "model", "parts": [{"text": content.strip()}]})
 
-        models_to_try = candidate_models or ["gemini-3.1-flash-lite", "gemini-3-flash-preview", self.model, "gemini-flash-latest"]
+        models_to_try = candidate_models or ["gemini-3.1-flash-lite", self.model, "gemini-flash-latest"]
         payload = {
             "contents": contents,
             "generationConfig": {
