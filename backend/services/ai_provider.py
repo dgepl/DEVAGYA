@@ -51,11 +51,11 @@ class AIProviderService:
 
     @property
     def model(self) -> str:
-        return os.getenv("AI_MODEL", "gemini-3.5-flash")
+        return os.getenv("AI_MODEL", "gemini-3.5-flash-lite")
 
     @property
     def vision_model(self) -> str:
-        return os.getenv("AI_VISION_MODEL", "gemini-3.5-flash")
+        return os.getenv("AI_VISION_MODEL", "gemini-3.5-flash-lite")
 
     def build_vision_content(self, text: str, image_data_urls: List[str]) -> List[Dict[str, Any]]:
         """Build an OpenAI-style multi-part message content for vision-capable models."""
@@ -130,13 +130,13 @@ class AIProviderService:
         if response_format_json and "qwen" not in str(selected_model).lower():
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-3.5-flash", "gemini-3.6-flash"]
+                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
             elif has_imgs:
-                models_to_try = [selected_model, "gemini-3.5-flash", "gemini-3.6-flash"]
+                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
             else:
-                models_to_try = [selected_model, "gemini-3.5-flash", "gemini-3.6-flash", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
+                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
             # Deduplicate while preserving order
             unique_models = []
             for m in models_to_try:
@@ -146,54 +146,45 @@ class AIProviderService:
             last_error = None
             for attempt_model in unique_models:
                 payload["model"] = attempt_model
-                for retry in range(2):
-                    try:
+                try:
+                    res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
+                    if res.status_code == 400 and "response_format" in payload:
+                        payload.pop("response_format", None)
                         res = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
-                        if res.status_code == 400 and "response_format" in payload:
-                            payload.pop("response_format", None)
-                            continue
 
-                        if res.status_code == 429:
-                            err_body = res.text.lower()
-                            if "quota" in err_body or "resource_exhausted" in err_body or "billing" in err_body:
-                                logger.warning(f"AI Quota exhausted on {attempt_model}. Activating circuit breaker.")
-                                import time
-                                self._quota_exhausted_until = time.time() + 60.0
-                                return ""
-                            retry_after = min(float(res.headers.get("retry-after", 1.5)), 2.5)
-                            logger.warning(f"Rate limit 429 on {attempt_model}. Backing off {retry_after}s...")
-                            import asyncio
-                            await asyncio.sleep(retry_after)
-                            continue
-                        
-                        res.raise_for_status()
-                        data = res.json()
-                        choices = data.get("choices") or []
-                        if not choices:
-                            continue
-                        first_choice = choices[0]
-                        msg_obj = first_choice.get("message") or {}
-                        raw_content = msg_obj.get("content") or first_choice.get("text") or ""
-                        # Strip any reasoning/think tags if present
-                        import re
-                        clean_content = re.sub(r'<think>[\s\S]*?</think>', '', raw_content).strip()
-                        return clean_content or raw_content
-                    except httpx.HTTPStatusError as http_err:
-                        last_error = http_err
-                        if http_err.response.status_code == 400 and "response_format" in payload:
-                            payload.pop("response_format", None)
-                            continue
-                        if http_err.response.status_code in (429, 500, 502, 503):
-                            import asyncio
-                            logger.warning(f"HTTP {http_err.response.status_code} on {attempt_model}. Retrying in {1.5 * (retry + 1)}s...")
-                            await asyncio.sleep(1.5 * (retry + 1))
-                            continue
-                        break
-                    except Exception as err:
-                        last_error = err
-                        logger.warning(f"Model {attempt_model} attempt {retry+1} notice: {err}")
-                        import asyncio
-                        await asyncio.sleep(0.5)
+                    if res.status_code == 429:
+                        err_body = res.text.lower()
+                        if "quota" in err_body or "resource_exhausted" in err_body or "billing" in err_body:
+                            logger.warning(f"AI Quota exhausted on {attempt_model}. Activating circuit breaker.")
+                            import time
+                            self._quota_exhausted_until = time.time() + 60.0
+                            return ""
+                        logger.warning(f"Rate limit 429 on {attempt_model}. Trying next fallback model...")
+                        continue
+
+                    if res.status_code in (500, 502, 503, 504):
+                        logger.warning(f"Google server {res.status_code} on {attempt_model}. Trying next fallback model...")
+                        continue
+                    
+                    res.raise_for_status()
+                    data = res.json()
+                    choices = data.get("choices") or []
+                    if not choices:
+                        continue
+                    first_choice = choices[0]
+                    msg_obj = first_choice.get("message") or {}
+                    raw_content = msg_obj.get("content") or first_choice.get("text") or ""
+                    clean_content = re.sub(r'<think>[\s\S]*?</think>', '', raw_content).strip()
+                    return clean_content or raw_content
+                except httpx.HTTPStatusError as http_err:
+                    last_error = http_err
+                    if http_err.response.status_code == 400 and "response_format" in payload:
+                        payload.pop("response_format", None)
+                    continue
+                except Exception as err:
+                    last_error = err
+                    logger.warning(f"Model {attempt_model} notice: {err}")
+                    continue
 
             logger.warning(f"All AI models exhausted in chat_completion: {last_error}")
             return ""
@@ -263,8 +254,8 @@ class AIProviderService:
                 "parts": [{"text": system_text.strip()}]
             }
 
-        candidate_models = [self.vision_model, "gemini-3.5-flash", "gemini-3.6-flash"]
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        candidate_models = [self.vision_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
+        async with httpx.AsyncClient(timeout=15.0) as client:
             for m in candidate_models:
                 try:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
@@ -382,7 +373,7 @@ class AIProviderService:
                 if isinstance(content, str) and content.strip():
                     contents.append({"role": "model", "parts": [{"text": content.strip()}]})
 
-        models_to_try = candidate_models or [self.model, "gemini-3.5-flash", "gemini-3.6-flash"]
+        models_to_try = candidate_models or [self.model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
         payload = {
             "contents": contents,
             "generationConfig": {
@@ -468,7 +459,7 @@ class AIProviderService:
         # Build candidate fallback models list with ultra-fast models
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = [selected_model, "gemini-3.5-flash", "gemini-3.6-flash"]
+            candidate_fallbacks = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
         else:
             candidate_fallbacks = ["openai/gpt-oss-20b", "llama-3.1-8b-instant", "qwen/qwen3.6-27b"]
 
