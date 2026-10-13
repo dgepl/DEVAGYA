@@ -51,11 +51,11 @@ class AIProviderService:
 
     @property
     def model(self) -> str:
-        return os.getenv("AI_MODEL", "gemini-3.5-flash-lite")
+        return os.getenv("AI_MODEL", "gemini-3.1-flash-lite")
 
     @property
     def vision_model(self) -> str:
-        return os.getenv("AI_VISION_MODEL", "gemini-3.5-flash-lite")
+        return os.getenv("AI_VISION_MODEL", "gemini-3.1-flash-lite")
 
     def build_vision_content(self, text: str, image_data_urls: List[str]) -> List[Dict[str, Any]]:
         """Build an OpenAI-style multi-part message content for vision-capable models."""
@@ -139,13 +139,13 @@ class AIProviderService:
         if response_format_json and "qwen" not in str(selected_model).lower():
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=50.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
+                models_to_try = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", selected_model, "gemini-flash-latest"]
             elif has_imgs:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
+                models_to_try = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", selected_model, "gemini-flash-latest"]
             else:
-                models_to_try = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
+                models_to_try = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", selected_model, "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
             # Deduplicate while preserving order
             unique_models = []
             for m in models_to_try:
@@ -241,13 +241,13 @@ class AIProviderService:
                 "parts": [{"text": system_text.strip()}]
             }
 
-        candidate_models = [preferred_model or self.model, "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-flash-latest"]
+        candidate_models = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", preferred_model or self.model, "gemini-flash-latest"]
         unique_cands = []
         for m in candidate_models:
             if m and m not in unique_cands:
                 unique_cands.append(m)
 
-        async with httpx.AsyncClient(timeout=14.0) as client:
+        async with httpx.AsyncClient(timeout=50.0) as client:
             for m in unique_cands:
                 try:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
@@ -278,7 +278,8 @@ class AIProviderService:
                                 clean_text = re.sub(r'<think>[\s\S]*?</think>', '', raw_text).strip()
                                 if clean_text:
                                     return clean_text
-                    elif res.status_code in (429, 500, 502, 503, 504):
+                    else:
+                        logger.warning(f"Native Gemini {m} returned {res.status_code}: {res.text[:300]}")
                         continue
                 except Exception as ex:
                     logger.warning(f"Native Gemini text model {m} notice: {ex}")
@@ -350,8 +351,8 @@ class AIProviderService:
                 "parts": [{"text": system_text.strip()}]
             }
 
-        candidate_models = [self.vision_model, "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-flash-latest"]
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        candidate_models = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", self.vision_model, "gemini-flash-latest"]
+        async with httpx.AsyncClient(timeout=50.0) as client:
             for m in candidate_models:
                 try:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
@@ -469,7 +470,7 @@ class AIProviderService:
                 if isinstance(content, str) and content.strip():
                     contents.append({"role": "model", "parts": [{"text": content.strip()}]})
 
-        models_to_try = candidate_models or [self.model, "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-flash-latest"]
+        models_to_try = candidate_models or ["gemini-3.1-flash-lite", "gemini-3-flash-preview", self.model, "gemini-flash-latest"]
         payload = {
             "contents": contents,
             "generationConfig": {
@@ -555,7 +556,7 @@ class AIProviderService:
         # Build candidate fallback models list with ultra-fast models
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = [selected_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
+            candidate_fallbacks = ["gemini-3-flash-preview", selected_model, "gemini-flash-latest"]
         else:
             candidate_fallbacks = ["openai/gpt-oss-20b", "llama-3.1-8b-instant", "qwen/qwen3.6-27b"]
 

@@ -1,16 +1,8 @@
 export const getApiBase = () => {
   if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
-    // When running on custom domain (e.g. devgya.in / devgya.com) where frontend and backend are hosted together,
-    // always use relative /api/v1 so Next.js proxies directly to internal backend on port 8000
-    if (hostname.endsWith("devgya.in") || hostname.endsWith("devgya.com")) {
-      return "/api/v1";
-    }
     const envUrl = process.env.NEXT_PUBLIC_API_URL;
-    // Only use envUrl directly if it is production URL or if we are truly running on the same localhost machine
-    if (envUrl && envUrl.startsWith("http") && (isLocalHost || !envUrl.includes("localhost"))) {
-      return envUrl;
+    if (envUrl && envUrl.startsWith("http")) {
+      return envUrl.replace(/\/+$/, "");
     }
     return "/api/v1";
   }

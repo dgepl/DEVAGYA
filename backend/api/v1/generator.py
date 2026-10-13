@@ -306,13 +306,32 @@ async def generate_paper_from_file(request: Request):
 async def generate_paper_stream(request: GeneratePaperRequest):
     """Stream real-time progress percentage, stage description, and final generated paper."""
     queue: asyncio.Queue = asyncio.Queue()
+    worker_done = asyncio.Event()
 
     async def _progress_cb(percentage: int, stage: str):
         await queue.put({"event": "progress", "percentage": percentage, "stage": stage})
 
+    async def _heartbeat_progress():
+        stages = [
+            (20, f"Analyzing CBSE/NCERT curriculum benchmarks for {request.subject}..."),
+            (38, f"Formulating Bloom's taxonomy blueprint for '{request.chapter}'..."),
+            (55, f"Synthesizing questions across requested sections..."),
+            (72, f"Generating step-by-step model solutions & marking rubrics..."),
+            (86, f"Formatting options, blanks, and explanations..."),
+            (93, f"Validating continuous question numbering & official CBSE layout..."),
+            (96, f"Finalizing authentic examination paper...")
+        ]
+        for pct, stage_msg in stages:
+            try:
+                await asyncio.wait_for(worker_done.wait(), timeout=3.5)
+                break
+            except asyncio.TimeoutError:
+                await queue.put({"event": "progress", "percentage": pct, "stage": stage_msg})
+
     async def _worker():
         try:
-            await _progress_cb(8, f"Initializing CBSE/NCERT curriculum standards for {request.class_name} {request.subject}...")
+            await _progress_cb(10, f"Initializing CBSE/NCERT curriculum standards for {request.class_name} {request.subject}...")
+            asyncio.create_task(_heartbeat_progress())
             response = await groq_service.generate_question_paper(request, progress_callback=_progress_cb)
             if request.user_email:
                 response.user_email = request.user_email
@@ -333,16 +352,21 @@ async def generate_paper_stream(request: GeneratePaperRequest):
                 "error": detail
             })
         finally:
+            worker_done.set()
             await queue.put(None)
 
     asyncio.create_task(_worker())
 
     async def event_generator():
         while True:
-            item = await queue.get()
-            if item is None:
-                break
-            yield f"data: {json.dumps(item)}\n\n"
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=2.0)
+                if item is None:
+                    break
+                yield f"data: {json.dumps(item)}\n\n"
+            except asyncio.TimeoutError:
+                # SSE comment keep-alive packet to prevent proxy / Cloudflare idle timeout
+                yield ": keep-alive\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -443,12 +467,30 @@ async def generate_paper_from_file_stream(request: Request):
             continue
 
     queue: asyncio.Queue = asyncio.Queue()
+    worker_done = asyncio.Event()
 
     async def _progress_cb(percentage: int, stage: str):
         await queue.put({"event": "progress", "percentage": percentage, "stage": stage})
 
+    async def _heartbeat_progress():
+        stages = [
+            (25, "Scanning attached study materials & running vision OCR..."),
+            (45, "Analyzing attached study pages, equations, and topics..."),
+            (65, "Formulating questions strictly derived from attached source material..."),
+            (80, "Formulating step-by-step model solutions and marking keys..."),
+            (90, "Structuring sections, options, and explanations..."),
+            (95, "Validating continuous question numbering & official CBSE layout...")
+        ]
+        for pct, stage_msg in stages:
+            try:
+                await asyncio.wait_for(worker_done.wait(), timeout=3.5)
+                break
+            except asyncio.TimeoutError:
+                await queue.put({"event": "progress", "percentage": pct, "stage": stage_msg})
+
     async def _worker():
         try:
+            asyncio.create_task(_heartbeat_progress())
             if not file_items:
                 await _progress_cb(10, f"Initializing curriculum guidelines for {req.class_name} {req.subject}...")
                 res = await groq_service.generate_question_paper(req, progress_callback=_progress_cb)
@@ -545,16 +587,21 @@ async def generate_paper_from_file_stream(request: Request):
                 "error": detail
             })
         finally:
+            worker_done.set()
             await queue.put(None)
 
     asyncio.create_task(_worker())
 
     async def event_generator():
         while True:
-            item = await queue.get()
-            if item is None:
-                break
-            yield f"data: {json.dumps(item)}\n\n"
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=2.0)
+                if item is None:
+                    break
+                yield f"data: {json.dumps(item)}\n\n"
+            except asyncio.TimeoutError:
+                # SSE comment keep-alive packet to prevent proxy / Cloudflare idle timeout
+                yield ": keep-alive\n\n"
 
     return StreamingResponse(
         event_generator(),
