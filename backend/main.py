@@ -86,24 +86,28 @@ app.add_middleware(
     expose_headers=["X-Conversation-Id", "X-XP-Earned", "X-Admin-Session", "X-Current-Admin"],
 )
 
-# Standard HTTP Security Headers Middleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
+# High-Performance Pure ASGI Security Headers Middleware (zero streaming buffering or memory leaks)
+class SecurityHeadersASGIMiddleware:
+    def __init__(self, app):
+        self.app = app
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "SAMEORIGIN"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        return response
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
 
-app.add_middleware(SecurityHeadersMiddleware)
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.append((b"x-content-type-options", b"nosniff"))
+                headers.append((b"x-frame-options", b"SAMEORIGIN"))
+                headers.append((b"x-xss-protection", b"1; mode=block"))
+                headers.append((b"referrer-policy", b"strict-origin-when-cross-origin"))
+                message["headers"] = headers
+            await send(message)
 
-# High-Performance Response Compression (reduces payload size by 70-80% for responses >= 1KB)
-from fastapi.middleware.gzip import GZipMiddleware
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+        await self.app(scope, receive, send_wrapper)
+
+app.add_middleware(SecurityHeadersASGIMiddleware)
 
 # Mount Phase 1 Routers
 app.include_router(generator_router, prefix=settings.API_V1_STR)

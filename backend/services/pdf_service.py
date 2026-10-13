@@ -194,18 +194,25 @@ def extract_pdf_content(file_bytes: bytes, max_pages: int = 30):
         
         extracted_text = "\n\n".join(pages_text)
         
-        # If PDF is scanned / has no readable digital text stream (< 50 chars), render page 1 as JPEG image for Vision AI
+        # If PDF is scanned / has no readable digital text stream (< 50 chars), render up to 6 pages as JPEG images for Vision AI
+        rendered_images = []
         if len(extracted_text.strip()) < 50 and len(doc) > 0:
-            page = doc[0]
-            pix = page.get_pixmap(dpi=150)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            if img.width > 1280:
-                h = int(img.height * 1280 / img.width)
-                img = img.resize((1280, h))
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=80)
-            enc = base64.b64encode(buf.getvalue()).decode("ascii")
-            image_data_url = f"data:image/jpeg;base64,{enc}"
+            for p_idx in range(min(6, len(doc))):
+                try:
+                    page = doc[p_idx]
+                    pix = page.get_pixmap(dpi=150)
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    if img.width > 1280:
+                        h = int(img.height * 1280 / img.width)
+                        img = img.resize((1280, h))
+                    buf = io.BytesIO()
+                    img.save(buf, format="JPEG", quality=80)
+                    enc = base64.b64encode(buf.getvalue()).decode("ascii")
+                    rendered_images.append(f"data:image/jpeg;base64,{enc}")
+                except Exception as p_err:
+                    logger.warning(f"Error rendering PDF page {p_idx}: {p_err}")
+            if rendered_images:
+                image_data_url = rendered_images if len(rendered_images) > 1 else rendered_images[0]
         doc.close()
     except Exception:
         # Fallback to pypdf if pymupdf fails

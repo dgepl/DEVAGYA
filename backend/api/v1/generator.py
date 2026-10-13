@@ -250,8 +250,13 @@ async def generate_paper_from_file(request: Request):
                 pdf_text, pdf_img_url = extract_pdf_content(file_bytes)
                 if pdf_text and len(pdf_text.strip()) > 10:
                     extracted_texts.append(f"--- Document: {filename} ---\n{pdf_text}")
-                if pdf_img_url and len(image_data_urls) < 25:
-                    image_data_urls.append(pdf_img_url)
+                if pdf_img_url:
+                    if isinstance(pdf_img_url, list):
+                        for u in pdf_img_url:
+                            if len(image_data_urls) < 25:
+                                image_data_urls.append(u)
+                    elif len(image_data_urls) < 25:
+                        image_data_urls.append(pdf_img_url)
             except Exception:
                 try:
                     doc_text = extract_document_text(file_bytes, filename, content_type)
@@ -266,6 +271,9 @@ async def generate_paper_from_file(request: Request):
                     extracted_texts.append(f"--- Document: {filename} ---\n{doc_text}")
             except Exception:
                 pass
+
+    import gc
+    gc.collect()
 
     unified_extracted_text = "\n\n".join(extracted_texts).strip()
     has_text = bool(unified_extracted_text and len(unified_extracted_text) >= 10)
@@ -478,8 +486,13 @@ async def generate_paper_from_file_stream(request: Request):
                         pdf_text, pdf_img_url = extract_pdf_content(file_bytes)
                         if pdf_text and len(pdf_text.strip()) > 10:
                             extracted_texts.append(f"--- Document: {filename} ---\n{pdf_text}")
-                        if pdf_img_url and len(image_data_urls) < 25:
-                            image_data_urls.append(pdf_img_url)
+                        if pdf_img_url:
+                            if isinstance(pdf_img_url, list):
+                                for u in pdf_img_url:
+                                    if len(image_data_urls) < 25:
+                                        image_data_urls.append(u)
+                            elif len(image_data_urls) < 25:
+                                image_data_urls.append(pdf_img_url)
                     except Exception:
                         try:
                             doc_text = extract_document_text(file_bytes, filename, content_type)
@@ -494,6 +507,9 @@ async def generate_paper_from_file_stream(request: Request):
                             extracted_texts.append(f"--- Document: {filename} ---\n{doc_text}")
                     except Exception:
                         pass
+
+            import gc
+            gc.collect()
 
             unified_extracted_text = "\n\n".join(extracted_texts).strip()
             has_text = bool(unified_extracted_text and len(unified_extracted_text) >= 10)

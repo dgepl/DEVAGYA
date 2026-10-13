@@ -360,12 +360,12 @@ export default function SuperAdminPage() {
     }
   }, []);
 
-  // Heartbeat monitor: actively checks session every 5s while authenticated
+  // Heartbeat monitor: periodic session check every 60s while authenticated (prevents Cloudflare rate-limit triggers)
   useEffect(() => {
     if (!isAuthenticated) return;
     const interval = setInterval(() => {
       verifySession();
-    }, 5000);
+    }, 60000);
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 

@@ -48,11 +48,11 @@ class AIProviderService:
 
     @property
     def model(self) -> str:
-        return os.getenv("AI_MODEL", "gemini-flash-lite-latest")
+        return os.getenv("AI_MODEL", "gemini-3.5-flash")
 
     @property
     def vision_model(self) -> str:
-        return os.getenv("AI_VISION_MODEL", "gemini-flash-lite-latest")
+        return os.getenv("AI_VISION_MODEL", "gemini-3.5-flash")
 
     def build_vision_content(self, text: str, image_data_urls: List[str]) -> List[Dict[str, Any]]:
         """Build an OpenAI-style multi-part message content for vision-capable models."""
@@ -124,11 +124,11 @@ class AIProviderService:
 
         async with httpx.AsyncClient(timeout=90.0) as client:
             if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-                models_to_try = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+                models_to_try = [selected_model, "gemini-3.5-flash", "gemini-3.6-flash"]
             elif has_imgs:
-                models_to_try = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash"]
+                models_to_try = [selected_model, "gemini-3.5-flash", "gemini-3.6-flash"]
             else:
-                models_to_try = [selected_model, "gemini-2.5-flash", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
+                models_to_try = [selected_model, "gemini-3.5-flash", "gemini-3.6-flash", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
             # Deduplicate while preserving order
             unique_models = []
             for m in models_to_try:
@@ -251,7 +251,7 @@ class AIProviderService:
                 "parts": [{"text": system_text.strip()}]
             }
 
-        candidate_models = [self.vision_model, "gemini-3.5-flash-lite", "gemini-3.6-flash"]
+        candidate_models = [self.vision_model, "gemini-3.5-flash", "gemini-3.6-flash"]
         async with httpx.AsyncClient(timeout=60.0) as client:
             for m in candidate_models:
                 try:
@@ -370,7 +370,7 @@ class AIProviderService:
                 if isinstance(content, str) and content.strip():
                     contents.append({"role": "model", "parts": [{"text": content.strip()}]})
 
-        models_to_try = candidate_models or [self.model, "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3-flash-preview"]
+        models_to_try = candidate_models or [self.model, "gemini-3.5-flash", "gemini-3.6-flash"]
         payload = {
             "contents": contents,
             "generationConfig": {
@@ -456,7 +456,7 @@ class AIProviderService:
         # Build candidate fallback models list with ultra-fast models
         fallback_models = [selected_model]
         if "gemini" in str(selected_model).lower() or "googleapis" in self.base_url:
-            candidate_fallbacks = [selected_model, "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"]
+            candidate_fallbacks = [selected_model, "gemini-3.5-flash", "gemini-3.6-flash"]
         else:
             candidate_fallbacks = ["openai/gpt-oss-20b", "llama-3.1-8b-instant", "qwen/qwen3.6-27b"]
 

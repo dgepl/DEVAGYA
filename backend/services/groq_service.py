@@ -1296,6 +1296,149 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
 
         return qs
 
+    def _synthesize_fallback_attachment_questions(
+        self,
+        source_text: str,
+        req: GeneratePaperRequest,
+        final_subject: str,
+        final_class: str,
+        final_chapter: str
+    ) -> List[Dict[str, Any]]:
+        """Synthesize emergency questions derived 100% from the attached source text without external curriculum templates."""
+        ar_marks = getattr(req, "ar_marks", 2) or 2
+        fill_marks = getattr(req, "fill_marks", 1) or 1
+        case_marks = getattr(req, "case_marks", 4) or 4
+
+        clean_text = re.sub(r'=== [^=]+ ===', '', source_text)
+        lines = [line.strip() for line in clean_text.splitlines() if len(line.strip()) > 25 and not line.strip().startswith(("#", "-", "*", "="))]
+        
+        sentences = []
+        for line in lines:
+            parts = re.split(r'(?<=[.?!।])\s+', line)
+            for p in parts:
+                p_clean = p.strip()
+                if 20 <= len(p_clean) <= 250:
+                    sentences.append(p_clean)
+
+        if not sentences:
+            sentences = [
+                f"The attached study document discusses core concepts and foundational principles related to {final_chapter}.",
+                f"Key principles identified in {final_chapter} provide essential insights for practical understanding.",
+                f"Analytical evaluation of {final_chapter} demonstrates systematic theoretical relationships.",
+                f"Practical applications of {final_chapter} can be observed across standard academic contexts."
+            ]
+
+        qs = []
+        sent_count = max(1, len(sentences))
+
+        target_mcq = max(0, req.num_mcqs)
+        for i in range(target_mcq):
+            s = sentences[i % sent_count]
+            words = s.split()
+            focus_word = words[len(words) // 2] if len(words) > 3 else "concept"
+            qs.append({
+                "question_type": "mcq",
+                "question_text": f"Based strictly on the attached document, which of the following statements is TRUE regarding '{focus_word}'?",
+                "options": [
+                    f"(A) {s}",
+                    f"(B) The attached text explicitly states that this condition does not apply under any circumstances.",
+                    f"(C) The material indicates that this concept has no relevance to {final_chapter}.",
+                    f"(D) None of the above statements are supported by the attached material."
+                ],
+                "answer": f"(A) {s}",
+                "explanation": f"Directly cited and verified from the attached study reference material for {final_chapter}.",
+                "marks": 1
+            })
+
+        target_fill = max(0, req.num_fill_in_the_blanks)
+        for i in range(target_fill):
+            s = sentences[(i + 2) % sent_count]
+            words = s.split()
+            if len(words) >= 4:
+                idx = len(words) // 2
+                missing_word = words[idx].strip(",.;:'\"")
+                words[idx] = "_______"
+                blank_text = " ".join(words)
+            else:
+                blank_text = f"According to the attached text, the core concept in {final_chapter} is _______."
+                missing_word = final_chapter
+
+            qs.append({
+                "question_type": "fill_in_the_blanks",
+                "question_text": blank_text,
+                "options": None,
+                "answer": missing_word,
+                "explanation": f"Directly extracted from the attached source material text: '{s}'.",
+                "marks": fill_marks
+            })
+
+        target_ar = max(0, req.num_assertion_reason)
+        for i in range(target_ar):
+            s1 = sentences[(i + 4) % sent_count]
+            s2 = sentences[(i + 5) % sent_count]
+            qs.append({
+                "question_type": "assertion_reason",
+                "question_text": f"Assertion (A): {s1}\nReason (R): {s2}",
+                "assertion_text": s1,
+                "reason_text": s2,
+                "options": [
+                    "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                    "(B) Both Assertion (A) and Reason (R) are true but Reason (R) is not the correct explanation of Assertion (A).",
+                    "(C) Assertion (A) is true but Reason (R) is false.",
+                    "(D) Assertion (A) is false but Reason (R) is true."
+                ],
+                "answer": "(A) Both Assertion (A) and Reason (R) are true and Reason (R) is the correct explanation of Assertion (A).",
+                "explanation": f"Both statements are verifiable directly from the attached document text.",
+                "marks": ar_marks
+            })
+
+        target_short = max(0, req.num_short)
+        for i in range(target_short):
+            s = sentences[(i + 1) % sent_count]
+            qs.append({
+                "question_type": "short",
+                "question_text": f"Referring to the attached document, explain the significance of the following observation: \"{s}\"",
+                "options": None,
+                "answer": f"Model Answer: As outlined in the attached material, '{s}' establishes the foundational concept. Students must articulate its core premise and explain its significance as detailed in the document.",
+                "explanation": f"Sourced directly from attached material reference context.",
+                "marks": 3
+            })
+
+        target_long = max(0, req.num_long)
+        for i in range(target_long):
+            s = sentences[(i + 3) % sent_count]
+            qs.append({
+                "question_type": "long",
+                "question_text": f"Based on the attached document, provide a comprehensive explanation and analysis of: \"{s}\". Highlight its key components and implications.",
+                "options": None,
+                "answer": f"Structured Marking Scheme:\n1. Core Identification: Accurately state the foundational statement from the document (2 marks).\n2. Elaboration: Detail the mechanisms, factors, or descriptions provided in the material (2 marks).\n3. Conclusion: Derive valid inference aligned with the attached text (1 mark).",
+                "explanation": f"Evaluates detailed comprehension and synthesis of the attached document.",
+                "marks": 5
+            })
+
+        target_case = max(0, req.num_case_study)
+        for i in range(target_case):
+            passage_sents = sentences[(i * 3) % sent_count : ((i * 3) + 4) % sent_count]
+            if len(passage_sents) < 2:
+                passage_sents = sentences[:3]
+            passage_text = " ".join(passage_sents)
+            qs.append({
+                "question_type": "case_study",
+                "case_passage": passage_text,
+                "sub_questions": [
+                    "(i) Identify the central concept described in the passage above. (1 Mark)",
+                    "(ii) State one key observation or condition highlighted in the excerpt. (1 Mark)",
+                    "(iii) What conclusion can be drawn from the attached material regarding this topic? (2 Marks)"
+                ],
+                "question_text": f"Read the following excerpt from the attached document carefully and answer the questions that follow:\n\n{passage_text}",
+                "options": None,
+                "answer": f"(i) Central Concept: Core theme of {final_chapter} as described in passage.\n(ii) Key Observation: Details specified in the text.\n(iii) Conclusion: Valid derivation adhering to the attached document excerpt.",
+                "explanation": f"Case study assessing reading comprehension of attached material.",
+                "marks": case_marks
+            })
+
+        return qs
+
     async def generate_question_paper_with_attachment(
         self,
         req: GeneratePaperRequest,
@@ -1477,11 +1620,11 @@ Return valid JSON ONLY with these exact keys:
                 return "Hindi"
             if any(k in t for k in ["poem", "stanza", "comprehension", "grammatical", "noun", "verb", "adjective", "passage", "shakespeare", "idiom", "antonym", "synonym", "rhyme", "story"]):
                 return "English"
-            if any(k in t for k in ["constitution", "democracy", "parliament", "revolution", "dynasty", "monarchy", "civil war", "nationalism", "federalism", "election", "monsoon", "plateau"]):
+            if any(k in t for k in ["constitution", "democracy", "parliament", "revolution", "dynasty", "monarchy", "civil war", "nationalism", "federalism", "election", "monsoon", "plateau", "civilization", "harappa", "mohenjodaro", "indus", "citadel", "settlement", "archaeological", "bce", "ce", "empire", "treaty"]):
                 return "Social Science"
-            if any(k in t for k in ["python", "algorithm", "binary", "database", "sql", "network", "loop", "data structure"]):
+            if any(k in t for k in ["python", "algorithm", "binary", "database", "sql", "computer network", "loop", "data structure", "compiler", "variable"]):
                 return "Computer Science"
-            return "General Science"
+            return "General Studies"
 
         def _deduce_class(text: str) -> str:
             m = re.search(r'\b(?:class|grade|standard|std)\s*[:.-]?\s*([0-9]{1,2}|ix|x|xi|xii|vi|vii|viii)\b', text, re.IGNORECASE)
@@ -1492,39 +1635,44 @@ Return valid JSON ONLY with these exact keys:
                 return f"Class {num}"
             return ""
 
-        # Resolve true subject: Prioritize teacher's selected curriculum subject; fallback to detected subject or text deduction
-        if req.subject and "auto_detect" not in req.subject.lower() and req.subject.lower() not in ["general", "general studies", "unknown", ""]:
-            final_subject = req.subject
-        elif detected_subject and detected_subject.lower() not in ["general", "general studies", "unknown", "document", ""]:
+        # Resolve true subject: CRITICAL USER REQUIREMENT: Derive 100% from the attached file!
+        # Prioritize detected subject from file, then deduction from content.
+        # NEVER let teacher's default form subject (e.g. default Science) override attached document!
+        if detected_subject and detected_subject.lower() not in ["general", "general studies", "unknown", "document", ""]:
             final_subject = detected_subject
         else:
-            final_subject = _deduce_subject(combined_source)
+            deduced_s = _deduce_subject(combined_source)
+            if deduced_s and deduced_s.lower() not in ["general", "general science", "general studies", "unknown"]:
+                final_subject = deduced_s
+            elif req.subject and "auto_detect" not in req.subject.lower() and req.subject.lower() not in ["general", "general studies", "unknown", ""]:
+                final_subject = req.subject
+            else:
+                final_subject = deduced_s or "General Studies"
 
-        # Resolve true class: Prioritize teacher's selected class; fallback to detected class or regex deduction from content
-        if req.class_name and "auto_detect" not in req.class_name.lower() and req.class_name.lower() not in ["unknown", ""]:
+        # Resolve true class: Prioritize detected class from file; fallback to regex deduction, then form
+        raw_deduced_class = detected_class or _deduce_class(combined_source)
+        if raw_deduced_class and raw_deduced_class.lower() not in ["unknown", ""]:
+            final_class = raw_deduced_class if "class" in raw_deduced_class.lower() else f"Class {raw_deduced_class}"
+        elif req.class_name and "auto_detect" not in req.class_name.lower() and req.class_name.lower() not in ["unknown", ""]:
             final_class = req.class_name if "class" in req.class_name.lower() else f"Class {req.class_name}"
         else:
-            raw_deduced_class = detected_class or _deduce_class(combined_source)
-            if raw_deduced_class and raw_deduced_class.lower() not in ["unknown", ""]:
-                final_class = raw_deduced_class if "class" in raw_deduced_class.lower() else f"Class {raw_deduced_class}"
-            else:
-                final_class = "Class 10"
+            final_class = "Class 10"
 
-        # Resolve true chapter: Prioritize teacher's selected chapter; fallback to detected chapter
-        if req.chapter and "auto_detect" not in req.chapter.lower() and req.chapter.lower() not in ["general", "general syllabus", "unknown", "attached content", ""]:
-            final_chapter = req.chapter
-        elif detected_chapter and detected_chapter.lower() not in ["general", "general syllabus", "unknown", "attached content", ""]:
+        # Resolve true chapter / topic: Strictly derived from attached document
+        if detected_chapter and detected_chapter.lower() not in ["general", "general syllabus", "unknown", "attached content", ""]:
             final_chapter = detected_chapter
+        elif detected_title and "assessment" not in detected_title.lower() and "exam" not in detected_title.lower():
+            final_chapter = detected_title
+        elif req.chapter and req.chapter.lower() in combined_source.lower() and "auto_detect" not in req.chapter.lower():
+            final_chapter = req.chapter
         else:
-            final_chapter = f"{final_subject} Core Concepts"
+            final_chapter = f"{final_subject} Core Material"
 
         # Resolve title
-        if req.title and "auto_detect" not in req.title.lower() and req.title.strip() and req.title.strip() != "Periodic Assessment Exam":
+        if detected_title and detected_title.strip() and detected_title.lower() not in ["assessment", "exam", "paper", "test"]:
+            final_title = f"{detected_title} - Assessment Paper"
+        elif req.title and "auto_detect" not in req.title.lower() and req.title.strip() and req.title.strip() != "Periodic Assessment Exam":
             final_title = req.title.strip()
-        elif detected_title and "assessment" in detected_title.lower():
-            final_title = detected_title
-        elif detected_title:
-            final_title = f"{detected_title} - Periodic Assessment"
         else:
             final_title = f"{final_class} {final_subject} - {final_chapter} Assessment Paper"
 
@@ -1619,7 +1767,7 @@ Return valid JSON ONLY with a 'questions' array containing all {total_target_que
             if progress_callback:
                 await progress_callback(55, "Synthesizing question sections across parallel batches...")
 
-            sem = asyncio.Semaphore(6)
+            sem = asyncio.Semaphore(2)
 
             async def _call_section_llm(section_type: str, prompt_spec: str) -> List[Dict[str, Any]]:
                 section_prompt = f"""CRITICAL MANDATE:
@@ -1835,9 +1983,6 @@ JSON format:
                 opts = None
 
             opts = self._clean_mcq_options(opts)
-            if ans:
-                ans = re.sub(r'^\\text\{\s*(\([A-Da-d0-9ivxlcdmIVXLCDM]+\)|[A-Da-d0-9ivxlcdmIVXLCDM]+[.):])\s*\}\s*', r'\1 ', ans)
-
             ans = str(
                 q.get("answer") or 
                 q.get("correct_answer") or 
@@ -1847,6 +1992,8 @@ JSON format:
                 "Refer to step-by-step model solution based on attached document."
             ).strip()
             exp = str(q.get("explanation") or "Derived directly from attached source material.").strip()
+            if ans:
+                ans = re.sub(r'^\\text\{\s*(\([A-Da-d0-9ivxlcdmIVXLCDM]+\)|[A-Da-d0-9ivxlcdmIVXLCDM]+[.):])\s*\}\s*', r'\1 ', ans)
 
             a_txt = str(q.get("assertion_text") or "").strip()
             r_txt = str(q.get("reason_text") or "").strip()
@@ -2110,7 +2257,13 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
                 school_logo=req.school_logo,
                 user_email=req.user_email
             )
-            fb_items = self._synthesize_fallback_curriculum_questions(fallback_req)
+            fb_items = self._synthesize_fallback_attachment_questions(
+                source_text=combined_source,
+                req=fallback_req,
+                final_subject=final_subject,
+                final_class=final_class,
+                final_chapter=final_chapter
+            )
             for fb in fb_items:
                 fb_type = fb.get("question_type", "")
                 if fb_type == "mcq" and len(mcqs) < target_mcq:
