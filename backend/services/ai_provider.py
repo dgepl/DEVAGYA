@@ -99,13 +99,22 @@ class AIProviderService:
         selected_model = model or (self.vision_model if has_imgs else self.model)
 
         # High-performance native vision for Google Gemini provider
-        if has_imgs and ("googleapis" in self.base_url or "gemini" in str(selected_model).lower()):
+        if has_imgs and ("googleapis" in self.base_url or "gemini" in str(selected_model).lower() or self.is_google):
             try:
                 native_res = await self._gemini_native_vision(messages, temperature, max_tokens, key, response_format_json=response_format_json)
                 if native_res and len(native_res.strip()) > 5:
                     return native_res
             except Exception as native_err:
                 logger.warning(f"Native Gemini vision fallback notice: {native_err}")
+
+        # High-performance direct native text for Google Gemini provider (bypasses slow /openai proxy)
+        if not has_imgs and ("googleapis" in self.base_url or "gemini" in str(selected_model).lower() or self.is_google):
+            try:
+                native_text_res = await self._gemini_native_text(messages, temperature, max_tokens, key, response_format_json=response_format_json, preferred_model=selected_model)
+                if native_text_res and len(native_text_res.strip()) > 5:
+                    return native_text_res
+            except Exception as native_text_err:
+                logger.warning(f"Native Gemini text fallback notice: {native_text_err}")
 
         # If vision call failed or didn't return text, sanitize messages so OpenAI-compatible endpoint doesn't hang on base64
         if has_imgs:
@@ -189,6 +198,93 @@ class AIProviderService:
             logger.warning(f"All AI models exhausted in chat_completion: {last_error}")
             return ""
 
+    async def _gemini_native_text(
+        self,
+        messages: List[Dict[str, Any]],
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+        api_key: str = "",
+        response_format_json: bool = False,
+        preferred_model: Optional[str] = None
+    ) -> str:
+        """Direct native Google Gemini generateContent for ultra-fast, robust text completions."""
+        contents = []
+        system_text = ""
+        for msg in messages:
+            role = msg.get("role")
+            content = msg.get("content")
+            if role == "system":
+                if isinstance(content, str) and content.strip():
+                    system_text += content.strip() + "\n"
+                continue
+
+            if isinstance(content, str) and content.strip():
+                part_role = "user" if role != "assistant" else "model"
+                contents.append({"role": part_role, "parts": [{"text": content.strip()}]})
+
+        if not contents:
+            return ""
+
+        gen_config: Dict[str, Any] = {
+            "temperature": temperature,
+            "maxOutputTokens": min(max_tokens or 4096, 8192)
+        }
+        if response_format_json:
+            gen_config["responseMimeType"] = "application/json"
+
+        payload: Dict[str, Any] = {
+            "contents": contents,
+            "generationConfig": gen_config
+        }
+        if system_text.strip():
+            payload["system_instruction"] = {
+                "parts": [{"text": system_text.strip()}]
+            }
+
+        candidate_models = [preferred_model or self.model, "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-flash-latest"]
+        unique_cands = []
+        for m in candidate_models:
+            if m and m not in unique_cands:
+                unique_cands.append(m)
+
+        async with httpx.AsyncClient(timeout=14.0) as client:
+            for m in unique_cands:
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+                    res = await client.post(url, json=payload)
+                    if res.status_code == 200:
+                        data = res.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts_out = candidates[0].get("content", {}).get("parts", [])
+                            text_parts = [p.get("text", "") for p in parts_out if "text" in p]
+                            raw_text = "".join(text_parts).strip()
+                            clean_text = re.sub(r'<think>[\s\S]*?</think>', '', raw_text).strip()
+                            if clean_text:
+                                return clean_text
+                    elif res.status_code == 400 and "responseMimeType" in gen_config:
+                        retry_payload = dict(payload)
+                        retry_cfg = dict(gen_config)
+                        retry_cfg.pop("responseMimeType", None)
+                        retry_payload["generationConfig"] = retry_cfg
+                        retry_res = await client.post(url, json=retry_payload)
+                        if retry_res.status_code == 200:
+                            data = retry_res.json()
+                            candidates = data.get("candidates", [])
+                            if candidates:
+                                parts_out = candidates[0].get("content", {}).get("parts", [])
+                                text_parts = [p.get("text", "") for p in parts_out if "text" in p]
+                                raw_text = "".join(text_parts).strip()
+                                clean_text = re.sub(r'<think>[\s\S]*?</think>', '', raw_text).strip()
+                                if clean_text:
+                                    return clean_text
+                    elif res.status_code in (429, 500, 502, 503, 504):
+                        continue
+                except Exception as ex:
+                    logger.warning(f"Native Gemini text model {m} notice: {ex}")
+                    continue
+        return ""
+
     async def _gemini_native_vision(
         self,
         messages: List[Dict[str, Any]],
@@ -254,7 +350,7 @@ class AIProviderService:
                 "parts": [{"text": system_text.strip()}]
             }
 
-        candidate_models = [self.vision_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
+        candidate_models = [self.vision_model, "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-flash-latest"]
         async with httpx.AsyncClient(timeout=15.0) as client:
             for m in candidate_models:
                 try:
@@ -373,7 +469,7 @@ class AIProviderService:
                 if isinstance(content, str) and content.strip():
                     contents.append({"role": "model", "parts": [{"text": content.strip()}]})
 
-        models_to_try = candidate_models or [self.model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
+        models_to_try = candidate_models or [self.model, "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-flash-latest"]
         payload = {
             "contents": contents,
             "generationConfig": {

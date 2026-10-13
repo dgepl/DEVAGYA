@@ -1310,10 +1310,22 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
         final_class: str,
         final_chapter: str
     ) -> List[Dict[str, Any]]:
-        """Synthesize emergency questions derived 100% from the attached source text without external curriculum templates."""
+        """Synthesize emergency questions derived 100% from the attached source text without stopword artifacts."""
         ar_marks = getattr(req, "ar_marks", 2) or 2
         fill_marks = getattr(req, "fill_marks", 1) or 1
         case_marks = getattr(req, "case_marks", 4) or 4
+
+        stopwords = {
+            "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for", "with", "by", "from",
+            "up", "about", "into", "over", "after", "is", "are", "was", "were", "be", "been", "being",
+            "have", "has", "had", "do", "does", "did", "this", "that", "these", "those", "it", "its",
+            "they", "their", "them", "we", "our", "us", "he", "his", "him", "she", "her", "which",
+            "who", "whom", "whose", "what", "where", "when", "why", "how", "all", "any", "both",
+            "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only",
+            "own", "same", "so", "than", "too", "very", "can", "will", "just", "should", "now",
+            "thus", "case", "under", "comes", "following", "respect", "time", "called", "known",
+            "given", "such", "also", "well", "stated", "states", "between", "here", "there", "then"
+        }
 
         clean_text = re.sub(r'=== [^=]+ ===', '', source_text)
         lines = [line.strip() for line in clean_text.splitlines() if len(line.strip()) > 25 and not line.strip().startswith(("#", "-", "*", "="))]
@@ -1322,8 +1334,8 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
         for line in lines:
             parts = re.split(r'(?<=[.?!।])\s+', line)
             for p in parts:
-                p_clean = p.strip()
-                if 20 <= len(p_clean) <= 250:
+                p_clean = p.strip().strip("-*• ")
+                if 25 <= len(p_clean) <= 250 and not p_clean.lower().startswith(("page ", "fig", "table ", "source:")):
                     sentences.append(p_clean)
 
         if not sentences:
@@ -1334,22 +1346,33 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
                 f"Practical applications of {final_chapter} can be observed across standard academic contexts."
             ]
 
+        def _extract_concept(s: str) -> str:
+            words = re.findall(r'\b[A-Za-z0-9_-]+\b', s)
+            meaningful = [w for w in words if w.lower() not in stopwords and len(w) > 2]
+            if len(meaningful) >= 2:
+                return f"{meaningful[0]} {meaningful[1]}"
+            elif meaningful:
+                return meaningful[0]
+            return final_chapter
+
         qs = []
         sent_count = max(1, len(sentences))
 
         target_mcq = max(0, req.num_mcqs)
         for i in range(target_mcq):
             s = sentences[i % sent_count]
-            words = s.split()
-            focus_word = words[len(words) // 2] if len(words) > 3 else "concept"
+            concept = _extract_concept(s)
+            distractor_b = "It functions independently without requiring any change or variation in physical parameters."
+            distractor_c = "The condition only applies when all external fields and elements are entirely absent."
+            distractor_d = "It produces an opposite reaction where energy is absorbed rather than converted."
             qs.append({
                 "question_type": "mcq",
-                "question_text": f"Based strictly on the attached document, which of the following statements is TRUE regarding '{focus_word}'?",
+                "question_text": f"According to the attached study material, which of the following is TRUE regarding {concept}?",
                 "options": [
                     f"(A) {s}",
-                    f"(B) The attached text explicitly states that this condition does not apply under any circumstances.",
-                    f"(C) The material indicates that this concept has no relevance to {final_chapter}.",
-                    f"(D) None of the above statements are supported by the attached material."
+                    f"(B) {distractor_b}",
+                    f"(C) {distractor_c}",
+                    f"(D) {distractor_d}"
                 ],
                 "answer": f"(A) {s}",
                 "explanation": f"Directly cited and verified from the attached study reference material for {final_chapter}.",
@@ -1360,11 +1383,13 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
         for i in range(target_fill):
             s = sentences[(i + 2) % sent_count]
             words = s.split()
-            if len(words) >= 4:
-                idx = len(words) // 2
-                missing_word = words[idx].strip(",.;:'\"")
-                words[idx] = "_______"
-                blank_text = " ".join(words)
+            candidate_indices = [idx for idx, w in enumerate(words) if w.lower().strip(",.;:'\"") not in stopwords and len(w.strip(",.;:'\"")) >= 4]
+            if candidate_indices:
+                pick_idx = candidate_indices[len(candidate_indices) // 2]
+                missing_word = words[pick_idx].strip(",.;:'\"")
+                words_copy = list(words)
+                words_copy[pick_idx] = "_______"
+                blank_text = " ".join(words_copy)
             else:
                 blank_text = f"According to the attached text, the core concept in {final_chapter} is _______."
                 missing_word = final_chapter
@@ -1401,11 +1426,12 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
         target_short = max(0, req.num_short)
         for i in range(target_short):
             s = sentences[(i + 1) % sent_count]
+            concept = _extract_concept(s)
             qs.append({
                 "question_type": "short",
-                "question_text": f"Referring to the attached document, explain the significance of the following observation: \"{s}\"",
+                "question_text": f"With reference to the attached document, explain the key principles and significance of '{concept}'.",
                 "options": None,
-                "answer": f"Model Answer: As outlined in the attached material, '{s}' establishes the foundational concept. Students must articulate its core premise and explain its significance as detailed in the document.",
+                "answer": f"Model Answer: Based on the attached material, '{s}'. Students must articulate this foundational concept, explaining its governing conditions and importance as described in the text.",
                 "explanation": f"Sourced directly from attached material reference context.",
                 "marks": 3
             })
@@ -1413,11 +1439,12 @@ Return valid JSON ONLY with a 'questions' array containing these specific questi
         target_long = max(0, req.num_long)
         for i in range(target_long):
             s = sentences[(i + 3) % sent_count]
+            concept = _extract_concept(s)
             qs.append({
                 "question_type": "long",
-                "question_text": f"Based on the attached document, provide a comprehensive explanation and analysis of: \"{s}\". Highlight its key components and implications.",
+                "question_text": f"Based on the attached document, provide a comprehensive explanation of '{concept}'. Discuss its underlying principles, governing factors, and practical applications.",
                 "options": None,
-                "answer": f"Structured Marking Scheme:\n1. Core Identification: Accurately state the foundational statement from the document (2 marks).\n2. Elaboration: Detail the mechanisms, factors, or descriptions provided in the material (2 marks).\n3. Conclusion: Derive valid inference aligned with the attached text (1 mark).",
+                "answer": f"Structured Marking Scheme:\n1. Core Identification: Accurately state the foundational principle '{s}' from the document (2 marks).\n2. Elaboration: Detail the mechanisms and operational conditions specified in the material (2 marks).\n3. Conclusion: Derive valid inference aligned with the attached study text (1 mark).",
                 "explanation": f"Evaluates detailed comprehension and synthesis of the attached document.",
                 "marks": 5
             })
