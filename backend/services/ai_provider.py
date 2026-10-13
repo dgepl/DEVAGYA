@@ -20,6 +20,9 @@ class AIProviderService:
     Seamlessly supports Groq, OpenAI, OpenRouter, Together AI, and DeepSeek.
     Driven purely by environment variables without code modifications.
     """
+    def __init__(self):
+        self._quota_exhausted_until: float = 0.0
+
     @property
     def api_key(self) -> str:
         return os.getenv("AI_API_KEY", os.getenv("GROQ_API_KEY", ""))
@@ -77,6 +80,11 @@ class AIProviderService:
         model: Optional[str] = None
     ) -> str:
         """Non-streaming completion call to OpenAI-compatible provider."""
+        import time
+        if getattr(self, "_quota_exhausted_until", 0.0) > time.time():
+            logger.warning("AI provider quota is currently exhausted. Falling back to resilient local synthesis.")
+            return ""
+
         key = self.api_key
         if not key:
             logger.warning("AI_API_KEY not configured, using fallback intelligent synthesizer.")
@@ -146,7 +154,13 @@ class AIProviderService:
                             continue
 
                         if res.status_code == 429:
-                            retry_after = min(float(res.headers.get("retry-after", 2.0 * (retry + 1))), 5.0)
+                            err_body = res.text.lower()
+                            if "quota" in err_body or "resource_exhausted" in err_body or "billing" in err_body:
+                                logger.warning(f"AI Quota exhausted on {attempt_model}. Activating circuit breaker.")
+                                import time
+                                self._quota_exhausted_until = time.time() + 60.0
+                                return ""
+                            retry_after = min(float(res.headers.get("retry-after", 1.5)), 2.5)
                             logger.warning(f"Rate limit 429 on {attempt_model}. Backing off {retry_after}s...")
                             import asyncio
                             await asyncio.sleep(retry_after)
@@ -181,9 +195,7 @@ class AIProviderService:
                         import asyncio
                         await asyncio.sleep(0.5)
 
-            logger.error(f"All AI models failed in chat_completion: {last_error}")
-            if last_error:
-                raise last_error
+            logger.warning(f"All AI models exhausted in chat_completion: {last_error}")
             return ""
 
     async def _gemini_native_vision(

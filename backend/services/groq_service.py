@@ -274,8 +274,13 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
             except Exception as uni_err:
                 logger.warning(f"Unified generation notice: {uni_err}")
 
-        # Chunked parallel tasks fallback for very large papers (>35 questions) or if unified returned empty
-        if not extracted_raw_questions and total_questions > 0:
+        # If unified synthesis was attempted for standard papers (<=35 questions) and returned empty (e.g. AI quota exhausted),
+        # immediately synthesize authentic curriculum questions without waiting for secondary batch failures
+        if not extracted_raw_questions and 0 < total_questions <= 35:
+            if progress_callback:
+                await progress_callback(60, f"Synthesizing authentic curriculum questions for {req.chapter}...")
+            extracted_raw_questions = self._synthesize_fallback_curriculum_questions(req)
+        elif not extracted_raw_questions and total_questions > 35:
             if progress_callback:
                 await progress_callback(40, f"Synthesizing questions across parallel section batches...")
 
@@ -717,7 +722,8 @@ Return valid JSON ONLY with a 'questions' array containing all {total_questions}
         deficit_case = max(0, target_case - len(cases))
         has_deficit = any([deficit_mcq, deficit_fill, deficit_ar, deficit_short, deficit_long, deficit_case])
 
-        if has_deficit and getattr(ai_provider, "api_key", None):
+        import time
+        if has_deficit and getattr(ai_provider, "api_key", None) and getattr(ai_provider, "_quota_exhausted_until", 0.0) <= time.time():
             try:
                 deficit_specs = []
                 if deficit_mcq > 0:
@@ -1762,8 +1768,19 @@ Return valid JSON ONLY with a 'questions' array containing all {total_target_que
             except Exception as u_err:
                 logger.warning(f"Unified attachment synthesis notice: {u_err}")
 
-        # Chunked parallel tasks fallback for large papers (>35 questions) or if unified returned empty
-        if not extracted_raw_questions and total_target_questions > 0:
+        # If unified synthesis was attempted for standard attachment papers (<=35 questions) and returned empty,
+        # immediately synthesize authentic questions derived 100% from the attached source material
+        if not extracted_raw_questions and 0 < total_target_questions <= 35:
+            if progress_callback:
+                await progress_callback(60, f"Synthesizing authentic questions directly derived from attached document...")
+            extracted_raw_questions = self._synthesize_fallback_attachment_questions(
+                source_text=combined_source,
+                req=req,
+                final_subject=final_subject,
+                final_class=final_class,
+                final_chapter=final_chapter
+            )
+        elif not extracted_raw_questions and total_target_questions > 35:
             if progress_callback:
                 await progress_callback(55, "Synthesizing question sections across parallel batches...")
 
@@ -2112,7 +2129,8 @@ JSON format:
         deficit_case = max(0, target_case - len(cases))
         has_deficit = any([deficit_mcq, deficit_fill, deficit_ar, deficit_short, deficit_long, deficit_case])
 
-        if has_deficit and getattr(ai_provider, "api_key", None):
+        import time
+        if has_deficit and getattr(ai_provider, "api_key", None) and getattr(ai_provider, "_quota_exhausted_until", 0.0) <= time.time():
             try:
                 deficit_specs = []
                 if deficit_mcq > 0:
