@@ -10,17 +10,13 @@ import {
   Minimize2,
   Send,
   RotateCcw,
-  ArrowRight,
   Loader2
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import Markdown from "@/components/chat/Markdown";
 import {
   streamCopilotChat,
-  sendCopilotChat,
-  fetchCopilotContextInfo,
-  CopilotContextInfo,
-  CopilotQuestionItem
+  sendCopilotChat
 } from "@/lib/api";
 
 interface ChatMessage {
@@ -29,103 +25,6 @@ interface ChatMessage {
   content: string;
   timestamp: string;
 }
-
-// Fallback pre-existing questions by role context
-const PRE_EXISTING_QUESTIONS_BY_ROLE: Record<string, CopilotQuestionItem[]> = {
-  teacher: [
-    {
-      id: "t-1",
-      label: "How do I create a CBSE Question Paper with Blueprint?",
-      prompt: "How do I create a standard CBSE Question Paper with Blueprint, section marks, and answer key in DEVGYA?"
-    },
-    {
-      id: "t-2",
-      label: "How do I create a 5E Lesson Plan for my class?",
-      prompt: "How do I create a 5E Lesson Plan (Engage, Explore, Explain, Elaborate, Evaluate) using DEVGYA?"
-    },
-    {
-      id: "t-3",
-      label: "How do I scan & grade student answer sheets with OCR?",
-      prompt: "How do I use the OCR Exam Grading tool to automatically score handwritten student answer sheets?"
-    },
-    {
-      id: "t-4",
-      label: "Where do I track student weak topics and marks radar?",
-      prompt: "Where do I view student performance analytics, chapter-wise weak topics, and class average radar?"
-    },
-    {
-      id: "t-5",
-      label: "How do I export papers with school watermark as PDF?",
-      prompt: "How do I add my school logo, watermark, and print or export question papers as PDF/Word?"
-    }
-  ],
-  student: [
-    {
-      id: "s-1",
-      label: "How do I start studying with Socratic AI Tutor?",
-      prompt: "How does the Socratic AI Tutor work and how do I use it to learn concepts step-by-step?"
-    },
-    {
-      id: "s-2",
-      label: "Where can I take NCERT practice quizzes and test speed?",
-      prompt: "Where can I take chapter-wise NCERT practice quizzes and review my results?"
-    },
-    {
-      id: "s-3",
-      label: "How do I earn XP, study streaks, and rank on leaderboard?",
-      prompt: "How do I earn XP points, maintain daily study streaks, and rank on the school leaderboard?"
-    },
-    {
-      id: "s-4",
-      label: "How do digital flashcards and 2-min revision work?",
-      prompt: "How do I access digital flashcards and quick revision summaries on DEVGYA?"
-    }
-  ],
-  parent: [
-    {
-      id: "p-1",
-      label: "How do I track my child's daily study hours and weak subjects?",
-      prompt: "How do I track my child's daily learning hours, test scores, and weak subject areas on DEVGYA?"
-    },
-    {
-      id: "p-2",
-      label: "Where can I view my child's exam scores and marks radar?",
-      prompt: "Where can I view my child's diagnostic test reports and performance radar in the Parent Portal?"
-    },
-    {
-      id: "p-3",
-      label: "What tools and guidance are available for parents on DEVGYA?",
-      prompt: "What tools and parenting guidance features does DEVGYA provide in the parent dashboard?"
-    }
-  ],
-  landing: [
-    {
-      id: "l-1",
-      label: "What is DEVGYA GLOBAL EDUTECH and what solutions does it provide?",
-      prompt: "What is DEVGYA GLOBAL EDUTECH and what solutions does it provide for schools, teachers, and students?"
-    },
-    {
-      id: "l-2",
-      label: "How does the AI Question Paper Generator work?",
-      prompt: "How does the AI Question Paper Generator create CBSE/NCERT papers with blueprints in 60 seconds?"
-    },
-    {
-      id: "l-3",
-      label: "What is the 5E Lesson Planner for teachers?",
-      prompt: "Explain the 5E Lesson Planner tool and how it helps teachers save 10+ hours per week."
-    },
-    {
-      id: "l-4",
-      label: "How can schools partner for Certified Science Labs?",
-      prompt: "How do schools partner with DEVGYA for certified Physics, Chemistry, Biology, and Composite labs?"
-    },
-    {
-      id: "l-5",
-      label: "How do I register an account on DEVGYA?",
-      prompt: "How do I register an account on DEVGYA as a Teacher, Student, or School Administrator?"
-    }
-  ]
-};
 
 const WELCOME_MESSAGE_TEXT = "Welcome to DEVGYA AI Assistant! Tell me, how can I help you?";
 
@@ -138,38 +37,25 @@ export default function DevgyaAssistantModal() {
   const [inputMessage, setInputMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [contextInfo, setContextInfo] = useState<CopilotContextInfo | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // 1. Determine active user context
-  const isStudentRoute = pathname?.startsWith("/dashboard/student") || (pathname?.startsWith("/dashboard") && user?.role === "student");
-  const isParentRoute = pathname?.startsWith("/dashboard/parent") || (pathname?.startsWith("/dashboard") && user?.role === "parent");
-  const isTeacherRoute = (pathname?.startsWith("/dashboard") && !isStudentRoute && !isParentRoute) || user?.role === "teacher";
+  // 1. Only show AI assistant on the main dashboard pages, never on external pages or when using any feature
+  const cleanPath = pathname?.replace(/\/+$/, "") || "";
+  const isMainDashboard =
+    cleanPath === "/dashboard" ||
+    cleanPath === "/dashboard/student" ||
+    cleanPath === "/dashboard/parent";
 
-  const currentContext: "teacher" | "student" | "parent" | "landing" =
-    isTeacherRoute ? "teacher" :
+  // 2. Determine active user context for the dashboard
+  const isStudentRoute = cleanPath === "/dashboard/student" || (cleanPath === "/dashboard" && user?.role === "student");
+  const isParentRoute = cleanPath === "/dashboard/parent" || (cleanPath === "/dashboard" && user?.role === "parent");
+
+  const currentContext: "teacher" | "student" | "parent" =
     isStudentRoute ? "student" :
-    isParentRoute ? "parent" : "landing";
-
-  // 2. Fetch context questions if available
-  useEffect(() => {
-    let isMounted = true;
-    async function loadContext() {
-      try {
-        const info = await fetchCopilotContextInfo(currentContext, pathname || "/");
-        if (isMounted) setContextInfo(info);
-      } catch {
-        // Silently handled by fallback
-      }
-    }
-    loadContext();
-    return () => {
-      isMounted = false;
-    };
-  }, [currentContext, pathname]);
+    isParentRoute ? "parent" : "teacher";
 
   // 3. Initialize chat with the single clean welcome message
   useEffect(() => {
@@ -198,12 +84,6 @@ export default function DevgyaAssistantModal() {
       setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [isOpen]);
-
-  // Get suggested pre-existing questions list
-  const suggestedQuestions: CopilotQuestionItem[] =
-    (contextInfo?.questions && contextInfo.questions.length > 0)
-      ? contextInfo.questions
-      : PRE_EXISTING_QUESTIONS_BY_ROLE[currentContext] || PRE_EXISTING_QUESTIONS_BY_ROLE.landing;
 
   // Handle message sending (user typing or pre-existing question click)
   const handleSendMessage = async (customPrompt?: string) => {
@@ -316,8 +196,8 @@ export default function DevgyaAssistantModal() {
     }
   };
 
-  // Do not show AI assistant on the landing page or outside the dashboard
-  if (!pathname || pathname === "/" || !pathname.startsWith("/dashboard")) {
+  // Only show AI assistant on the main dashboard pages, not when in another page or using any feature
+  if (!isMainDashboard) {
     return null;
   }
 
@@ -428,7 +308,6 @@ export default function DevgyaAssistantModal() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/70">
             {messages.map((msg) => {
               const isAssistant = msg.role === "assistant";
-              const isWelcomeMessage = msg.id === "welcome";
 
               return (
                 <div
@@ -452,29 +331,6 @@ export default function DevgyaAssistantModal() {
                             <span className="text-xs font-medium">Generating guidance...</span>
                           </div>
                         ) : null}
-
-                        {/* Pre-existing questions shown in bottom of welcome message */}
-                        {isWelcomeMessage && (
-                          <div className="mt-3.5 pt-3 border-t border-slate-200/80">
-                            <p className="text-[11px] font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                              <span>Frequently Asked Questions:</span>
-                            </p>
-                            <div className="flex flex-col gap-1.5">
-                              {suggestedQuestions.map((q) => (
-                                <button
-                                  key={q.id}
-                                  onClick={() => handleSendMessage(q.prompt)}
-                                  disabled={isStreaming}
-                                  className="text-left text-xs font-medium text-slate-700 hover:text-indigo-700 bg-slate-50 hover:bg-indigo-50/80 border border-slate-200/80 hover:border-indigo-300 rounded-xl px-3 py-2 transition-all flex items-center justify-between group cursor-pointer active:scale-[0.99] disabled:opacity-50"
-                                >
-                                  <span className="pr-2 leading-snug">{q.label}</span>
-                                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 shrink-0 transition-transform" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.content}</p>
