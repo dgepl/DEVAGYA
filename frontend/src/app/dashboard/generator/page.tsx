@@ -460,25 +460,71 @@ export default function GeneratorPage() {
     savePaper(updated);
   };
 
-  const handleAddQuestion = () => {
+  // Manual Add Question Modal State
+  const [showAddQuestionModal, setShowAddQuestionModal] = useState<boolean>(false);
+  const [modalQuestionType, setModalQuestionType] = useState<"mcq" | "short" | "long">("mcq");
+  const [modalQuestionText, setModalQuestionText] = useState<string>("");
+  const [modalMarks, setModalMarks] = useState<number>(1);
+  const [modalOptions, setModalOptions] = useState<string[]>([
+    "(A) Option 1",
+    "(B) Option 2",
+    "(C) Option 3",
+    "(D) Option 4"
+  ]);
+  const [modalAnswer, setModalAnswer] = useState<string>("(A) Option 1");
+  const [modalExplanation, setModalExplanation] = useState<string>("");
+
+  const handleSelectQuestionType = (type: "mcq" | "short" | "long") => {
+    setModalQuestionType(type);
+    if (type === "mcq") {
+      setModalMarks(1);
+      if (modalOptions.length < 4) {
+        setModalOptions(["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"]);
+      }
+      setModalAnswer("(A) Option 1");
+    } else if (type === "short") {
+      setModalMarks(2);
+      setModalAnswer("");
+    } else if (type === "long") {
+      setModalMarks(5);
+      setModalAnswer("");
+    }
+  };
+
+  const handleOpenAddQuestionModal = (initialType: "mcq" | "short" | "long" = "mcq") => {
+    handleSelectQuestionType(initialType);
+    setModalQuestionText("");
+    setModalExplanation("");
+    setShowAddQuestionModal(true);
+  };
+
+  const handleConfirmAddQuestion = () => {
     if (!paper) return;
     const newId = (paper.questions.length > 0 ? Math.max(...paper.questions.map(q => q.id)) : 0) + 1;
+    
     const newQ: QuestionItem = {
       id: newId,
       question_number: newId,
-      question_type: "mcq",
-      question_text: "New custom question added by teacher...",
-      marks: 1,
-      options: ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"],
-      answer: "(A) Option 1",
-      explanation: "Step-by-step teacher explanation."
+      question_type: modalQuestionType,
+      question_text: modalQuestionText.trim() || `New ${modalQuestionType === "mcq" ? "MCQ" : modalQuestionType === "short" ? "Short Answer" : "Long Answer"} question...`,
+      marks: modalMarks || (modalQuestionType === "mcq" ? 1 : modalQuestionType === "short" ? 2 : 5),
+      options: modalQuestionType === "mcq" ? modalOptions : undefined,
+      answer: modalAnswer.trim() || (modalQuestionType === "mcq" ? modalOptions[0] : "Model answer / key solution points."),
+      explanation: modalExplanation.trim() || undefined
     };
+
+    const updatedQuestions = [...paper.questions, newQ];
+    const newTotalMarks = updatedQuestions.reduce((sum, q) => sum + (q.marks || 0), 0);
+
     const updated = {
       ...paper,
-      questions: [...paper.questions, newQ]
+      total_marks: newTotalMarks > paper.total_marks ? newTotalMarks : paper.total_marks,
+      questions: updatedQuestions
     };
+
     setPaper(updated);
     savePaper(updated);
+    setShowAddQuestionModal(false);
     setEditingQuestionId(newId);
   };
 
@@ -561,8 +607,9 @@ export default function GeneratorPage() {
               </button>
 
               <button
-                onClick={handleAddQuestion}
+                onClick={() => handleOpenAddQuestionModal("mcq")}
                 className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1 transition-colors shadow-sm cursor-pointer"
+                title="Add MCQ, Short, or Long Answer Question"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Question</span>
@@ -669,7 +716,35 @@ export default function GeneratorPage() {
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2 text-xs font-black">
                       <span className="text-slate-900">Q{index + 1}.</span>
-                      {q.question_type === "assertion_reason" ? (
+                      {isEditing ? (
+                        <select
+                          value={q.question_type}
+                          onChange={(e) => {
+                            const newType = e.target.value;
+                            const updates: Partial<QuestionItem> = { question_type: newType };
+                            if (newType === "mcq") {
+                              if (!q.options || q.options.length === 0) {
+                                updates.options = ["(A) Option 1", "(B) Option 2", "(C) Option 3", "(D) Option 4"];
+                              }
+                              if (q.marks > 2) updates.marks = 1;
+                            } else if (newType === "short") {
+                              updates.options = undefined;
+                              if (q.marks === 1 || q.marks > 3) updates.marks = 2;
+                            } else if (newType === "long") {
+                              updates.options = undefined;
+                              if (q.marks < 4) updates.marks = 5;
+                            }
+                            handleUpdateQuestion(q.id, updates);
+                          }}
+                          className="bg-white border border-indigo-300 rounded px-2 py-0.5 text-xs font-bold text-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                          <option value="mcq">MCQ</option>
+                          <option value="short">SHORT ANSWER</option>
+                          <option value="long">LONG ANSWER</option>
+                          <option value="assertion_reason">ASSERTION-REASON</option>
+                          <option value="case_study">CASE STUDY</option>
+                        </select>
+                      ) : q.question_type === "assertion_reason" ? (
                         <span className="bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-md text-[10px] font-black">
                           ASSERTION-REASON
                         </span>
@@ -680,6 +755,14 @@ export default function GeneratorPage() {
                       ) : q.question_type === "case_study" ? (
                         <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md text-[10px] font-black">
                           CASE STUDY
+                        </span>
+                      ) : q.question_type === "short" ? (
+                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md text-[10px] font-black">
+                          SHORT ANSWER
+                        </span>
+                      ) : q.question_type === "long" ? (
+                        <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md text-[10px] font-black">
+                          LONG ANSWER
                         </span>
                       ) : (
                         <span className="bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded-md text-[10px] font-black">
@@ -774,28 +857,43 @@ export default function GeneratorPage() {
                     )}
 
                     {/* ANSWER & EXPLANATION */}
-                    {showAnswerKey && (
-                      <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1">
-                        <div className="flex items-center gap-1.5 font-extrabold text-emerald-800 flex-wrap">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span>Correct Answer:</span>
+                    {(showAnswerKey || isEditing) && (
+                      <div className="mt-3 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-2">
+                        <div className="space-y-1">
+                          <span className="font-extrabold text-emerald-800 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>
+                              {q.question_type === "mcq" ? "Correct Option:" : "Model Answer / Key Points:"}
+                            </span>
+                          </span>
                           {isEditing ? (
-                            <input
-                              type="text"
+                            <textarea
+                              rows={q.question_type === "mcq" ? 1 : 2}
                               value={q.answer}
                               onChange={(e) => handleUpdateQuestion(q.id, { answer: e.target.value })}
-                              className="flex-1 bg-white border border-emerald-300 rounded px-2 py-0.5 text-xs font-bold text-slate-900"
+                              placeholder={q.question_type === "mcq" ? "(A) Option 1" : "Enter correct answer or model solution..."}
+                              className="w-full bg-white border border-emerald-300 rounded-lg p-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                             />
                           ) : (
-                            <span className="font-bold text-slate-900"><Markdown content={q.answer} /></span>
+                            <div className="font-bold text-slate-900"><Markdown content={q.answer} /></div>
                           )}
                         </div>
 
-                        {q.explanation && (
-                          <div className="text-[11px] text-emerald-800 font-medium italic pt-1 flex items-start gap-1">
-                            <span>💡</span>
+                        {(q.explanation || isEditing) && (
+                          <div className="text-[11px] text-emerald-800 font-medium italic pt-1 border-t border-emerald-200/70 flex items-start gap-1">
+                            <span className="not-italic">💡</span>
                             <div className="flex-1">
-                              <Markdown content={q.explanation} />
+                              {isEditing ? (
+                                <textarea
+                                  rows={2}
+                                  value={q.explanation || ""}
+                                  onChange={(e) => handleUpdateQuestion(q.id, { explanation: e.target.value })}
+                                  placeholder="Step-by-step teacher explanation / solution notes..."
+                                  className="w-full bg-white border border-emerald-300 rounded-lg p-2 text-xs font-medium text-slate-800 not-italic focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                              ) : (
+                                <Markdown content={q.explanation || ""} />
+                              )}
                             </div>
                           </div>
                         )}
@@ -1784,6 +1882,233 @@ export default function GeneratorPage() {
         itemName={paperToDelete?.title}
         description="Are you sure you want to remove this question paper from your saved history? This action cannot be undone."
       />
+
+      {/* ADD QUESTION MODAL (Allows choosing MCQ, Short, or Long Answer) */}
+      {showAddQuestionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center">
+                  <Plus className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black">Add Question Manually</h3>
+                  <p className="text-indigo-200 text-xs font-semibold">Select question type and configure details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddQuestionModal(false)}
+                className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {/* Question Type Selection */}
+              <div>
+                <label className="block text-xs font-extrabold text-slate-800 mb-2">
+                  1. Select Question Type:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* MCQ Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectQuestionType("mcq")}
+                    className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      modalQuestionType === "mcq"
+                        ? "border-indigo-600 bg-indigo-50/70 shadow-sm ring-2 ring-indigo-200"
+                        : "border-slate-200 hover:border-slate-300 bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-indigo-900">MCQ</span>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                        1 Mark
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 font-medium">Multiple choice with 4 options (A, B, C, D)</p>
+                  </button>
+
+                  {/* Short Answer Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectQuestionType("short")}
+                    className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      modalQuestionType === "short"
+                        ? "border-emerald-600 bg-emerald-50/70 shadow-sm ring-2 ring-emerald-200"
+                        : "border-slate-200 hover:border-slate-300 bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-emerald-900">Short Answer</span>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                        2–3 Marks
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 font-medium">Brief conceptual answer or key points</p>
+                  </button>
+
+                  {/* Long Answer Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectQuestionType("long")}
+                    className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      modalQuestionType === "long"
+                        ? "border-amber-600 bg-amber-50/70 shadow-sm ring-2 ring-amber-200"
+                        : "border-slate-200 hover:border-slate-300 bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-amber-900">Long Answer</span>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                        5 Marks
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 font-medium">Detailed descriptive response or derivation</p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Marks & Question Text */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1">Marks</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={modalMarks}
+                    onChange={(e) => setModalMarks(Number(e.target.value) || 1)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                    Question Text
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={modalQuestionText}
+                    onChange={(e) => setModalQuestionText(e.target.value)}
+                    placeholder="Enter question statement..."
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* MCQ Options (Only when MCQ is selected) */}
+              {modalQuestionType === "mcq" && (
+                <div className="p-4 bg-indigo-50/60 border border-indigo-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-extrabold text-indigo-950">
+                      Options & Correct Answer:
+                    </label>
+                    <span className="text-[10px] font-bold text-slate-500">
+                      Click radio to select correct option
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {modalOptions.map((opt, idx) => {
+                      const prefix = ["(A)", "(B)", "(C)", "(D)"][idx] || `(${String.fromCharCode(65 + idx)})`;
+                      const isCorrect = modalAnswer.startsWith(prefix) || modalAnswer === opt;
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
+                            isCorrect ? "bg-emerald-50 border-emerald-400 ring-1 ring-emerald-300" : "bg-white border-slate-200"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="correct_option"
+                            checked={isCorrect}
+                            onChange={() => setModalAnswer(opt)}
+                            className="w-4 h-4 text-emerald-600 cursor-pointer"
+                          />
+                          <span className="text-xs font-black text-slate-600 shrink-0">{prefix}</span>
+                          <input
+                            type="text"
+                            value={opt.replace(/^\([A-Da-d0-9]+\)\s*/, "")}
+                            onChange={(e) => {
+                              const updated = [...modalOptions];
+                              const newText = `${prefix} ${e.target.value}`;
+                              updated[idx] = newText;
+                              setModalOptions(updated);
+                              if (isCorrect) setModalAnswer(newText);
+                            }}
+                            placeholder={`Option ${idx + 1}...`}
+                            className="flex-1 bg-transparent border-0 text-xs font-bold text-slate-800 focus:outline-none"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Answer / Solution Key (For Short and Long) */}
+              {modalQuestionType !== "mcq" && (
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                    {modalQuestionType === "short" ? "Model Answer / Key Points" : "Detailed Solution / Marking Rubric"}
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={modalAnswer}
+                    onChange={(e) => setModalAnswer(e.target.value)}
+                    placeholder={
+                      modalQuestionType === "short"
+                        ? "Enter model answer or 2-3 essential key points..."
+                        : "Enter step-by-step detailed solution, formulas, or marking scheme..."
+                    }
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              )}
+
+              {/* Explanation (Optional for all types) */}
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                  Teacher Solution Notes / Concept Hint <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={modalExplanation}
+                  onChange={(e) => setModalExplanation(e.target.value)}
+                  placeholder="Explain why this answer is correct or key concept reference..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAddQuestionModal(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-extrabold rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAddQuestion}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Question to Paper</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

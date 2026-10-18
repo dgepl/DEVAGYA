@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css";
 import { ReactQueryProvider } from "@/components/providers/ReactQueryProvider";
 import { PublicMobileDock } from "@/components/layout/PublicMobileDock";
 import DevgyaAssistantModal from "@/components/assistant/DevgyaAssistantModal";
+import { ContentProtectionProvider } from "@/components/common/ContentProtectionProvider";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -265,11 +266,13 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className={`${plusJakarta.variable} ${outfit.variable} font-sans bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white`}>
+      <body className={`${plusJakarta.variable} ${outfit.variable} font-sans bg-slate-50 text-slate-900 antialiased select-none`}>
         <ReactQueryProvider>
-          {children}
-          <PublicMobileDock />
-          <DevgyaAssistantModal />
+          <ContentProtectionProvider>
+            {children}
+            <PublicMobileDock />
+            <DevgyaAssistantModal />
+          </ContentProtectionProvider>
         </ReactQueryProvider>
       </body>
     </html>
